@@ -1,0 +1,6 @@
+{
+  "name": "Desktop Assistant Console",
+  "description": "A professional private assistant dashboard with a chat log, a thought process visualizer, customizable local/cloud models, and CPU/RAM usage monitors.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

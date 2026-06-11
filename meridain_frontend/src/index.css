@@ -1,0 +1,240 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-display: "Plus Jakarta Sans", sans-serif;
+}
+
+:root {
+  --accent: #ea580c;
+  --accent-glow: rgba(234, 88, 12, 0.2);
+  --bg-main: #0a0a0c;
+  --bg-panel: #000000;
+  --border-color: #18181b;
+  --text-main: #f4f4f5;
+  --text-dim: #a1a1aa;
+  --header-bg: rgba(0, 0, 0, 0.65);
+}
+
+.theme-cyberpunk {
+  --accent: #ff007f;
+  --accent-glow: rgba(255, 0, 127, 0.35);
+  --bg-main: #030008;
+  --bg-panel: #0c001a;
+  --border-color: #3b0066;
+  --text-main: #00f0ff;
+  --text-dim: #9400d3;
+  --header-bg: rgba(12, 0, 26, 0.8);
+}
+
+.theme-amber {
+  --accent: #ffb000;
+  --accent-glow: rgba(255, 176, 0, 0.25);
+  --bg-main: #0b0700;
+  --bg-panel: #140d00;
+  --border-color: #331e00;
+  --text-main: #ffb000;
+  --text-dim: #995c00;
+  --header-bg: rgba(20, 13, 0, 0.85);
+  font-family: var(--font-mono) !important;
+}
+
+.theme-slate {
+  --accent: #14b8a6;
+  --accent-glow: rgba(20, 184, 166, 0.2);
+  --bg-main: #0f172a;
+  --bg-panel: #1e293b;
+  --border-color: #334155;
+  --text-main: #f8fafc;
+  --text-dim: #64748b;
+  --header-bg: rgba(30, 41, 59, 0.8);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: transparent !important;
+  color: var(--text-main) !important;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--accent) 30%, transparent) !important;
+  color: var(--accent) !important;
+}
+
+/* Custom theme mapping utilities */
+.bg-main-theme { background-color: var(--bg-main) !important; }
+.bg-panel-theme { background-color: var(--bg-panel) !important; }
+.bg-header-theme { background-color: var(--header-bg) !important; }
+.border-theme { border-color: var(--border-color) !important; }
+.text-theme-main { color: var(--text-main) !important; }
+.text-theme-dim { color: var(--text-dim) !important; }
+.text-theme-accent { color: var(--accent) !important; }
+.bg-theme-accent { background-color: var(--accent) !important; }
+.border-theme-accent { border-color: var(--accent) !important; }
+
+/* Opacity mapping utilities using color-mix */
+.bg-main-theme-20 { background-color: color-mix(in srgb, var(--bg-main) 20%, transparent) !important; }
+.bg-main-theme-30 { background-color: color-mix(in srgb, var(--bg-main) 30%, transparent) !important; }
+.bg-main-theme-40 { background-color: color-mix(in srgb, var(--bg-main) 40%, transparent) !important; }
+.bg-main-theme-45 { background-color: color-mix(in srgb, var(--bg-main) 45%, transparent) !important; }
+.bg-main-theme-50 { background-color: color-mix(in srgb, var(--bg-main) 50%, transparent) !important; }
+.bg-main-theme-60 { background-color: color-mix(in srgb, var(--bg-main) 60%, transparent) !important; }
+.bg-main-theme-80 { background-color: color-mix(in srgb, var(--bg-main) 80%, transparent) !important; }
+
+.bg-panel-theme-40 { background-color: color-mix(in srgb, var(--bg-panel) 40%, transparent) !important; }
+.bg-panel-theme-65 { background-color: color-mix(in srgb, var(--bg-panel) 65%, transparent) !important; }
+.bg-panel-theme-80 { background-color: color-mix(in srgb, var(--bg-panel) 80%, transparent) !important; }
+
+.border-theme-40 { border-color: color-mix(in srgb, var(--border-color) 40%, transparent) !important; }
+.border-theme-50 { border-color: color-mix(in srgb, var(--border-color) 50%, transparent) !important; }
+.border-theme-60 { border-color: color-mix(in srgb, var(--border-color) 60%, transparent) !important; }
+
+.bg-theme-accent-10 { background-color: color-mix(in srgb, var(--accent) 10%, transparent) !important; }
+.bg-theme-accent-30 { background-color: color-mix(in srgb, var(--accent) 30%, transparent) !important; }
+.border-theme-accent-30 { border-color: color-mix(in srgb, var(--accent) 30%, transparent) !important; }
+.border-theme-accent-40 { border-color: color-mix(in srgb, var(--accent) 40%, transparent) !important; }
+
+.shadow-theme-glow { box-shadow: 0 0 20px var(--accent-glow) !important; }
+
+/* Custom modern rounded, subtle scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 30%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: 99px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Markdown styling for premium chat outputs */
+.markdown-body {
+  font-size: 0.875rem;
+  line-height: 1.625;
+}
+.markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+  font-weight: 700;
+  color: var(--text-main);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.01em;
+}
+.markdown-body h1 { font-size: 1.25rem; }
+.markdown-body h2 { font-size: 1.1rem; }
+.markdown-body h3 { font-size: 1rem; }
+.markdown-body p {
+  margin-bottom: 0.75rem;
+}
+.markdown-body p:last-child {
+  margin-bottom: 0;
+}
+.markdown-body strong {
+  font-weight: 700;
+  color: var(--accent);
+}
+.markdown-body ul, .markdown-body ol {
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+}
+.markdown-body ul {
+  list-style-type: disc;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+}
+.markdown-body li {
+  margin-bottom: 0.25rem;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.8rem;
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.markdown-body th, .markdown-body td {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+.markdown-body th {
+  background-color: var(--border-color);
+  color: var(--text-main);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+.markdown-body tr:nth-child(even) td {
+  background-color: var(--bg-main);
+}
+.markdown-body pre {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.875rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+.markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  background-color: var(--border-color);
+  color: var(--text-main);
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+}
+.markdown-body pre code {
+  padding: 0;
+  background-color: transparent;
+  color: inherit;
+  font-size: inherit;
+}
+.markdown-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 0.875rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin: 0.75rem 0;
+}

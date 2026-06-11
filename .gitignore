@@ -1,0 +1,52 @@
+# System and editor directories
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Node / Frontend dependencies and builds
+node_modules/
+dist/
+dist-ssr/
+*.local
+meridain_frontend/node_modules/
+meridain_frontend/dist/
+meridain_frontend/src-tauri/target/
+
+# Python Virtual Environment and caches
+venv/
+.venv/
+env/
+ENV/
+meridian_backend/venv/
+meridian_backend/env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local database files and memory states
+meridian_memory/
+*.db
+*.db-journal
+*.tq
+*.sqlite3
+
+# Environment credentials
+.env
+.env.*
+meridian_backend/.env
+
+# Local logging and analytics data
+finetune_data.jsonl
+logs/
+*.log
+
+# CodeGraph files
+.codegraph/
