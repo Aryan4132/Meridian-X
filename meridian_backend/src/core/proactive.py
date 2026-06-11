@@ -22,6 +22,10 @@ from typing import Optional, List, Dict, Any
 
 from src.core.bus import event_bus
 
+# Game Mode settings
+game_mode_active = False
+auto_game_mode_active = False
+
 # ──────────────────────────────────────────────
 # Shared nudge publisher
 # ──────────────────────────────────────────────
@@ -35,9 +39,16 @@ def publish_nudge_sync(
     message: str,
     action_hint: Optional[str] = None,
     icon: str = "💡",
-    mascot_state: str = "default"
+    mascot_state: str = "default",
+    action: Optional[str] = None,
+    patch: Optional[dict] = None
 ):
     """Thread-safe helper: schedule nudge publish onto the running event loop."""
+    # Suppress notifications if Game Mode is active, unless it is a game mode state update
+    if game_mode_active and nudge_type != "game_mode_changed":
+        print(f"[Proactive] Suppressed nudge '{title}' due to active Game Mode.")
+        return
+
     payload = {
         "type": nudge_type,
         "title": title,
@@ -46,8 +57,11 @@ def publish_nudge_sync(
         "icon": icon,
         "timestamp": _now_str(),
         "id": f"nudge-{nudge_type}-{int(time.time())}",
-        "mascot_state": mascot_state
+        "mascot_state": mascot_state,
+        "action": action
     }
+    if patch:
+        payload["patch"] = patch
     try:
         # get_running_loop() is the correct API in Python 3.10+ (get_event_loop is deprecated)
         loop = asyncio.get_running_loop()
@@ -151,6 +165,8 @@ def check_system_health():
 # Track last user activity timestamp
 _last_activity_time: float = time.time()
 _last_idle_nudge: float = 0.0
+_last_memory_consolidation: float = 0.0
+MEMORY_CONSOLIDATION_COOLDOWN = 12 * 60 * 60  # Don't consolidate more than once per 12 hours of idle time
 IDLE_THRESHOLD_MINUTES = 20        # Nudge after 20 min of no messages
 IDLE_NUDGE_COOLDOWN = 25 * 60      # Don't re-nudge for 25 min
 
@@ -169,10 +185,29 @@ def record_user_activity():
 
 def check_idle_time():
     """Called every ~5 minutes by the scheduler."""
-    global _last_idle_nudge
+    global _last_idle_nudge, _last_memory_consolidation
     now = time.time()
     idle_seconds = now - _last_activity_time
     idle_minutes = idle_seconds / 60.0
+
+    # Sleep cycles: active memory consolidation and doc generation when user is idle for >= 30 minutes
+    if idle_minutes >= 30.0 and (now - _last_memory_consolidation) > MEMORY_CONSOLIDATION_COOLDOWN:
+        _last_memory_consolidation = now
+        try:
+            from database import consolidate_memory_sleep_cycle
+            from src.core.doc_generator import generate_mermaid_docs
+            
+            def run_sleep_cycle_tasks():
+                consolidate_memory_sleep_cycle()
+                try:
+                    generate_mermaid_docs()
+                except Exception as de:
+                    print("[Scheduler] Failed to generate background Mermaid docs:", de)
+                    
+            import threading
+            threading.Thread(target=run_sleep_cycle_tasks, daemon=True).start()
+        except Exception as ce:
+            print("[Scheduler] Failed to trigger background sleep cycle tasks:", ce)
 
     if idle_minutes >= IDLE_THRESHOLD_MINUTES and (now - _last_idle_nudge) > IDLE_NUDGE_COOLDOWN:
         _last_idle_nudge = now
@@ -282,14 +317,86 @@ def on_clipboard_proactive(text: str):
     # Detect: Python traceback / error
     if _TRACEBACK_RE.search(text):
         first_line = text.strip().splitlines()[0][:80]
-        publish_nudge_sync(
-            nudge_type="clipboard_error",
-            title="🐛 Error Detected in Clipboard",
-            message="Looks like you copied an error or traceback. Want me to diagnose it?",
-            action_hint=f"Diagnose: {first_line}",
-            icon="🔴",
-            mascot_state="diagnostic"
-        )
+        
+        # Run background generation of the self-healing patch
+        def run_patch_gen():
+            patch = None
+            try:
+                # Look for File "path", line line_number
+                match = re.search(r'File "([^"]+)", line (\d+)', text)
+                if not match:
+                    match = re.search(r'File \'([^\']+)\', line (\d+)', text)
+                if match:
+                    file_path = match.group(1)
+                    line_num = int(match.group(2))
+                    if os.path.exists(file_path):
+                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                            original_code = f.read()
+                        
+                        import ollama
+                        try:
+                            from api import get_ollama_client_host
+                            ollama_host = get_ollama_client_host()
+                        except Exception:
+                            ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+                            
+                        client = ollama.Client(host=ollama_host)
+                        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                        
+                        prompt = (
+                            f"You are a self-healing compiler assistant. The user copied a traceback highlighting an error in this file:\n"
+                            f"File: {file_path}\n"
+                            f"Line with error: {line_num}\n"
+                            f"Traceback/Error message:\n{text}\n\n"
+                            f"Original Code:\n"
+                            f"```\n{original_code}\n```\n\n"
+                            f"Rewrite this file to fix the issue highlighted by the traceback/error. Output ONLY the raw corrected file contents. Do NOT include markdown code blocks, explanation, or notes. Just the raw, compile-ready code."
+                        )
+                        
+                        res = client.generate(model=model, prompt=prompt)
+                        proposed = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                        
+                        # Clean code fence blocks
+                        if proposed.startswith("```"):
+                            lines = proposed.splitlines()
+                            if lines[0].startswith("```"):
+                                lines = lines[1:]
+                            if lines and lines[-1].startswith("```"):
+                                lines = lines[:-1]
+                            proposed = "\n".join(lines).strip()
+                        
+                        patch = {
+                            "file_path": file_path,
+                            "original": original_code,
+                            "proposed": proposed,
+                            "error_message": text
+                        }
+            except Exception as e:
+                print(f"[Proactive Patch Generator] Failed to auto-generate fix: {e}")
+            
+            # Publish nudge
+            if patch:
+                publish_nudge_sync(
+                    nudge_type="clipboard_error",
+                    title="🐛 Error Detected & Analyzed",
+                    message=f"I detected a traceback and auto-generated a fix for {os.path.basename(patch['file_path'])}.",
+                    action_hint=f"Review & Apply Fix",
+                    icon="🔴",
+                    mascot_state="diagnostic",
+                    action="show_diff",
+                    patch=patch
+                )
+            else:
+                publish_nudge_sync(
+                    nudge_type="clipboard_error",
+                    title="🐛 Error Detected in Clipboard",
+                    message="Looks like you copied an error or traceback. Want me to diagnose it?",
+                    action_hint=f"Diagnose: {first_line}",
+                    icon="🔴",
+                    mascot_state="diagnostic"
+                )
+                
+        threading.Thread(target=run_patch_gen, daemon=True).start()
         return
 
     # Detect: code snippet
@@ -389,13 +496,42 @@ def get_active_window_title() -> str:
     return ""
 
 def check_active_window():
-    global _last_window_title, _distraction_start_time, _last_distraction_alert
+    global _last_window_title, _distraction_start_time, _last_distraction_alert, game_mode_active, auto_game_mode_active
     title = get_active_window_title()
     if not title:
         return
         
     now = time.time()
     title_lower = title.lower()
+
+    # ── Game Mode Auto-Detection ──────────────────────────────
+    game_keywords = ["valorant", "cyberpunk", "counter-strike", "dota 2", "league of legends", "gta v", "minecraft", "fortnite", "genshin impact", "apex legends", "hades"]
+    is_playing_game = any(gk in title_lower for gk in game_keywords)
+    
+    if is_playing_game:
+        if not game_mode_active:
+            print(f"[Proactive] Game detected: '{title}'. Automatically entering Game Mode.")
+            game_mode_active = True
+            auto_game_mode_active = True
+            publish_nudge_sync(
+                nudge_type="game_mode_changed",
+                title="Game Mode Auto-Enabled",
+                message="enabled",
+                icon="🎮",
+                action="game_mode_update"
+            )
+        return
+    elif game_mode_active and auto_game_mode_active:
+        print(f"[Proactive] Game exited: '{title}'. Automatically exiting Game Mode.")
+        game_mode_active = False
+        auto_game_mode_active = False
+        publish_nudge_sync(
+            nudge_type="game_mode_changed",
+            title="Game Mode Auto-Disabled",
+            message="disabled",
+            icon="🎮",
+            action="game_mode_update"
+        )
     
     # Distraction check
     distractions = ["youtube", "facebook", "twitter", "netflix", "reddit", "instagram", "gaming", "steam", "x.com"]

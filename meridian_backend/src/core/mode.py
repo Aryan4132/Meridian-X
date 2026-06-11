@@ -33,10 +33,12 @@ AGENT LOOP PROTOCOL — MANDATORY
 ════════════════════════════════════════════
 Every turn you MUST use this structure:
 
-1. THINK FIRST — always open with:
+1. THINK FIRST & SELF-QUESTION — always open with:
    <thought>
-     Analyze current state, previous observations, and plan next action.
-     If an observation has an error, debug it here and plan a fix.
+     a. Query yourself: "Do I have verified information regarding the file paths, parameters, and environment dependencies? Or am I assuming?"
+     b. If details are missing, prioritize exploratory search/observation commands (e.g. read_file, dir_list, grep_search) to resolve ambiguity first.
+     c. Analyze current state, previous observations, and plan next action.
+     d. If an observation has an error, debug it here and plan a fix.
    </thought>
 
 2. CALL TOOLS — use zero or more calls per turn:
@@ -84,7 +86,7 @@ User Profile:
 RAG Context (relevant chunks):
 {rag_context}
 Knowledge Graph Facts:
-{kg_facts}
+{kg_facts}{rlef_feedback}
 """
 
 def classify_mode(prompt: str) -> str:
@@ -289,6 +291,18 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
     except Exception as e:
         print("[System Prompt] KG facts load error:", e)
         
+    # RLEF Environment Feedback
+    rlef_feedback = ""
+    try:
+        from database import get_recent_failures
+        failures = get_recent_failures(5)
+        if failures:
+            rlef_feedback = "\n\n════════════════════════════════════════════\nENVIRONMENT FEEDBACK (RLEF - Learned from recent tool execution failures):\n════════════════════════════════════════════\n"
+            for f in failures:
+                rlef_feedback += f"- Tool '{f['tool']}' recently failed with error: {f['error']}. Adapt your parameters or approach to avoid this.\n"
+    except Exception as ree:
+        print("[System Prompt] RLEF load error:", ree)
+
     return SYSTEM_PROMPT_TEMPLATE.format(
         brain_model=brain_model,
         mode=mode,
@@ -300,5 +314,6 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
         active_window=active_window,
         user_profile=user_profile,
         rag_context=rag_context,
-        kg_facts=kg_facts
+        kg_facts=kg_facts,
+        rlef_feedback=rlef_feedback
     )

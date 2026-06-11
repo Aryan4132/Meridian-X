@@ -39,6 +39,7 @@ from src.tools.web_browser import browser_open, browser_screenshot, browser_find
 from src.tools.recording import record_screen, stop_recording, analyze_recording, save_workflow, replay_workflow, list_workflows
 from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore
 from src.tools.voice import voice_record_and_transcribe, voice_speak
+from src.tools.dynamic_manager import generate_dynamic_tool
 
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
@@ -62,6 +63,14 @@ def _save_note(text: str) -> str:
     from database import ingest_into_knowledge_base
     ingest_into_knowledge_base("user_note", text, {"type": "note"})
     return "Saved note to episodic database memory."
+
+def _search_offline_docs(query: str) -> str:
+    from src.core.doc_indexer import search_offline_docs
+    results = search_offline_docs(query, limit=3)
+    lines = []
+    for r in results:
+        lines.append(f"[File: {r['file_path']} | Section: {r['section']} (score: {r['score']:.4f})]\n{r['content']}")
+    return "\n---\n".join(lines) if lines else "No similar documentation discovered."
 
 # Main Tool Configuration Registry
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
@@ -134,6 +143,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "ingest_file": {"tier": 1, "func": _ingest_file},
     "search_knowledge": {"tier": 0, "func": _search_knowledge},
     "save_note": {"tier": 1, "func": _save_note},
+    "search_offline_docs": {"tier": 0, "func": _search_offline_docs},
     
     # Developer & SWE Tools
     "run_python": {"tier": 2, "func": run_python},
@@ -247,6 +257,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     # Voice control
     "voice_record_and_transcribe": {"tier": 1, "func": voice_record_and_transcribe},
     "voice_speak": {"tier": 1, "func": voice_speak},
+    "generate_dynamic_tool": {"tier": 2, "func": generate_dynamic_tool},
 
     # Meta-Learning reload plugins tool
     "reload_plugins": {"tier": 1, "func": lambda: reload_plugins_wrapper()},

@@ -238,3 +238,128 @@ body {
   font-style: italic;
   margin: 0.75rem 0;
 }
+
+/* Premium UI Enhancements */
+.glass-card {
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.glass-card-accent {
+  background: color-mix(in srgb, var(--accent) 6%, rgba(0, 0, 0, 0.45)) !important;
+  backdrop-filter: blur(12px) !important;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, rgba(255, 255, 255, 0.08)) !important;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2) !important;
+}
+
+.accent-glow-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.accent-glow-hover:hover:not(:disabled) {
+  box-shadow: 0 0 18px var(--accent-glow) !important;
+  transform: translateY(-1px) !important;
+  border-color: var(--accent) !important;
+}
+
+@keyframes flowDash {
+  to {
+    stroke-dashoffset: -18;
+  }
+}
+
+.graph-flow-link {
+  stroke-dasharray: 6 3;
+  animation: flowDash 1.2s linear infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px var(--accent));
+    opacity: 0.85;
+  }
+  50% {
+    filter: drop-shadow(0 0 10px var(--accent));
+    opacity: 1;
+  }
+}
+
+.mascot-glow-pulse {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+.tab-active-glow {
+  position: relative;
+  text-shadow: 0 0 8px var(--accent);
+}
+
+.tab-active-glow::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 15%;
+  right: 15%;
+  height: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent), 0 0 5px var(--accent);
+  border-radius: 99px;
+}
+
+/* Conic gradient rotating glowing border card */
+.glow-border-card {
+  position: relative;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
+}
+
+.glow-border-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(from 0deg, transparent, var(--accent), transparent, transparent) !important;
+  animation: rotateGlow 5s linear infinite !important;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.glow-border-card::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--bg-panel) !important;
+  border-radius: 15px !important;
+  z-index: 2;
+}
+
+.glow-border-card > * {
+  position: relative;
+  z-index: 3;
+}
+
+@keyframes rotateGlow {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Explicit select option & optgroup overrides for high readability in dark shells & browsers */
+select option {
+  background-color: var(--bg-panel) !important;
+  color: var(--text-main) !important;
+}
+
+select optgroup {
+  background-color: var(--bg-main) !important;
+  color: var(--text-dim) !important;
+  font-weight: bold;
+}
+
+
+

@@ -279,6 +279,21 @@ def add_to_task_log(tool: str, tier: int, outcome: str, error: str = ""):
     except Exception as e:
         print("[Task Log] Save failed:", e)
 
+def get_recent_failures(limit: int = 5) -> List[Dict[str, Any]]:
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT tool, outcome, error FROM task_log WHERE outcome = 'failed' ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print("[RLEF] Failed to fetch task logs:", e)
+        return []
+
 # ----------------- BACKGROUND SCHEDULER RUNS HELPERS -----------------
 
 def add_background_run(goal: str, status: str, log: str):
@@ -574,3 +589,97 @@ def get_user_profile(key: str) -> Optional[Any]:
         except Exception as e:
             print("[MongoDB User Profile] Fetch failed:", e)
     return None
+
+def purge_expired_cache():
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        now = time.time()
+        cursor.execute("SELECT id FROM semantic_cache WHERE expires_at < ?", (now,))
+        expired_rows = cursor.fetchall()
+        expired_ids = [r["id"] for r in expired_rows]
+        
+        if expired_ids:
+            cursor.execute("DELETE FROM semantic_cache WHERE expires_at < ?", (now,))
+            conn.commit()
+            
+            # Rebuild Turbovec semantic cache index
+            cursor.execute("SELECT id, query_text FROM semantic_cache")
+            remaining = cursor.fetchall()
+            global cache_index
+            new_index = IdMapIndex(dim=768, bit_width=4)
+            for r in remaining:
+                vector = get_embedding(r["query_text"])
+                vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+                new_index.add_with_ids(vector_np, ids=np.array([r["id"]], dtype=np.uint64))
+            cache_index = new_index
+            cache_index.write(CACHE_INDEX_PATH)
+            print(f"[Semantic Cache] Purged {len(expired_ids)} expired entries and rebuilt Turbovec index.")
+        conn.close()
+    except Exception as e:
+        print("[Semantic Cache] Purge failed:", e)
+
+def consolidate_memory_sleep_cycle():
+    """Sleep cycle background consolidation of conversations and caches."""
+    print("[Sleep Cycle] Starting active memory consolidation task...")
+    try:
+        # 1. Purge expired caches
+        purge_expired_cache()
+        
+        # 2. Distill episodic conversations
+        from api import get_ollama_client_host
+        ollama_host = get_ollama_client_host()
+        
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, timestamp, role, content FROM conversations ORDER BY timestamp ASC")
+        rows = cursor.fetchall()
+        conn.close()
+        
+        valid_records = [dict(r) for r in rows]
+        if len(valid_records) >= 5:
+            log_text = ""
+            for item in valid_records:
+                log_text += f"{item['role']}: {item['content']}\n"
+            
+            import ollama
+            client = ollama.Client(host=ollama_host)
+            prompt = (
+                "Analyze the conversation log below. Extract key persistent facts about the user's "
+                "preferences, workflows, or project details as a JSON list. "
+                "Each item must be: {\"subject\": \"...\", \"predicate\": \"...\", \"object\": \"...\"}\n"
+                "Keep facts simple and short. Return ONLY valid JSON array.\n\n"
+                f"Log:\n{log_text}"
+            )
+            
+            res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+            text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+            if text.startswith("```"):
+                text = text.strip("`").replace("json\n", "").strip()
+            
+            try:
+                facts = json.loads(text)
+                from src.tools.knowledge import kg_add_fact, kg_add_relation
+                added_count = 0
+                for f in facts:
+                    if f.get("subject") and f.get("predicate") and f.get("object"):
+                        kg_add_fact(f["subject"], f["predicate"], f["object"])
+                        kg_add_relation(f["subject"], f["object"], f["predicate"], evidence="Extracted during idle memory consolidation.")
+                        add_knowledge_fact(f["subject"], f["predicate"], f["object"])
+                        added_count += 1
+                
+                # Delete processed conversations
+                conn = get_sqlite_conn()
+                cursor = conn.cursor()
+                ids_to_delete = [r["id"] for r in valid_records]
+                placeholders = ",".join("?" for _ in ids_to_delete)
+                cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids_to_delete)
+                conn.commit()
+                conn.close()
+                print(f"[Sleep Cycle] Successfully consolidated {len(valid_records)} turns into {added_count} KB facts.")
+            except Exception as je:
+                print("[Sleep Cycle] JSON parse error during facts distillation:", je, text)
+        else:
+            print("[Sleep Cycle] Insufficient conversations to consolidate.")
+    except Exception as e:
+        print("[Sleep Cycle] Consolidation error:", e)

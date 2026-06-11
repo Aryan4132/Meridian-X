@@ -6,37 +6,49 @@ Meridian-X is an agentic, context-aware desktop development assistant built with
 
 ## 🚀 Key Features
 
-### 1. 🤖 ReAct Reasoning Agent Loop
+### 1. 🧠 ReAct Reasoning Agent Loop & Advanced Critique
 * Runs an asynchronous **Reasoning ➔ Acting ➔ Observing** agent flow powered by local models (e.g., `qwen2.5-coder` or custom offline variants).
 * Streams live reasoning timelines and thought patterns to the frontend using Server-Sent Events (SSE).
+* **Critique & Self-Correction Engine**:
+  * Intercepts tool calls and verifies parameter signatures in real-time using Python's `inspect.signature` against `TOOL_REGISTRY`. Automatically maps and heals parameter mismatches via `qwen2.5-coder:1.5b-instruct-q8_0`.
+  * Validates code syntax using `ast.parse` for python executions (`run_python`), dynamic tool creations (`create_dynamic_tool`), and Python file writes (`write_file` targetting `.py` files).
+  * Validates JSON format validity using `json.loads` for file writes targetting `.json` files.
+  * Evaluates python scripts with a fast secondary LLM parser (`qwen2.5-coder:1.5b-instruct-q8_0`) to extract compiler warnings or logic bugs, feeding issues back to the main agent loop to trigger self-correction before execution.
 
-### 2. 🦊 Interactive Mascot Companion
+### 2. ⚡ Speculative Concurrency Filtering
+* Divides tool execution pathways between concurrent and sequential queues.
+* **Tier 0 Read-Only Tools** (e.g. `read_file`, `list_directory`, `search_web`, `search_codebase`) run concurrently using `asyncio.gather()` to accelerate environment diagnostics and file inspection.
+* **Tier >= 1 State-Modifying Tools** (e.g. `write_file`, `run_python`, `gui_click`) execute sequentially to maintain transaction integrity and prevent race conditions or database lockups.
+
+### 3. 🦊 Interactive Mascot Companion & Island Mode
 * A dedicated visual companion window that reflects the agent's active cognitive state in real-time.
 * Supports visual reaction wardrobes:
   * 🕵️‍♂️ **Detective Hat**: Active during Security Auditor checks.
   * 👷‍♂️ **Construction Hat**: Active during codebase diagnostic audits and self-healing.
   * 🥱 **Tired State**: Triggers when offline fallbacks occur or during Pomodoro break cycles.
   * ✍️ **Typing State**: Reacts in real-time to user keystrokes.
+* **Dashboard Close Redirection**: Closing the dashboard window (either via the UI's 'X' button or the native Close event) automatically prevents application shutdown and transitions the interface into mascot companion / island mode.
 
-### 3. 🛡️ Security Auditor Consensus & Safety Gates
+### 4. 🛡️ Security Auditor Consensus & Safety Gates
 * Runs local security audits via an isolated validator model (`qwen2.5-coder:1.5b`) for any tool invocation of Tier 2 or higher.
 * Uses an authorization safety gate for write/execution operations (Tier 3+), halting execution and awaiting explicit user validation from the chat pane.
 
-### 4. ⚡ Context-Aware Resource Governor
+### 5. 📊 P2P Swarm Dashboard & API Control
+* Connects the local P2P mesh network daemon to FastAPI backend endpoints.
+* View live telemetry of discovered LAN peer nodes, network host ports, connection latency status, and handshake validations directly from a dedicated "P2P Swarm" UI tab.
+* Toggle the P2P daemon state or trigger manual synchronization across LAN peers on-demand.
+
+### 6. ⚡ Context-Aware Resource Governor
 * Monitors system usage to ensure developer performance is unaffected by background processes.
 * Skips background intelligence tasks if:
   * System CPU utilization exceeds **85.0%**.
   * Foregrounds match heavy developer/gaming processes (e.g., *Valorant, Cyberpunk, Blender, Unity, Unreal, Visual Studio*).
 
-### 5. 🔑 Cryptographic P2P Database Sync
-* Secure database and semantic cache synchronization across local network peer nodes.
-* Enforces a handshake token policy (`P2P_SECRET_TOKEN`) to prevent unauthorized rogue nodes from reading or modifying database graphs.
-
-### 6. 📄 Native Offline RAG Document Parser
+### 7. 📄 Native Offline RAG Document Parser
 * Deep file ingestion supporting `.txt`, `.md`, `.json`, `.csv`, `.pdf` (via `pypdf`), and `.docx` (via `python-docx`) natively.
 * Seamlessly extracts and chunks documents, creating vector embeddings via local models (`nomic-embed-text`) and saving them into **Turbovec** (vector search) and **SQLite** (metadata storage).
 
-### 7. ✏️ Rich Inline Code Merge Editor
+### 8. ✏️ Rich Inline Code Merge Editor
 * An interactive self-healing diff code panel.
 * Displays character/line metadata count previews.
 * Includes a **"Revert to Proposal"** button to allow instant resets of manual diff changes back to the original model proposal.
@@ -83,7 +95,7 @@ Meridian-X is an agentic, context-aware desktop development assistant built with
 * **Node.js** & **npm** (for the Tauri frontend)
 * **Ollama** running locally with:
   * `ollama pull qwen2.5-coder:7b-instruct-q4_K_M` (standard reasoning)
-  * `ollama pull qwen2.5-coder:1.5b-instruct-q8_0` (auditor validation)
+  * `ollama pull qwen2.5-coder:1.5b-instruct-q8_0` (auditor validation & critique)
   * `ollama pull nomic-embed-text` (semantic RAG embeddings)
 
 ### Configuration (`.env`)
@@ -113,10 +125,3 @@ Alternatively, run them in separate terminals:
    ```
 
 ---
-
-## 🧪 Running Automated Tests
-Run the integration and unit tests verifying the core system features:
-```bash
-cd meridian_backend
-venv\Scripts\python.exe C:\Users\aryan\.gemini\antigravity-ide\brain\032a8894-1f8a-40eb-b034-64746a282aef\scratch\verify_advanced_features.py
-```

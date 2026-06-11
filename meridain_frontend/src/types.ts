@@ -46,5 +46,12 @@ export interface ProactiveNudge {
   icon: string;
   timestamp: string;
   mascot_state?: string;
+  action?: string;
+  patch?: {
+    file_path: string;
+    original: string;
+    proposed: string;
+    error_message: string;
+  };
 }
 

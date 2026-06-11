@@ -1,5 +1,9 @@
 use tauri::{Emitter, Manager};
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri::{
+    menu::{MenuBuilder, MenuItem},
+    tray::TrayIconBuilder,
+};
 
 #[tauri::command]
 fn set_island_mode(window: tauri::WebviewWindow, enable: bool) {
@@ -59,8 +63,40 @@ fn set_mascot_visible(app: tauri::AppHandle, visible: bool) {
 
 #[tauri::command]
 fn close_application(app: tauri::AppHandle) {
-    kill_backend_process();
-    app.exit(0);
+    set_mascot_visible(app, true);
+}
+
+#[tauri::command]
+fn toggle_game_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, String> {
+    use tauri_plugin_global_shortcut::GlobalShortcutExt;
+    let alt_m = Shortcut::new(Some(Modifiers::ALT), Code::KeyM);
+    let alt_shift_m = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyM);
+    let shortcut_manager = app.global_shortcut();
+
+    if enabled {
+        let _ = shortcut_manager.unregister(alt_m);
+        let _ = shortcut_manager.unregister(alt_shift_m);
+        log::info!("Game Mode enabled: unregistered global shortcuts Alt+M, Alt+Shift+M");
+        
+        if let Some(mascot_window) = app.get_webview_window("mascot") {
+            let _ = mascot_window.hide();
+        }
+        let _ = app.emit("hide-mascot", ());
+    } else {
+        if !shortcut_manager.is_registered(alt_m) {
+            if let Err(e) = shortcut_manager.register(alt_m) {
+                log::error!("Failed to re-register Alt+M: {:?}", e);
+            }
+        }
+        if !shortcut_manager.is_registered(alt_shift_m) {
+            if let Err(e) = shortcut_manager.register(alt_shift_m) {
+                log::error!("Failed to re-register Alt+Shift+M: {:?}", e);
+            }
+        }
+        log::info!("Game Mode disabled: re-registered global shortcuts");
+    }
+
+    Ok(enabled)
 }
 
 fn kill_backend_process() {
@@ -103,7 +139,7 @@ fn trigger_backend_restart() -> Result<String, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_island_mode, trigger_backend_restart, set_mascot_visible, close_application])
+        .invoke_handler(tauri::generate_handler![set_island_mode, trigger_backend_restart, set_mascot_visible, close_application, toggle_game_mode])
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -174,11 +210,66 @@ pub fn run() {
             let _ = window.set_focus();
             let app_handle = app.handle().clone();
             window.on_window_event(move |event| {
-                if let tauri::WindowEvent::CloseRequested { .. } = event {
-                    kill_backend_process();
-                    app_handle.exit(0);
+                if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    set_mascot_visible(app_handle.clone(), true);
                 }
             });
+
+            // System Tray Menu setup
+                        let show_dashboard = MenuItem::with_id(app, "show_dashboard", "Show Dashboard", true, None::<&str>)?;
+            let open_mascot = MenuItem::with_id(app, "open_mascot", "Open Mascot Companion", true, None::<&str>)?;
+            let toggle_game_mode = MenuItem::with_id(app, "toggle_game_mode", "Toggle Game Mode 🎮", true, None::<&str>)?;
+            let quit_app = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            
+            let tray_menu = MenuBuilder::new(app)
+                .item(&show_dashboard)
+                .item(&open_mascot)
+                .item(&toggle_game_mode)
+                .separator()
+                .item(&quit_app)
+                .build()?;
+
+            let tray_icon = app.default_window_icon().cloned().unwrap_or_else(|| {
+                tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png")).unwrap()
+            });
+
+            let _tray = TrayIconBuilder::new()
+                .menu(&tray_menu)
+                .icon(tray_icon)
+                .on_menu_event(|app, event| {
+                    match event.id().as_ref() {
+                        "show_dashboard" => {
+                            if let Some(main_window) = app.get_webview_window("main") {
+                                let _ = main_window.show();
+                                let _ = main_window.set_focus();
+                            }
+                            if let Some(mascot_window) = app.get_webview_window("mascot") {
+                                let _ = mascot_window.hide();
+                            }
+                        }
+                        "open_mascot" => {
+                            if let Some(mascot_window) = app.get_webview_window("mascot") {
+                                let _ = mascot_window.show();
+                                let _ = mascot_window.set_focus();
+                            }
+                            if let Some(main_window) = app.get_webview_window("main") {
+                                let _ = main_window.hide();
+                            }
+                        }
+                        "toggle_game_mode" => {
+                            let _ = app.emit("tray-toggle-game-mode", ());
+                        }
+                        "quit" => {
+                            kill_backend_process();
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .build(app)?;
+
+
 
             // Register global shortcuts
             let alt_m = Shortcut::new(Some(Modifiers::ALT), Code::KeyM);

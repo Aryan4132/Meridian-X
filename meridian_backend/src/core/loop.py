@@ -4,6 +4,7 @@ import json
 import asyncio
 import uuid
 import time
+import random
 from typing import Dict, Any, List, AsyncGenerator, Tuple
 import ollama
 
@@ -18,6 +19,12 @@ active_confirmations: Dict[str, Dict[str, Any]] = {}
 # Active tree and debate state tables
 active_trees: Dict[str, Dict[str, Any]] = {}
 active_debates: Dict[str, Dict[str, Any]] = {}
+
+_loop_interrupted = False
+
+def interrupt_agent_loop():
+    global _loop_interrupted
+    _loop_interrupted = True
 
 
 def generate_tools_doc() -> str:
@@ -522,6 +529,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             return False, args_str, f"Unknown tool '{tool_name}' requested."
             
         tool_meta = TOOL_REGISTRY[tool_name]
+        func = tool_meta["func"]
         
         # Parse arguments to verify JSON validity
         try:
@@ -538,29 +546,159 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             # clean code blocks if model added them
             if corrected.startswith("```"):
                 corrected = corrected.strip("`").replace("json\n", "").strip()
-            return True, corrected, "Auto-corrected malformed JSON arguments."
+            # Verify if corrected parses
+            try:
+                json.loads(corrected)
+                return True, corrected, "Auto-corrected malformed JSON arguments."
+            except Exception:
+                return False, args_str, f"Failed to auto-correct malformed JSON: {e}"
 
-        # If running python, check syntax via AST
-        if tool_name == "run_python":
-            code = args.get("code", "")
-            if code:
+        # 1. Tool Signature Verification
+        import inspect
+        try:
+            sig = inspect.signature(func)
+            # Check if there are any *args or **kwargs
+            has_var_positional = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in sig.parameters.values())
+            has_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
+
+            # Build lists of required and valid parameters
+            required_params = []
+            valid_params = set()
+
+            for name, param in sig.parameters.items():
+                if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                    valid_params.add(name)
+                    if param.default is inspect.Parameter.empty:
+                        required_params.append(name)
+
+            # Check missing required params
+            missing = [p for p in required_params if p not in args]
+            # Check unexpected params
+            unexpected = [p for p in args if p not in valid_params] if not has_var_keyword else []
+
+            if missing or unexpected:
+                # Signature mismatch: try to correct it via qwen2.5-coder:1.5b
+                sig_err_msg = ""
+                if missing:
+                    sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
+                if unexpected:
+                    sig_err_msg += f"Unexpected parameter(s): {', '.join(unexpected)}."
+
+                prompt = (
+                    f"You are a signature matching assistant. The tool '{tool_name}' has the following expected parameter signature:\n"
+                    f"Signature: {str(sig)}\n"
+                    f"The provided arguments were:\n{json.dumps(args)}\n"
+                    f"Validation Error: {sig_err_msg}\n\n"
+                    f"Correct or map the keys in the arguments to match the expected signature. Output ONLY the corrected JSON string. Do not include markdown code block syntax."
+                )
+                res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+                corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                if corrected.startswith("```"):
+                    corrected = corrected.strip("`").replace("json\n", "").strip()
+
+                try:
+                    corrected_args = json.loads(corrected)
+                    # Re-verify after correction
+                    missing_corr = [p for p in required_params if p not in corrected_args]
+                    unexpected_corr = [p for p in corrected_args if p not in valid_params] if not has_var_keyword else []
+                    if not missing_corr and not unexpected_corr:
+                        return True, json.dumps(corrected_args), f"Auto-corrected parameter signature: {sig_err_msg}"
+                except Exception:
+                    pass
+
+                return False, args_str, f"Signature validation failed: {sig_err_msg} Expected: {str(sig)}"
+        except ValueError:
+            # inspect.signature not supported (e.g. builtins), skip signature validation
+            pass
+
+        # 2. Code Syntax Verification & LLM Linting
+        code_to_validate = None
+        code_type = None # "python" or "json"
+        
+        # Check run_python or create_dynamic_tool
+        if tool_name in ["run_python", "create_dynamic_tool"]:
+            code_to_validate = args.get("code", "")
+            code_type = "python"
+        # Check write_file
+        elif tool_name == "write_file":
+            path = args.get("path", "") or args.get("filepath", "") or args.get("TargetFile", "")
+            content = args.get("content", "") or args.get("CodeContent", "")
+            if path.endswith(".py"):
+                code_to_validate = content
+                code_type = "python"
+            elif path.endswith(".json"):
+                code_to_validate = content
+                code_type = "json"
+
+        if code_to_validate:
+            if code_type == "python":
                 try:
                     import ast
-                    ast.parse(code)
+                    ast.parse(code_to_validate)
                 except SyntaxError as se:
                     # Syntax error: request correction from LLM
                     prompt = (
                         f"You are a code-healing assistant. The following Python code contains a syntax error:\n"
                         f"Error: {se}\n\n"
-                        f"Code:\n```python\n{code}\n```\n\n"
+                        f"Code:\n```python\n{code_to_validate}\n```\n\n"
                         f"Rewrite the code to fix the syntax error. Output ONLY the raw corrected Python code, no explanation, no markdown blocks."
                     )
                     res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
                     corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
                     if corrected_code.startswith("```"):
                         corrected_code = corrected_code.strip("`").replace("python\n", "").strip()
-                    args["code"] = corrected_code
-                    return True, json.dumps(args), f"Auto-healed Python code syntax error on line {se.lineno}."
+                    
+                    # Verify corrected code
+                    try:
+                        ast.parse(corrected_code)
+                        if tool_name in ["run_python", "create_dynamic_tool"]:
+                            args["code"] = corrected_code
+                        elif tool_name == "write_file":
+                            if "content" in args:
+                                args["content"] = corrected_code
+                            elif "CodeContent" in args:
+                                args["CodeContent"] = corrected_code
+                        return True, json.dumps(args), f"Auto-healed Python code syntax error on line {se.lineno}."
+                    except SyntaxError as se2:
+                        return False, args_str, f"Python syntax check failed: {se} (Auto-healing also failed with syntax error on line {se2.lineno}: {se2})"
+
+                # Python code is syntactically valid via AST.
+                # Run qwen2.5-coder:1.5b-instruct-q8_0 as a linter / compiler warning check.
+                lint_prompt = (
+                    f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
+                    f"Code:\n```python\n{code_to_validate}\n```\n\n"
+                    f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
+                )
+                res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=lint_prompt)
+                lint_resp = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
+                    # Feed the lint warning back to the agent to prompt self-correction
+                    return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
+
+            elif code_type == "json":
+                try:
+                    json.loads(code_to_validate)
+                except Exception as e:
+                    # Invalid JSON content: correct via LLM
+                    prompt = (
+                        f"You are a syntax recovery engine. Correct the following invalid JSON content to make it well-formed.\n"
+                        f"Invalid JSON:\n{code_to_validate}\n\n"
+                        f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
+                    )
+                    res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+                    corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                    if corrected_code.startswith("```"):
+                        corrected_code = corrected_code.strip("`").replace("json\n", "").strip()
+
+                    try:
+                        json.loads(corrected_code)
+                        if "content" in args:
+                            args["content"] = corrected_code
+                        elif "CodeContent" in args:
+                            args["CodeContent"] = corrected_code
+                        return True, json.dumps(args), "Auto-corrected malformed JSON file content."
+                    except Exception as e2:
+                        return False, args_str, f"JSON syntax check failed: {e} (Auto-healing failed: {e2})"
 
         return False, args_str, ""
     except Exception as e:
@@ -677,12 +815,68 @@ async def execute_single_tool_async(
         add_to_task_log(tool_name, tier, "failed", err_txt)
         return tool_name, f"Error: {err_txt}", "failed"
 
+def detect_complex_prompt(prompt: str) -> bool:
+    p = prompt.lower()
+    complex_words = ["build", "setup", "implement", "deploy", "architecture", "design and create", "create a complete", "pipeline", "scaffold"]
+    return len(prompt) > 200 or any(w in p for w in complex_words)
+
+async def decompose_goal_to_checklist(prompt: str, client: ollama.Client) -> List[Dict[str, Any]]:
+    decomp_prompt = (
+        "You are the Meridian Project Manager. Decompose the user's goal into a logical list of sub-tasks (maximum 4).\n"
+        f"Goal: {prompt}\n\n"
+        "Return ONLY a JSON list of tasks, where each task is an object with \"id\" (int) and \"description\" (str). "
+        "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
+    )
+    try:
+        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=decomp_prompt)
+        text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+        if text.startswith("```"):
+            text = text.strip("`").replace("json\n", "").strip()
+        tasks = json.loads(text)
+        if isinstance(tasks, list):
+            return tasks
+    except Exception as e:
+        print("[HTP] Failed to decompose goal, falling back to single loop:", e)
+    return []
+
+async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: ollama.Client) -> float:
+    prompt = (
+        f"You are the Monte Carlo Tree Search evaluator. Score the proposed action from 0.0 (fails/dangerous/unlikely to succeed) to 1.0 (highly successful/safe/optimal).\n"
+        f"Goal/History context length: {len(history)} turns.\n"
+        f"Proposed Action: Call tool '{tool_name}' with args: {args_str}\n\n"
+        f"Output ONLY the numeric score (e.g. 0.85). Do not include any text or commentary."
+    )
+    try:
+        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+        val_str = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+        score = float(re.findall(r"[-+]?\d*\.\d+|\d+", val_str)[0])
+        return min(max(score, 0.0), 1.0)
+    except Exception:
+        return 0.5
+
+async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: ollama.Client) -> Tuple[bool, str]:
+    check_prompt = (
+        f"Goal: {goal}\n"
+        f"Recent History turns: {len(history)}.\n"
+        "Are the exact paths, parameters, and environment dependencies verified? Or are you about to assume details?\n"
+        "Answer ONLY 'YES' if they are verified, or 'NO' if they are not verified."
+    )
+    try:
+        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=check_prompt)
+        ans = (res.response if hasattr(res, "response") else res.get("response", "")).strip().upper()
+        if "NO" in ans:
+            return False, "You do not have verified information. You MUST run search or observation commands first (e.g. read_file, dir_list, grep_search) to inspect paths and verify details before making assumptions."
+        return True, ""
+    except Exception:
+        return True, ""
+
 async def run_react_agent_loop(
     prompt: str,
     brain_model: str,
     ollama_host: str,
     model_source: str = "local",
-    api_provider: str = "gemini"
+    api_provider: str = "gemini",
+    is_worker: bool = False
 ) -> AsyncGenerator[str, None]:
     
     # Helper to format SSE events
@@ -713,6 +907,81 @@ async def run_react_agent_loop(
 
     # Set up client and initial prompt context
     client = ollama.Client(host=ollama_host)
+
+    # 1. Hierarchical Task Planning (HTP) (Upgrade 10)
+    if not is_worker and detect_complex_prompt(prompt):
+        yield sse_event("thought", json.dumps({
+            "id": f"htp-decomposing-{time.time()}",
+            "type": "planning",
+            "text": "[Hierarchical Task Planning] Decomposing complex prompt into sub-tasks...",
+            "status": "running"
+        }))
+        checklist = await decompose_goal_to_checklist(prompt, client)
+        
+        if checklist:
+            yield sse_event("thought", json.dumps({
+                "id": f"htp-decomposed-{time.time()}",
+                "type": "planning",
+                "text": f"[Hierarchical Task Planning] Checklist generated:\n" + "\n".join(f"- Task {t['id']}: {t['description']}" for t in checklist),
+                "status": "completed"
+            }))
+            
+            worker_outcomes = []
+            for sub_task in checklist:
+                task_desc = sub_task["description"]
+                yield sse_event("thought", json.dumps({
+                    "id": f"htp-task-start-{sub_task['id']}-{time.time()}",
+                    "type": "planning",
+                    "text": f"[Hierarchical Task Planning] Spawning worker loop for Sub-task {sub_task['id']}: '{task_desc}'...",
+                    "status": "running"
+                }))
+                
+                worker_prompt = f"Your task is to execute sub-task: '{task_desc}' as part of the overall goal: '{prompt}'. Focus only on completing this sub-task and report the results."
+                worker_text = ""
+                async for event in run_react_agent_loop(
+                    prompt=worker_prompt,
+                    brain_model=brain_model,
+                    ollama_host=ollama_host,
+                    model_source=model_source,
+                    api_provider=api_provider,
+                    is_worker=True
+                ):
+                    yield event
+                    if event.startswith("event: text"):
+                        lines = event.splitlines()
+                        for line in lines:
+                            if line.startswith("data: "):
+                                worker_text += line[6:]
+                                
+                worker_outcomes.append(f"Sub-task {sub_task['id']} Result: {worker_text}")
+                yield sse_event("thought", json.dumps({
+                    "id": f"htp-task-complete-{sub_task['id']}-{time.time()}",
+                    "type": "planning",
+                    "text": f"[Hierarchical Task Planning] Sub-task {sub_task['id']} completed.",
+                    "status": "completed"
+                }))
+                
+            yield sse_event("thought", json.dumps({
+                "id": f"htp-synthesis-{time.time()}",
+                "type": "planning",
+                "text": "[Hierarchical Task Planning] Synthesis of all worker outcomes...",
+                "status": "running"
+            }))
+            synthesis_prompt = (
+                f"You are the Meridian Project Manager. Synthesize the following completed worker sub-tasks into a cohesive final update to the user.\n"
+                f"Goal: {prompt}\n"
+                f"Worker Outcomes:\n" + "\n".join(worker_outcomes) + "\n\n"
+                "Return the final response in the required JSON format: {\"chat\": \"...\", \"speech\": \"...\", \"lang\": \"...\"}"
+            )
+            try:
+                res_sys = await asyncio.to_thread(client.chat, model=brain_model, messages=[{"role": "user", "content": synthesis_prompt}])
+                text_sys = (res_sys.message.content if hasattr(res_sys, "message") and hasattr(res_sys.message, "content") else res_sys.get("message", {}).get("content", "")).strip()
+                if text_sys.startswith("```"):
+                    text_sys = text_sys.strip("`").replace("json\n", "").strip()
+                yield sse_event("text", text_sys)
+            except Exception as se:
+                yield sse_event("text", json.dumps({"chat": "All tasks completed.", "speech": "All tasks completed.", "lang": "en"}))
+            return
     tools_doc = generate_tools_doc()
     
     # Load workspace config overrides
@@ -741,12 +1010,31 @@ async def run_react_agent_loop(
     
     # Session-scoped manifest to track temporary screenshots for automated cleanup
     created_temp_files = []
+    global _loop_interrupted
+    _loop_interrupted = False
     try:
         while turn < max_turns:
+            if _loop_interrupted:
+                _loop_interrupted = False
+                yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
+                return
             turn += 1
             
             # Prune and compress history if too long to maintain model speeds
             history = await prune_and_compress_history(history, client)
+
+            # 2. Self-Questioning Check (Upgrade 11)
+            is_verified, warning_msg = await run_self_question_check(prompt, history, client)
+            temp_sys_idx = -1
+            if not is_verified:
+                yield sse_event("thought", json.dumps({
+                    "id": f"self-question-{turn}-{time.time()}",
+                    "type": "warning",
+                    "text": f"[Self-Questioning] Lack verified information for target path/dependencies. Injecting exploratory search gate...",
+                    "status": "completed"
+                }))
+                history.append({"role": "system", "content": f"[Self-Questioning Gate Warning]: {warning_msg}"})
+                temp_sys_idx = len(history) - 1
             
             # Dynamic VRAM/RAM Offloading Scheduler (Only trigger for local model configurations)
             vram_load = get_gpu_vram_usage()
@@ -897,6 +1185,10 @@ async def run_react_agent_loop(
 
             # Feed the stream to the tag parser in real time
             for chunk in response_stream:
+                if _loop_interrupted:
+                    _loop_interrupted = False
+                    yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
+                    return
                 if model_source == "local":
                     # Ollama streaming chunks are ChatResponse objects, not dicts
                     if hasattr(chunk, "message") and hasattr(chunk.message, "content"):
@@ -935,27 +1227,98 @@ async def run_react_agent_loop(
                     elif event["type"] == "finish":
                         # Process/correct the final finish text before yielding it
                         corrected_finish = await process_final_response(event["text"], user_lang, client)
-                        final_text += corrected_finish
-                        yield sse_event("text", corrected_finish)
+                        
+                        # 3. Consensus Debate (Upgrade 6)
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-init-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                            "status": "running"
+                        }))
+                        
+                        qa_prompt = (
+                            "You are the QA Reviewer Agent. Critique the proposed response below. "
+                            "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
+                            f"Proposed Response:\n{corrected_finish}"
+                        )
+                        qa_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=qa_prompt)
+                        critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+                        
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-critique-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                            "status": "completed"
+                        }))
+                        
+                        coder_prompt = (
+                            "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
+                            "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
+                            f"Original Response:\n{corrected_finish}\n\n"
+                            f"Critique:\n{critique}"
+                        )
+                        coder_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=coder_prompt)
+                        refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                        
+                        if refined.startswith("```"):
+                            refined = refined.strip("`").replace("json\n", "").strip()
+                            
+                        try:
+                            json.loads(refined)
+                            debated_finish = refined
+                        except Exception:
+                            debated_finish = corrected_finish
+                            
+                        active_debates[f"debate-{time.time()}"] = {
+                            "draft": corrected_finish,
+                            "critique": critique,
+                            "refined": debated_finish
+                        }
+                        
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-complete-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
+                            "status": "completed"
+                        }))
+                        
+                        final_text += debated_finish
+                        yield sse_event("text", debated_finish)
                     elif event["type"] == "call":
                         calls_to_execute.append((event["name"], event["args"]))
                         
             # Update assistant history for loop tracking
             history.append({"role": "assistant", "content": full_turn_text})
+            # Remove the temporary warning so it doesn't pollute long term history
+            if temp_sys_idx != -1:
+                history.pop(temp_sys_idx)
 
             # Process any tool calls parsed during the stream
             if calls_to_execute:
                 observations = []
                 
-                # Split concurrent (Tier < 3 read-only) and sequential (Tier >= 3 write/edits)
+                # Tree-of-Thoughts (ToT) Branch Setup
+                tot_checkpoint = list(history)
+                tot_failed = False
+                failed_tool = ""
+                failed_args = {}
+
+                # Split concurrent (Tier 0 read-only) and sequential (Tier >= 1 write/edits)
                 concurrent_calls = []
                 sequential_calls = []
                 
                 for tool_name, args_str in calls_to_execute:
                     # 1. Critique & Self-Correction check before handling
                     is_corrected, corrected_args, critique_err = critique_and_correct_tool_call(tool_name, args_str, client)
-                    if critique_err and "Unknown tool" in critique_err:
+                    if not is_corrected and critique_err:
+                        # Feed the error back to the agent automatically to prompt self-correction
                         observations.append(f"<observation:{tool_name}>Error: {critique_err}</observation:{tool_name}>")
+                        yield sse_event("thought", json.dumps({
+                            "id": f"critique-failed-{time.time()}",
+                            "type": "warning",
+                            "text": f"[Critique Engine] Tool call '{tool_name}' failed validation: {critique_err}",
+                            "status": "failed"
+                        }))
                         continue
                     
                     if is_corrected:
@@ -994,10 +1357,10 @@ async def run_react_agent_loop(
                             observations.append(f"<observation:{tool_name}>Error: Majority consensus voting check failed. Action rejected.</observation:{tool_name}>")
                             continue
                     
-                    if tier >= 3:
-                        sequential_calls.append((tool_name, args, tier))
-                    else:
+                    if tier == 0:
                         concurrent_calls.append((tool_name, args, tier))
+                    else:
+                        sequential_calls.append((tool_name, args, tier))
                 
                 # --- A. EXECUTE CONCURRENT READ-ONLY CALLS ---
                 if concurrent_calls:
@@ -1016,6 +1379,13 @@ async def run_react_agent_loop(
                     results = await asyncio.gather(*tasks)
                     for name, res, status in results:
                         observations.append(f"<observation:{name}>{res}</observation:{name}>")
+                        if status == "failed":
+                            tot_failed = True
+                            failed_tool = name
+                            for c_name, c_args, c_t in concurrent_calls:
+                                if c_name == name:
+                                    failed_args = c_args
+                                    break
                         yield sse_event("thought", json.dumps({
                             "id": f"spec-complete-{time.time()}-{name}",
                             "type": "status",
@@ -1164,6 +1534,14 @@ async def run_react_agent_loop(
                         "mascot_wardrobe": "none"
                     }))
                     
+                    # Create git checkpoint before running code-modifying tools
+                    if tool_name in ["write_file", "delete_file", "move_file", "create_dynamic_tool", "generate_dynamic_tool"]:
+                        try:
+                            from src.core.history_manager import create_checkpoint
+                            await asyncio.to_thread(create_checkpoint, tool_run_id)
+                        except Exception as che:
+                            print(f"[History Manager] Failed to create checkpoint: {che}")
+
                     # Run the actual tool call
                     try:
                         # Run in thread pool to prevent blocking event loop if slow/IO bound
@@ -1197,6 +1575,10 @@ async def run_react_agent_loop(
                             print("[Plugins] System prompt dynamically updated with new tool registrations.")
                     except Exception as e:
                         err_txt = str(e)
+                        # ToT backtrack trigger
+                        tot_failed = True
+                        failed_tool = tool_name
+                        failed_args = args
                         observations.append(f"<observation:{tool_name}>Error: {err_txt}</observation:{tool_name}>")
                         yield sse_event("thought", json.dumps({
                             "id": tool_run_id,
@@ -1206,6 +1588,21 @@ async def run_react_agent_loop(
                         }))
                         add_to_task_log(tool_name, tier, "failed", err_txt)
 
+                # Tree-of-Thoughts Backtracking execution
+                if tot_failed:
+                    history = list(tot_checkpoint)
+                    yield sse_event("thought", json.dumps({
+                        "id": f"tot-backtrack-{time.time()}",
+                        "type": "warning",
+                        "text": f"[Tree-of-Thoughts] Tool execution of '{failed_tool}' failed. Backtracking and adjusting pathway...",
+                        "status": "completed"
+                    }))
+                    history.append({
+                        "role": "user",
+                        "content": f"<observation:{failed_tool}>Error: Tool execution failed. [Tree-of-Thoughts Backtrack]: Avoid calling '{failed_tool}' with args {json.dumps(failed_args)} again as it fails in this environment. Attempt an alternative search, verify paths, or try a different approach.</observation:{failed_tool}>"
+                    })
+                    continue
+
                 # Join observations and append to prompt history for next reasoning loop
                 obs_payload = "\n".join(observations)
                 history.append({"role": "user", "content": obs_payload})
@@ -1214,6 +1611,53 @@ async def run_react_agent_loop(
                 if not final_text:
                     final_text = clean_final_text(full_turn_text)
                     final_text = await process_final_response(final_text, user_lang, client)
+                    
+                    # 3. Consensus Debate (Upgrade 6)
+                    yield sse_event("thought", json.dumps({
+                        "id": f"debate-init-break-{time.time()}",
+                        "type": "planning",
+                        "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                        "status": "running"
+                    }))
+                    qa_prompt = (
+                        "You are the QA Reviewer Agent. Critique the proposed response below. "
+                        "Find any potential bugs, logical inconsistencies, security concerns, or formatting errors.\n"
+                        "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
+                        f"Proposed Response:\n{final_text}"
+                    )
+                    qa_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=qa_prompt)
+                    critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+                    
+                    yield sse_event("thought", json.dumps({
+                        "id": f"debate-critique-break-{time.time()}",
+                        "type": "planning",
+                        "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                        "status": "completed"
+                    }))
+                    
+                    coder_prompt = (
+                        "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
+                        "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
+                        f"Original Response:\n{final_text}\n\n"
+                        f"Critique:\n{critique}"
+                    )
+                    coder_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=coder_prompt)
+                    refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                    if refined.startswith("```"):
+                        refined = refined.strip("`").replace("json\n", "").strip()
+                        
+                    try:
+                        json.loads(refined)
+                        final_text = refined
+                    except Exception:
+                        pass
+                        
+                    active_debates[f"debate-{time.time()}"] = {
+                        "draft": final_text,
+                        "critique": critique,
+                        "refined": final_text
+                    }
+                    
                     yield sse_event("text", final_text)
                 break
                 

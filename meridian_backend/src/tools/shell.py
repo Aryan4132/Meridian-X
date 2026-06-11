@@ -73,6 +73,49 @@ def nl_run(natural_language: str) -> str:
             text=True,
             shell=True
         )
+        
+        # Self-healing logic for failed commands
+        if res.returncode != 0:
+            fix_command = ""
+            try:
+                import ollama
+                from database import get_ollama_client_host
+                client = ollama.Client(host=get_ollama_client_host())
+                model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                
+                prompt = (
+                    f"You are a command line terminal self-healing assistant. A Windows PowerShell command just failed.\n"
+                    f"Failed Command: {command}\n"
+                    f"Exit Code: {res.returncode}\n"
+                    f"Error Output (stderr):\n{res.stderr}\n"
+                    f"Standard Output (stdout):\n{res.stdout}\n\n"
+                    f"Formulate a single repair command that resolves the underlying issue (e.g. killing a conflicting port, installing a missing dependency, making a directory, etc.).\n"
+                    f"Output ONLY the raw fixing command line. Do not include markdown code block wrapping, notes, or explanation."
+                )
+                
+                fix_res = client.generate(model=model, prompt=prompt)
+                fix_command = fix_res.get("response", "").strip()
+                if fix_command.startswith("```"):
+                    fix_command = fix_command.strip("`").replace("powershell\n", "").replace("shell\n", "").strip()
+            except Exception as e:
+                print(f"[Terminal Self-Healing] Failed to generate fixing command: {e}")
+                
+            if fix_command:
+                try:
+                    from src.core.proactive import publish_nudge_sync
+                    publish_nudge_sync(
+                        nudge_type="terminal_heal",
+                        title="💻 Terminal Execution Failed",
+                        message=f"Command '{command[:30]}...' failed. Speculative fix generated.",
+                        action_hint=f"Execute: {fix_command}",
+                        icon="💻",
+                        mascot_state="diagnostic",
+                        action="run_repair",
+                        patch={"file_path": "PowerShell", "proposed": fix_command, "original": command, "error_message": res.stderr}
+                    )
+                except Exception as ex:
+                    print(f"[Terminal Self-Healing] Failed to dispatch nudge: {ex}")
+
         output = []
         if res.stdout.strip():
             output.append(f"STDOUT:\n{res.stdout}")

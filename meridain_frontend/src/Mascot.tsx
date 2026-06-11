@@ -38,9 +38,10 @@ interface MascotCharacterProps {
   state: string;
   accentColor: string;
   wardrobe?: string;
+  speechAmplitude?: number;
 }
 
-export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: MascotCharacterProps) {
+export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechAmplitude = 0 }: MascotCharacterProps) {
   // Body animation variants
   const floatVariants = {
     default: {
@@ -71,6 +72,11 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
       x: [0, -1, 1, -1, 1, 0],
       y: [0, 0, 0, 0, 0, 0],
       transition: { duration: 0.5, repeat: Infinity, ease: "linear" }
+    },
+    typing: {
+      y: [0, -2, 0],
+      rotate: [0, -3, 3, 0],
+      transition: { duration: 0.8, repeat: Infinity, ease: "easeInOut" }
     }
   };
 
@@ -83,7 +89,8 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
         state === 'sleeping' ? 'bg-indigo-500' :
         state === 'tired' ? 'bg-cyan-500' :
         state === 'disapproving' ? 'bg-rose-500' :
-        state === 'diagnostic' ? 'bg-amber-500' : 'bg-emerald-500'
+        state === 'diagnostic' ? 'bg-amber-500' : 
+        state === 'typing' ? 'bg-emerald-400' : 'bg-emerald-500'
       }`} />
 
       <motion.div
@@ -92,34 +99,92 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
         className="w-full h-full flex items-center justify-center relative z-10"
       >
         <svg viewBox="0 0 32 32" className="w-full h-full overflow-visible" fill="none" xmlns="http://www.w3.org/2000/svg">
-          {/* Outer Shield / Ears */}
-          <rect x="3" y="5" width="26" height="20" rx="6" fill="#18181b" stroke={accentColor} strokeWidth="1.5" />
+          <defs>
+            <linearGradient id="body-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#27272a" />
+              <stop offset="50%" stopColor="#18181b" />
+              <stop offset="100%" stopColor="#09090b" />
+            </linearGradient>
+            <linearGradient id="screen-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#09090b" />
+              <stop offset="100%" stopColor="#030303" />
+            </linearGradient>
+            <linearGradient id="glare-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="white" stopOpacity="0.15" />
+              <stop offset="35%" stopColor="white" stopOpacity="0.04" />
+              <stop offset="35.1%" stopColor="white" stopOpacity="0" />
+              <stop offset="100%" stopColor="white" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="yellow-hat-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <linearGradient id="detective-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#5c2c16" />
+              <stop offset="100%" stopColor="#1f0a00" />
+            </linearGradient>
+            <linearGradient id="crown-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="100%" stopColor="#ca8a04" />
+            </linearGradient>
+            <linearGradient id="hoodie-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#52525b" />
+              <stop offset="100%" stopColor="#27272a" />
+            </linearGradient>
+            <linearGradient id="visor-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ec4899" />
+              <stop offset="100%" stopColor="#9d174d" />
+            </linearGradient>
+            <filter id="glow-visor-filter" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          {/* Outer Shield / Ears (Robot Body) with Gradient */}
+          <rect x="3" y="5" width="26" height="20" rx="6" fill="url(#body-grad)" stroke={accentColor} strokeWidth="1.5" />
           
-          {/* Inner Screen */}
-          <rect x="5" y="7" width="22" height="16" rx="4" fill="#09090b" stroke={`${accentColor}40`} strokeWidth="1" />
+          {/* Inner Screen Visor with Depth */}
+          <rect x="5" y="7" width="22" height="16" rx="4" fill="url(#screen-grad)" stroke={`${accentColor}40`} strokeWidth="1" />
+          
+          {/* Screen Glass Glare reflection overlay */}
+          <rect x="5" y="7" width="22" height="16" rx="4" fill="url(#glare-grad)" pointerEvents="none" />
 
           {/* Eyes rendering based on state */}
           {state === 'sleeping' ? (
             <>
-              <path d="M9 14 Q11 17 13 14" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
-              <path d="M19 14 Q21 17 23 14" stroke="#818cf8" strokeWidth="1.5" strokeLinecap="round" fill="none" />
+              <path d="M9 14 Q11 17 13 14" stroke="#818cf8" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+              <path d="M19 14 Q21 17 23 14" stroke="#818cf8" strokeWidth="1.8" strokeLinecap="round" fill="none" />
             </>
           ) : state === 'tired' ? (
             <>
-              <path d="M9 13 H13 M9 15 H13" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M19 13 H23 M19 15 H23" stroke="#22d3ee" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M9 13 H13 M9 15 H13" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M19 13 H23 M19 15 H23" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
             </>
           ) : state === 'diagnostic' && wardrobe !== 'glasses' ? (
             <>
-              <rect x="7" y="11" width="18" height="6" rx="1.5" fill={`${accentColor}30`} stroke={accentColor} strokeWidth="1.5" />
+              <rect x="7" y="11" width="18" height="6" rx="1.5" fill={`${accentColor}25`} stroke={accentColor} strokeWidth="1.5" filter="url(#glow-visor-filter)" />
               <line x1="8" y1="14" x2="24" y2="14" stroke={accentColor} strokeWidth="1" strokeDasharray="2 2" />
             </>
           ) : state === 'disapproving' ? (
             <>
-              <path d="M8 11 L13 13" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" />
-              <path d="M24 11 L19 13" stroke="#f43f5e" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M8 11 L13 13" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M24 11 L19 13" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" />
               <circle cx="10.5" cy="15" r="1.5" fill="#f43f5e" />
               <circle cx="21.5" cy="15" r="1.5" fill="#f43f5e" />
+            </>
+          ) : state === 'typing' ? (
+            <>
+              {/* Squinting focused eyes */}
+              <path d="M9 14 L13 14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
+              <path d="M19 14 L23 14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
+              {/* Cute smile mouth */}
+              <path d="M14 17 Q16 19 18 17" stroke={accentColor} strokeWidth="1.5" strokeLinecap="round" fill="none" />
+              {/* Small typing hands below screen */}
+              <circle cx="12" cy="21" r="0.8" fill={accentColor} />
+              <circle cx="15" cy="22" r="0.8" fill={accentColor} />
+              <circle cx="17" cy="22" r="0.8" fill={accentColor} />
+              <circle cx="20" cy="21" r="0.8" fill={accentColor} />
             </>
           ) : (
             <>
@@ -130,6 +195,7 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
                 fill={accentColor}
                 animate={{ scaleY: [1, 1, 0.1, 1, 1] }}
                 transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
+                filter="url(#glow-visor-filter)"
               />
               <motion.circle
                 cx="21"
@@ -138,37 +204,69 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
                 fill={accentColor}
                 animate={{ scaleY: [1, 1, 0.1, 1, 1] }}
                 transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
+                filter="url(#glow-visor-filter)"
               />
-              <path d="M14 18 Q16 20 18 18" stroke={accentColor} strokeWidth="1" strokeLinecap="round" fill="none" />
+              <path d={`M14 18 Q16 ${20 + speechAmplitude * 6} 18 18`} stroke={accentColor} strokeWidth="1.2" strokeLinecap="round" fill="none" />
             </>
           )}
 
           {/* Wardrobe Sunglasses Overlay */}
           {wardrobe === 'glasses' && (
             <>
-              <rect x="6" y="11.5" width="9" height="5" rx="1" fill="rgba(244, 63, 94, 0.4)" stroke="#f43f5e" strokeWidth="1" />
-              <rect x="17" y="11.5" width="9" height="5" rx="1" fill="rgba(244, 63, 94, 0.4)" stroke="#f43f5e" strokeWidth="1" />
-              <line x1="15" y1="13.5" x2="17" y2="13.5" stroke="#f43f5e" strokeWidth="1" />
-              <line x1="4" y1="13" x2="6" y2="13.5" stroke="#f43f5e" strokeWidth="1" />
-              <line x1="28" y1="13" x2="26" y2="13.5" stroke="#f43f5e" strokeWidth="1" />
+              <rect x="6" y="11" width="9" height="5" rx="1.5" fill="rgba(244, 63, 94, 0.45)" stroke="#f43f5e" strokeWidth="1.5" />
+              <rect x="17" y="11" width="9" height="5" rx="1.5" fill="rgba(244, 63, 94, 0.45)" stroke="#f43f5e" strokeWidth="1.5" />
+              <line x1="15" y1="13" x2="17" y2="13" stroke="#f43f5e" strokeWidth="1.5" />
+              <line x1="4" y1="12" x2="6" y2="12.5" stroke="#f43f5e" strokeWidth="1.5" />
+              <line x1="28" y1="12" x2="26" y2="12.5" stroke="#f43f5e" strokeWidth="1.5" />
             </>
           )}
 
           {/* Wardrobe Construction Hat Overlay */}
           {wardrobe === 'construction_hat' && (
             <>
-              <path d="M8 7 C8 2.5 24 2.5 24 7 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="1" />
-              <path d="M4 7 H28" stroke="#d97706" strokeWidth="1.5" strokeLinecap="round" />
-              <rect x="14" y="3.5" width="4" height="3.5" fill="#d97706" />
+              <path d="M8 7 C8 2 24 2 24 7 Z" fill="url(#yellow-hat-grad)" stroke="#92400e" strokeWidth="1" />
+              <path d="M4 7 H28" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
+              <rect x="14" y="3" width="4" height="4" fill="#d97706" rx="0.5" />
             </>
           )}
 
           {/* Wardrobe Detective Hat Overlay */}
           {wardrobe === 'detective_hat' && (
             <>
-              <path d="M9 7.2 C9 3.5 13 2.5 16 3.5 C19 2.5 23 3.5 23 7.2 Z" fill="#78350f" stroke="#451a03" strokeWidth="1" />
-              <rect x="9.5" y="6" width="13" height="1" fill="#1e1b4b" />
-              <path d="M5 7.2 C10 6.2 22 6.2 27 7.2" stroke="#451a03" strokeWidth="1.2" strokeLinecap="round" />
+              <path d="M9 7 C9 2.5 13 2 16 3 C19 2 23 2.5 23 7 Z" fill="url(#detective-grad)" stroke="#270e00" strokeWidth="1" />
+              <rect x="9.5" y="5.8" width="13" height="1.2" fill="#0f172a" />
+              <path d="M5 7 C10 6 22 6 27 7" stroke="#270e00" strokeWidth="1.5" strokeLinecap="round" />
+            </>
+          )}
+
+          {/* Wardrobe Crown Overlay */}
+          {wardrobe === 'crown' && (
+            <>
+              {/* Crown base */}
+              <path d="M8 8 L10 4 L13 7.5 L16 2.5 L19 7.5 L22 4 L24 8 Z" fill="url(#crown-grad)" stroke="#9a3412" strokeWidth="1" />
+              {/* Little circles on tips */}
+              <circle cx="10" cy="4" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
+              <circle cx="16" cy="2.5" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
+              <circle cx="22" cy="4" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
+            </>
+          )}
+
+          {/* Wardrobe Developer Hoodie Overlay */}
+          {wardrobe === 'dev_hoodie' && (
+            <>
+              {/* Hoodie background cap */}
+              <path d="M 2,11 C 2,3.5 30,3.5 30,11 L 30,22 C 30,22 28,24.5 26,24.5 C 24,24.5 22,22 22,22 L 10,22 C 10,22 8,24.5 6,24.5 C 4,24.5 2,22 2,22 Z" fill="url(#hoodie-grad)" stroke="#18181b" strokeWidth="1" />
+              {/* Hoodie drawstrings */}
+              <line x1="13" y1="23" x2="13" y2="28" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="19" y1="23" x2="19" y2="28" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
+            </>
+          )}
+
+          {/* Wardrobe Cyberpunk Visor Overlay */}
+          {wardrobe === 'cyberpunk_visor' && (
+            <>
+              <polygon points="4,10 28,8 28,17 4,19" fill="url(#visor-grad)" stroke="#f472b6" strokeWidth="1.5" opacity="0.85" filter="url(#glow-visor-filter)" />
+              <line x1="4" y1="14" x2="28" y2="12" stroke="#38bdf8" strokeWidth="1.2" />
             </>
           )}
 
@@ -177,7 +275,7 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none' }: Masco
             state === 'sleeping' ? '#818cf8' :
             state === 'tired' ? '#22d3ee' :
             state === 'disapproving' ? '#f43f5e' : accentColor
-          } />
+          } filter="url(#glow-visor-filter)" />
           <line x1="16" y1="4.5" x2="16" y2="6" stroke="#27272a" strokeWidth="1" />
         </svg>
       </motion.div>
@@ -330,6 +428,7 @@ const playSoundEffect = (state: string) => {
 
 export default function Mascot({ mascotState: propMascotState }: { mascotState?: string }) {
   const [mascotState, setMascotState] = useState<string>('default');
+  const [speechAmplitude, setSpeechAmplitude] = useState<number>(0);
   const [activeWardrobe, setActiveWardrobe] = useState<string>(() => {
     return localStorage.getItem('meridian_mascot_wardrobe') || 'auto';
   });
@@ -337,12 +436,23 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     return localStorage.getItem('meridian_mascot_audio_fx') !== 'false';
   });
   const [showWardrobeMenu, setShowWardrobeMenu] = useState(false);
+  const [voiceLogs, setVoiceLogs] = useState<string[]>([]);
 
   useEffect(() => {
     if (propMascotState) {
       setMascotState(propMascotState);
     }
   }, [propMascotState]);
+
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    document.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
 
   useEffect(() => {
     playSoundEffect(mascotState);
@@ -359,9 +469,28 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         const item = event.payload?.item || 'auto';
         setActiveWardrobe(item);
       });
+      const unlistenAmplitude = listen('mascot-amplitude-changed', (event: any) => {
+        setSpeechAmplitude(event.payload?.amplitude || 0);
+      });
+      const unlistenUserTyping = listen('user-typing', () => {
+        setMascotState('typing');
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        typingTimeoutRef.current = setTimeout(() => {
+          setMascotState('default');
+        }, 1200);
+      });
+      const unlistenAutomation = listen('automation-state-changed', (event: any) => {
+        setIsAutomating(!!event.payload?.active);
+        setAutomatingTool(event.payload?.tool || '');
+      });
       return () => {
         unlistenState.then(fn => fn());
         unlistenWardrobe.then(fn => fn());
+        unlistenAmplitude.then(fn => fn());
+        unlistenUserTyping.then(fn => fn());
+        unlistenAutomation.then(fn => fn());
       };
     }
   }, []);
@@ -380,13 +509,19 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automatingTool, setAutomatingTool] = useState('');
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const appWindow = getCurrentWindow() as any;
   const colors = THEME_COLORS[theme] || THEME_COLORS.default;
 
   // Resolve actual accessory
   let equipped = activeWardrobe;
   if (activeWardrobe === 'auto') {
-    if (mascotState === 'diagnostic' || mascotState === 'tired') {
+    if (mascotState === 'crown') {
+      equipped = 'crown';
+    } else if (mascotState === 'diagnostic' || mascotState === 'tired') {
       equipped = 'construction_hat';
     } else if (mascotState === 'disapproving') {
       equipped = 'detective_hat';
@@ -574,6 +709,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       }
 
       setVoiceText(transcription);
+      setVoiceLogs(prev => [...prev.slice(-4), transcription]);
       setVoiceState('thinking');
 
       // Load model settings from localStorage
@@ -713,6 +849,13 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
+      {isAutomating && (
+        <div className="absolute inset-0 rounded-xl border border-amber-500/80 shadow-[0_0_15px_rgba(245,158,11,0.5)] animate-pulse pointer-events-none z-50 flex items-center justify-center bg-amber-500/5">
+          <span className="text-[9px] font-bold text-amber-400 uppercase tracking-widest bg-black/90 px-1.5 py-0.5 rounded border border-amber-500/40">
+            AUTO: {automatingTool}
+          </span>
+        </div>
+      )}
       <motion.div
         layout
         className={`w-full h-full border flex flex-col transition-all duration-300 relative ${isCompactIdle ? 'p-1' : 'p-2.5'}`}
@@ -731,7 +874,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             data-tauri-drag-region 
             className="flex items-center justify-center gap-2.5 w-full h-full cursor-grab active:cursor-grabbing px-3.5"
           >
-            <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} />
+            <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} speechAmplitude={speechAmplitude} />
             <span className="text-[10px] font-bold text-zinc-300 tracking-widest uppercase truncate" data-tauri-drag-region>
               Meridian
             </span>
@@ -746,16 +889,50 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             >
               {/* Left: Mascot Character and text */}
               <div className="flex items-center gap-2.5 flex-1 min-w-0" data-tauri-drag-region>
-                <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} />
+                <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} speechAmplitude={speechAmplitude} />
 
-                <div className="flex flex-col flex-1 min-w-0" data-tauri-drag-region>
-                  <span className="text-[8px] uppercase font-bold tracking-wider text-zinc-500" data-tauri-drag-region>
-                    {voiceState !== 'idle' ? 'Voice Chat' : hudState === 'working' ? 'Agent Active' : hudState === 'success' ? 'Task Completed' : hudState === 'error' ? 'Task Alert' : 'System State'}
-                  </span>
-                  <span className="text-[10px] font-semibold text-zinc-100 truncate pr-2" data-tauri-drag-region>
-                    {displayStatusText}
-                  </span>
-                </div>
+                {voiceState === 'listening' || voiceState === 'speaking' ? (
+                  <div className="flex items-center gap-1.5 h-6 px-1 flex-1 justify-center overflow-hidden">
+                    <svg className="w-24 h-6 overflow-visible text-theme-accent" viewBox="0 0 100 24" fill="none">
+                      <motion.path
+                        d="M0 12 Q25 2, 50 12 T100 12"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        animate={{
+                          d: [
+                            "M0 12 Q25 2, 50 12 T100 12",
+                            "M0 12 Q25 22, 50 12 T100 12",
+                            "M0 12 Q25 2, 50 12 T100 12"
+                          ]
+                        }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      <motion.path
+                        d="M0 12 Q25 22, 50 12 T100 12"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                        opacity="0.5"
+                        animate={{
+                          d: [
+                            "M0 12 Q25 22, 50 12 T100 12",
+                            "M0 12 Q25 2, 50 12 T100 12",
+                            "M0 12 Q25 22, 50 12 T100 12"
+                          ]
+                        }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                    </svg>
+                  </div>
+                ) : (
+                  <div className="flex flex-col flex-1 min-w-0" data-tauri-drag-region>
+                    <span className="text-[8px] uppercase font-bold tracking-wider text-zinc-500" data-tauri-drag-region>
+                      {voiceState !== 'idle' ? 'Voice Chat' : hudState === 'working' ? 'Agent Active' : hudState === 'success' ? 'Task Completed' : hudState === 'error' ? 'Task Alert' : 'System State'}
+                    </span>
+                    <span className="text-[10px] font-semibold text-zinc-100 truncate pr-2" data-tauri-drag-region>
+                      {displayStatusText}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Right: Actions */}
@@ -844,6 +1021,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                     { id: 'glasses', name: 'Glasses' },
                     { id: 'construction_hat', name: 'Helmet' },
                     { id: 'detective_hat', name: 'Fedora' },
+                    { id: 'crown', name: 'Crown' },
                     { id: 'none', name: 'None' }
                   ].map(item => (
                     <button
@@ -872,7 +1050,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
             {/* Expanded Details Pane */}
             <AnimatePresence>
-              {isExpanded && hudState === 'working' && (
+              {isExpanded && (
                 <motion.div 
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -881,24 +1059,46 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   className="flex-1 mt-2.5 border-t border-zinc-800/50 pt-2 flex flex-col justify-between overflow-hidden"
                 >
                   {/* Steps / Logs Panel */}
-                  <div className="flex-1 flex flex-col min-h-0">
-                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-                      <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
-                      <span>Live Step Ticker</span>
-                    </span>
-                    <div className="flex-1 overflow-y-auto max-h-[100px] font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
-                      {recentThoughts.length === 0 ? (
-                        <div className="text-zinc-600 italic">Initializing local agent...</div>
-                      ) : (
-                        recentThoughts.map((thought, idx) => (
-                          <div key={thought.id || idx} className="flex gap-1.5 items-start leading-tight">
-                            <span className="text-amber-500 flex-shrink-0">❯</span>
-                            <div className="flex-1 truncate">
-                              {thought.tool && (
-                                <span className="text-zinc-500 font-bold mr-1">[{thought.tool}]</span>
-                              )}
-                              <span className="text-zinc-300">{thought.text}</span>
+                  {hudState === 'working' && (
+                    <div className="flex-1 flex flex-col min-h-0">
+                      <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
+                        <span>Live Step Ticker</span>
+                      </span>
+                      <div className="flex-1 overflow-y-auto max-h-[70px] font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
+                        {recentThoughts.length === 0 ? (
+                          <div className="text-zinc-600 italic">Initializing local agent...</div>
+                        ) : (
+                          recentThoughts.map((thought, idx) => (
+                            <div key={thought.id || idx} className="flex gap-1.5 items-start leading-tight">
+                              <span className="text-amber-500 flex-shrink-0">❯</span>
+                              <div className="flex-1 truncate">
+                                {thought.tool && (
+                                  <span className="text-zinc-500 font-bold mr-1">[{thought.tool}]</span>
+                                )}
+                                <span className="text-zinc-300">{thought.text}</span>
+                              </div>
                             </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Voice Transcription History */}
+                  <div className="flex-1 flex flex-col min-h-0 border-t border-zinc-900 pt-1.5 mt-1.5">
+                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
+                      <Mic className="w-2.5 h-2.5 text-theme-accent" />
+                      <span>Voice Command History</span>
+                    </span>
+                    <div className="max-h-[50px] overflow-y-auto font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
+                      {voiceLogs.length === 0 ? (
+                        <div className="text-zinc-650 italic">No voice sessions recorded.</div>
+                      ) : (
+                        voiceLogs.map((logStr, idx) => (
+                          <div key={idx} className="flex gap-1.5 items-start leading-tight">
+                            <span className="text-zinc-500">{idx + 1}.</span>
+                            <span className="text-zinc-300">{logStr}</span>
                           </div>
                         ))
                       )}

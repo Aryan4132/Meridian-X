@@ -103,10 +103,54 @@ async def lifespan(app: FastAPI):
         start_workspace_watcher(".")
     except Exception as e:
         print("Failed to start workspace watcher:", e)
+    try:
+        from src.voice.wakeword import start_wakeword_monitoring
+        start_wakeword_monitoring()
+    except Exception as e:
+        print("Failed to start wake word monitoring:", e)
+    try:
+        from src.core.telegram_bridge import start_telegram_bridge
+        start_telegram_bridge()
+    except Exception as e:
+        print("Failed to start Telegram bridge:", e)
+    try:
+        from src.core.whatsapp_bridge import start_whatsapp_bridge
+        start_whatsapp_bridge()
+    except Exception as e:
+        print("Failed to start WhatsApp bridge:", e)
+
+    try:
+        from src.core.doc_indexer import index_docs_directory
+        from src.core.history_manager import find_workspace_root
+        import threading
+        workspace_dir = find_workspace_root()
+        docs_dir = os.path.join(workspace_dir, ".meridian", "docs")
+        if os.path.exists(docs_dir):
+            threading.Thread(target=index_docs_directory, args=(docs_dir,), daemon=True).start()
+            print("Triggered initial offline docs indexer scan.")
+        else:
+            print(f"[Docs Indexer] No offline docs folder found at: {docs_dir}")
+    except Exception as e:
+        print("Failed to trigger doc indexer:", e)
 
     yield
 
     # Shutdown operations
+    try:
+        from src.core.telegram_bridge import stop_telegram_bridge
+        stop_telegram_bridge()
+    except Exception as e:
+        print("Failed to stop Telegram bridge:", e)
+    try:
+        from src.core.whatsapp_bridge import stop_whatsapp_bridge
+        stop_whatsapp_bridge()
+    except Exception as e:
+        print("Failed to stop WhatsApp bridge:", e)
+    try:
+        from src.voice.wakeword import stop_wakeword_monitoring
+        stop_wakeword_monitoring()
+    except Exception as e:
+        print("Failed to stop wake word monitoring:", e)
     try:
         from src.core.watcher import stop_workspace_watcher
         stop_workspace_watcher()
@@ -494,9 +538,60 @@ def tts_synthesize(request: TTSRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}")
 
+def check_shortcut_command(prompt: str) -> Optional[dict]:
+    p = prompt.strip().lower().strip(".?!")
+    
+    # 1. Run tests
+    if p in ["run tests", "run test", "execute tests", "test codebase", "run unit tests", "test"]:
+        print("[Shortcut Engine] Bypassing LLM. Executing run_tests directly.")
+        from src.tools.developer import run_tests
+        res = run_tests()
+        return {
+            "text": f"Bypassed LLM reasoning (Sub-100ms execute).\n\n**Test Results:**\n{res}",
+            "thoughts": [{"id": f"shortcut-step-{int(time.time())}", "type": "exec", "text": "Direct voice shortcut triggered: run_tests", "tool": "run_tests", "status": "completed"}]
+        }
+        
+    # 2. Git Status
+    if p in ["git status", "repository status", "check git", "status of repo", "repo status"]:
+        print("[Shortcut Engine] Bypassing LLM. Executing git_status directly.")
+        from src.tools.developer import git_status
+        res = git_status()
+        return {
+            "text": f"Bypassed LLM reasoning (Sub-100ms execute).\n\n**Git Status:**\n{res}",
+            "thoughts": [{"id": f"shortcut-step-{int(time.time())}", "type": "exec", "text": "Direct voice shortcut triggered: git_status", "tool": "git_status", "status": "completed"}]
+        }
+        
+    # 3. System info
+    if p in ["system info", "check resources", "system usage", "check system", "resource usage"]:
+        print("[Shortcut Engine] Bypassing LLM. Executing get_system_info directly.")
+        from src.tools.system import get_system_info
+        res = get_system_info()
+        return {
+            "text": f"Bypassed LLM reasoning (Sub-100ms execute).\n\n**System Resource Usage:**\n{res}",
+            "thoughts": [{"id": f"shortcut-step-{int(time.time())}", "type": "exec", "text": "Direct voice shortcut triggered: get_system_info", "tool": "get_system_info", "status": "completed"}]
+        }
+        
+    return None
+
 @app.post("/api/chat")
 def chat(request: ChatRequest):
     try:
+        # Check voice/hotkey shortcuts first
+        shortcut = check_shortcut_command(request.prompt)
+        if shortcut:
+            try:
+                from src.voice.wakeword import resume_wakeword
+                resume_wakeword()
+            except Exception:
+                pass
+            return shortcut
+
+        try:
+            from src.voice.wakeword import pause_wakeword
+            pause_wakeword()
+        except Exception:
+            pass
+            
         # Check semantic cache first
         cached = check_semantic_cache(request.prompt)
         if cached:
@@ -506,6 +601,13 @@ def chat(request: ChatRequest):
             add_to_conversations("user", request.prompt)
             add_to_conversations("assistant", cached)
             add_to_task_log("semantic_cache", 0, "success")
+            
+            try:
+                from src.voice.wakeword import resume_wakeword
+                resume_wakeword()
+            except Exception:
+                pass
+                
             return {"text": cached, "thoughts": thoughts}
 
         # Log conversation and audit trail
@@ -521,12 +623,36 @@ def chat(request: ChatRequest):
         log_finetune_data(request.prompt, result.get("text", ""))
         add_to_task_log("ollama_api", 2, "success")
 
+        try:
+            from src.voice.wakeword import resume_wakeword
+            resume_wakeword()
+        except Exception:
+            pass
+
         return result
     except Exception as e:
         add_to_task_log("ollama_api", 2, "failed", str(e))
+        try:
+            from src.voice.wakeword import resume_wakeword
+            resume_wakeword()
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=str(e))
 @app.post("/api/chat/stream")
 def chat_stream(request: ChatRequest):
+    shortcut = check_shortcut_command(request.prompt)
+    if shortcut:
+        async def shortcut_generator():
+            import json
+            yield f"event: thought\ndata: {json.dumps(shortcut['thoughts'][0])}\n\n"
+            yield f"event: text\ndata: {shortcut['text']}\n\n"
+            try:
+                from src.voice.wakeword import resume_wakeword
+                resume_wakeword()
+            except Exception:
+                pass
+        return StreamingResponse(shortcut_generator(), media_type="text/event-stream")
+
     model_source = request.modelSettings.modelSource
     api_provider = request.modelSettings.apiProvider
     brain_model = request.modelSettings.brainModel if model_source == "local" else request.modelSettings.selectedModel
@@ -539,8 +665,25 @@ def chat_stream(request: ChatRequest):
     except Exception:
         pass
 
+    try:
+        from src.voice.wakeword import pause_wakeword
+        pause_wakeword()
+    except Exception:
+        pass
+
+    async def run_react_agent_loop_wrapped(*args, **kwargs):
+        try:
+            async for event in run_react_agent_loop(*args, **kwargs):
+                yield event
+        finally:
+            try:
+                from src.voice.wakeword import resume_wakeword
+                resume_wakeword()
+            except Exception:
+                pass
+
     return StreamingResponse(
-        run_react_agent_loop(
+        run_react_agent_loop_wrapped(
             request.prompt,
             brain_model,
             ollama_host,
@@ -662,6 +805,38 @@ def watcher_list():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class GameModeRequest(BaseModel):
+    game_mode: bool
+
+@app.get("/api/game-mode")
+def get_game_mode():
+    try:
+        from src.core import proactive
+        return {"game_mode": proactive.game_mode_active, "auto_game_mode": proactive.auto_game_mode_active}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/game-mode")
+def set_game_mode(request: GameModeRequest):
+    try:
+        from src.core import proactive
+        proactive.game_mode_active = request.game_mode
+        # If user manually changes it, we reset the auto_game_mode flag
+        proactive.auto_game_mode_active = False
+        
+        # Publish state change nudge to event bus to notify all connected clients
+        from src.core.proactive import publish_nudge_sync
+        publish_nudge_sync(
+            nudge_type="game_mode_changed",
+            title="Game Mode Update",
+            message="enabled" if request.game_mode else "disabled",
+            icon="🎮",
+            action="game_mode_update"
+        )
+        return {"status": "success", "game_mode": proactive.game_mode_active}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ProposeHealRequest(BaseModel):
     file_path: str
     error_message: str
@@ -670,6 +845,7 @@ class ApplyHealRequest(BaseModel):
     file_path: str
     proposed_code: str
     secret_to_env: Optional[str] = None
+    checkpoint_id: Optional[str] = None
 
 @app.post("/api/watcher/propose-heal")
 def propose_heal(request: ProposeHealRequest):
@@ -732,6 +908,13 @@ def propose_heal(request: ProposeHealRequest):
 @app.post("/api/watcher/apply-heal")
 def apply_heal(request: ApplyHealRequest):
     try:
+        if request.checkpoint_id:
+            try:
+                from src.core.history_manager import create_checkpoint
+                create_checkpoint(request.checkpoint_id)
+            except Exception as che:
+                print(f"[History Manager] Failed to create checkpoint: {che}")
+
         abs_path = os.path.abspath(request.file_path)
         
         # Write proposed code to the file
@@ -750,7 +933,25 @@ def apply_heal(request: ApplyHealRequest):
             with open(env_file, "a", encoding="utf-8") as f:
                 f.write(f"\n{request.secret_to_env.strip()}\n")
 
+        from database import add_to_task_log
+        add_to_task_log("heal_file", 1, "success", f"Healed file: {request.file_path}")
+
         return {"status": "success", "message": f"Successfully applied changes to {request.file_path}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class RollbackRequest(BaseModel):
+    checkpoint_id: str
+
+@app.post("/api/history/rollback")
+def rollback_workspace(request: RollbackRequest):
+    try:
+        from src.core.history_manager import rollback_to_checkpoint
+        success = rollback_to_checkpoint(request.checkpoint_id)
+        if success:
+            return {"status": "success", "message": f"Successfully rolled back to checkpoint '{request.checkpoint_id}'"}
+        else:
+            raise HTTPException(status_code=400, detail=f"Checkpoint '{request.checkpoint_id}' not found or rollback failed.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -834,6 +1035,178 @@ def profile_get(key: str):
         return {"key": key, "value": val}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class SandboxRequest(BaseModel):
+    code: str
+    timeout: Optional[float] = 10.0
+
+@app.get("/api/developer/stats")
+def get_developer_stats():
+    from database import get_sqlite_conn, get_user_profile
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        
+        # Total tasks
+        cursor.execute("SELECT COUNT(*) FROM task_log")
+        total_tasks = cursor.fetchone()[0]
+        
+        # Success tasks
+        cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'success'")
+        success_tasks = cursor.fetchone()[0]
+        
+        # Failed tasks
+        cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'failed'")
+        failed_tasks = cursor.fetchone()[0]
+        
+        # Security audits (tier >= 2)
+        cursor.execute("SELECT COUNT(*) FROM task_log WHERE tier >= 2")
+        security_audits = cursor.fetchone()[0]
+
+        # Successful heals
+        cursor.execute("SELECT COUNT(*) FROM task_log WHERE tool = 'heal_file' AND outcome = 'success'")
+        successful_heals = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        # Pomodoros completed
+        pomodoros = get_user_profile("pomodoros_completed")
+        if pomodoros is None:
+            pomodoros = 0
+        try:
+            pomodoros = int(pomodoros)
+        except Exception:
+            pomodoros = 0
+
+        # Git commits
+        import subprocess
+        try:
+            res = subprocess.run(["git", "rev-list", "--count", "HEAD"], capture_output=True, text=True)
+            git_commits = int(res.stdout.strip()) if res.returncode == 0 else 0
+        except Exception:
+            git_commits = 0
+            
+        return {
+            "total_tasks": total_tasks,
+            "success_tasks": success_tasks,
+            "failed_tasks": failed_tasks,
+            "security_audits": security_audits,
+            "pomodoros": pomodoros,
+            "successful_heals": successful_heals,
+            "git_commits": git_commits
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/profile/pomodoro/increment")
+def increment_pomodoro():
+    from database import get_user_profile, save_user_profile
+    try:
+        current = get_user_profile("pomodoros_completed")
+        if current is None:
+            current = 0
+        try:
+            current = int(current)
+        except Exception:
+            current = 0
+        new_val = current + 1
+        save_user_profile("pomodoros_completed", new_val)
+        return {"status": "success", "pomodoros_completed": new_val}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/sandbox/run")
+def sandbox_run(request: SandboxRequest):
+    import ast
+    import json
+    import ollama
+    from src.tools.developer import run_python
+    from database import add_to_task_log
+    
+    # 1. AST Syntax Check
+    try:
+        ast.parse(request.code)
+    except SyntaxError as se:
+        add_to_task_log("sandbox_run", 2, "failed", f"Syntax Error: {se.msg} (line {se.lineno})")
+        # Write code to sandbox_temp.py so watcher proposal can read it
+        temp_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "sandbox_temp.py")
+        try:
+            with open(temp_file_path, "w", encoding="utf-8") as tf:
+                tf.write(request.code)
+        except Exception:
+            pass
+            
+        return {
+            "status": "syntax_error",
+            "message": f"Syntax Error: {se.msg} on line {se.lineno}",
+            "lineno": se.lineno,
+            "offset": se.offset,
+            "text": se.text,
+            "file_path": "sandbox_temp.py"
+        }
+        
+    # 2. Security Auditor consensus check
+    ollama_host = get_ollama_client_host()
+    client = ollama.Client(host=ollama_host)
+    auditor_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+    
+    args_str = json.dumps({"code": request.code})
+    audit_prompt = (
+        f"You are the Meridian Security Auditor. Assess if the following Python code execution is safe and does not contain vulnerabilities, dangerous file deletions, shell injections, or malicious system commands.\n"
+        f"Arguments: {args_str}\n\n"
+        f"Respond ONLY in this exact format:\n"
+        f"REASONING: <brief analysis of the arguments>\n"
+        f"DECISION: <APPROVED or REJECTED>"
+    )
+    
+    decision = "APPROVED"
+    reasoning = "Default approved."
+    try:
+        audit_res = client.generate(model=auditor_model, prompt=audit_prompt)
+        audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
+        for line in audit_text.split("\n"):
+            if line.upper().startswith("DECISION:"):
+                decision = line.split(":", 1)[1].strip().upper()
+            elif line.upper().startswith("REASONING:"):
+                reasoning = line.split(":", 1)[1].strip()
+    except Exception as e:
+        try:
+            main_model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+            audit_res = client.generate(model=main_model, prompt=audit_prompt)
+            audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
+            for line in audit_text.split("\n"):
+                if line.upper().startswith("DECISION:"):
+                    decision = line.split(":", 1)[1].strip().upper()
+                elif line.upper().startswith("REASONING:"):
+                    reasoning = line.split(":", 1)[1].strip()
+        except Exception as ex:
+            decision = "REJECTED"
+            reasoning = f"Security auditor failed to load: {ex}"
+            
+    if "REJECTED" in decision:
+        add_to_task_log("sandbox_run", 2, "blocked", f"Rejected by Security Auditor: {reasoning}")
+        return {
+            "status": "blocked",
+            "message": f"Execution blocked by Security Auditor:\n{reasoning}"
+        }
+        
+    # 3. Execute python
+    add_to_task_log("sandbox_run", 2, "started")
+    try:
+        output = run_python(request.code, timeout=request.timeout)
+        add_to_task_log("sandbox_run", 2, "success")
+        return {
+            "status": "success",
+            "output": output,
+            "auditor_reasoning": reasoning
+        }
+    except Exception as e:
+        add_to_task_log("sandbox_run", 2, "failed", str(e))
+        return {
+            "status": "error",
+            "message": f"Execution failed: {str(e)}"
+        }
+
 
 class ClipboardRequest(BaseModel):
     text: str
@@ -921,14 +1294,255 @@ def graph_all():
     return {"nodes": nodes, "edges": edges}
 
 
+class ToolGenerateRequest(BaseModel):
+    prompt: str
+
+@app.post("/api/tools/generate")
+def api_generate_tool(request: ToolGenerateRequest):
+    try:
+        from src.tools.dynamic_manager import generate_dynamic_tool
+        result = generate_dynamic_tool(request.prompt)
+        return {"status": "success", "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/whatsapp/qr")
+def get_whatsapp_qr():
+    try:
+        from src.core.whatsapp_bridge import get_whatsapp_qr_path
+        from fastapi.responses import FileResponse
+        qr_path = get_whatsapp_qr_path()
+        if qr_path and os.path.exists(qr_path):
+            return FileResponse(qr_path, media_type="image/png")
+        raise HTTPException(status_code=404, detail="No active WhatsApp authentication pending.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vision/screenshot")
+def api_vision_screenshot():
+    try:
+        import tempfile
+        import base64
+        from src.tools.desktop import screenshot, ocr_screen
+        
+        # Save screenshot to temp file
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, "meridian_vision_capture.png")
+        
+        # Capture screenshot
+        screenshot(temp_path)
+        
+        # Perform local OCR analysis
+        ocr_text = ""
+        try:
+            ocr_text = ocr_screen(temp_path)
+        except Exception as ocr_err:
+            ocr_text = f"OCR failed: {ocr_err}"
+            
+        # Encode screenshot image to base64
+        with open(temp_path, "rb") as img_file:
+            b64_image = base64.b64encode(img_file.read()).decode("utf-8")
+            
+        # Clean up temp file
+        try:
+            os.remove(temp_path)
+        except Exception:
+            pass
+            
+        return {
+            "status": "success",
+            "image": f"data:image/png;base64,{b64_image}",
+            "ocr_text": ocr_text
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/voice/record")
 def voice_record():
     try:
+        try:
+            from src.voice.wakeword import pause_wakeword
+            pause_wakeword()
+        except Exception:
+            pass
+            
         from src.voice.stt import record_and_transcribe
         text = record_and_transcribe(duration_seconds=4.0)
+        
+        try:
+            from src.voice.wakeword import resume_wakeword
+            resume_wakeword()
+        except Exception:
+            pass
+            
         return {"status": "success", "text": text}
     except Exception as e:
+        try:
+            from src.voice.wakeword import resume_wakeword
+            resume_wakeword()
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail=f"Voice capture failed: {str(e)}")
+
+@app.post("/api/voice/interrupt")
+def voice_interrupt():
+    try:
+        from src.core.loop import interrupt_agent_loop
+        interrupt_agent_loop()
+        return {"status": "success", "message": "Inference and stream playback interrupted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ----------------- P2P SWARM SYNC ROUTES -----------------
+@app.get("/api/p2p/status")
+def get_p2p_status():
+    from src.core.p2p import p2p_node, _server_running
+    return {
+        "active": _server_running,
+        "host": p2p_node.host,
+        "port": p2p_node.port,
+        "peers_count": len(p2p_node.peers),
+        "peers": [f"{ip}:{port}" for ip, port in p2p_node.peers],
+        "secret_token_configured": bool(os.environ.get("P2P_SECRET_TOKEN"))
+    }
+
+@app.post("/api/p2p/sync")
+def post_p2p_sync():
+    from src.core.p2p import p2p_node, _server_running
+    if not _server_running:
+        raise HTTPException(status_code=400, detail="P2P Sync server is not active.")
+    try:
+        log = p2p_node.sync_now()
+        return {"status": "success", "log": log}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/p2p/toggle")
+def post_p2p_toggle():
+    from src.core.p2p import p2p_node, _server_running
+    try:
+        if _server_running:
+            msg = p2p_node.stop()
+            active = False
+        else:
+            msg = p2p_node.start()
+            active = True
+        return {"status": "success", "message": msg, "active": active}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class LobbyDebateRequest(BaseModel):
+    prompt: str
+
+@app.post("/api/lobby/debate")
+async def lobby_debate(request: LobbyDebateRequest):
+    try:
+        import ollama
+        client = ollama.Client(host=get_ollama_client_host())
+        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+        
+        # Turn 1: Coder
+        coder_prompt = (
+            f"You are the Coder agent in a developer sandbox. Your task is to write a clean, efficient "
+            f"implementation for the following user request:\n"
+            f"Request: {request.prompt}\n\n"
+            f"Output your implementation along with a brief description of your strategy. Do not wrap the final code yet."
+        )
+        coder_res = client.generate(model=model, prompt=coder_prompt)
+        coder_msg = coder_res.get("response", "").strip()
+        
+        # Turn 2: QA Tester
+        qa_prompt = (
+            f"You are the QA Tester agent in the developer sandbox. Review the Coder's implementation below "
+            f"for the user request: '{request.prompt}'.\n\n"
+            f"Coder's response:\n{coder_msg}\n\n"
+            f"Point out potential bugs, edge cases, incorrect assumptions, or performance issues in their code. Suggest fixes."
+        )
+        qa_res = client.generate(model=model, prompt=qa_prompt)
+        qa_msg = qa_res.get("response", "").strip()
+        
+        # Turn 3: Auditor
+        auditor_prompt = (
+            f"You are the Security & Performance Auditor agent in the developer sandbox. Review the Coder's "
+            f"implementation and QA's critique below.\n\n"
+            f"Coder's response:\n{coder_msg}\n\n"
+            f"QA's critique:\n{qa_msg}\n\n"
+            f"Analyze security vulnerabilities (e.g. SQL injection, path traversal, buffer overflows), resource efficiency, "
+            f"and overall readability. Propose optimizations."
+        )
+        auditor_res = client.generate(model=model, prompt=auditor_prompt)
+        auditor_msg = auditor_res.get("response", "").strip()
+        
+        # Turn 4: Coder (Final Resolution & Code block output)
+        final_prompt = (
+            f"You are the Coder agent. Incorporate all feedback from the QA Tester and Auditor to "
+            f"provide a final, production-ready, highly secure, and optimized code implementation for the request: '{request.prompt}'.\n\n"
+            f"History:\n"
+            f"- Coder Draft: {coder_msg}\n"
+            f"- QA Feedback: {qa_msg}\n"
+            f"- Auditor Security Review: {auditor_msg}\n\n"
+            f"Provide your final explanation of the changes made, followed by the complete code block wrapped in standard markdown code fences (e.g. ```python ... ```)."
+        )
+        final_res = client.generate(model=model, prompt=final_prompt)
+        final_msg = final_res.get("response", "").strip()
+        
+        # Extract the proposed code from final_msg code blocks
+        import re
+        proposed_code = ""
+        code_block_match = re.findall(r'```(?:python|javascript|typescript|json|html|css|bash|powershell|sql|rs|cpp|c)?\n(.*?)```', final_msg, re.DOTALL)
+        if code_block_match:
+            proposed_code = code_block_match[-1].strip()
+        else:
+            # Fallback if no fence blocks found
+            proposed_code = final_msg
+            
+        return {
+            "status": "success",
+            "debate": [
+                {"agent": "Coder", "avatar": "👨‍💻", "message": coder_msg},
+                {"agent": "QA Tester", "avatar": "🧪", "message": qa_msg},
+                {"agent": "Auditor", "avatar": "🔍", "message": auditor_msg},
+                {"agent": "Coder (Final)", "avatar": "🚀", "message": final_msg}
+            ],
+            "proposed_code": proposed_code
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lobby debate failed: {str(e)}")
+
+@app.get("/api/codebase/graph")
+def get_codebase_graph():
+    try:
+        from src.core.code_graph import get_codebase_graph_json
+        return get_codebase_graph_json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/docs/search")
+def search_docs(query: str, limit: int = 5):
+    try:
+        from src.core.doc_indexer import search_offline_docs
+        results = search_offline_docs(query, limit)
+        return {"status": "success", "results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class PowerSaveRequest(BaseModel):
+    active: bool
+
+@app.post("/api/system/power-save")
+def toggle_power_save(request: PowerSaveRequest):
+    try:
+        active = request.active
+        if active:
+            os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:1.5b-instruct-q8_0"
+            print("[Resource Governor] Power-Saving Mode activated. Model set to Qwen 1.5B.")
+            return {"status": "success", "message": "Power-Saving Mode activated. Using lightweight fallback model."}
+        else:
+            os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:7b-instruct-q4_K_M"
+            print("[Resource Governor] Power-Saving Mode deactivated. Model restored to Qwen 7B.")
+            return {"status": "success", "message": "Power-Saving Mode deactivated. Restored default model."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
