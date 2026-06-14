@@ -10,6 +10,13 @@ echo ===================================================
 echo   Starting new Backend instance in the background...
 echo ===================================================
 cd meridian_backend
+if not exist venv (
+    echo [System] Creating Python virtual environment...
+    python -m venv venv
+    call venv\Scripts\activate.bat
+    echo [System] Installing dependencies...
+    pip install -r requirements.txt
+)
 powershell -Command "Start-Process cmd -ArgumentList '/c call venv\Scripts\activate.bat && python api.py' -WorkingDirectory '.' -WindowStyle Hidden"
 
 echo Done! Backend has been restarted.

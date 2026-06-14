@@ -5,21 +5,21 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Terminal, 
-  Settings, 
-  Trash2, 
-  Mic, 
-  MicOff, 
-  Send, 
-  Square, 
-  Cpu, 
+import {
+  Terminal,
+  Settings,
+  Trash2,
+  Mic,
+  MicOff,
+  Send,
+  Square,
+  Cpu,
   Database,
-  CheckCircle2, 
-  AlertCircle, 
-  Loader2, 
-  Command, 
-  Sparkles, 
+  CheckCircle2,
+  AlertCircle,
+  Loader2,
+  Command,
+  Sparkles,
   Activity,
   CornerDownLeft,
   Settings2,
@@ -31,16 +31,13 @@ import {
   Search,
   RefreshCw,
   Crown,
-  Link,
   Share2,
   Clock,
   MessageSquare,
   Trophy,
-  BookOpen,
-  Shirt,
   Clipboard,
-  Code,
-  Briefcase
+  Briefcase,
+  Shield
 } from 'lucide-react';
 import { Message, ThoughtStep, ModelSettings, SystemResource, ProactiveNudge } from './types';
 
@@ -281,6 +278,9 @@ const playUISound = (type: 'hover' | 'click' | 'success' | 'error') => {
     const isEnabled = localStorage.getItem('meridian_ui_sound_effects') !== 'false';
     if (!isEnabled) return;
 
+    const volumeStr = localStorage.getItem('meridian_ui_volume');
+    const volume = volumeStr !== null ? parseFloat(volumeStr) : 0.5;
+
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
@@ -292,26 +292,26 @@ const playUISound = (type: 'hover' | 'click' | 'success' | 'error') => {
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(1400, now);
-      gain.gain.setValueAtTime(0.015, now);
+      gain.gain.setValueAtTime(0.015 * volume, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.01);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.01);
-    } 
+    }
     else if (type === 'click') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(800, now);
       osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
-      gain.gain.setValueAtTime(0.04, now);
+      gain.gain.setValueAtTime(0.04 * volume, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start(now);
       osc.stop(now + 0.04);
-    } 
+    }
     else if (type === 'success') {
       const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
       notes.forEach((freq, idx) => {
@@ -319,14 +319,14 @@ const playUISound = (type: 'hover' | 'click' | 'success' | 'error') => {
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(freq, now + idx * 0.06);
-        gain.gain.setValueAtTime(0.03, now + idx * 0.06);
+        gain.gain.setValueAtTime(0.03 * volume, now + idx * 0.06);
         gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.06 + 0.12);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now + idx * 0.06);
         osc.stop(now + idx * 0.06 + 0.12);
       });
-    } 
+    }
     else if (type === 'error') {
       const osc1 = ctx.createOscillator();
       const osc2 = ctx.createOscillator();
@@ -335,7 +335,7 @@ const playUISound = (type: 'hover' | 'click' | 'success' | 'error') => {
       osc2.type = 'sawtooth';
       osc1.frequency.setValueAtTime(150, now);
       osc2.frequency.setValueAtTime(155, now);
-      gain.gain.setValueAtTime(0.05, now);
+      gain.gain.setValueAtTime(0.05 * volume, now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
       osc1.connect(gain);
       osc2.connect(gain);
@@ -354,8 +354,8 @@ const renderDiffLines = (text: string, type: 'red' | 'green') => {
   if (!text) return null;
   const lines = text.split('\n');
   return lines.map((line, idx) => {
-    const bgClass = type === 'red' 
-      ? 'bg-rose-950/20 text-rose-300 border-l-2 border-rose-500/50' 
+    const bgClass = type === 'red'
+      ? 'bg-rose-950/20 text-rose-300 border-l-2 border-rose-500/50'
       : 'bg-emerald-950/20 text-emerald-300 border-l-2 border-emerald-500/50';
     return (
       <div key={idx} className={`font-mono text-[10px] py-0.5 px-2 select-text ${bgClass} hover:bg-opacity-40 transition-colors`}>
@@ -459,7 +459,7 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
             }
           }
         });
-      } 
+      }
       else if (theme === 'cyberpunk') {
         ctx.font = `${fontSize}px monospace`;
 
@@ -478,7 +478,7 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
           }
           rainDrops[i]++;
         }
-      } 
+      }
       else if (theme === 'amber') {
         ctx.fillStyle = 'rgba(255, 176, 0, 0.02)';
         ctx.fillRect(0, 0, width, height);
@@ -486,7 +486,7 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
         ctx.fillStyle = 'rgba(255, 176, 0, 0.04)';
         ctx.fillRect(0, amberScanlineY, width, 2);
         amberScanlineY = (amberScanlineY + 1) % height;
-      } 
+      }
       else if (theme === 'slate') {
         stars.forEach(s => {
           s.x -= s.speed * 8;
@@ -513,6 +513,8 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
 
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ mixBlendMode: 'screen' }} />;
 }
+
+
 
 export default function App() {
   const [messages, setMessages] = useState<Message[]>([
@@ -548,9 +550,22 @@ export default function App() {
     }
   });
 
+  const [uiVolume, setUiVolume] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('meridian_ui_volume');
+      return saved !== null ? parseFloat(saved) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+
   useEffect(() => {
     localStorage.setItem('meridian_ui_sound_effects', String(uiSoundEnabled));
   }, [uiSoundEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem('meridian_ui_volume', String(uiVolume));
+  }, [uiVolume]);
 
   useEffect(() => {
     localStorage.setItem('meridian_theme', theme);
@@ -566,15 +581,27 @@ export default function App() {
     };
   }, []);
 
-  // Tabbed sidebar states
-  const [sidebarTab, setSidebarTab] = useState<'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'sandbox' | 'lobby' | 'codemap' | 'docs' | 'closet'>('timeline');
+  const [sidebarTab, setSidebarTab] = useState<'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'settings'>('timeline');
+  const [jobsSubTab, setJobsSubTab] = useState<'runs' | 'ostasks'>('runs');
+
+  // Windows Tasks Scheduler states
+  const [winTasks, setWinTasks] = useState<any[]>([]);
+  const [winTasksLoading, setWinTasksLoading] = useState<boolean>(false);
+  const [newWinTask, setNewWinTask] = useState({ name: '', goal: '', schedule: 'daily', time: '', date: '' });
+
+  // Security Auditor states
+  const [securityAuditResult, setSecurityAuditResult] = useState<any | null>(null);
+  const [securityAuditing, setSecurityAuditing] = useState<boolean>(false);
+
+
+  // Ollama Model Manager states
+  const [ollamaPullName, setOllamaPullName] = useState<string>('');
+  const [ollamaPulling, setOllamaPulling] = useState<boolean>(false);
+  const [ollamaPullProgress, setOllamaPullProgress] = useState<string>('');
   const [lobbyPrompt, setLobbyPrompt] = useState<string>('');
   const [lobbyDebate, setLobbyDebate] = useState<{ agent: string; avatar: string; message: string }[]>([]);
   const [lobbyProposedCode, setLobbyProposedCode] = useState<string>('');
   const [isLobbyRunning, setIsLobbyRunning] = useState<boolean>(false);
-  const [codeGraph, setCodeGraph] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
-  const [selectedNode, setSelectedNode] = useState<any | null>(null);
-  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
   const [clipboardHistory, setClipboardHistory] = useState<any[]>([]);
   const [clipboardSearch, setClipboardSearch] = useState<string>('');
   const [devStats, setDevStats] = useState<any>({
@@ -584,27 +611,15 @@ export default function App() {
     security_audits: 0,
     pomodoros: 0
   });
-  const [sandboxCode, setSandboxCode] = useState<string>(
-    '# Write Python code here\nprint("Hello from Sandbox!")\nimport os\nprint("Current PID:", os.getpid())'
-  );
-  const [sandboxStatus, setSandboxStatus] = useState<'idle' | 'auditing' | 'executing' | 'success' | 'failed' | 'blocked' | 'syntax_error'>('idle');
-  const [sandboxOutput, setSandboxOutput] = useState<string>('');
-  const [sandboxAuditorReasoning, setSandboxAuditorReasoning] = useState<string>('');
-  const [sandboxSyntaxErr, setSandboxSyntaxErr] = useState<any | null>(null);
+
   const [backgroundRuns, setBackgroundRuns] = useState<any[]>([]);
   const [expandedRunIds, setExpandedRunIds] = useState<Record<number, boolean>>({});
 
   const [isAutomating, setIsAutomating] = useState(false);
   const [automatingTool, setAutomatingTool] = useState('');
 
-  // ── Code Map Filter and Search states ──────────────────────────────────────
-  const [codeMapFilter, setCodeMapFilter] = useState<'all' | 'py' | 'ts' | 'js'>('all');
-  const [codeMapSearch, setCodeMapSearch] = useState<string>('');
 
-  // ── Offline docs search states ─────────────────────────────────────────────
-  const [docsQuery, setDocsQuery] = useState('');
-  const [docsResults, setDocsResults] = useState<any[]>([]);
-  const [isSearchingDocs, setIsSearchingDocs] = useState(false);
+
   const [isDragging, setIsDragging] = useState(false);
   const [ingestStatus, setIngestStatus] = useState<'idle' | 'ingesting' | 'success' | 'error'>('idle');
   const [ingestMessage, setIngestMessage] = useState('');
@@ -612,6 +627,11 @@ export default function App() {
   // ── Sync mascot states locally for VAD and display ─────────────────────────
   const [mascotState, setMascotState] = useState<string>('default');
   const [speechAmplitude, setSpeechAmplitude] = useState<number>(0);
+
+  const toggleRecordingRef = useRef<any>(null);
+  useEffect(() => {
+    toggleRecordingRef.current = toggleRecording;
+  }, [toggleRecording]);
 
   useEffect(() => {
     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
@@ -625,6 +645,17 @@ export default function App() {
       });
       const unlistenMascotAmp = listen('mascot-amplitude-changed', (event: any) => {
         setSpeechAmplitude(event.payload?.amplitude || 0);
+      });
+      const unlistenStopSpeech = listen('stop-all-speech', (event: any) => {
+        if (event.payload?.sender !== 'app') {
+          if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current = null;
+          }
+          if (window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+          }
+        }
       });
       const unlistenDragDrop = listen('tauri://drag-drop', async (event: any) => {
         const paths: string[] = event.payload?.paths || (Array.isArray(event.payload) ? event.payload : []);
@@ -644,8 +675,16 @@ export default function App() {
               }
             }
             setIngestStatus('success');
-            setIngestMessage(`Successfully ingested ${paths.length} file(s) into RAG.`);
+            setIngestMessage(`Successfully ingested ${paths.length} file(s) into offline RAG.`);
             playUISound('success');
+
+            const successMsg: Message = {
+              id: 'ingest-success-' + Date.now(),
+              sender: 'assistant',
+              text: `Successfully indexed **${paths.map(p => p.split(/[\\/]/).pop()).join(', ')}** into the offline RAG search database. You can now query them in the chat!`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setMessages(prev => [...prev, successMsg]);
           } catch (err: any) {
             setIngestStatus('error');
             setIngestMessage(err.message || 'Error ingesting files via Tauri drop.');
@@ -653,11 +692,16 @@ export default function App() {
           }
         }
       });
+      const unlistenGlobalPtt = listen('global-push-to-talk', () => {
+        toggleRecordingRef.current?.();
+      });
       return () => {
         unlistenAutomation.then(fn => fn());
         unlistenMascotState.then(fn => fn());
         unlistenMascotAmp.then(fn => fn());
+        unlistenStopSpeech.then(fn => fn());
         unlistenDragDrop.then(fn => fn());
+        unlistenGlobalPtt.then(fn => fn());
       };
     }
   }, []);
@@ -679,10 +723,102 @@ export default function App() {
   useEffect(() => {
     if (sidebarTab === 'jobs' && backendConnected) {
       fetchBackgroundRuns();
-      const interval = setInterval(fetchBackgroundRuns, 4000);
+      fetchWinTasks();
+      const interval = setInterval(() => {
+        fetchBackgroundRuns();
+        fetchWinTasks();
+      }, 4000);
       return () => clearInterval(interval);
     }
   }, [sidebarTab, backendConnected]);
+
+  // Windows Scheduler Actions
+  const fetchWinTasks = async () => {
+    setWinTasksLoading(true);
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/list');
+      if (res.ok) {
+        const data = await res.json();
+        setWinTasks(data.tasks || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch windows tasks:", err);
+    } finally {
+      setWinTasksLoading(false);
+    }
+  };
+
+  const handleCreateWinTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWinTask.name.trim() || !newWinTask.goal.trim() || !newWinTask.time.trim()) return;
+    playUISound('click');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newWinTask.name,
+          goal: newWinTask.goal,
+          schedule: newWinTask.schedule,
+          time: newWinTask.time,
+          date: newWinTask.schedule === 'once' ? newWinTask.date : ''
+        })
+      });
+      if (res.ok) {
+        playUISound('success');
+        setNewWinTask({ name: '', goal: '', schedule: 'daily', time: '', date: '' });
+        fetchWinTasks();
+      } else {
+        const data = await res.json();
+        alert(`Failed to create task: ${data.detail || res.statusText}`);
+        playUISound('error');
+      }
+    } catch (err) {
+      playUISound('error');
+    }
+  };
+
+  const handleDeleteWinTask = async (name: string) => {
+    if (!confirm(`Are you sure you want to delete scheduled task "${name}"?`)) return;
+    playUISound('click');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) {
+        playUISound('success');
+        fetchWinTasks();
+      } else {
+        playUISound('error');
+      }
+    } catch (err) {
+      playUISound('error');
+    }
+  };
+
+  // Security Diagnostics Actions
+  const runSecurityAudit = async () => {
+    setSecurityAuditing(true);
+    setSecurityAuditResult(null);
+    playUISound('click');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/security/audit');
+      if (res.ok) {
+        const data = await res.json();
+        setSecurityAuditResult(data);
+        playUISound('success');
+      } else {
+        playUISound('error');
+      }
+    } catch (e) {
+      console.error("Error running security audit:", e);
+      playUISound('error');
+    } finally {
+      setSecurityAuditing(false);
+    }
+  };
 
   const [thoughts, setThoughts] = useState<ThoughtStep[]>([
     {
@@ -838,21 +974,28 @@ export default function App() {
   };
 
   const startMicBargeInMonitoring = async () => {
+    if (!voiceBargeInEnabled) return;
     stopMicBargeInMonitoring();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       activeMicStreamRef.current = stream;
-      
+
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
       analyser.fftSize = 512;
       source.connect(analyser);
-      
+
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       let consecutiveSpikes = 0;
-      
+
       const checkVolume = () => {
         if (!activeMicStreamRef.current) return;
         analyser.getByteFrequencyData(dataArray);
@@ -862,7 +1005,7 @@ export default function App() {
         }
         const average = sum / bufferLength;
         const normalizedVolume = average / 255;
-        
+
         if (normalizedVolume > 0.12) {
           consecutiveSpikes++;
           if (consecutiveSpikes >= 3) {
@@ -894,22 +1037,7 @@ export default function App() {
   };
 
   const playAlertTTS = async (text: string) => {
-    try {
-      const cleanText = text.replace(/<[^>]*>/g, '').trim();
-      const response = await fetch('http://127.0.0.1:8000/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: cleanText, voice: selectedVoice, lang: 'na' })
-      });
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        await audio.play();
-      }
-    } catch (e) {
-      console.error("Alert vocalizer TTS failed:", e);
-    }
+    speakResponse(text);
   };
 
   const triggerHealProposer = async (filePath: string, errorMessage: string, nudgeId: string) => {
@@ -946,7 +1074,7 @@ export default function App() {
           proposed: data.proposed,
           nudgeId
         });
-        
+
         if (errorMessage === 'secret_leak') {
           // Parse key to propose environment migration
           const match = data.original.match(/\b(api_key|client_secret|db_password|aws_secret|token|private_key)\b\s*=\s*['"]([^'"]+)['"]/i);
@@ -985,9 +1113,6 @@ export default function App() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
         setMessages(prev => [...prev, successMsg]);
-        if (diffData.filePath.endsWith("sandbox_temp.py")) {
-          setSandboxCode(diffData.proposed);
-        }
         setShowDiffModal(false);
         setDiffData(null);
         setCredentialSecret(null);
@@ -1041,7 +1166,7 @@ export default function App() {
     es.addEventListener('nudge', (e: MessageEvent) => {
       try {
         const nudge: ProactiveNudge = JSON.parse(e.data);
-        
+
         if (nudge.type === "game_mode_changed") {
           const enabled = nudge.message === "enabled";
           setGameMode(enabled);
@@ -1086,7 +1211,7 @@ export default function App() {
         const data = await res.json();
         if (data.history) setClipboardHistory(data.history);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   const fetchDevStats = async () => {
@@ -1096,7 +1221,7 @@ export default function App() {
         const data = await res.json();
         setDevStats(data);
       }
-    } catch (err) {}
+    } catch (err) { }
   };
 
   useEffect(() => {
@@ -1111,65 +1236,17 @@ export default function App() {
     }
   }, [backendConnected, sidebarTab]);
 
-  const initializeNodePositions = (nodes: any[]) => {
-    const width = 500;
-    const height = 400;
-    return nodes.map((node, i) => {
-      const angle = (i / nodes.length) * 2 * Math.PI;
-      const radius = 120 + Math.random() * 30;
-      return {
-        ...node,
-        x: width / 2 + Math.cos(angle) * radius,
-        y: height / 2 + Math.sin(angle) * radius
-      };
-    });
-  };
-
-  const fetchCodeGraph = async () => {
-    try {
-      const response = await fetch('http://127.0.0.1:8000/api/codebase/graph');
-      if (response.ok) {
-        const data = await response.json();
-        const positionedNodes = initializeNodePositions(data.nodes || []);
-        setCodeGraph({ nodes: positionedNodes, links: data.links || [] });
-      }
-    } catch (e) {
-      console.error("Failed to fetch code graph:", e);
-    }
-  };
-
-  useEffect(() => {
-    if (sidebarTab === 'codemap' && backendConnected) {
-      fetchCodeGraph();
-    }
-  }, [sidebarTab, backendConnected]);
-
-  const handleGraphNodeDrag = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!draggedNodeId) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    setCodeGraph(prev => ({
-      ...prev,
-      nodes: prev.nodes.map(n => n.id === draggedNodeId ? { ...n, x, y } : n)
-    }));
-  };
-
-  const handleGraphNodeDragEnd = () => {
-    setDraggedNodeId(null);
-  };
-
   const handleRunLobbyDebate = async () => {
     if (!lobbyPrompt.trim()) return;
     setIsLobbyRunning(true);
     setLobbyDebate([]);
     setLobbyProposedCode('');
-    
+
     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
     if (isTauri) {
       emit('mascot-state-changed', { state: 'diagnostic' }).catch(console.error);
     }
-    
+
     try {
       const response = await fetch('http://127.0.0.1:8000/api/lobby/debate', {
         method: 'POST',
@@ -1193,76 +1270,7 @@ export default function App() {
     }
   };
 
-  const handleRunSandbox = async () => {
-    setSandboxStatus('auditing');
-    setSandboxOutput('');
-    setSandboxAuditorReasoning('');
-    setSandboxSyntaxErr(null);
 
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-    if (isTauri) {
-      emit('mascot-state-changed', { state: 'diagnostic' }).catch(console.error);
-    }
-
-    try {
-      await new Promise(r => setTimeout(r, 800));
-      setSandboxStatus('executing');
-
-      const res = await fetch('http://127.0.0.1:8000/api/sandbox/run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: sandboxCode })
-      });
-      
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'success') {
-          setSandboxStatus('success');
-          setSandboxOutput(data.output);
-          setSandboxAuditorReasoning(data.auditor_reasoning);
-          playUISound('success');
-          if (isTauri) {
-            emit('mascot-state-changed', { state: 'happy' }).catch(console.error);
-          }
-        } else if (data.status === 'blocked') {
-          setSandboxStatus('blocked');
-          setSandboxOutput(data.message);
-          playUISound('error');
-          if (isTauri) {
-            emit('mascot-state-changed', { state: 'disapproving' }).catch(console.error);
-          }
-        } else if (data.status === 'syntax_error') {
-          setSandboxStatus('syntax_error');
-          setSandboxOutput(data.message);
-          setSandboxSyntaxErr(data);
-          playUISound('error');
-          if (isTauri) {
-            emit('mascot-state-changed', { state: 'tired' }).catch(console.error);
-          }
-        } else {
-          setSandboxStatus('failed');
-          setSandboxOutput(data.message || 'Execution error');
-          playUISound('error');
-          if (isTauri) {
-            emit('mascot-state-changed', { state: 'tired' }).catch(console.error);
-          }
-        }
-      } else {
-        setSandboxStatus('failed');
-        setSandboxOutput(`API status error: ${res.statusText}`);
-        playUISound('error');
-      }
-    } catch (err: any) {
-      setSandboxStatus('failed');
-      setSandboxOutput(`Communication error: ${err.message}`);
-      playUISound('error');
-    }
-  };
-
-  const handleHealSandboxCode = async () => {
-    if (!sandboxSyntaxErr || !sandboxSyntaxErr.file_path) return;
-    triggerHealProposer(sandboxSyntaxErr.file_path, sandboxSyntaxErr.message, 'sandbox');
-  };
 
   const handleNudgeAction = (nudge: ProactiveNudge) => {
     dismissNudge(nudge.id);
@@ -1288,18 +1296,18 @@ export default function App() {
     if (nudge.type === 'secret_leak') {
       const targetFile = nudge.action_hint?.replace("Secure key in .env: ", "") || "";
       triggerHealProposer(targetFile, 'secret_leak', nudge.id);
-    } 
+    }
     else if (nudge.type === 'save_to_heal') {
       const target = nudge.action_hint?.replace("Fix syntax: ", "").split(":")[0] || "";
       triggerHealProposer(target, 'save_to_heal', nudge.id);
-    } 
+    }
     else if (nudge.type === 'git_copilot') {
       const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
       if (isTauri) {
         emit('mascot-wardrobe-changed', { item: 'detective_hat' }).catch(console.error);
       }
       handleSendCommand("Draft a structured git commit message for the changes in the workspace.");
-    } 
+    }
     else if (nudge.type === 'focus_distraction') {
       const alertMsg: Message = {
         id: 'focus-reset-' + Date.now(),
@@ -1308,7 +1316,7 @@ export default function App() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, alertMsg]);
-    } 
+    }
     else if (nudge.type === 'network_adapter') {
       const isOffline = nudge.title.toLowerCase().includes("offline");
       setModelSettings(prev => {
@@ -1322,13 +1330,13 @@ export default function App() {
       const networkMsg: Message = {
         id: 'network-switch-' + Date.now(),
         sender: 'assistant',
-        text: isOffline 
+        text: isOffline
           ? "Switched LLM provider to local offline fallback models."
           : "Restored cloud LLM provider settings.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       setMessages(prev => [...prev, networkMsg]);
-    } 
+    }
     else if (nudge.type === 'battery_saver') {
       try {
         fetch('http://127.0.0.1:8000/api/system/power-save', {
@@ -1369,12 +1377,12 @@ export default function App() {
     } else if (pomodoroActive && pomodoroTime === 0 && !showBreakOverlay) {
       setShowBreakOverlay(true);
       setBreakTimer(20);
-      
+
       // Increment pomodoro count on backend
       fetch('http://127.0.0.1:8000/api/profile/pomodoro/increment', { method: 'POST' })
         .then(() => fetchDevStats())
         .catch(console.error);
-        
+
       const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
       if (isTauri) {
         emit('mascot-state-changed', { state: 'crown' }).catch(console.error);
@@ -1472,29 +1480,7 @@ export default function App() {
     };
   });
 
-  const [settingsOpen, setSettingsOpen] = useState<'header' | 'ribbon' | null>(null);
 
-  const settingsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (settingsOpen && settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
-        const headerToggle = document.getElementById('settings-dropdown-toggle');
-        const ribbonToggle = document.getElementById('settings-ribbon-toggle');
-        if (headerToggle && headerToggle.contains(event.target as Node)) {
-          return;
-        }
-        if (ribbonToggle && ribbonToggle.contains(event.target as Node)) {
-          return;
-        }
-        setSettingsOpen(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [settingsOpen]);
   const [mascotEnabled, setMascotEnabled] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('meridian_mascot_enabled');
@@ -1688,13 +1674,22 @@ export default function App() {
           return 'app';
         }
       }
-    } catch (e) {}
+    } catch (e) { }
     return 'landing';
   });
 
   const [voiceOutputEnabled, setVoiceOutputEnabled] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem('meridian_voice_output_enabled');
+      return saved ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [voiceBargeInEnabled, setVoiceBargeInEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('meridian_voice_barge_in');
       return saved ? JSON.parse(saved) : false;
     } catch {
       return false;
@@ -1733,43 +1728,111 @@ export default function App() {
   }, [voiceOutputEnabled]);
 
   useEffect(() => {
-    const fetchOllamaModels = async () => {
-      try {
-        const res = await fetch('http://127.0.0.1:8000/api/ollama-models');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.models && data.models.length > 0) {
-            setLocalOllamaModels(data.models);
-            
-            const savedRaw = localStorage.getItem('meridian_model_settings');
-            if (savedRaw) {
-              const saved = JSON.parse(savedRaw);
-              if (saved.modelSource === 'local') {
-                if (data.models.includes(saved.brainModel)) {
-                  setCurrentView('app');
-                } else {
-                  setCurrentView('landing');
-                }
+    localStorage.setItem('meridian_voice_barge_in', JSON.stringify(voiceBargeInEnabled));
+  }, [voiceBargeInEnabled]);
+
+  const fetchOllamaModels = async () => {
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/ollama-models');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          setLocalOllamaModels(data.models);
+
+          const savedRaw = localStorage.getItem('meridian_model_settings');
+          if (savedRaw) {
+            const saved = JSON.parse(savedRaw);
+            if (saved.modelSource === 'local') {
+              if (data.models.includes(saved.brainModel)) {
+                setCurrentView('app');
+              } else {
+                setCurrentView('landing');
               }
             }
-
-            setModelSettings(prev => {
-              if (!data.models.includes(prev.brainModel)) {
-                const matched = data.models.find((m: string) => m.toLowerCase() === prev.brainModel.toLowerCase())
-                  || data.models.find((m: string) => m.toLowerCase().includes(prev.brainModel.toLowerCase()))
-                  || data.models[0];
-                return { ...prev, brainModel: matched };
-              }
-              return prev;
-            });
           }
+
+          setModelSettings(prev => {
+            if (!data.models.includes(prev.brainModel)) {
+              const matched = data.models.find((m: string) => m.toLowerCase() === prev.brainModel.toLowerCase())
+                || data.models.find((m: string) => m.toLowerCase().includes(prev.brainModel.toLowerCase()))
+                || data.models[0];
+              return { ...prev, brainModel: matched };
+            }
+            return prev;
+          });
         }
-      } catch (err) {
-        console.error("Failed to fetch Ollama models:", err);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch Ollama models:", err);
+    }
+  };
+
+  useEffect(() => {
     fetchOllamaModels();
   }, [backendConnected]);
+
+  // Ollama Pull / Delete Handlers
+  const handleOllamaPull = async (modelName: string) => {
+    if (!modelName.trim()) return;
+    setOllamaPulling(true);
+    setOllamaPullProgress('Initiating download...');
+    playUISound('click');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/ollama/pull', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName })
+      });
+      if (res.ok) {
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusRes = await fetch(`http://127.0.0.1:8000/api/ollama/pull/status?name=${encodeURIComponent(modelName)}`);
+            if (statusRes.ok) {
+              const data = await statusRes.json();
+              const status = data.pull_status || 'unknown';
+              setOllamaPullProgress(status);
+              if (status === 'completed' || status.startsWith('failed')) {
+                clearInterval(pollInterval);
+                setOllamaPulling(false);
+                setOllamaPullName('');
+                fetchOllamaModels();
+                playUISound(status === 'completed' ? 'success' : 'error');
+              }
+            }
+          } catch (err) {
+            clearInterval(pollInterval);
+            setOllamaPulling(false);
+          }
+        }, 2000);
+      } else {
+        setOllamaPulling(false);
+        playUISound('error');
+      }
+    } catch (e) {
+      setOllamaPulling(false);
+      playUISound('error');
+    }
+  };
+
+  const handleOllamaDelete = async (modelName: string) => {
+    if (!confirm(`Are you sure you want to delete local model "${modelName}"?`)) return;
+    playUISound('click');
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/ollama/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: modelName })
+      });
+      if (res.ok) {
+        fetchOllamaModels();
+        playUISound('success');
+      } else {
+        playUISound('error');
+      }
+    } catch (e) {
+      playUISound('error');
+    }
+  };
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -1791,10 +1854,49 @@ export default function App() {
               } catch (e) {
                 timestampStr = "";
               }
+              let displayWord = msg.text;
+              if (msg.sender === 'assistant' && msg.text) {
+                const trimmed = msg.text.trim();
+                if (trimmed.startsWith('{')) {
+                  try {
+                    // Strategy 1: Parse whole text as a single JSON object
+                    const parsed = JSON.parse(trimmed);
+                    if (parsed.chat) displayWord = parsed.chat;
+                  } catch (e) {
+                    try {
+                      // Strategy 2: Check for concatenated JSON objects and extract the last block
+                      const lastBraceIdx = trimmed.lastIndexOf('{');
+                      if (lastBraceIdx > 0) {
+                        const lastPart = trimmed.substring(lastBraceIdx);
+                        const parsed = JSON.parse(lastPart);
+                        if (parsed.chat) displayWord = parsed.chat;
+                      } else {
+                        throw new Error("No duplicate braces");
+                      }
+                    } catch (e2) {
+                      try {
+                        // Strategy 3: Try to parse the first JSON object block
+                        const firstBraceIdx = trimmed.indexOf('{');
+                        const endBraceIdx = trimmed.indexOf('}', firstBraceIdx);
+                        if (firstBraceIdx !== -1 && endBraceIdx !== -1) {
+                          const firstPart = trimmed.substring(firstBraceIdx, endBraceIdx + 1);
+                          const parsed = JSON.parse(firstPart);
+                          if (parsed.chat) displayWord = parsed.chat;
+                        } else {
+                          throw new Error("No brace pair");
+                        }
+                      } catch (e3) {
+                        // Strategy 4: Fall back to regex streaming extraction
+                        displayWord = getStreamingChatText(msg.text) || msg.text;
+                      }
+                    }
+                  }
+                }
+              }
               return {
                 id: msg.id || ('hist-' + Math.random()),
                 sender: msg.sender,
-                text: msg.text,
+                text: displayWord,
                 timestamp: timestampStr
               };
             });
@@ -1830,7 +1932,8 @@ export default function App() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const thoughtScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [sidebarWidth, setSidebarWidth] = useState(340);
+  const hasAttemptedAutoStartRef = useRef(false);
+  const [sidebarWidth, setSidebarWidth] = useState(1080);
   const isResizingRef = useRef(false);
   const [isResizing, setIsResizing] = useState(false);
 
@@ -1844,7 +1947,7 @@ export default function App() {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizingRef.current) return;
       // Draggable divider is on the right side of the main console, resizing the right sidebar
-      const newWidth = Math.max(260, Math.min(window.innerWidth - e.clientX, Math.floor(window.innerWidth * 0.65)));
+      const newWidth = Math.max(260, Math.min(window.innerWidth - e.clientX, window.innerWidth - 120));
       setSidebarWidth(newWidth);
     };
 
@@ -1894,6 +1997,12 @@ export default function App() {
         }
       } catch (err) {
         // Fall back to simulation below
+        const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+        if (!hasAttemptedAutoStartRef.current && isTauri) {
+          hasAttemptedAutoStartRef.current = true;
+          console.log("[System] Auto-detect: Backend is offline. Spawning backend process...");
+          invoke('trigger_backend_restart').catch(e => console.error("Auto-start backend failed:", e));
+        }
       }
 
       setBackendConnected(false);
@@ -1928,11 +2037,13 @@ export default function App() {
   useEffect(() => {
     const handleResize = () => {
       const el = chatScrollRef.current;
-      if (!el) return;
-      const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-      if (isAtBottom) {
-        el.scrollTop = el.scrollHeight;
+      if (el) {
+        const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+        if (isAtBottom) {
+          el.scrollTop = el.scrollHeight;
+        }
       }
+      setSidebarWidth(prev => Math.min(prev, Math.max(260, window.innerWidth - 120)));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -1984,11 +2095,11 @@ export default function App() {
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
       let syncInterval: any = null;
-      
+
       const updateSpeechMouth = () => {
         if (audio.paused || audio.ended) {
           if (syncInterval) cancelAnimationFrame(syncInterval);
-          emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => {});
+          emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => { });
           return;
         }
         analyser.getByteFrequencyData(dataArray);
@@ -1998,10 +2109,10 @@ export default function App() {
         }
         const average = sum / bufferLength;
         const normalized = average / 255;
-        emit('mascot-amplitude-changed', { amplitude: normalized }).catch(() => {});
+        emit('mascot-amplitude-changed', { amplitude: normalized }).catch(() => { });
         syncInterval = requestAnimationFrame(updateSpeechMouth);
       };
-      
+
       audio.addEventListener('play', () => {
         syncInterval = requestAnimationFrame(updateSpeechMouth);
       });
@@ -2012,14 +2123,14 @@ export default function App() {
       const simulateMouth = () => {
         if (audio.paused || audio.ended) {
           if (syncInterval) clearInterval(syncInterval);
-          emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => {});
+          emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => { });
           return;
         }
         phase += 0.35;
         const amp = 0.2 + Math.abs(Math.sin(phase)) * 0.5 + Math.random() * 0.15;
-        emit('mascot-amplitude-changed', { amplitude: amp }).catch(() => {});
+        emit('mascot-amplitude-changed', { amplitude: amp }).catch(() => { });
       };
-      
+
       audio.addEventListener('play', () => {
         syncInterval = setInterval(simulateMouth, 60);
       });
@@ -2028,16 +2139,31 @@ export default function App() {
           clearInterval(syncInterval);
           syncInterval = null;
         }
-        emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => {});
+        emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => { });
       };
       audio.addEventListener('pause', clearSim);
       audio.addEventListener('ended', clearSim);
     }
   };
 
-  const speakResponse = async (text: string, lang: string = 'na') => {
+  async function speakResponse(text: string, lang: string = 'na') {
     const cleanText = text.replace(/<[^>]*>/g, '').trim(); // strip XML/HTML tags
     if (!cleanText) return;
+
+    // Stop any local playback first
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    // Notify other windows to stop speech
+    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+    if (isTauri) {
+      emit('stop-all-speech', { sender: 'app' }).catch(() => { });
+    }
 
     try {
       const response = await fetch('http://127.0.0.1:8000/api/tts', {
@@ -2045,20 +2171,21 @@ export default function App() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
-          text: cleanText, 
+        body: JSON.stringify({
+          text: cleanText,
           voice: selectedVoiceRef.current,
-          lang: lang 
+          lang: lang
         })
       });
       if (response.ok) {
         const blob = await response.blob();
         const audioUrl = URL.createObjectURL(blob);
         const audio = new Audio(audioUrl);
+        audio.volume = uiVolume;
         activeAudioRef.current = audio;
-        
+
         syncMascotMouthWithAudio(audio);
-        
+
         audio.onplay = () => {
           startMicBargeInMonitoring();
         };
@@ -2076,7 +2203,7 @@ export default function App() {
             activeAudioRef.current = null;
           }
         };
-        
+
         audio.play().catch(e => {
           console.error("Audio playback error:", e);
           stopMicBargeInMonitoring();
@@ -2093,6 +2220,7 @@ export default function App() {
     } catch (err) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(cleanText);
+      utterance.volume = uiVolume;
       if (lang && lang !== 'na') {
         utterance.lang = lang;
       }
@@ -2111,7 +2239,7 @@ export default function App() {
       } catch (e) {
         console.warn("Failed to set browser fallback voice:", e);
       }
-      
+
       let synthesisInterval: any = null;
       let phase = 0;
       utterance.onstart = () => {
@@ -2119,22 +2247,22 @@ export default function App() {
         synthesisInterval = setInterval(() => {
           phase += 0.35;
           const amp = 0.2 + Math.abs(Math.sin(phase)) * 0.5 + Math.random() * 0.15;
-          emit('mascot-amplitude-changed', { amplitude: amp }).catch(() => {});
+          emit('mascot-amplitude-changed', { amplitude: amp }).catch(() => { });
         }, 65);
       };
-      
+
       const stopSynthesisMascotSync = () => {
         stopMicBargeInMonitoring();
         if (synthesisInterval) {
           clearInterval(synthesisInterval);
           synthesisInterval = null;
         }
-        emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => {});
+        emit('mascot-amplitude-changed', { amplitude: 0 }).catch(() => { });
       };
-      
+
       utterance.onend = stopSynthesisMascotSync;
       utterance.onerror = stopSynthesisMascotSync;
-      
+
       window.speechSynthesis.speak(utterance);
     }
   };
@@ -2242,7 +2370,7 @@ export default function App() {
             if (event === "thought" && data) {
               try {
                 const thoughtData = JSON.parse(data);
-                
+
                 const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
                 if (isTauri) {
                   if (thoughtData.mascot_state) {
@@ -2251,7 +2379,7 @@ export default function App() {
                   if (thoughtData.mascot_wardrobe) {
                     emit('mascot-wardrobe-changed', { item: thoughtData.mascot_wardrobe }).catch(console.error);
                   }
-                  
+
                   const desktopTools = ["gui_click", "gui_double_click", "gui_drag", "gui_type", "gui_hotkey", "gui_scroll"];
                   if (thoughtData.type === "exec" && thoughtData.status === "running" && desktopTools.includes(thoughtData.tool)) {
                     emit('automation-state-changed', { active: true, tool: thoughtData.tool }).catch(console.error);
@@ -2261,7 +2389,7 @@ export default function App() {
                 }
 
                 const targetId = thoughtData.id || ('thought-step-' + Date.now() + '-' + Math.random());
-                
+
                 setThoughts(prev => {
                   const exists = prev.some(t => t.id === targetId);
                   if (exists) {
@@ -2310,7 +2438,7 @@ export default function App() {
                   }
                 ]);
               } else {
-                setMessages(prev => prev.map(msg => 
+                setMessages(prev => prev.map(msg =>
                   msg.id === assistantMsgId ? { ...msg, text: displayText } : msg
                 ));
               }
@@ -2348,7 +2476,7 @@ export default function App() {
         if (event === "thought" && data) {
           try {
             const thoughtData = JSON.parse(data);
-            
+
             const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
             if (isTauri) {
               if (thoughtData.mascot_state) {
@@ -2407,7 +2535,7 @@ export default function App() {
               }
             ]);
           } else {
-            setMessages(prev => prev.map(msg => 
+            setMessages(prev => prev.map(msg =>
               msg.id === assistantMsgId ? { ...msg, text: displayText } : msg
             ));
           }
@@ -2439,7 +2567,7 @@ export default function App() {
         };
         setThoughts(prev => [...prev, abortThought]);
         setMessages(prev => [
-          ...prev, 
+          ...prev,
           {
             id: 'err-' + Date.now(),
             sender: 'assistant',
@@ -2451,7 +2579,7 @@ export default function App() {
         console.warn("Backend streaming failed, falling back to simulator:", err);
         playUISound('error');
         const fallbackRes = getSimulatedResponse(prompt, brainLabel, modelSettings.ocrModel);
-        
+
         const fallbackWarningThought: ThoughtStep = {
           id: 'fallback-warning-' + Date.now(),
           type: 'warning',
@@ -2489,7 +2617,7 @@ export default function App() {
               }
             ]);
           } else {
-            setMessages(prev => prev.map(msg => 
+            setMessages(prev => prev.map(msg =>
               msg.id === assistantMsgId ? { ...msg, text: currentSimText } : msg
             ));
           }
@@ -2528,7 +2656,7 @@ export default function App() {
     setIsRunning(false);
   };
 
-  const toggleRecording = async () => {
+  async function toggleRecording() {
     if (isRecording) {
       setIsRecording(false);
       return;
@@ -2543,7 +2671,7 @@ export default function App() {
         }
       });
       setIsRecording(false);
-      
+
       if (response.ok) {
         const data = await response.json();
         const transcribedText = data.text || "";
@@ -2562,7 +2690,7 @@ export default function App() {
         "Verify local network socket response diagnostics and parameters"
       ];
       const chosen = speechOptions[Math.floor(Math.random() * speechOptions.length)];
-      
+
       setInputText(chosen);
     }
   };
@@ -2570,7 +2698,7 @@ export default function App() {
   const triggerVoiceCommand = async () => {
     if (isRecording || isRunning) return;
     setIsRecording(true);
-    
+
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
@@ -2579,7 +2707,7 @@ export default function App() {
       gainNode.connect(audioContext.destination);
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
-      gainNode.gain.setValueAtTime(0.05, audioContext.currentTime);
+      gainNode.gain.setValueAtTime(0.05 * uiVolume, audioContext.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
       oscillator.start();
       oscillator.stop(audioContext.currentTime + 0.15);
@@ -2595,7 +2723,7 @@ export default function App() {
         }
       });
       setIsRecording(false);
-      
+
       if (response.ok) {
         const data = await response.json();
         const transcribedText = data.text || "";
@@ -2661,31 +2789,11 @@ export default function App() {
     }
   };
 
-  // ── Offline docs search action ─────────────────────────────────────────────
-  const handleSearchDocs = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (!docsQuery.trim()) return;
-    setIsSearchingDocs(true);
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/api/docs/search?query=${encodeURIComponent(docsQuery)}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'success') {
-          setDocsResults(data.results || []);
-        }
-      }
-    } catch (err) {
-      console.error("Failed to search offline documents:", err);
-    } finally {
-      setIsSearchingDocs(false);
-    }
-  };
-
   // ── HTML5 Drag and Drop File Ingestion ─────────────────────────────────────
   const handleHtmlFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    
+
     const files = Array.from(e.dataTransfer.files) as File[];
     if (files.length === 0) return;
 
@@ -2721,6 +2829,14 @@ export default function App() {
       setIngestStatus('success');
       setIngestMessage(`Successfully ingested ${files.length} file(s) into Turbovec RAG.`);
       playUISound('success');
+
+      const successMsg: Message = {
+        id: 'ingest-success-' + Date.now(),
+        sender: 'assistant',
+        text: `Successfully indexed **${files.map(f => f.name).join(', ')}** into the offline RAG search database. You can now query or refer to them in your chat!`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+      setMessages(prev => [...prev, successMsg]);
     } catch (err: any) {
       setIngestStatus('error');
       setIngestMessage(err.message || 'Error ingesting files.');
@@ -2742,11 +2858,11 @@ export default function App() {
           <div className="max-w-md w-full mx-auto flex flex-col items-center text-center space-y-6 relative z-10 py-6">
             <div className="relative group">
               <div className="absolute inset-x-0 -inset-y-2 bg-theme-accent/10 rounded-full blur-2xl transition-all duration-300"></div>
-              <img 
-                src="/logo.png" 
-                alt="Meridian Logo" 
-                referrerPolicy="no-referrer" 
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain relative z-10 transition-transform duration-500 hover:scale-105" 
+              <img
+                src="/logo.png"
+                alt="Meridian Logo"
+                referrerPolicy="no-referrer"
+                className="w-20 h-20 sm:w-24 sm:h-24 object-contain relative z-10 transition-transform duration-500 hover:scale-105"
                 id="landing-logo"
               />
             </div>
@@ -2768,21 +2884,19 @@ export default function App() {
                 <div className="grid grid-cols-2 gap-1.5 p-1 bg-main-theme border border-theme rounded-xl">
                   <button
                     onClick={() => setModelSettings(prev => ({ ...prev, modelSource: 'local' }))}
-                    className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${
-                      modelSettings.modelSource === 'local'
-                        ? 'bg-theme-accent text-black'
-                        : 'text-theme-dim hover:text-theme-main'
-                    }`}
+                    className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${modelSettings.modelSource === 'local'
+                      ? 'bg-theme-accent text-black'
+                      : 'text-theme-dim hover:text-theme-main'
+                      }`}
                   >
                     Local Cluster
                   </button>
                   <button
                     onClick={() => setModelSettings(prev => ({ ...prev, modelSource: 'api' }))}
-                    className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${
-                      modelSettings.modelSource === 'api'
-                        ? 'bg-theme-accent text-black'
-                        : 'text-theme-dim hover:text-theme-main'
-                    }`}
+                    className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${modelSettings.modelSource === 'api'
+                      ? 'bg-theme-accent text-black'
+                      : 'text-theme-dim hover:text-theme-main'
+                      }`}
                   >
                     API Gateway
                   </button>
@@ -2928,9 +3042,8 @@ export default function App() {
                 playUISound('click');
                 setModelSettings(prev => ({ ...prev, modelSource: 'local' }));
               }}
-              className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${
-                modelSettings.modelSource === 'local' ? 'bg-theme-accent text-black font-bold shadow-theme-glow' : 'text-theme-dim hover:text-theme-main'
-              }`}
+              className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${modelSettings.modelSource === 'local' ? 'bg-theme-accent text-black font-bold shadow-theme-glow' : 'text-theme-dim hover:text-theme-main'
+                }`}
             >
               Local Cluster
             </button>
@@ -2940,9 +3053,8 @@ export default function App() {
                 playUISound('click');
                 setModelSettings(prev => ({ ...prev, modelSource: 'api' }));
               }}
-              className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${
-                modelSettings.modelSource === 'api' ? 'bg-theme-accent text-black font-bold shadow-theme-glow' : 'text-theme-dim hover:text-theme-main'
-              }`}
+              className={`py-1.5 text-xs font-bold font-mono rounded-lg transition-all cursor-pointer ${modelSettings.modelSource === 'api' ? 'bg-theme-accent text-black font-bold shadow-theme-glow' : 'text-theme-dim hover:text-theme-main'
+                }`}
             >
               API Gateway
             </button>
@@ -3055,7 +3167,7 @@ export default function App() {
         {/* Voice Output Switch */}
         <div className="flex items-center justify-between py-2.5 mb-2.5 border-t border-theme border-b border-theme font-mono">
           <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">Voice Output (TTS)</span>
-          <button 
+          <button
             onMouseEnter={() => playUISound('hover')}
             onClick={() => {
               playUISound('click');
@@ -3066,6 +3178,22 @@ export default function App() {
             <div className={`w-4 h-4 rounded-full bg-white transition-transform ${voiceOutputEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
+
+        {voiceOutputEnabled && (
+          <div className="flex items-center justify-between py-2.5 mb-2.5 border-b border-theme font-mono animate-fade-in">
+            <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">Voice Barge-In (VAD)</span>
+            <button
+              onMouseEnter={() => playUISound('hover')}
+              onClick={() => {
+                playUISound('click');
+                setVoiceBargeInEnabled(prev => !prev);
+              }}
+              className={`w-10 h-5 rounded-full p-0.5 transition-colors cursor-pointer ${voiceBargeInEnabled ? 'bg-theme-accent' : 'bg-zinc-800'}`}
+            >
+              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${voiceBargeInEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+            </button>
+          </div>
+        )}
 
         {voiceOutputEnabled && (
           <div className="mb-4 animate-fade-in">
@@ -3107,7 +3235,7 @@ export default function App() {
         <div className="flex flex-col gap-1 py-2.5 mb-2.5 border-t border-theme font-mono font-bold">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">🎮 Game Mode</span>
-            <button 
+            <button
               onMouseEnter={() => playUISound('hover')}
               onClick={() => {
                 playUISound('click');
@@ -3126,7 +3254,7 @@ export default function App() {
         {/* Mascot Companion Switch */}
         <div className="flex items-center justify-between py-2.5 mb-2.5 border-t border-theme font-mono font-bold">
           <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">Mascot Companion</span>
-          <button 
+          <button
             onMouseEnter={() => playUISound('hover')}
             onClick={() => {
               playUISound('click');
@@ -3169,7 +3297,7 @@ export default function App() {
         {/* Vocalize Alerts Switch */}
         <div className="flex items-center justify-between py-2.5 mb-2.5 border-t border-theme font-mono font-bold">
           <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">Vocalize Alerts</span>
-          <button 
+          <button
             onMouseEnter={() => playUISound('hover')}
             onClick={() => {
               playUISound('click');
@@ -3184,7 +3312,7 @@ export default function App() {
         {/* UI Sound Effects Switch */}
         <div className="flex items-center justify-between py-2.5 mb-2.5 border-t border-theme font-mono font-bold">
           <span className="text-[10px] uppercase tracking-widest text-theme-accent font-bold select-none">UI Sound Effects</span>
-          <button 
+          <button
             onMouseEnter={() => playUISound('hover')}
             onClick={() => {
               setUiSoundEnabled(prev => {
@@ -3197,14 +3325,14 @@ export default function App() {
                       const osc = ctx.createOscillator();
                       const gain = ctx.createGain();
                       osc.frequency.setValueAtTime(800, ctx.currentTime);
-                      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+                      gain.gain.setValueAtTime(0.04 * uiVolume, ctx.currentTime);
                       gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
                       osc.connect(gain);
                       gain.connect(ctx.destination);
                       osc.start();
                       osc.stop(ctx.currentTime + 0.04);
                     }
-                  } catch (e) {}
+                  } catch (e) { }
                 }
                 return newVal;
               });
@@ -3214,6 +3342,36 @@ export default function App() {
             <div className={`w-4 h-4 rounded-full bg-white transition-transform ${uiSoundEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
           </button>
         </div>
+
+        {/* UI Sound Volume Slider */}
+        {uiSoundEnabled && (
+          <div className="flex flex-col gap-1.5 pb-2.5 mb-2.5 font-mono">
+            <div className="flex items-center justify-between text-[10px] uppercase font-bold text-zinc-400 select-none">
+              <span>Sound Volume</span>
+              <span className="text-theme-accent">{Math.round(uiVolume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={uiVolume}
+              onChange={(e) => {
+                const newVol = parseFloat(e.target.value);
+                setUiVolume(newVol);
+              }}
+              style={{
+                width: '100%',
+                height: '4px',
+                borderRadius: '2px',
+                background: 'rgba(255,255,255,0.08)',
+                outline: 'none',
+                accentColor: 'var(--accent, #ff7b00)',
+                cursor: 'pointer'
+              }}
+            />
+          </div>
+        )}
 
         {/* WhatsApp Bridge Config Link */}
         <div className="mb-4 pt-2.5 border-t border-theme">
@@ -3308,12 +3466,25 @@ export default function App() {
           <button
             onMouseEnter={() => playUISound('hover')}
             onClick={() => {
+              if (confirm("Are you sure you want to clear chat history?")) {
+                playUISound('click');
+                handleClearHistory();
+              }
+            }}
+            className="w-full bg-rose-950/20 hover:bg-rose-950/30 border border-rose-900/40 text-rose-450 font-bold py-2 rounded-xl text-xs text-center transition-all cursor-pointer uppercase tracking-wider flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Clear Chat History
+          </button>
+          <button
+            onMouseEnter={() => playUISound('hover')}
+            onClick={() => {
               playUISound('click');
-              setSettingsOpen(null);
+              setSidebarTab('timeline');
             }}
             className="w-full bg-white hover:bg-theme-accent hover:border-theme-accent border border-white text-black font-bold py-2 rounded-xl text-xs text-center transition-all cursor-pointer uppercase tracking-wider"
           >
-            Apply Configs
+            Apply Configs & Close
           </button>
         </div>
       </div>
@@ -3331,18 +3502,18 @@ export default function App() {
           </span>
         </div>
       )}
-      
+
       <div className={`flex flex-col h-screen overflow-hidden bg-main-theme text-white font-sans antialiased ${theme !== 'default' ? 'theme-' + theme : ''}`}>
-        
+
         {/* HEADER BAR - Draggable Titlebar region */}
         <header data-tauri-drag-region className="flex items-center justify-between px-6 py-4 border-b border-theme bg-panel-theme-65 relative z-20 select-none cursor-default min-h-[72px]">
           <div data-tauri-drag-region className="flex items-center gap-3 shrink-0">
             <div className="flex items-center justify-center w-8 h-8">
-              <img 
-                src="/logo.png" 
-                alt="Meridian Logo" 
-                referrerPolicy="no-referrer" 
-                className="w-8 h-8 object-contain" 
+              <img
+                src="/logo.png"
+                alt="Meridian Logo"
+                referrerPolicy="no-referrer"
+                className="w-8 h-8 object-contain"
               />
             </div>
             <div>
@@ -3377,7 +3548,7 @@ export default function App() {
               <Cpu className="w-3.5 h-3.5 text-theme-dim shrink-0" />
               <span className="text-theme-dim font-semibold text-[10px] tracking-wide uppercase">CPU</span>
               <div className="w-14 h-1 bg-main-theme-50 rounded-full overflow-hidden shrink-0">
-                <motion.div 
+                <motion.div
                   className="h-full bg-theme-accent"
                   initial={{ width: 0 }}
                   animate={{ width: `${telemetry.cpuUsage}%` }}
@@ -3393,7 +3564,7 @@ export default function App() {
               <Database className="w-3.5 h-3.5 text-theme-dim shrink-0" />
               <span className="text-theme-dim font-semibold text-[10px] tracking-wide uppercase">RAM</span>
               <div className="w-14 h-1 bg-main-theme-50 rounded-full overflow-hidden shrink-0">
-                <motion.div 
+                <motion.div
                   className="h-full bg-theme-accent"
                   initial={{ width: 0 }}
                   animate={{ width: `${telemetry.ramUsage}%` }}
@@ -3424,35 +3595,9 @@ export default function App() {
               <span className="hidden md:inline">Dynamic Island</span>
             </button>
 
-            <div className="relative">
-              <button 
-                id="settings-dropdown-toggle"
-                onMouseEnter={() => playUISound('hover')}
-                onClick={() => {
-                  playUISound('click');
-                  setSettingsOpen(prev => prev === 'header' ? null : 'header');
-                }}
-                className={`flex items-center gap-2 px-3 tracking-wide py-1.5 rounded-lg border text-xs font-semibold transition-all duration-150 cursor-pointer ${
-                  settingsOpen === 'header'
-                    ? 'bg-white border-white text-black' 
-                    : 'bg-panel-theme border-theme text-theme-dim hover:text-theme-main hover:border-theme-accent-40'
-                }`}
-              >
-                <Settings className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Configuration</span>
-              </button>
-
-              {/* CONFIGURATION DROPDOWN PANEL */}
-              {settingsOpen === 'header' && (
-                <div ref={settingsRef} className="absolute right-0 mt-3 w-80 bg-panel-theme border border-theme rounded-2xl p-5 z-40 text-left shadow-2xl shadow-theme-glow max-h-[80vh] overflow-y-auto scrollbar-thin">
-                  {renderSettingsDropdownContent()}
-                </div>
-              )}
-            </div>
-
             {/* Custom Titlebar Control Buttons */}
             <div className="flex items-center gap-1.5 border-l border-zinc-850 pl-2.5 ml-1">
-              <button 
+              <button
                 onMouseEnter={() => playUISound('hover')}
                 onClick={() => {
                   playUISound('click');
@@ -3463,7 +3608,7 @@ export default function App() {
               >
                 <Minus className="w-3 h-3" />
               </button>
-              <button 
+              <button
                 onMouseEnter={() => playUISound('hover')}
                 onClick={() => {
                   playUISound('click');
@@ -3474,7 +3619,7 @@ export default function App() {
               >
                 <Maximize2 className="w-3 h-3" />
               </button>
-              <button 
+              <button
                 onMouseEnter={() => playUISound('hover')}
                 onClick={() => {
                   playUISound('click');
@@ -3491,18 +3636,14 @@ export default function App() {
 
         {/* WORKSPACE CONTENT GRID - Three Column Command Center */}
         <div className="flex-1 flex overflow-hidden">
-          
+
           {/* COLUMN 1: LEFT NAVIGATION STRIP (VERTICAL ICON RIBBON) */}
           <aside className="w-16 border-r border-theme bg-panel-theme flex flex-col items-center py-5 justify-between select-none shrink-0 z-20">
             <div className="flex flex-col gap-4.5 w-full items-center">
               {[
                 { id: 'timeline', label: 'Timeline Hub', icon: Clock },
-                { id: 'codemap', label: 'Code Map Network', icon: Link },
                 { id: 'lobby', label: 'Swarm Debate Arena', icon: MessageSquare },
                 { id: 'productivity', label: 'Productivity & Metrics', icon: Trophy },
-                { id: 'docs', label: 'Local Search RAG', icon: BookOpen },
-                { id: 'closet', label: 'Mascot Closet', icon: Shirt },
-                { id: 'sandbox', label: 'Python Editor Sandbox', icon: Code },
                 { id: 'jobs', label: 'Background Runs Scheduler', icon: Briefcase },
                 { id: 'clipboard', label: 'Smart Clipboard history', icon: Clipboard }
               ].map(tab => {
@@ -3517,11 +3658,10 @@ export default function App() {
                       setSidebarTab(tab.id as any);
                     }}
                     title={tab.label}
-                    className={`group relative p-3 rounded-xl transition-all cursor-pointer border ${
-                      isActive
-                        ? 'text-theme-accent bg-theme-accent-10 border-theme-accent-30 shadow-theme-glow'
-                        : 'text-theme-dim hover:text-theme-main hover:bg-main-theme-40 border-transparent'
-                    }`}
+                    className={`group relative p-3 rounded-xl transition-all cursor-pointer border ${isActive
+                      ? 'text-theme-accent bg-theme-accent-10 border-theme-accent-30 shadow-theme-glow'
+                      : 'text-theme-dim hover:text-theme-main hover:bg-main-theme-40 border-transparent'
+                      }`}
                   >
                     <IconComponent className="w-5 h-5 transition-transform group-hover:scale-110" />
                     {isActive && (
@@ -3532,45 +3672,34 @@ export default function App() {
               })}
             </div>
 
-            <div className="flex flex-col items-center gap-4">
             <div className="flex flex-col items-center gap-4 relative">
               <button
                 id="settings-ribbon-toggle"
                 onMouseEnter={() => playUISound('hover')}
                 onClick={() => {
                   playUISound('click');
-                  setSettingsOpen(prev => prev === 'ribbon' ? null : 'ribbon');
+                  setSidebarTab('settings');
                 }}
                 title="Configuration & Styles"
-                className={`p-3 rounded-xl transition-all cursor-pointer border ${
-                  settingsOpen === 'ribbon'
-                    ? 'text-theme-accent bg-theme-accent-10 border-theme-accent-30'
-                    : 'text-theme-dim hover:text-theme-main hover:bg-main-theme-40 border-transparent'
-                }`}
+                className={`p-3 rounded-xl transition-all cursor-pointer border ${sidebarTab === 'settings'
+                  ? 'text-theme-accent bg-theme-accent-10 border-theme-accent-30 shadow-theme-glow'
+                  : 'text-theme-dim hover:text-theme-main hover:bg-main-theme-40 border-transparent'
+                  }`}
               >
-                <Settings className="w-5 h-5" />
+                <Settings className="w-5 h-5 transition-transform hover:rotate-90 duration-300" />
               </button>
-              {settingsOpen === 'ribbon' && (
-                <div ref={settingsRef} className="absolute left-[72px] bottom-0 w-80 bg-panel-theme border border-theme rounded-2xl p-5 z-40 text-left shadow-2xl shadow-theme-glow max-h-[80vh] overflow-y-auto scrollbar-thin">
-                  {renderSettingsDropdownContent()}
-                </div>
-              )}
-            </div>
             </div>
           </aside>
 
           {/* COLUMN 2: CENTRAL CONSOLE VIEWPORT (DASHBOARD VIEWS) */}
-          <div className="flex-1 flex flex-col min-w-0 bg-main-theme-20 overflow-hidden relative">
+          <div className={`flex-1 flex flex-col min-w-0 bg-main-theme-20 overflow-hidden relative ${isResizing ? 'pointer-events-none' : ''}`}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-theme bg-panel-theme-40 shrink-0 select-none">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-mono text-theme-accent uppercase font-bold tracking-widest">
                   {sidebarTab === 'timeline' && 'Timeline & Rollback Hub'}
-                  {sidebarTab === 'codemap' && 'Codebase Dependency Map'}
+                  {sidebarTab === 'settings' && 'System Configuration & Settings'}
                   {sidebarTab === 'lobby' && 'Multi-Agent Debate Lobby'}
-                  {sidebarTab === 'productivity' && 'Telemetry & Achievements'}
-                  {sidebarTab === 'docs' && 'Offline Document RAG Search'}
-                  {sidebarTab === 'closet' && 'Mascot Closet Wardrobe'}
-                  {sidebarTab === 'sandbox' && 'Python Execution Sandbox'}
+                  {sidebarTab === 'productivity' && 'Telemetry & Metrics'}
                   {sidebarTab === 'jobs' && 'Background Jobs Scheduler'}
                   {sidebarTab === 'clipboard' && 'Smart Clipboard History'}
                 </span>
@@ -3578,7 +3707,7 @@ export default function App() {
             </div>
 
             <div className="flex-1 overflow-y-auto min-h-0 relative">
-              
+
               {/* TIMELINE HUB */}
               {sidebarTab === 'timeline' && (
                 <div ref={thoughtScrollRef} className="flex-1 overflow-y-auto p-6 space-y-4 animate-fade-in max-h-full">
@@ -3586,40 +3715,38 @@ export default function App() {
                     {thoughts.map((step, idx) => {
                       const isRunning = step.status === 'running';
                       const isFailed = step.status === 'failed';
-                      
+
                       return (
                         <div key={step.id} className="relative group animate-fade-in">
-                          <div className={`absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border-2 transition-all ${
-                            isRunning ? 'bg-theme-accent border-theme-accent animate-ping' :
+                          <div className={`absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border-2 transition-all ${isRunning ? 'bg-theme-accent border-theme-accent animate-ping' :
                             isFailed ? 'bg-rose-500 border-rose-500' : 'bg-emerald-500 border-emerald-500'
-                          }`} />
-                          
-                          <div className={`absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border-2 ${
-                            isRunning ? 'bg-theme-accent border-theme-accent' :
+                            }`} />
+
+                          <div className={`absolute -left-[32px] top-1.5 w-3 h-3 rounded-full border-2 ${isRunning ? 'bg-theme-accent border-theme-accent' :
                             isFailed ? 'bg-rose-500 border-rose-500' : 'bg-emerald-500 border-emerald-500'
-                          }`} />
+                            }`} />
 
                           <div className={`p-4 bg-main-theme-30 border border-theme rounded-2xl space-y-2 hover:border-theme-accent transition-all ${isFailed ? 'border-rose-950/40 bg-rose-950/5' : ''}`}>
                             <div className="flex items-center justify-between text-[9px] text-theme-dim font-mono">
                               <span className="uppercase font-bold tracking-wide text-theme-accent">Step {idx + 1}: {step.type}</span>
                               <span>{step.timestamp}</span>
                             </div>
-                            
+
                             <p className="text-xs text-theme-main leading-relaxed font-sans break-words whitespace-pre-wrap select-text">{step.text}</p>
-                            
+
                             {step.tool && (
                               <div className="flex items-center gap-1.5 mt-2 bg-main-theme-60 border border-theme-50 px-2.5 py-1 rounded-lg text-[10px] font-mono text-theme-dim">
                                 <span className="w-1.5 h-1.5 rounded-full bg-theme-accent"></span>
                                 <span>Service: <strong className="text-theme-main">{step.tool}</strong></span>
                               </div>
                             )}
-                            
+
                             {step.command && (
                               <div className={`mt-1.5 text-[9px] font-mono p-3 rounded-xl border break-words whitespace-pre-wrap ${isFailed ? 'text-rose-400 bg-rose-950/20 border-rose-900/20' : 'text-theme-main bg-main-theme-60 border-theme'}`}>
                                 <code>{step.command}</code>
                               </div>
                             )}
-                            
+
                             {step.status === 'completed' && (
                               <div className="flex justify-end mt-2">
                                 <button
@@ -3645,57 +3772,229 @@ export default function App() {
 
               {/* BACKGROUND JOBS */}
               {sidebarTab === 'jobs' && (
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 animate-fade-in">
-                  {backgroundRuns.map((run) => {
-                    const runTime = new Date(run.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-                    const isExpanded = !!expandedRunIds[run.id];
-                    const isSuccess = run.status === 'success';
-                    const isRunning = run.status === 'running';
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0">
+                  {/* Sub Tab Switcher */}
+                  <div className="flex gap-2 border-b border-theme pb-3 mb-2 shrink-0">
+                    <button
+                      onMouseEnter={() => playUISound('hover')}
+                      onClick={() => {
+                        playUISound('click');
+                        setJobsSubTab('runs');
+                      }}
+                      className={`px-3 py-1.5 text-xs font-mono font-bold rounded-xl cursor-pointer transition-all border ${jobsSubTab === 'runs'
+                        ? 'bg-theme-accent-10 border-theme-accent-30 text-theme-accent'
+                        : 'border-transparent text-theme-dim hover:text-white'
+                        }`}
+                    >
+                      In-Memory Runs
+                    </button>
+                    <button
+                      onMouseEnter={() => playUISound('hover')}
+                      onClick={() => {
+                        playUISound('click');
+                        setJobsSubTab('ostasks');
+                      }}
+                      className={`px-3 py-1.5 text-xs font-mono font-bold rounded-xl cursor-pointer transition-all border ${jobsSubTab === 'ostasks'
+                        ? 'bg-theme-accent-10 border-theme-accent-30 text-theme-accent'
+                        : 'border-transparent text-theme-dim hover:text-white'
+                        }`}
+                    >
+                      Windows OS Tasks
+                    </button>
+                  </div>
 
-                    return (
-                      <div 
-                        key={run.id} 
-                        className="p-4 bg-main-theme-30 border border-theme hover:border-theme-accent/50 rounded-2xl transition-all duration-200 space-y-3 shadow-md animate-fade-in"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            isSuccess ? 'bg-emerald-500/10 text-emerald-400' :
-                            isRunning ? 'bg-amber-500/10 text-amber-400 animate-pulse' : 'bg-rose-500/10 text-rose-400'
-                          }`}>
-                            {run.status}
-                          </span>
-                          <span className="text-[10px] text-theme-dim font-mono">{runTime}</span>
-                        </div>
+                  <div className="flex-grow overflow-y-auto min-h-0 space-y-4 pr-1">
+                    {jobsSubTab === 'runs' ? (
+                      <>
+                        {backgroundRuns.map((run) => {
+                          const runTime = new Date(run.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                          const isExpanded = !!expandedRunIds[run.id];
+                          const isSuccess = run.status === 'success';
+                          const isRunning = run.status === 'running';
 
-                        <div>
-                          <h4 className="text-xs font-bold text-white leading-relaxed font-sans">{run.goal}</h4>
-                        </div>
-
-                        {run.log && (
-                          <div className="space-y-1.5">
-                            <button
-                              onClick={() => setExpandedRunIds(prev => ({ ...prev, [run.id]: !isExpanded }))}
-                              className="text-[10px] font-semibold text-theme-accent hover:underline flex items-center gap-1 cursor-pointer transition-all"
+                          return (
+                            <div
+                              key={run.id}
+                              className="p-4 bg-main-theme-30 border border-theme hover:border-theme-accent/50 rounded-2xl transition-all duration-200 space-y-3 shadow-md animate-fade-in"
                             >
-                              <span>{isExpanded ? 'Hide Logs' : 'View Logs'}</span>
-                              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
-                            </button>
+                              <div className="flex items-center justify-between">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${isSuccess ? 'bg-emerald-500/10 text-emerald-400' :
+                                  isRunning ? 'bg-amber-500/10 text-amber-400 animate-pulse' : 'bg-rose-500/10 text-rose-400'
+                                  }`}>
+                                  {run.status}
+                                </span>
+                                <span className="text-[10px] text-theme-dim font-mono">{runTime}</span>
+                              </div>
 
-                            {isExpanded && (
-                              <pre className="p-3.5 bg-black/40 border border-theme rounded-xl text-[10px] font-mono text-theme-main select-all overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                                {run.log}
-                              </pre>
-                            )}
+                              <div>
+                                <h4 className="text-xs font-bold text-white leading-relaxed font-sans">{run.goal}</h4>
+                              </div>
+
+                              {run.log && (
+                                <div className="space-y-1.5">
+                                  <button
+                                    onClick={() => setExpandedRunIds(prev => ({ ...prev, [run.id]: !isExpanded }))}
+                                    className="text-[10px] font-semibold text-theme-accent hover:underline flex items-center gap-1 cursor-pointer transition-all"
+                                  >
+                                    <span>{isExpanded ? 'Hide Logs' : 'View Logs'}</span>
+                                    <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                                  </button>
+
+                                  {isExpanded && (
+                                    <pre className="p-3.5 bg-black/40 border border-theme rounded-xl text-[10px] font-mono text-theme-main select-all overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                                      {run.log}
+                                    </pre>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {backgroundRuns.length === 0 && (
+                          <div className="text-center py-10 text-zinc-500 text-xs font-sans">
+                            No background scheduler jobs recorded yet.
                           </div>
                         )}
-                      </div>
-                    );
-                  })}
-                  {backgroundRuns.length === 0 && (
-                    <div className="text-center py-10 text-zinc-500 text-xs font-sans">
-                      No background scheduler jobs recorded yet.
-                    </div>
-                  )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Windows Task Creator Form */}
+                        <form onSubmit={handleCreateWinTask} className="p-4 bg-main-theme-30 border border-theme rounded-2xl space-y-3.5 shadow-md">
+                          <span className="text-[10px] font-mono font-bold text-theme-accent uppercase tracking-widest block">
+                            📅 Schedule Persistent OS Task
+                          </span>
+
+                          <div className="grid grid-cols-2 gap-3.5">
+                            <div>
+                              <label className="block text-[9px] font-mono uppercase tracking-wider text-theme-dim mb-1 font-bold">
+                                Task Identifier
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g. backup_files"
+                                value={newWinTask.name}
+                                onChange={e => setNewWinTask(prev => ({ ...prev, name: e.target.value.replace(/[^a-zA-Z0-9_]/g, '') }))}
+                                className="w-full bg-main-theme border border-theme text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-theme-accent"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[9px] font-mono uppercase tracking-wider text-theme-dim mb-1 font-bold">
+                                Trigger Time
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="HH:MM (e.g. 08:30)"
+                                value={newWinTask.time}
+                                onChange={e => setNewWinTask(prev => ({ ...prev, time: e.target.value }))}
+                                className="w-full bg-main-theme border border-theme text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-theme-accent"
+                                required
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3.5">
+                            <div>
+                              <label className="block text-[9px] font-mono uppercase tracking-wider text-theme-dim mb-1 font-bold">
+                                Trigger Recurrence
+                              </label>
+                              <select
+                                value={newWinTask.schedule}
+                                onChange={e => setNewWinTask(prev => ({ ...prev, schedule: e.target.value }))}
+                                className="w-full bg-main-theme border border-theme text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-theme-accent cursor-pointer"
+                              >
+                                <option value="daily">Daily</option>
+                                <option value="once">One-Time (Once)</option>
+                              </select>
+                            </div>
+
+                            {newWinTask.schedule === 'once' && (
+                              <div>
+                                <label className="block text-[9px] font-mono uppercase tracking-wider text-theme-dim mb-1 font-bold">
+                                  Trigger Date
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="YYYY-MM-DD"
+                                  value={newWinTask.date}
+                                  onChange={e => setNewWinTask(prev => ({ ...prev, date: e.target.value }))}
+                                  className="w-full bg-main-theme border border-theme text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-theme-accent"
+                                  required={newWinTask.schedule === 'once'}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-[9px] font-mono uppercase tracking-wider text-theme-dim mb-1 font-bold">
+                              Agent Natural Language Goal
+                            </label>
+                            <textarea
+                              placeholder="Describe what the agent should do autonomously when triggered..."
+                              value={newWinTask.goal}
+                              onChange={e => setNewWinTask(prev => ({ ...prev, goal: e.target.value }))}
+                              className="w-full bg-main-theme border border-theme text-white text-xs rounded-xl px-3 py-1.5 focus:outline-none focus:border-theme-accent h-16 resize-none"
+                              required
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            className="w-full bg-theme-accent hover:bg-theme-accent-hover text-white text-xs font-mono font-bold py-2 rounded-xl cursor-pointer transition-all uppercase tracking-wider accent-glow-hover"
+                          >
+                            Schedule Task
+                          </button>
+                        </form>
+
+                        {/* Windows Task List */}
+                        <div className="space-y-3">
+                          <span className="text-[9px] font-mono font-bold text-theme-dim uppercase tracking-wider block">
+                            Active Windows OS Tasks List
+                          </span>
+
+                          {winTasksLoading && (
+                            <div className="text-center py-4 text-theme-dim text-xs">
+                              Loading native Windows Tasks...
+                            </div>
+                          )}
+
+                          {winTasks.map((task) => (
+                            <div
+                              key={task.name}
+                              className="p-4 bg-main-theme-30 border border-theme hover:border-theme-accent/50 rounded-2xl flex items-start justify-between shadow-md"
+                            >
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-white font-mono">{task.full_name}</span>
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${task.status.toLowerCase().includes('ready') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'
+                                    }`}>
+                                    {task.status}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-theme-main font-semibold">Goal: {task.goal}</p>
+                                <p className="text-[10px] text-theme-dim font-mono">Next scheduled run: {task.next_run}</p>
+                              </div>
+                              <button
+                                onMouseEnter={() => playUISound('hover')}
+                                onClick={() => handleDeleteWinTask(task.name)}
+                                className="text-rose-400 hover:text-rose-500 cursor-pointer p-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 rounded-xl transition-all"
+                                title="Delete task"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+
+                          {!winTasksLoading && winTasks.length === 0 && (
+                            <div className="text-center py-8 text-zinc-500 text-xs italic">
+                              No active Meridian scheduled OS tasks.
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -3801,8 +4100,8 @@ export default function App() {
                         <svg className="w-full h-full animate-fade-in" viewBox="0 0 100 40" preserveAspectRatio="none">
                           <defs>
                             <linearGradient id="cpuGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35"/>
-                              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0"/>
+                              <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+                              <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.0" />
                             </linearGradient>
                             <filter id="glow-chart">
                               <feGaussianBlur stdDeviation="1" result="blur" />
@@ -3838,8 +4137,8 @@ export default function App() {
                         <svg className="w-full h-full animate-fade-in" viewBox="0 0 100 40" preserveAspectRatio="none">
                           <defs>
                             <linearGradient id="ramGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.3"/>
-                              <stop offset="100%" stopColor="#14b8a6" stopOpacity="0.0"/>
+                              <stop offset="0%" stopColor="#14b8a6" stopOpacity="0.3" />
+                              <stop offset="100%" stopColor="#14b8a6" stopOpacity="0.0" />
                             </linearGradient>
                           </defs>
                           <g stroke="rgba(255,255,255,0.04)" strokeWidth="0.5">
@@ -3863,346 +4162,110 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Achievements Grid */}
-                  <div className="p-4 flex flex-col min-h-0 shrink-0 space-y-2 glass-card rounded-2xl">
-                    <span className="text-[9px] font-mono text-theme-dim uppercase tracking-wider font-bold">
-                      🏆 Developer Achievements
-                    </span>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        {
-                          id: 'bug_hunter',
-                          title: 'Bug Hunter',
-                          description: 'Heal a file error',
-                          icon: '🐛',
-                          unlocked: (devStats.successful_heals || 0) >= 1,
-                          progress: `${devStats.successful_heals || 0}/1`
-                        },
-                        {
-                          id: 'deep_focus',
-                          title: 'Deep Focus',
-                          description: 'Complete a Pomodoro',
-                          icon: '⏱️',
-                          unlocked: (devStats.pomodoros || 0) >= 1,
-                          progress: `${devStats.pomodoros || 0}/1`
-                        },
-                        {
-                          id: 'fortress',
-                          title: 'Fortress',
-                          description: '2+ security audits',
-                          icon: '🛡️',
-                          unlocked: (devStats.security_audits || 0) >= 2,
-                          progress: `${devStats.security_audits || 0}/2`
-                        },
-                        {
-                          id: 'git_master',
-                          title: 'Git Master',
-                          description: '5+ workspace commits',
-                          icon: '🌿',
-                          unlocked: (devStats.git_commits || 0) >= 5,
-                          progress: `${devStats.git_commits || 0}/5`
-                        }
-                      ].map(ach => (
-                        <div 
-                          key={ach.id} 
-                          className={`p-3 border rounded-xl flex items-center gap-2.5 transition-all relative overflow-hidden accent-glow-hover ${
-                            ach.unlocked 
-                              ? 'glass-card-accent border-purple-500/40 text-purple-300 shadow-[0_0_10px_rgba(168,85,247,0.15)]' 
-                              : 'bg-black/20 border-zinc-800/80 opacity-50 grayscale'
-                          }`}
-                        >
-                          <div className="text-xl relative shrink-0">
-                            {ach.icon}
-                            {!ach.unlocked && (
-                              <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-md text-[10px]">
-                                🔒
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-grow min-w-0">
-                            <h4 className={`text-[10px] font-bold truncate ${ach.unlocked ? 'text-purple-300' : 'text-zinc-400'}`}>
-                              {ach.title}
-                            </h4>
-                            <p className="text-[8px] text-zinc-500 truncate leading-tight">
-                              {ach.description}
-                            </p>
-                            <span className="text-[8px] font-mono text-zinc-650 block mt-0.5">
-                              Progress: {ach.progress}
+
+
+                  {/* Security Diagnostics Section */}
+                  <div className="p-4 rounded-2xl border border-theme bg-panel-theme-40 space-y-3 shrink-0 glass-card">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-4.5 h-4.5 text-theme-accent" />
+                        <span className="text-[10px] font-mono text-theme-dim uppercase tracking-wider block font-bold">
+                          🛡️ Desktop Security Auditor
+                        </span>
+                      </div>
+                      <button
+                        onMouseEnter={() => playUISound('hover')}
+                        onClick={runSecurityAudit}
+                        disabled={securityAuditing}
+                        className="text-[9px] text-theme-accent hover:text-white font-bold cursor-pointer bg-theme-accent/10 px-2.5 py-0.5 border border-theme-accent/20 rounded-lg accent-glow-hover disabled:opacity-55"
+                      >
+                        {securityAuditing ? 'Running Scan...' : 'Run Audit Scan'}
+                      </button>
+                    </div>
+
+                    {securityAuditResult ? (
+                      <div className="space-y-4 animate-fade-in">
+                        {/* Summary Badges */}
+                        <div className="grid grid-cols-2 gap-3.5">
+                          <div className="p-3.5 bg-black/30 border border-theme rounded-xl flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-theme-dim">Open Port Risks</span>
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${securityAuditResult.ports.some((p: any) => p.severity === 'medium')
+                              ? 'bg-amber-500/10 text-amber-400'
+                              : 'bg-emerald-500/10 text-emerald-400'
+                              }`}>
+                              {securityAuditResult.ports.length} Open
                             </span>
                           </div>
-                          {ach.unlocked && (
-                            <div className="absolute right-1 top-1 w-1.5 h-1.5 rounded-full bg-purple-400 animate-ping" />
-                          )}
+
+                          <div className="p-3.5 bg-black/30 border border-theme rounded-xl flex items-center justify-between">
+                            <span className="text-[10px] font-mono text-theme-dim">Credentials Leaks</span>
+                            <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${securityAuditResult.leaks.length > 0
+                              ? 'bg-rose-500/10 text-rose-400 animate-pulse'
+                              : 'bg-emerald-500/10 text-emerald-400'
+                              }`}>
+                              {securityAuditResult.leaks.length} Found
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {/* OFFLINE SEARCH */}
-              {sidebarTab === 'docs' && (
-                <div className="p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0">
-                  <form onSubmit={handleSearchDocs} className="flex gap-2 bg-main-theme-40 border border-theme p-2.5 rounded-xl shrink-0">
-                    <BookOpen className="w-5 h-5 text-theme-dim self-center ml-2" />
-                    <input
-                      type="text"
-                      placeholder="Search offline RAG documentation library..."
-                      value={docsQuery}
-                      onChange={(e) => setDocsQuery(e.target.value)}
-                      onMouseEnter={() => playUISound('hover')}
-                      className="flex-1 bg-transparent border-none text-xs text-white placeholder-zinc-500 focus:outline-none focus:ring-0 font-sans"
-                    />
-                    <button
-                      type="submit"
-                      disabled={isSearchingDocs}
-                      onMouseEnter={() => playUISound('hover')}
-                      className="px-4 py-1.5 bg-white text-black font-bold rounded-lg text-xs hover:bg-theme-accent transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      {isSearchingDocs ? <Loader2 className="w-3 h-3 animate-spin text-black" /> : <BookOpen className="w-3 h-3" />}
-                      <span>Search</span>
-                    </button>
-                  </form>
-
-                  <div className="flex-grow overflow-y-auto space-y-3.5 pr-1 flex flex-col min-h-0">
-                    <div className="flex-grow space-y-3.5 min-h-[150px]">
-                      {docsResults.length > 0 ? (
-                        docsResults.map((result, idx) => (
-                          <div key={idx} className="p-4 bg-main-theme-30 border border-theme rounded-2xl space-y-2 hover:border-theme-accent/50 transition-all select-text">
-                            <div className="flex items-center justify-between text-xs font-mono">
-                              <span className="text-theme-accent font-bold">📄 {result.title || result.file_path || 'Document'}</span>
-                              {result.score !== undefined && (
-                                <span className="text-emerald-400 font-bold">{Math.round(result.score * 100)}% match</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-theme-dim font-sans leading-relaxed select-text italic">
-                              "... {result.content || result.snippet} ..."
-                            </p>
-                            <div className="flex justify-end">
-                              <button
-                                onMouseEnter={() => playUISound('hover')}
-                                onClick={() => {
-                                  playUISound('click');
-                                  const prompt = `Analyze document "${result.title || result.file_path}": "${result.content || result.snippet}". Please explain: `;
-                                  setInputText(prompt);
-                                }}
-                                className="px-2.5 py-1 bg-main-theme border border-theme hover:border-theme-accent-30 text-theme-dim hover:text-theme-main rounded-lg text-[10px] font-semibold transition-all cursor-pointer"
-                              >
-                                Use Context
-                              </button>
+                        {/* Open Ports List */}
+                        {securityAuditResult.ports.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest block">
+                              Active Dev / Local Listening Ports:
+                            </span>
+                            <div className="max-h-24 overflow-y-auto space-y-1 pr-1.5 scrollbar-thin">
+                              {securityAuditResult.ports.map((p: any, idx: number) => (
+                                <div key={idx} className="flex justify-between items-center text-xs py-1 px-2.5 bg-main-theme-30 border border-theme/40 rounded-xl">
+                                  <span className="font-mono text-white font-semibold">Port {p.port} ({p.service})</span>
+                                  <span className={`text-[9px] font-mono px-2 py-0.5 rounded-full font-bold ${p.severity === 'medium' ? 'bg-amber-500/10 text-amber-400' : 'bg-emerald-500/10 text-emerald-400'
+                                    }`}>
+                                    {p.binding}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        ))
-                      ) : docsQuery ? (
-                        <div className="text-center py-10 text-zinc-500 text-xs font-sans select-none">
-                          No matching documents found.
-                        </div>
-                      ) : (
-                        <div className="flex-grow flex flex-col items-center justify-center text-center p-6 text-theme-dim h-full select-none">
-                          <span className="text-4xl mb-3">📚</span>
-                          <p className="text-xs font-semibold leading-relaxed">Local Documentation Search (RAG)</p>
-                          <p className="text-[11px] max-w-xs mt-1 leading-normal text-zinc-500">
-                            Search through your workspace's local documentation libraries. Results are retrieved from our local vector database offline.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Drag and Drop ingestion zone */}
-                    <div
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                        setIsDragging(true);
-                      }}
-                      onDragLeave={() => setIsDragging(false)}
-                      onDrop={handleHtmlFileDrop}
-                      className={`shrink-0 border-2 border-dashed rounded-2xl p-6 text-center transition-all mt-4 ${
-                        isDragging
-                          ? 'border-theme-accent bg-theme-accent-10/20 shadow-theme-glow'
-                          : 'border-theme bg-panel-theme-40 hover:border-theme-accent/40'
-                      }`}
-                    >
-                      <div className="flex flex-col items-center justify-center space-y-2 select-none">
-                        <span className="text-2xl animate-bounce">📥</span>
-                        <p className="text-xs font-semibold text-theme-main">
-                          Drag and drop documentation files here
-                        </p>
-                        <p className="text-[10px] text-theme-dim">
-                          Supports text documents (FileReader ingestion for browser, Tauri native paths ingestion)
-                        </p>
-                      </div>
-
-                      {ingestStatus !== 'idle' && (
-                        <div className="mt-4 p-3.5 rounded-xl border flex items-center justify-center gap-2 text-xs font-medium bg-main-theme-30">
-                          {ingestStatus === 'ingesting' && (
-                            <div className="flex items-center gap-2 text-amber-400">
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>Ingesting files into local RAG DB...</span>
-                            </div>
-                          )}
-                          {ingestStatus === 'success' && (
-                            <div className="flex items-center gap-2 text-teal-400">
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>{ingestMessage}</span>
-                            </div>
-                          )}
-                          {ingestStatus === 'error' && (
-                            <div className="flex items-center gap-2 text-rose-400">
-                              <AlertCircle className="w-3.5 h-3.5" />
-                              <span>{ingestMessage}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                  </div>
-                </div>
-              )}
-
-              {/* MASCOT CLOSET */}
-              {sidebarTab === 'closet' && (
-                <div className="p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0">
-                  <div className="shrink-0 flex flex-col space-y-1 bg-black/40 border border-theme rounded-2xl p-4">
-                    <span className="text-xs font-bold text-white font-display">🕶️ Wardrobe Customization</span>
-                    <p className="text-[11px] text-theme-dim leading-relaxed">
-                      Dress up Meridian's animated companion character. By default, Auto-React allows Meridian to automatically change outfits based on active tasks (diagnostic helmet when healing, crown when focused, detective hat when scanning logs).
-                    </p>
-                  </div>
-
-                  <div className="flex-grow overflow-y-auto pr-1">
-                    <div className="grid grid-cols-2 gap-4">
-                      {[
-                        { id: 'auto', name: 'Auto-React Outfit', emoji: '🤖', desc: 'Reacts to agent status' },
-                        { id: 'none', name: 'Standard Outfit', emoji: '⚙️', desc: 'No special accessories' },
-                        { id: 'glasses', name: 'Cyberpunk Glasses', emoji: '🕶️', desc: 'Cool neon shades' },
-                        { id: 'construction_hat', name: 'Diagnostics Helmet', emoji: '🪖', desc: 'Equipped during codebase healing' },
-                        { id: 'detective_hat', name: 'Detective Fedora', emoji: '🕵️', desc: 'Equipped during system audits' },
-                        { id: 'crown', name: 'Royal Crown', emoji: '👑', desc: 'Equipped when focus metric is hit' },
-                        { id: 'dev_hoodie', name: 'Developer Hoodie', emoji: '🧥', desc: 'Comfortable slate grey hoodie' },
-                        { id: 'cyberpunk_visor', name: 'Neon Cyber Goggles', emoji: '🽿', desc: 'Futuristic visor overlays' }
-                      ].map(item => {
-                        const isEquipped = mascotWardrobe === item.id;
-                        return (
-                          <button
-                            key={item.id}
-                            onClick={() => {
-                              setMascotWardrobe(item.id);
-                              localStorage.setItem('meridian_mascot_wardrobe', item.id);
-                              const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-                              if (isTauri) {
-                                emit('mascot-wardrobe-changed', { item: item.id }).catch(console.error);
-                              }
-                            }}
-                            className={`p-3.5 border rounded-2xl text-left transition-all relative overflow-hidden flex flex-col justify-between h-28 cursor-pointer ${
-                              isEquipped
-                                ? 'glass-card-accent border-theme-accent shadow-theme-glow text-theme-main'
-                                : 'bg-main-theme-30 border-theme text-theme-dim hover:border-theme-accent-30'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between w-full">
-                              <span className="text-2xl">{item.emoji}</span>
-                              {isEquipped && (
-                                <span className="text-[9px] font-mono font-bold text-black bg-theme-accent px-2 py-0.5 rounded-full uppercase">
-                                  Equipped
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="text-xs font-bold text-white">{item.name}</h4>
-                              <p className="text-[10px] text-zinc-500 leading-tight mt-0.5 truncate">{item.desc}</p>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* PYTHON SCRIPT SANDBOX */}
-              {sidebarTab === 'sandbox' && (
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0">
-                  <div className="flex-grow flex flex-col min-h-[160px] border border-theme rounded-2xl overflow-hidden bg-black/40">
-                    <div className="px-4 py-2.5 border-b border-theme bg-main-theme/50 flex items-center justify-between shrink-0 select-none">
-                      <span className="text-[10px] font-mono text-theme-dim font-bold uppercase tracking-wider">
-                        Python Script Editor
-                      </span>
-                      <span className="text-[9px] text-theme-accent italic font-semibold">Isolated Sandbox</span>
-                    </div>
-                    <textarea
-                      value={sandboxCode}
-                      onChange={(e) => setSandboxCode(e.target.value)}
-                      className="flex-1 p-4 bg-transparent text-theme-main font-mono text-xs focus:outline-none resize-none overflow-y-auto scrollbar-thin border-none"
-                      disabled={sandboxStatus === 'auditing' || sandboxStatus === 'executing'}
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-between shrink-0 select-none">
-                    <span className="text-[10px] font-mono text-theme-dim uppercase tracking-wider font-bold">
-                      Runner Status: 
-                      <span className={`ml-1.5 font-bold ${
-                        sandboxStatus === 'success' ? 'text-teal-400' :
-                        sandboxStatus === 'blocked' ? 'text-red-400' :
-                        sandboxStatus === 'syntax_error' ? 'text-amber-500 animate-pulse' :
-                        sandboxStatus === 'auditing' || sandboxStatus === 'executing' ? 'text-amber-400 animate-pulse' : 'text-zinc-500'
-                      }`}>
-                        {sandboxStatus.toUpperCase()}
-                      </span>
-                    </span>
-
-                    <div className="flex gap-2">
-                      {sandboxStatus === 'syntax_error' && (
-                        <button
-                          onClick={handleHealSandboxCode}
-                          className="px-3.5 py-1.5 bg-amber-500 hover:shadow-[0_0_15px_rgba(245,158,11,0.35)] text-black rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                        >
-                          <Sparkles className="w-3.5 h-3.5 fill-black" />
-                          <span>Auto-Heal Code</span>
-                        </button>
-                      )}
-                      <button
-                        onClick={handleRunSandbox}
-                        disabled={sandboxStatus === 'auditing' || sandboxStatus === 'executing'}
-                        className="px-4.5 py-1.5 bg-white hover:bg-theme-accent hover:border-theme-accent disabled:opacity-40 text-black rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        {sandboxStatus === 'auditing' || sandboxStatus === 'executing' ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-black" />
-                        ) : (
-                          <Terminal className="w-3.5 h-3.5" />
                         )}
-                        <span>Execute</span>
-                      </button>
-                    </div>
-                  </div>
 
-                  {sandboxAuditorReasoning && (
-                    <div className="p-3.5 bg-panel-theme border border-theme rounded-xl space-y-1 shrink-0 select-text">
-                      <span className="text-[9px] font-bold text-theme-accent uppercase font-mono block">Security Audit Reasoning:</span>
-                      <p className="text-[11px] text-theme-main font-sans leading-relaxed">{sandboxAuditorReasoning}</p>
-                    </div>
-                  )}
-
-                  <div className="flex-grow flex flex-col min-h-[140px] border border-theme rounded-xl overflow-hidden bg-black/50">
-                    <div className="px-4 py-2 border-b border-theme bg-main-theme/30 flex items-center justify-between shrink-0 select-none">
-                      <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-wider font-bold">
-                        Sandbox Output / STDERR
-                      </span>
-                      <button
-                        onClick={() => setSandboxOutput('')}
-                        className="text-[9px] text-zinc-500 hover:text-zinc-355 cursor-pointer"
-                      >
-                        Clear Log
-                      </button>
-                    </div>
-                    <pre className="flex-grow p-3.5 text-[10px] font-mono text-zinc-300 select-all overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                      {sandboxOutput || (
-                        <span className="text-zinc-600 italic">Execute code to see output logs here...</span>
-                      )}
-                    </pre>
+                        {/* Leaked Secrets List */}
+                        {securityAuditResult.leaks.length > 0 && (
+                          <div className="space-y-1.5">
+                            <span className="text-[9px] font-mono font-bold text-zinc-500 uppercase tracking-widest block">
+                              Exposed Keys / Passwords in Code:
+                            </span>
+                            <div className="max-h-28 overflow-y-auto space-y-1.5 pr-1.5 scrollbar-thin">
+                              {securityAuditResult.leaks.map((l: any, idx: number) => (
+                                <div key={idx} className="p-2.5 bg-rose-500/5 border border-rose-500/20 rounded-xl space-y-0.5">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-mono text-rose-400 font-bold truncate max-w-[70%]">
+                                      {l.file}:{l.line}
+                                    </span>
+                                    <span className="text-[8px] font-mono font-bold uppercase tracking-wider text-rose-500/80 bg-rose-500/10 px-1.5 py-0.2 rounded">
+                                      {l.type}
+                                    </span>
+                                  </div>
+                                  <p className="text-[10px] text-zinc-400 font-mono truncate bg-black/25 p-1 rounded border border-theme/20">
+                                    Match: <code>{l.match}</code>
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-theme-dim font-sans italic text-center py-2">
+                        Click "Run Audit Scan" to audit local port bindings and search files for hardcoded API keys.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
+
+
+
+
 
               {/* SWARM DEBATE ARENA */}
               {sidebarTab === 'lobby' && (
@@ -4257,21 +4320,19 @@ export default function App() {
                     )}
 
                     {lobbyDebate.map((d, index) => (
-                      <div 
-                        key={index} 
-                        className={`p-4 border rounded-2xl flex flex-col space-y-1.5 ${
-                          d.agent.includes("QA") ? 'bg-emerald-500/5 border-emerald-500/20' :
+                      <div
+                        key={index}
+                        className={`p-4 border rounded-2xl flex flex-col space-y-1.5 ${d.agent.includes("QA") ? 'bg-emerald-500/5 border-emerald-500/20' :
                           d.agent.includes("Auditor") ? 'bg-amber-500/5 border-amber-500/20' :
-                          d.agent.includes("Final") ? 'bg-purple-500/5 border-purple-500/20' : 'bg-blue-500/5 border-blue-500/20'
-                        }`}
+                            d.agent.includes("Final") ? 'bg-purple-500/5 border-purple-500/20' : 'bg-blue-500/5 border-blue-500/20'
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 select-none">
                           <span className="text-sm">{d.avatar}</span>
-                          <span className={`text-[10px] font-bold tracking-wide uppercase ${
-                            d.agent.includes("QA") ? 'text-emerald-400' :
+                          <span className={`text-[10px] font-bold tracking-wide uppercase ${d.agent.includes("QA") ? 'text-emerald-400' :
                             d.agent.includes("Auditor") ? 'text-amber-400' :
-                            d.agent.includes("Final") ? 'text-purple-400' : 'text-blue-400'
-                          }`}>
+                              d.agent.includes("Final") ? 'text-purple-400' : 'text-blue-400'
+                            }`}>
                             {d.agent}
                           </span>
                         </div>
@@ -4317,17 +4378,6 @@ export default function App() {
                                   onMouseEnter={() => playUISound('hover')}
                                   onClick={() => {
                                     playUISound('click');
-                                    setSandboxCode(lobbyProposedCode);
-                                    setSidebarTab('sandbox');
-                                  }}
-                                  className="text-[9px] text-theme-accent hover:text-white font-bold cursor-pointer bg-theme-accent/10 px-2 py-0.5 border border-theme-accent/20 rounded"
-                                >
-                                  Apply to Sandbox
-                                </button>
-                                <button
-                                  onMouseEnter={() => playUISound('hover')}
-                                  onClick={() => {
-                                    playUISound('click');
                                     navigator.clipboard.writeText(lobbyProposedCode);
                                   }}
                                   className="text-[9px] text-zinc-400 hover:text-white cursor-pointer bg-zinc-800 px-2 py-0.5 border border-zinc-700 rounded"
@@ -4347,281 +4397,12 @@ export default function App() {
                 </div>
               )}
 
-              {/* CODEBASE GRAPH */}
-              {sidebarTab === 'codemap' && (
-                <div className="p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0">
-                  <div className="shrink-0 flex flex-col space-y-1.5 rounded-2xl p-4 glass-card">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-theme-dim font-bold uppercase tracking-wider block">
-                        🕸️ Codebase Graph
-                      </span>
-                      <button
-                        onMouseEnter={() => playUISound('hover')}
-                        onClick={() => {
-                          playUISound('click');
-                          fetchCodeGraph();
-                        }}
-                        className="text-[9px] text-theme-accent hover:text-white font-bold cursor-pointer bg-theme-accent/10 px-2.5 py-0.5 border border-theme-accent/20 rounded-lg accent-glow-hover"
-                      >
-                        Refresh Graph
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-theme-dim leading-relaxed">
-                      Interactive map of codebase files and dependencies. Drag nodes to reposition. Click a node to view details or trigger heals.
-                    </p>
+              {/* SYSTEM CONFIGURATION & SETTINGS */}
+              {sidebarTab === 'settings' && (
+                <div className="p-6 space-y-4 animate-fade-in flex flex-col h-full min-h-0 overflow-y-auto scrollbar-thin text-left">
+                  <div className="max-w-2xl mx-auto w-full glass-card p-6 rounded-2xl border border-theme">
+                    {renderSettingsDropdownContent()}
                   </div>
-
-                  {/* Filters and Search Bar */}
-                  <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 bg-panel-theme border border-theme p-3 rounded-2xl">
-                    {/* Extension Filter Buttons */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-mono text-theme-dim uppercase font-bold mr-1">Filter:</span>
-                      {[
-                        { id: 'all', label: 'All Files' },
-                        { id: 'py', label: '.py' },
-                        { id: 'ts', label: '.ts / .tsx' },
-                        { id: 'js', label: '.js / .jsx' }
-                      ].map(f => (
-                        <button
-                          key={f.id}
-                          onMouseEnter={() => playUISound('hover')}
-                          onClick={() => {
-                            playUISound('click');
-                            setCodeMapFilter(f.id as any);
-                          }}
-                          className={`px-2.5 py-1 text-[10px] font-bold font-mono rounded-lg border transition-all cursor-pointer ${
-                            codeMapFilter === f.id
-                              ? 'bg-theme-accent text-black border-theme-accent shadow-theme-glow'
-                              : 'bg-main-theme-30 text-theme-dim border-theme hover:text-theme-main hover:border-theme-accent/40'
-                          }`}
-                        >
-                          {f.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Search Input Box */}
-                    <div className="relative flex items-center w-full sm:w-64">
-                      <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
-                      <input
-                        type="text"
-                        value={codeMapSearch}
-                        onChange={(e) => setCodeMapSearch(e.target.value)}
-                        placeholder="Search file node..."
-                        onMouseEnter={() => playUISound('hover')}
-                        className="w-full bg-main-theme border border-theme text-theme-main rounded-xl py-1.5 pl-8 pr-3.5 text-xs focus:outline-none focus:border-theme-accent font-mono placeholder-zinc-650"
-                      />
-                      {codeMapSearch && (
-                        <button
-                          onClick={() => setCodeMapSearch('')}
-                          className="absolute right-2.5 text-zinc-550 hover:text-white"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* SVG Code Map Network Graph */}
-                  <div className="flex-grow rounded-2xl overflow-hidden relative min-h-[300px] flex flex-col glass-card">
-                    {codeGraph.nodes.length === 0 ? (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-theme-dim">
-                        <span className="text-3xl mb-2">🕸️</span>
-                        <p className="text-xs font-semibold leading-relaxed">No files found or graph is empty.</p>
-                      </div>
-                    ) : (
-                      <svg
-                        className="w-full h-full min-h-[300px] select-none"
-                        onMouseMove={handleGraphNodeDrag}
-                        onMouseUp={handleGraphNodeDragEnd}
-                        onMouseLeave={handleGraphNodeDragEnd}
-                      >
-                        <defs>
-                          <marker
-                            id="arrow"
-                            viewBox="0 0 10 10"
-                            refX="18"
-                            refY="5"
-                            markerWidth="6"
-                            markerHeight="6"
-                            orient="auto-start-reverse"
-                          >
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" opacity="0.6" />
-                          </marker>
-                          <filter id="node-glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur stdDeviation="3" result="blur" />
-                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                          </filter>
-                        </defs>
-
-                        {/* Links */}
-                        {codeGraph.links.map((link, idx) => {
-                          const sourceNode = codeGraph.nodes.find(n => n.id === link.source);
-                          const targetNode = codeGraph.nodes.find(n => n.id === link.target);
-                          if (!sourceNode || !targetNode) return null;
-
-                          // Filter out links whose endpoints are filtered out
-                          const isSourceMatch = codeMapFilter === 'all' || 
-                            (codeMapFilter === 'py' && sourceNode.type === 'py') ||
-                            (codeMapFilter === 'ts' && (sourceNode.type === 'ts' || sourceNode.type === 'tsx')) ||
-                            (codeMapFilter === 'js' && (sourceNode.type === 'js' || sourceNode.type === 'jsx'));
-                          const isTargetMatch = codeMapFilter === 'all' || 
-                            (codeMapFilter === 'py' && targetNode.type === 'py') ||
-                            (codeMapFilter === 'ts' && (targetNode.type === 'ts' || targetNode.type === 'tsx')) ||
-                            (codeMapFilter === 'js' && (targetNode.type === 'js' || targetNode.type === 'jsx'));
-
-                          if (!isSourceMatch || !isTargetMatch) return null;
-
-                          // Search dimming
-                          let opacity = 0.6;
-                          if (codeMapSearch.trim()) {
-                            const query = codeMapSearch.toLowerCase();
-                            const sourceLabelMatch = sourceNode.label.toLowerCase().includes(query) || sourceNode.id.toLowerCase().includes(query);
-                            const targetLabelMatch = targetNode.label.toLowerCase().includes(query) || targetNode.id.toLowerCase().includes(query);
-                            if (!sourceLabelMatch || !targetLabelMatch) {
-                              opacity = 0.15;
-                            }
-                          }
-
-                          return (
-                            <line
-                              key={`link-${idx}`}
-                              x1={sourceNode.x || 250}
-                              y1={sourceNode.y || 200}
-                              x2={targetNode.x || 250}
-                              y2={targetNode.y || 200}
-                              stroke="color-mix(in srgb, var(--accent) 35%, transparent)"
-                              strokeWidth="1.5"
-                              opacity={opacity}
-                              className="graph-flow-link"
-                              markerEnd="url(#arrow)"
-                            />
-                          );
-                        })}
-
-                        {/* Nodes */}
-                        {codeGraph.nodes.map((node) => {
-                          // Filter extension
-                          const isMatchFilter = codeMapFilter === 'all' || 
-                            (codeMapFilter === 'py' && node.type === 'py') ||
-                            (codeMapFilter === 'ts' && (node.type === 'ts' || node.type === 'tsx')) ||
-                            (codeMapFilter === 'js' && (node.type === 'js' || node.type === 'jsx'));
-
-                          if (!isMatchFilter) return null;
-
-                          const isSelected = selectedNode && selectedNode.id === node.id;
-                          const isError = node.status === 'error';
-                          
-                          let nodeColor = '#3b82f6'; // blue for py
-                          if (node.type === 'tsx') nodeColor = '#a855f7'; // purple
-                          if (node.type === 'ts') nodeColor = '#6366f1'; // indigo
-                          if (node.type === 'js' || node.type === 'jsx') nodeColor = '#eab308'; // yellow
-                          
-                          // Search highlight / dimming
-                          let opacity = 1;
-                          let highlightNode = false;
-                          if (codeMapSearch.trim()) {
-                            const query = codeMapSearch.toLowerCase();
-                            const isLabelMatch = node.label.toLowerCase().includes(query) || node.id.toLowerCase().includes(query);
-                            if (!isLabelMatch) {
-                              opacity = 0.25;
-                            } else {
-                              highlightNode = true;
-                            }
-                          }
-
-                          return (
-                            <g
-                              key={node.id}
-                              transform={`translate(${node.x || 250}, ${node.y || 200})`}
-                              className="cursor-pointer group"
-                              opacity={opacity}
-                              onMouseDown={() => setDraggedNodeId(node.id)}
-                              onClick={() => {
-                                playUISound('click');
-                                setSelectedNode(node);
-                              }}
-                            >
-                              <circle
-                                r={isSelected ? 10 : (highlightNode ? 11 : 8)}
-                                fill={nodeColor}
-                                stroke={isError ? '#ef4444' : (isSelected ? '#ffffff' : (highlightNode ? 'var(--accent)' : 'transparent'))}
-                                strokeWidth={isSelected || highlightNode ? "2.5" : "2"}
-                                filter={isError || highlightNode ? 'url(#node-glow)' : ''}
-                                className={`transition-all duration-150 hover:scale-125 ${highlightNode ? 'animate-pulse' : ''}`}
-                              />
-                              {isError && (
-                                <circle
-                                  r="4"
-                                  fill="#ef4444"
-                                  cx="6"
-                                  cy="-6"
-                                />
-                              )}
-                              <text
-                                y="20"
-                                textAnchor="middle"
-                                fill={isSelected || highlightNode ? '#ffffff' : '#a1a1aa'}
-                                className="text-[9px] font-mono select-none pointer-events-none font-bold"
-                              >
-                                {node.label}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* DETAILS & AUTO-HEAL FOOTER */}
-                  {selectedNode && (
-                    <div className="shrink-0 flex flex-col space-y-2 rounded-2xl p-4 animate-fade-in font-sans glass-card-accent">
-                      <div className="flex items-center justify-between border-b border-theme pb-2 select-none">
-                        <span className="text-[10px] font-mono text-purple-300 font-bold uppercase tracking-wider">
-                          📄 File Info
-                        </span>
-                        <button
-                          onClick={() => setSelectedNode(null)}
-                          className="text-[9px] text-zinc-400 hover:text-white"
-                        >
-                          Close Details
-                        </button>
-                      </div>
-
-                      <div className="space-y-1 select-text">
-                        <p className="text-[11px] font-mono text-zinc-200 break-all">
-                          <span className="text-theme-dim font-bold">Path:</span> {selectedNode.id}
-                        </p>
-                        <p className="text-[11px] text-zinc-200">
-                          <span className="text-theme-dim font-bold">Type:</span> {selectedNode.type.toUpperCase()}
-                        </p>
-                        <p className="text-[11px] text-zinc-200">
-                          <span className="text-theme-dim font-bold">Status:</span>{' '}
-                          <span className={selectedNode.status === 'error' ? 'text-red-400 font-bold' : 'text-teal-400'}>
-                            {selectedNode.status === 'error' ? 'COMPILE ERROR' : 'HEALTHY'}
-                          </span>
-                        </p>
-                      </div>
-
-                      {selectedNode.status === 'error' && (
-                        <div className="mt-2.5 p-3 bg-red-500/5 border border-red-500/20 rounded-xl flex flex-col space-y-2 select-text">
-                          <span className="text-[9px] font-mono text-red-400 font-bold uppercase tracking-wider select-none">
-                            ⚠️ Diagnostic Message:
-                          </span>
-                          <p className="text-[10px] font-mono text-zinc-300 leading-normal whitespace-pre-wrap select-text">
-                            {selectedNode.error_message}
-                          </p>
-                          <button
-                            onClick={() => triggerHealProposer(selectedNode.id, selectedNode.error_message, 'codemap_heal')}
-                            className="w-full py-1.5 bg-red-500 hover:bg-red-600 hover:shadow-[0_0_15px_rgba(239,68,68,0.35)] text-white rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                          >
-                            <Sparkles className="w-3.5 h-3.5" />
-                            <span>Run Auto-Heal Fix</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -4635,28 +4416,27 @@ export default function App() {
           </div>
 
           {/* COLUMN RESIZING DIVIDER */}
-          <div 
+          <div
             onMouseDown={startResizing}
-            className={`w-[3px] hover:bg-theme-accent/50 transition-colors z-20 shrink-0 select-none relative ${
-              isResizing ? 'bg-theme-accent' : 'bg-zinc-900/60'
-            }`}
+            className={`w-[3px] hover:bg-theme-accent/50 transition-colors z-20 shrink-0 select-none relative ${isResizing ? 'bg-theme-accent' : 'bg-zinc-900/60'
+              }`}
           >
             <div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize z-30" />
           </div>
 
           {/* COLUMN 3: RIGHT SIDEBAR CONSOLE (COMMAND INTERFACE & CHAT) */}
-          <aside 
-            className="border-l border-theme bg-panel-theme flex flex-col overflow-hidden relative shrink-0"
+          <aside
+            className={`border-l border-theme bg-panel-theme flex flex-col overflow-hidden relative shrink-0 ${isResizing ? 'pointer-events-none' : ''}`}
             style={{ width: `${sidebarWidth}px` }}
           >
             {/* Right sidebar header with Mascot character and audio waveform */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-theme bg-panel-theme-40 shrink-0 min-h-[64px] select-none">
               <div className="flex items-center gap-2.5 min-w-0">
-                <MascotCharacter 
-                  state={mascotState} 
-                  accentColor={theme === 'default' ? '#ea580c' : theme === 'cyberpunk' ? '#ff007f' : theme === 'amber' ? '#ffb000' : '#14b8a6'} 
-                  wardrobe={mascotWardrobe === 'auto' ? (mascotState === 'crown' ? 'crown' : mascotState === 'diagnostic' ? 'construction_hat' : mascotState === 'disapproving' ? 'detective_hat' : 'none') : mascotWardrobe} 
-                  speechAmplitude={speechAmplitude} 
+                <MascotCharacter
+                  state={mascotState}
+                  accentColor={theme === 'default' ? '#ea580c' : theme === 'cyberpunk' ? '#ff007f' : theme === 'amber' ? '#ffb000' : '#14b8a6'}
+                  wardrobe={mascotWardrobe === 'auto' ? (mascotState === 'crown' ? 'crown' : mascotState === 'diagnostic' ? 'construction_hat' : mascotState === 'disapproving' ? 'detective_hat' : 'none') : mascotWardrobe}
+                  speechAmplitude={speechAmplitude}
                 />
                 <div className="flex flex-col min-w-0">
                   <span className="text-[10px] font-bold text-white tracking-wide leading-tight">Meridian</span>
@@ -4667,12 +4447,12 @@ export default function App() {
               </div>
 
               {/* real-time voice amplitude visualizer waveform SVG */}
-              <div className="flex-1 flex justify-end">
+              <div className="flex-grow flex justify-end items-center gap-3">
                 {isRecording ? (
                   <div className="flex items-end gap-[2.5px] h-5 px-2">
                     {micVisualizerWaves.map((height, idx) => (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         className="w-[2.5px] bg-emerald-500 rounded-full transition-all duration-75"
                         style={{ height: `${height * 0.8}px` }}
                       />
@@ -4712,33 +4492,44 @@ export default function App() {
                     </svg>
                   </div>
                 )}
+
+                {/* Clear Chat History button */}
+                <button
+                  onMouseEnter={() => playUISound('hover')}
+                  onClick={() => {
+                    if (confirm("Are you sure you want to clear chat history?")) {
+                      playUISound('click');
+                      handleClearHistory();
+                    }
+                  }}
+                  title="Clear Chat History"
+                  className="p-1.5 rounded-lg border border-theme bg-panel-theme hover:bg-rose-500/10 hover:border-rose-500/30 text-theme-dim hover:text-rose-450 transition-all cursor-pointer flex items-center justify-center shrink-0"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
             {/* Chat Box bubbles scrollable viewport */}
-            <div 
-              ref={chatScrollRef}
-              className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-main-theme-30 select-text"
-            >
+            <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-4 bg-main-theme-30 select-text">
               {messages.map((msg) => {
                 const isAssistant = msg.sender === 'assistant';
                 return (
                   <div key={msg.id} className={`flex ${isAssistant ? 'justify-start' : 'justify-end'} animate-fade-in`}>
                     <div className={`max-w-[90%] flex flex-col ${isAssistant ? 'items-start' : 'items-end'}`}>
-                      
+
                       <div className="flex items-center gap-1.5 mb-1 px-1 text-[9px] text-theme-dim font-semibold tracking-wide select-none">
                         <span>{isAssistant ? 'Meridian' : 'User'}</span>
                         <span>•</span>
                         <span className="text-theme-dim font-medium">{msg.timestamp}</span>
                       </div>
 
-                      <div className={`rounded-xl px-4 py-2.5 text-xs leading-relaxed border transition-all ${
-                        isAssistant
-                          ? 'glass-card border-l-4 border-l-theme-accent text-theme-main font-sans rounded-tl-none shadow-md'
-                          : 'bg-main-theme-50 border-theme-60 border-r-4 border-r-zinc-650 text-theme-main font-medium rounded-tr-none shadow-md'
-                      }`}>
+                      <div className={`rounded-xl px-4 py-2.5 text-xs leading-relaxed border transition-all ${isAssistant
+                        ? 'glass-card border-l-4 border-l-theme-accent text-theme-main font-sans rounded-tl-none shadow-md'
+                        : 'bg-main-theme-50 border-theme-60 border-r-4 border-r-zinc-650 text-theme-main font-medium rounded-tr-none shadow-md'
+                        }`}>
                         {isAssistant ? (
-                          <div 
+                          <div
                             className="markdown-body select-text"
                             dangerouslySetInnerHTML={{ __html: marked.parse(msg.text) as string }}
                           />
@@ -4770,7 +4561,7 @@ export default function App() {
 
             {/* Input Console Bottom Panel */}
             <div className="p-4 bg-panel-theme border-t border-theme shrink-0">
-              
+
               {/* Confirmation Overlay */}
               {pendingConfirmation && (
                 <div className="mb-4 p-4.5 bg-panel-theme border border-theme-accent rounded-2xl relative z-20 shadow-2xl animate-fade-in shadow-theme-glow">
@@ -4816,8 +4607,8 @@ export default function App() {
                   </div>
                   <div className="flex items-end gap-1 h-3.5">
                     {micVisualizerWaves.map((height, idx) => (
-                      <div 
-                        key={idx} 
+                      <div
+                        key={idx}
                         className="w-[2px] bg-theme-accent rounded-full transition-all duration-75"
                         style={{ height: `${height * 0.6}px` }}
                       />
@@ -4853,7 +4644,18 @@ export default function App() {
               )}
 
               {/* Main input text field and buttons */}
-              <div className="relative flex items-stretch gap-2 bg-panel-theme border border-theme rounded-xl p-2 focus-within:border-theme-accent focus-within:shadow-[0_0_12px_var(--accent-glow)] transition-all">
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleHtmlFileDrop}
+                className={`relative flex items-stretch gap-2 bg-panel-theme border rounded-xl p-2 focus-within:border-theme-accent focus-within:shadow-[0_0_12px_var(--accent-glow)] transition-all ${isDragging
+                  ? 'border-dashed border-theme-accent bg-theme-accent-10/10 shadow-theme-glow'
+                  : 'border-theme'
+                  }`}
+              >
                 <textarea
                   ref={textareaRef}
                   id="task-input-field"
@@ -4863,7 +4665,7 @@ export default function App() {
                   onKeyDown={(e) => {
                     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
                     if (isTauri && e.key !== 'Enter') {
-                      emit('user-typing', {}).catch(() => {});
+                      emit('user-typing', {}).catch(() => { });
                     }
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -4871,7 +4673,7 @@ export default function App() {
                     }
                   }}
                   disabled={isRunning}
-                  placeholder="Enter a workspace task..."
+                  placeholder={isDragging ? "Drop files here to index..." : "Enter a workspace task (or drop files here)..."}
                   className="flex-1 bg-transparent text-white placeholder-zinc-500 border-none px-2.5 font-sans text-xs focus:outline-none focus:ring-0 disabled:opacity-50 resize-none py-1.5 min-h-[24px] max-h-[180px] overflow-y-auto leading-relaxed"
                 />
 
@@ -4881,11 +4683,10 @@ export default function App() {
                     onClick={toggleRecording}
                     disabled={isRunning}
                     title="Translate speech to command"
-                    className={`p-2 border rounded-lg transition-all cursor-pointer ${
-                      isRecording 
-                        ? 'bg-theme-accent-10 text-theme-accent border-theme-accent-30 shadow-theme-glow' 
-                        : 'bg-panel-theme border-theme text-theme-dim hover:text-theme-main hover:border-theme-accent-40 disabled:opacity-30'
-                    }`}
+                    className={`p-2 border rounded-lg transition-all cursor-pointer ${isRecording
+                      ? 'bg-theme-accent-10 text-theme-accent border-theme-accent-30 shadow-theme-glow'
+                      : 'bg-panel-theme border-theme text-theme-dim hover:text-theme-main hover:border-theme-accent-40 disabled:opacity-30'
+                      }`}
                   >
                     {isRecording ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                   </button>
@@ -4927,6 +4728,35 @@ export default function App() {
                   )}
                 </div>
               </div>
+
+              {ingestStatus !== 'idle' && (
+                <div className="mt-2 p-2 rounded-xl border flex items-center justify-between text-[10px] font-medium bg-main-theme-30 border-theme/40 select-none">
+                  {ingestStatus === 'ingesting' && (
+                    <div className="flex items-center gap-1.5 text-amber-400">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Indexing files into offline RAG...</span>
+                    </div>
+                  )}
+                  {ingestStatus === 'success' && (
+                    <div className="flex items-center gap-1.5 text-teal-400">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{ingestMessage}</span>
+                    </div>
+                  )}
+                  {ingestStatus === 'error' && (
+                    <div className="flex items-center gap-1.5 text-rose-450">
+                      <AlertCircle className="w-3 h-3" />
+                      <span>{ingestMessage}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => setIngestStatus('idle')}
+                    className="text-[9px] text-zinc-500 hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              )}
 
               <div className="flex justify-between items-center mt-3 px-1 text-[10px] text-theme-dim font-medium select-none">
                 <span className="flex items-center gap-1 leading-none">
@@ -4986,8 +4816,9 @@ export default function App() {
               height: '2px',
               background: nudge.type === 'system_health' ? 'linear-gradient(90deg,#ef4444,#f97316)' :
                 nudge.type === 'clipboard_error' ? 'linear-gradient(90deg,#ef4444,#ec4899)' :
-                nudge.type === 'idle_nudge' ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' :
-                nudge.type === 'followup' ? 'linear-gradient(90deg,#10b981,#06b6d4)' : 'linear-gradient(90deg,#6366f1,#a78bfa)'
+                  nudge.type === 'terminal_heal' ? 'linear-gradient(90deg,#10b981,#3b82f6)' :
+                    nudge.type === 'idle_nudge' ? 'linear-gradient(90deg,#6366f1,#8b5cf6)' :
+                      nudge.type === 'followup' ? 'linear-gradient(90deg,#10b981,#06b6d4)' : 'linear-gradient(90deg,#6366f1,#a78bfa)'
             }} />
 
             <div style={{ padding: '12px 14px 10px' }}>
@@ -5128,7 +4959,7 @@ export default function App() {
                   transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
                   className="absolute inset-2 rounded-full bg-gradient-to-tr from-theme-accent/10 to-indigo-500/10 border border-theme-accent/20"
                 />
-                
+
                 <div className="z-10 text-center">
                   <span className="text-5xl font-extrabold text-theme-accent font-mono tracking-tight">{breakTimer}</span>
                   <span className="block text-[9px] text-zinc-400 font-mono tracking-widest mt-1">SECONDS</span>
@@ -5139,7 +4970,7 @@ export default function App() {
                 <Sparkles className="w-5 h-5 text-theme-accent animate-pulse" />
                 20-20-20 Eye Break
               </h2>
-              
+
               <div className="space-y-3 select-none">
                 <p className="text-sm text-zinc-300 leading-relaxed">
                   Focus on something <span className="text-theme-accent font-bold">20 feet away</span> for <span className="text-theme-accent font-bold">20 seconds</span> to reduce digital eye strain.
@@ -5327,12 +5158,12 @@ export default function App() {
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              
+
               <div className="flex flex-col items-center gap-4 py-4">
                 <p className="text-xs text-theme-dim text-center select-none">
                   Scan the QR code below using WhatsApp on your phone to link your account.
                 </p>
-                
+
                 <div className="w-64 h-64 bg-zinc-950/40 border border-theme rounded-xl flex items-center justify-center overflow-hidden p-4 relative">
                   <img
                     src={`http://127.0.0.1:8000/api/whatsapp/qr?t=${qrTimestamp}`}
@@ -5360,12 +5191,12 @@ export default function App() {
                     <span className="text-[10px] font-mono">Waiting for session...</span>
                   </div>
                 </div>
-                
+
                 <div className="text-[10px] text-theme-dim text-center italic mt-2 font-mono select-all">
                   WHATSAPP_AUTHORIZED_CONTACT must be set.
                 </div>
               </div>
-              
+
               <div className="flex justify-end gap-3 mt-4 border-t border-theme pt-3 select-none">
                 <button
                   onClick={() => setShowWhatsAppQR(false)}
@@ -5375,6 +5206,99 @@ export default function App() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── BACKEND OFFLINE / INITIALIZATION OVERLAY ───────────────────────── */}
+      <AnimatePresence>
+        {!backendConnected && currentView === 'app' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/85 backdrop-blur-xl text-white font-sans overflow-hidden"
+          >
+            <div className="flex flex-col items-center max-w-lg text-center px-6 space-y-6">
+              {/* Pulsing visual core */}
+              <div className="relative">
+                <motion.div
+                  animate={{
+                    scale: [1, 1.12, 1],
+                    rotate: 360,
+                    borderColor: ['rgba(234,88,12,0.3)', 'rgba(234,88,12,0.7)', 'rgba(234,88,12,0.3)']
+                  }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                  className="w-24 h-24 rounded-full border-2 border-theme-accent/40 flex items-center justify-center shadow-[0_0_30px_rgba(234,88,12,0.2)] bg-zinc-950/80"
+                >
+                  <Loader2 className="w-8 h-8 text-theme-accent animate-spin" />
+                </motion.div>
+                <div className="absolute inset-0 bg-theme-accent/5 blur-xl rounded-full animate-pulse"></div>
+              </div>
+
+              <div className="space-y-2 select-none">
+                <h2 className="text-xl font-bold tracking-tight text-white font-display flex items-center justify-center gap-2">
+                  <Sparkles className="w-5 h-5 text-theme-accent animate-pulse" />
+                  Connecting to Meridian Core...
+                </h2>
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+                  FastAPI Backend API is offline or initializing. Spawning backend services and waiting to bind to port 8000.
+                </p>
+              </div>
+
+              <div className="py-2.5 px-4 rounded-xl bg-zinc-900/50 border border-zinc-800/80 inline-block">
+                <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1.5 justify-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                  Status: <span className="text-theme-accent font-bold">Waiting for local API daemon...</span>
+                </span>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onMouseEnter={() => playUISound('hover')}
+                  onClick={async () => {
+                    playUISound('click');
+                    try {
+                      const res = await fetch('http://127.0.0.1:8000/api/system-usage');
+                      if (res.ok) {
+                        setBackendConnected(true);
+                      } else {
+                        alert("Backend still offline. Checking again...");
+                      }
+                    } catch (e) {
+                      alert("Backend is still unreachable. Please ensure it is running.");
+                    }
+                  }}
+                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-850 rounded-xl text-xs font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer"
+                >
+                  Check Connection
+                </button>
+
+                {isTauriEnv && (
+                  <button
+                    onMouseEnter={() => playUISound('hover')}
+                    onClick={async () => {
+                      playUISound('click');
+                      try {
+                        await invoke('trigger_backend_restart');
+                        alert("Restart command sent to backend restarter daemon.");
+                      } catch (e) {
+                        alert(`Restart failed: ${e}`);
+                      }
+                    }}
+                    className="px-4 py-2 bg-white hover:bg-theme-accent hover:border-theme-accent text-black rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Force Start Backend
+                  </button>
+                )}
+              </div>
+
+              {!isTauriEnv && (
+                <div className="text-[10px] text-zinc-550 select-text bg-zinc-950/40 p-3 rounded-xl border border-zinc-900/60 max-w-sm mx-auto font-sans leading-normal">
+                  <strong>Browser mode detected:</strong> Tauri subprocess invocation is disabled. Please run <code className="bg-zinc-900 px-1 py-0.5 rounded text-theme-accent font-mono text-[9px]">start_meridian.bat</code> option 3 manually in a command prompt.
+                </div>
+              )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

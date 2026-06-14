@@ -45,21 +45,24 @@ graph TD
     N39["exporter.py (meridian_backend/src/tools)"]
     N40["filesystem.py (meridian_backend/src/tools)"]
     N41["knowledge.py (meridian_backend/src/tools)"]
-    N42["recording.py (meridian_backend/src/tools)"]
-    N43["registry.py (meridian_backend/src/tools)"]
-    N44["review.py (meridian_backend/src/tools)"]
-    N45["scheduler.py (meridian_backend/src/tools)"]
-    N46["shell.py (meridian_backend/src/tools)"]
-    N47["system.py (meridian_backend/src/tools)"]
-    N48["vault.py (meridian_backend/src/tools)"]
-    N49["voice.py (meridian_backend/src/tools)"]
-    N50["watcher.py (meridian_backend/src/tools)"]
-    N51["web.py (meridian_backend/src/tools)"]
-    N52["web_browser.py (meridian_backend/src/tools)"]
-    N53["stt.py (meridian_backend/src/voice)"]
-    N54["tts.py (meridian_backend/src/voice)"]
-    N55["wakeword.py (meridian_backend/src/voice)"]
-    N56["get_system_platform_info.py (plugins)"]
+    N42["ollama_manager.py (meridian_backend/src/tools)"]
+    N43["recording.py (meridian_backend/src/tools)"]
+    N44["registry.py (meridian_backend/src/tools)"]
+    N45["review.py (meridian_backend/src/tools)"]
+    N46["scheduler.py (meridian_backend/src/tools)"]
+    N47["security_auditor.py (meridian_backend/src/tools)"]
+    N48["shell.py (meridian_backend/src/tools)"]
+    N49["system.py (meridian_backend/src/tools)"]
+    N50["task_scheduler.py (meridian_backend/src/tools)"]
+    N51["vault.py (meridian_backend/src/tools)"]
+    N52["voice.py (meridian_backend/src/tools)"]
+    N53["watcher.py (meridian_backend/src/tools)"]
+    N54["web.py (meridian_backend/src/tools)"]
+    N55["web_browser.py (meridian_backend/src/tools)"]
+    N56["stt.py (meridian_backend/src/voice)"]
+    N57["tts.py (meridian_backend/src/voice)"]
+    N58["wakeword.py (meridian_backend/src/voice)"]
+    N59["get_system_platform_info.py (plugins)"]
 
     N3 --> N10
     N7 --> N9
@@ -78,7 +81,6 @@ graph TD
     N29 --> N10
     N29 --> N11
     N31 --> N11
-    N31 --> N10
     N32 --> N10
     N32 --> N11
     N33 --> N11
@@ -89,10 +91,10 @@ graph TD
     N42 --> N11
     N43 --> N11
     N44 --> N11
-    N46 --> N11
-    N51 --> N11
-    N51 --> N10
-    N52 --> N11
+    N45 --> N11
+    N48 --> N11
+    N54 --> N11
+    N55 --> N11
 ```
 
 ## Detailed File Index
@@ -156,7 +158,6 @@ graph TD
   - Imports: `re`
   - Imports: `src`
   - Imports: `subprocess`
-  - Imports: `supertonic`
   - Imports: `tempfile`
   - Imports: `threading`
   - Imports: `time`
@@ -175,6 +176,7 @@ graph TD
   - Imports: `random`
   - Imports: `sqlite3`
   - Imports: `src`
+  - Imports: `threading`
   - Imports: `time`
   - Imports: `turbovec`
   - Imports: `typing`
@@ -202,6 +204,7 @@ graph TD
   - Imports: `src`
 - **meridian_backend/src/core/doc_indexer.py**
   - Imports: `database`
+  - Imports: `json`
   - Imports: `numpy`
   - Imports: `os`
   - Imports: `sqlite3`
@@ -324,10 +327,8 @@ graph TD
   - Imports: `os`
   - Imports: `typing`
 - **meridian_backend/src/core/watcher.py**
-  - Imports: `api`
   - Imports: `ast`
   - Imports: `database`
-  - Imports: `ollama`
   - Imports: `os`
   - Imports: `re`
   - Imports: `src`
@@ -370,7 +371,6 @@ graph TD
   - Imports: `PIL`
   - Imports: `database`
   - Imports: `mss`
-  - Imports: `ollama`
   - Imports: `os`
   - Imports: `pyautogui`
   - Imports: `typing`
@@ -407,6 +407,9 @@ graph TD
   - Imports: `database`
   - Imports: `time`
   - Imports: `typing`
+- **meridian_backend/src/tools/ollama_manager.py**
+  - Imports: `database`
+  - Imports: `threading`
 - **meridian_backend/src/tools/recording.py**
   - Imports: `database`
   - Imports: `glob`
@@ -436,6 +439,13 @@ graph TD
   - Imports: `apscheduler`
   - Imports: `datetime`
   - Imports: `src`
+- **meridian_backend/src/tools/security_auditor.py**
+  - Imports: `os`
+  - Imports: `re`
+  - Imports: `socket`
+  - Imports: `src`
+  - Imports: `subprocess`
+  - Imports: `typing`
 - **meridian_backend/src/tools/shell.py**
   - Imports: `database`
   - Imports: `ollama`
@@ -453,6 +463,12 @@ graph TD
   - Imports: `time`
   - Imports: `webbrowser`
   - Imports: `winreg`
+- **meridian_backend/src/tools/task_scheduler.py**
+  - Imports: `csv`
+  - Imports: `os`
+  - Imports: `src`
+  - Imports: `subprocess`
+  - Imports: `sys`
 - **meridian_backend/src/tools/vault.py**
   - Imports: `base64`
   - Imports: `cryptography`
@@ -468,11 +484,10 @@ graph TD
   - Imports: `src`
   - Imports: `typing`
 - **meridian_backend/src/tools/web.py**
-  - Imports: `api`
+  - Imports: `concurrent`
   - Imports: `database`
   - Imports: `ddgs`
   - Imports: `httpx`
-  - Imports: `ollama`
   - Imports: `os`
   - Imports: `re`
   - Imports: `selectolax`
@@ -496,15 +511,20 @@ graph TD
   - Imports: `scipy`
   - Imports: `sounddevice`
   - Imports: `tempfile`
+  - Imports: `threading`
   - Imports: `time`
+  - Imports: `torch`
   - Imports: `typing`
 - **meridian_backend/src/voice/tts.py**
   - Imports: `os`
+  - Imports: `queue`
   - Imports: `random`
+  - Imports: `re`
   - Imports: `sounddevice`
   - Imports: `soundfile`
   - Imports: `supertonic`
   - Imports: `tempfile`
+  - Imports: `threading`
   - Imports: `typing`
 - **meridian_backend/src/voice/wakeword.py**
   - Imports: `numpy`

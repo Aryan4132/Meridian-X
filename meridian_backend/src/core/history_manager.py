@@ -1,18 +1,27 @@
 import os
 import subprocess
 
+_cached_workspace_root = None
+
 def find_workspace_root() -> str:
     """Finds the workspace root by walking up from this file's directory until finding .git."""
+    global _cached_workspace_root
+    if _cached_workspace_root is not None:
+        return _cached_workspace_root
+        
     curr = os.path.dirname(os.path.abspath(__file__))
     while True:
         if os.path.exists(os.path.join(curr, ".git")):
+            _cached_workspace_root = curr
             return curr
         parent = os.path.dirname(curr)
         if parent == curr:
             break
         curr = parent
     # Default fallback: 4 levels up from meridian_backend/src/core/
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    _cached_workspace_root = root
+    return root
 
 def ensure_git_initialized(workspace_dir: str = None):
     """Ensures git is initialized and has at least one commit so we can create checkpoints."""

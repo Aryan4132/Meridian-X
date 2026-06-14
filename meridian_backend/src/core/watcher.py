@@ -56,17 +56,9 @@ class LogFileHandler(FileSystemEventHandler):
 
     def run_self_healing_diagnosis(self, matched_line: str):
         try:
-            import ollama
-            import os
-            # get_ollama_client_host lives in api.py, not database
-            try:
-                from api import get_ollama_client_host
-            except ImportError:
-                def get_ollama_client_host():
-                    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-                    return host if host.startswith("http") else f"http://{host}"
-
-            client = ollama.Client(host=get_ollama_client_host())
+            from database import get_ollama_client
+            
+            client = get_ollama_client()
             prompt = (
                 f"You are Meridian's log analyzer. A log watcher triggered on this error line:\n"
                 f"'{matched_line}'\n\n"

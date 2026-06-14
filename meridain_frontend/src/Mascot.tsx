@@ -362,6 +362,9 @@ const playSoundEffect = (state: string) => {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
+    const volumeStr = localStorage.getItem('meridian_ui_volume');
+    const volume = volumeStr !== null ? parseFloat(volumeStr) : 0.5;
+
     const ctx = new AudioContextClass();
     
     if (state === 'happy' || state === 'default') {
@@ -371,8 +374,8 @@ const playSoundEffect = (state: string) => {
       osc.type = 'sine';
       osc.frequency.setValueAtTime(520, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(780, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.15);
+      gain.gain.setValueAtTime(0.12 * volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.15);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -385,8 +388,8 @@ const playSoundEffect = (state: string) => {
       osc.type = 'triangle';
       osc.frequency.setValueAtTime(300, ctx.currentTime);
       osc.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.6);
-      gain.gain.setValueAtTime(0.08, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.005, ctx.currentTime + 0.6);
+      gain.gain.setValueAtTime(0.08 * volume, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.6);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -400,8 +403,8 @@ const playSoundEffect = (state: string) => {
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(1000, time);
-        gain.gain.setValueAtTime(0.08, time);
-        gain.gain.exponentialRampToValueAtTime(0.005, time + 0.03);
+        gain.gain.setValueAtTime(0.08 * volume, time);
+        gain.gain.exponentialRampToValueAtTime(0.005 * volume, time + 0.03);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(time);
@@ -414,8 +417,8 @@ const playSoundEffect = (state: string) => {
       const gain = ctx.createGain();
       osc.type = 'sawtooth';
       osc.frequency.setValueAtTime(180, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.005, ctx.currentTime + 0.4);
+      gain.gain.setValueAtTime(0.1 * volume, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.4);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
@@ -458,6 +461,11 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     playSoundEffect(mascotState);
   }, [mascotState]);
 
+  const handleVoiceChatRef = useRef<any>(null);
+  useEffect(() => {
+    handleVoiceChatRef.current = handleVoiceChat;
+  }, [handleVoiceChat]);
+
   useEffect(() => {
     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
     if (isTauri) {
@@ -472,6 +480,14 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       const unlistenAmplitude = listen('mascot-amplitude-changed', (event: any) => {
         setSpeechAmplitude(event.payload?.amplitude || 0);
       });
+      const unlistenStopSpeech = listen('stop-all-speech', (event: any) => {
+        if (event.payload?.sender !== 'mascot') {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+          }
+        }
+      });
       const unlistenUserTyping = listen('user-typing', () => {
         setMascotState('typing');
         if (typingTimeoutRef.current) {
@@ -485,12 +501,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         setIsAutomating(!!event.payload?.active);
         setAutomatingTool(event.payload?.tool || '');
       });
+      const unlistenGlobalPtt = listen('global-push-to-talk', () => {
+        handleVoiceChatRef.current?.();
+      });
       return () => {
         unlistenState.then(fn => fn());
         unlistenWardrobe.then(fn => fn());
         unlistenAmplitude.then(fn => fn());
+        unlistenStopSpeech.then(fn => fn());
         unlistenUserTyping.then(fn => fn());
         unlistenAutomation.then(fn => fn());
+        unlistenGlobalPtt.then(fn => fn());
       };
     }
   }, []);
@@ -506,6 +527,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
   const [voiceText, setVoiceText] = useState<string>('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -682,8 +704,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     };
   }, []);
 
-  const handleVoiceChat = async () => {
+  async function handleVoiceChat() {
     if (voiceState === 'listening' || voiceState === 'transcribing' || voiceState === 'thinking' || voiceState === 'speaking') {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -696,9 +722,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     setVoiceState('listening');
     setVoiceText('');
 
+    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+    if (isTauri) {
+      emit('stop-all-speech', { sender: 'mascot' }).catch(() => {});
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       // 1. Record & Transcribe
-      const recRes = await fetch('http://127.0.0.1:8000/api/voice/record', { method: 'POST' });
+      const recRes = await fetch('http://127.0.0.1:8000/api/voice/record', { method: 'POST', signal: controller.signal });
       if (!recRes.ok) throw new Error("Failed to record from microphone");
       
       setVoiceState('transcribing');
@@ -725,63 +759,197 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         if (saved) modelSettings = JSON.parse(saved);
       } catch (e) {}
 
-      // 2. Query Chat LLM
-      const chatRes = await fetch('http://127.0.0.1:8000/api/chat', {
+      // 2. Query Chat LLM in a streaming way
+      const chatRes = await fetch('http://127.0.0.1:8000/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: transcription,
           modelSettings
-        })
+        }),
+        signal: controller.signal
       });
       if (!chatRes.ok) throw new Error("Chat completion failed");
       
-      const chatData = await chatRes.json();
-      const responseText = chatData.text || "";
-      if (!responseText.trim()) throw new Error("Empty response from agent");
+      const reader = chatRes.body?.getReader();
+      if (!reader) throw new Error("Response body is not readable");
 
-      setVoiceState('speaking');
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      
+      // Queues and players for audio chunks
+      const audioQueue: string[] = [];
+      let isPlayingAudio = false;
+      let readerDone = false;
+      let accumulatedText = "";
+      let textBuffer = "";
 
-      // 3. TTS Synthesis & Playback
-      const cleanText = responseText.replace(/<[^>]*>/g, '').trim();
-      const savedVoice = localStorage.getItem('meridian_tts_voice') || 'M1';
-      const ttsRes = await fetch('http://127.0.0.1:8000/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: cleanText,
-          voice: savedVoice,
-          lang: 'na'
-        })
-      });
-      if (!ttsRes.ok) throw new Error("TTS synthesis failed");
+      const playNextAudio = async () => {
+        if (audioQueue.length === 0) {
+          if (!readerDone) {
+            // Keep waiting for more incoming chunks
+            return;
+          }
+          // Completed reading and playing all chunks
+          setVoiceState('idle');
+          setVoiceText('');
+          return;
+        }
 
-      const audioBlob = await ttsRes.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
+        // Stop all speech cross-window
+        const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+        if (isTauri) {
+          emit('stop-all-speech', { sender: 'mascot' }).catch(() => {});
+        }
 
-      audio.onended = () => {
-        setVoiceState('idle');
-        setVoiceText('');
-        audioRef.current = null;
+        isPlayingAudio = true;
+        setVoiceState('speaking');
+
+        const nextUrl = audioQueue.shift()!;
+        const audio = new Audio(nextUrl);
+        const volumeStr = localStorage.getItem('meridian_ui_volume');
+        audio.volume = volumeStr !== null ? parseFloat(volumeStr) : 0.5;
+        audioRef.current = audio;
+
+        audio.onended = () => {
+          URL.revokeObjectURL(nextUrl);
+          isPlayingAudio = false;
+          playNextAudio();
+        };
+
+        audio.onerror = () => {
+          URL.revokeObjectURL(nextUrl);
+          isPlayingAudio = false;
+          playNextAudio();
+        };
+
+        try {
+          await audio.play();
+        } catch (e) {
+          console.error("Audio playback error:", e);
+          isPlayingAudio = false;
+          playNextAudio();
+        }
       };
 
-      audio.onerror = () => {
-        setVoiceState('idle');
-        setVoiceText('');
-        audioRef.current = null;
+      const fetchTTSForSentence = async (sentence: string) => {
+        const cleanText = sentence.replace(/<[^>]*>/g, '').trim();
+        if (!cleanText) return;
+
+        try {
+          const savedVoice = localStorage.getItem('meridian_tts_voice') || 'M1';
+          const ttsRes = await fetch('http://127.0.0.1:8000/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: cleanText,
+              voice: savedVoice,
+              lang: 'na'
+            }),
+            signal: controller.signal
+          });
+          if (ttsRes.ok) {
+            const blob = await ttsRes.blob();
+            const url = URL.createObjectURL(blob);
+            audioQueue.push(url);
+            if (!isPlayingAudio) {
+              playNextAudio();
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch TTS for chunk:", e);
+        }
       };
 
-      await audio.play();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          readerDone = true;
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        buffer = buffer.replace(/\r\n/g, '\n');
+
+        let boundary = buffer.indexOf('\n\n');
+        while (boundary !== -1) {
+          const chunk = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+
+          if (chunk.trim()) {
+            const lines = chunk.split('\n');
+            let event = "";
+            const dataParts: string[] = [];
+            for (const line of lines) {
+              if (line.startsWith("event: ")) {
+                event = line.slice(7).trim();
+              } else if (line.startsWith("event:")) {
+                event = line.slice(6).trim();
+              } else if (line.startsWith("data: ")) {
+                dataParts.push(line.slice(6));
+              } else if (line.startsWith("data:")) {
+                dataParts.push(line.slice(5));
+              }
+            }
+            const data = dataParts.join('\n');
+
+            if (event === "text" && data) {
+              accumulatedText += data;
+              textBuffer += data;
+              setVoiceText(accumulatedText);
+
+              // Check for punctuation boundary (. ! ? \n) to trigger chunk synthesis
+              const sentenceMatch = textBuffer.match(/^([^.!?\n]*[.!?\n])\s*(.*)$/s);
+              if (sentenceMatch) {
+                const sentence = sentenceMatch[1].trim();
+                textBuffer = sentenceMatch[2];
+                if (sentence) {
+                  fetchTTSForSentence(sentence);
+                }
+              }
+            } else if (event === "thought" && data) {
+              try {
+                const thoughtData = JSON.parse(data);
+                const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
+                if (isTauri) {
+                  if (thoughtData.mascot_state) {
+                    emit('mascot-state-changed', { state: thoughtData.mascot_state }).catch(console.error);
+                  }
+                  if (thoughtData.mascot_wardrobe) {
+                    emit('mascot-wardrobe-changed', { item: thoughtData.mascot_wardrobe }).catch(console.error);
+                  }
+                }
+              } catch (e) {}
+            }
+          }
+          boundary = buffer.indexOf('\n\n');
+        }
+      }
+
+      // Final remaining text in buffer
+      if (textBuffer.trim()) {
+        await fetchTTSForSentence(textBuffer.trim());
+      }
+      
+      // If we finished reading but nothing ever played or got queued, reset state
+      if (audioQueue.length === 0 && !isPlayingAudio) {
+        setVoiceState('idle');
+        setVoiceText('');
+      }
 
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log("Voice stream fetch aborted successfully.");
+        return;
+      }
       console.error("Voice I/O error:", err);
       setVoiceState('idle');
       setVoiceText(`Error: ${err?.message || String(err)}`);
       setTimeout(() => {
         setVoiceText('');
       }, 4000);
+    } finally {
+      abortControllerRef.current = null;
     }
   };
 

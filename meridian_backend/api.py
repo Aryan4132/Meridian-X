@@ -133,6 +133,28 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to trigger doc indexer:", e)
 
+    # Spawn background thread to pre-warm local models
+    try:
+        def prewarm_models():
+            print("[Pre-Warming] Waking up local TTS and Whisper STT models in the background...")
+            try:
+                from src.voice.tts import get_tts_engine
+                get_tts_engine()
+                print("[Pre-Warming] Local TTS engine ready.")
+            except Exception as tts_err:
+                print("[Pre-Warming] Failed to pre-warm local TTS engine:", tts_err)
+            try:
+                from src.voice.stt import get_whisper_model
+                get_whisper_model()
+                print("[Pre-Warming] Local Whisper STT model ready.")
+            except Exception as stt_err:
+                print("[Pre-Warming] Failed to pre-warm local Whisper model:", stt_err)
+
+        import threading
+        threading.Thread(target=prewarm_models, daemon=True).start()
+    except Exception as e:
+        print("[Pre-Warming] Failed to start pre-warming thread:", e)
+
     yield
 
     # Shutdown operations
@@ -487,15 +509,12 @@ def get_react_thoughts(prompt: str, brain_model: str, ocr_model: str) -> Dict[st
 tts_engine = None
 
 def get_tts_engine():
-    global tts_engine
-    if tts_engine is None:
-        try:
-            from supertonic import TTS
-            # auto_download=True download ONNX models if not present
-            tts_engine = TTS(auto_download=True)
-        except Exception as e:
-            print("Failed to initialize Supertonic:", e)
-    return tts_engine
+    try:
+        from src.voice.tts import get_tts_engine as get_engine
+        return get_engine()
+    except Exception as e:
+        print("Failed to delegate/initialize Supertonic engine:", e)
+        return None
 
 from fastapi.responses import StreamingResponse
 import tempfile
@@ -1255,21 +1274,83 @@ def graph_all():
     edges = []
     if db_conn is not None:
         try:
+            node_map = {}
+            
+            # 1. Fetch from entities & relationships
             entities_col = db_conn["entities"]
             relationships_col = db_conn["relationships"]
             
             for ent in entities_col.find({}, {"_id": 0}):
-                nodes.append({
-                    "id": ent.get("name"),
-                    "label": ent.get("name"),
-                    "type": ent.get("type", "concept")
-                })
+                name = ent.get("name")
+                if name:
+                    node_map[name] = {
+                        "id": name,
+                        "label": name,
+                        "type": ent.get("type", "concept")
+                    }
+                    
             for rel in relationships_col.find({}, {"_id": 0}):
-                edges.append({
-                    "source": rel.get("from_name"),
-                    "target": rel.get("to_name"),
-                    "label": rel.get("relation")
-                })
+                source = rel.get("from_name")
+                target = rel.get("to_name")
+                relation = rel.get("relation")
+                if source and target:
+                    edges.append({
+                        "source": source,
+                        "target": target,
+                        "label": relation or "relates"
+                    })
+                    
+            # 2. Fetch from facts
+            facts_col = db_conn["facts"]
+            for fact in facts_col.find({}, {"_id": 0}):
+                subj = fact.get("subject")
+                pred = fact.get("predicate")
+                obj = fact.get("object")
+                if subj:
+                    if subj not in node_map:
+                        node_map[subj] = {"id": subj, "label": subj, "type": "concept"}
+                if obj:
+                    if obj not in node_map:
+                        node_map[obj] = {"id": obj, "label": obj, "type": "concept"}
+                if subj and obj:
+                    edges.append({
+                        "source": subj,
+                        "target": obj,
+                        "label": pred or "is"
+                    })
+                    
+            # 3. Fetch from knowledge_graph
+            kg_col = db_conn["knowledge_graph"]
+            for kf in kg_col.find({}, {"_id": 0}):
+                ent = kf.get("entity")
+                rel = kf.get("relation")
+                tgt = kf.get("target")
+                if ent:
+                    if ent not in node_map:
+                        node_map[ent] = {"id": ent, "label": ent, "type": "concept"}
+                if tgt:
+                    if tgt not in node_map:
+                        node_map[tgt] = {"id": tgt, "label": tgt, "type": "concept"}
+                if ent and tgt:
+                    edges.append({
+                        "source": ent,
+                        "target": tgt,
+                        "label": rel or "relates"
+                    })
+                    
+            # Adjust node types based on names
+            for nid, nd in node_map.items():
+                lower_id = nid.lower()
+                if lower_id in ["user", "active user", "me"]:
+                    nd["type"] = "user"
+                elif lower_id in ["meridian", "meridian-x", "agent", "assistant"]:
+                    nd["type"] = "agent"
+                elif "db" in lower_id or "mongodb" in lower_id or "database" in lower_id:
+                    nd["type"] = "database"
+                elif "system" in lower_id or "workspace" in lower_id or "os" in lower_id:
+                    nd["type"] = "system"
+                    
+            nodes = list(node_map.values())
         except Exception as e:
             print("Failed to fetch full graph:", e)
             
@@ -1541,6 +1622,104 @@ def toggle_power_save(request: PowerSaveRequest):
             os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:7b-instruct-q4_K_M"
             print("[Resource Governor] Power-Saving Mode deactivated. Model restored to Qwen 7B.")
             return {"status": "success", "message": "Power-Saving Mode deactivated. Restored default model."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# --- Advanced Desktop Capability REST Routes ---
+
+# 1. Ollama Model Manager routes
+class OllamaModelRequest(BaseModel):
+    name: str
+
+@app.post("/api/ollama/pull")
+def api_ollama_pull(request: OllamaModelRequest):
+    try:
+        from src.tools.ollama_manager import ollama_pull_model
+        res = ollama_pull_model(request.name)
+        return {"status": "success", "message": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ollama/delete")
+def api_ollama_delete(request: OllamaModelRequest):
+    try:
+        from src.tools.ollama_manager import ollama_delete_model
+        res = ollama_delete_model(request.name)
+        return {"status": "success", "message": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/ollama/pull/status")
+def api_ollama_pull_status(name: str):
+    try:
+        from src.tools.ollama_manager import pull_status
+        status = pull_status.get(name, "unknown")
+        return {"status": "success", "model": name, "pull_status": status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 2. Windows OS Tasks Scheduler routes
+class WinSchedulerRequest(BaseModel):
+    name: str
+    goal: str
+    schedule: str  # "daily" or "once"
+    time: str      # "HH:MM"
+    date: str = "" # "YYYY-MM-DD" for once
+
+@app.get("/api/scheduler/win/list")
+def api_scheduler_win_list():
+    try:
+        from src.tools.task_scheduler import win_list_tasks_raw
+        tasks = win_list_tasks_raw()
+        return {"status": "success", "tasks": tasks}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/scheduler/win/create")
+def api_scheduler_win_create(request: WinSchedulerRequest):
+    try:
+        from src.tools.task_scheduler import win_schedule_daily, win_schedule_once
+        if request.schedule.lower() == "daily":
+            res = win_schedule_daily(request.name, request.goal, request.time)
+        elif request.schedule.lower() == "once":
+            res = win_schedule_once(request.name, request.goal, request.date, request.time)
+        else:
+            raise HTTPException(status_code=400, detail="Invalid schedule type. Choose 'daily' or 'once'.")
+        
+        if "error" in res.lower():
+            raise HTTPException(status_code=500, detail=res)
+        return {"status": "success", "message": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class WinSchedulerDeleteRequest(BaseModel):
+    name: str
+
+@app.post("/api/scheduler/win/delete")
+def api_scheduler_win_delete(request: WinSchedulerDeleteRequest):
+    try:
+        from src.tools.task_scheduler import win_delete_task
+        res = win_delete_task(request.name)
+        if "error" in res.lower():
+            raise HTTPException(status_code=500, detail=res)
+        return {"status": "success", "message": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 3. Security Diagnostics route
+@app.get("/api/security/audit")
+def api_security_audit():
+    try:
+        from src.tools.security_auditor import run_port_scan, run_credential_leak_check, run_security_audit
+        ports = run_port_scan()
+        leaks = run_credential_leak_check()
+        report = run_security_audit()
+        return {
+            "status": "success",
+            "ports": ports,
+            "leaks": leaks,
+            "report": report
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

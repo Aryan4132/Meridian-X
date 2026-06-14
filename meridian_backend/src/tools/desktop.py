@@ -22,9 +22,7 @@ def screenshot_region(x: int, y: int, w: int, h: int, output_path: str) -> str:
 
 def vision_analyze(image_path: str, prompt: str) -> str:
     try:
-        import ollama
-        # Circular import safe client helper lookup
-        from database import get_ollama_client_host
+        from database import get_ollama_client
         
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found: {image_path}")
@@ -32,7 +30,7 @@ def vision_analyze(image_path: str, prompt: str) -> str:
         with open(image_path, "rb") as f:
             img_data = f.read()
             
-        client = ollama.Client(host=get_ollama_client_host())
+        client = get_ollama_client()
         vision_model = os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
         
         res = client.generate(
@@ -40,7 +38,7 @@ def vision_analyze(image_path: str, prompt: str) -> str:
             prompt=prompt,
             images=[img_data]
         )
-        return res.get("response", "No response from vision model")
+        return (res.response if hasattr(res, "response") else res.get("response", "No response from vision model"))
     except Exception as e:
         return f"Vision analysis failed: {str(e)}"
 

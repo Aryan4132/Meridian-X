@@ -1282,7 +1282,7 @@ async def run_react_agent_loop(
                             "status": "completed"
                         }))
                         
-                        final_text += debated_finish
+                        final_text = debated_finish
                         yield sse_event("text", debated_finish)
                     elif event["type"] == "call":
                         calls_to_execute.append((event["name"], event["args"]))

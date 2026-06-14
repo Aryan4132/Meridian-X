@@ -81,9 +81,8 @@ def download_file(url: str, dest: str) -> str:
 def autonomous_research(topic: str, max_depth: int = 3) -> str:
     """Perform a fully autonomous search and reading crawl using DuckDuckGo to compile a research report."""
     import re
-    import ollama
-    from database import ingest_into_knowledge_base
-    from api import get_ollama_client_host
+    import concurrent.futures
+    from database import ingest_into_knowledge_base, get_ollama_client
     
     print(f"[Research Agent] Searching web for topic: '{topic}'...")
     search_results = search_web(topic)
@@ -102,7 +101,7 @@ def autonomous_research(topic: str, max_depth: int = 3) -> str:
             unique_urls.append(u)
     unique_urls = unique_urls[:max_depth]
     
-    client = ollama.Client(host=get_ollama_client_host())
+    client = get_ollama_client()
     model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
     
     report_lines = [
@@ -110,7 +109,7 @@ def autonomous_research(topic: str, max_depth: int = 3) -> str:
         f"Sources crawled: {len(unique_urls)}\n"
     ]
     
-    for idx, url in enumerate(unique_urls, 1):
+    def crawl_and_summarize(idx: int, url: str):
         print(f"[Research Agent] Crawling source {idx}/{len(unique_urls)}: {url}")
         try:
             html = fetch_page(url)
@@ -125,15 +124,27 @@ def autonomous_research(topic: str, max_depth: int = 3) -> str:
                 f"Content:\n{text[:4000]}"
             )
             res = client.generate(model=model, prompt=prompt)
-            summary = res.get("response", "").strip()
+            summary = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
             
             # Ingest summary into LanceDB RAG cache for subsequent agent lookups
             ingest_into_knowledge_base(url, summary, {"topic": topic, "type": "research_cache"})
             
-            report_lines.append(f"### Source {idx}: {url}")
-            report_lines.append(summary + "\n")
+            return idx, url, summary
         except Exception as e:
-            report_lines.append(f"### Source {idx}: {url}\n*Crawl failed: {e}*\n")
+            return idx, url, f"*Crawl failed: {e}*"
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(unique_urls)) as executor:
+        futures = [executor.submit(crawl_and_summarize, i, url) for i, url in enumerate(unique_urls, 1)]
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
+            
+    # Sort results back to original crawled order
+    results.sort(key=lambda x: x[0])
+    
+    for idx, url, summary in results:
+        report_lines.append(f"### Source {idx}: {url}")
+        report_lines.append(summary + "\n")
             
     return "\n".join(report_lines)
 

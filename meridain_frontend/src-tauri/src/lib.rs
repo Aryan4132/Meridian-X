@@ -71,12 +71,14 @@ fn toggle_game_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, String
     use tauri_plugin_global_shortcut::GlobalShortcutExt;
     let alt_m = Shortcut::new(Some(Modifiers::ALT), Code::KeyM);
     let alt_shift_m = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyM);
+    let alt_v = Shortcut::new(Some(Modifiers::ALT), Code::KeyV);
     let shortcut_manager = app.global_shortcut();
 
     if enabled {
         let _ = shortcut_manager.unregister(alt_m);
         let _ = shortcut_manager.unregister(alt_shift_m);
-        log::info!("Game Mode enabled: unregistered global shortcuts Alt+M, Alt+Shift+M");
+        let _ = shortcut_manager.unregister(alt_v);
+        log::info!("Game Mode enabled: unregistered global shortcuts Alt+M, Alt+Shift+M, Alt+V");
         
         if let Some(mascot_window) = app.get_webview_window("mascot") {
             let _ = mascot_window.hide();
@@ -91,6 +93,11 @@ fn toggle_game_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, String
         if !shortcut_manager.is_registered(alt_shift_m) {
             if let Err(e) = shortcut_manager.register(alt_shift_m) {
                 log::error!("Failed to re-register Alt+Shift+M: {:?}", e);
+            }
+        }
+        if !shortcut_manager.is_registered(alt_v) {
+            if let Err(e) = shortcut_manager.register(alt_v) {
+                log::error!("Failed to re-register Alt+V: {:?}", e);
             }
         }
         log::info!("Game Mode disabled: re-registered global shortcuts");
@@ -192,6 +199,43 @@ pub fn run() {
                                 }
                             }
                         }
+
+                        // Alt + V: Trigger Global Push-to-Talk
+                        if shortcut.matches(Modifiers::ALT, Code::KeyV) {
+                            log::info!("Alt+V shortcut matched - triggering global-push-to-talk");
+                            let mut focus_target_emitted = false;
+                            
+                            if let Some(mascot_window) = app.get_webview_window("mascot") {
+                                if let Ok(visible) = mascot_window.is_visible() {
+                                    if visible {
+                                        let _ = mascot_window.set_focus();
+                                        let _ = app.emit("global-push-to-talk", ());
+                                        focus_target_emitted = true;
+                                    }
+                                }
+                            }
+                            
+                            if !focus_target_emitted {
+                                if let Some(main_window) = app.get_webview_window("main") {
+                                    if let Ok(visible) = main_window.is_visible() {
+                                        if visible {
+                                            let _ = main_window.set_focus();
+                                            let _ = app.emit("global-push-to-talk", ());
+                                            focus_target_emitted = true;
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if !focus_target_emitted {
+                                if let Some(mascot_window) = app.get_webview_window("mascot") {
+                                    let _ = mascot_window.show();
+                                    let _ = mascot_window.set_focus();
+                                    let _ = app.emit("show-mascot", ());
+                                    let _ = app.emit("global-push-to-talk", ());
+                                }
+                            }
+                        }
                     }
                 })
                 .build(),
@@ -274,6 +318,7 @@ pub fn run() {
             // Register global shortcuts
             let alt_m = Shortcut::new(Some(Modifiers::ALT), Code::KeyM);
             let alt_shift_m = Shortcut::new(Some(Modifiers::ALT | Modifiers::SHIFT), Code::KeyM);
+            let alt_v = Shortcut::new(Some(Modifiers::ALT), Code::KeyV);
 
             let shortcut_manager = app.global_shortcut();
             if let Err(e) = shortcut_manager.register(alt_m) {
@@ -286,6 +331,12 @@ pub fn run() {
                 log::error!("Failed to register Alt+Shift+M global hotkey: {:?}", e);
             } else {
                 log::info!("Successfully registered Alt+Shift+M global hotkey");
+            }
+
+            if let Err(e) = shortcut_manager.register(alt_v) {
+                log::error!("Failed to register Alt+V global hotkey: {:?}", e);
+            } else {
+                log::info!("Successfully registered Alt+V global hotkey");
             }
 
             Ok(())

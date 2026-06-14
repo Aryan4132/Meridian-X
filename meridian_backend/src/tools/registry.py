@@ -41,6 +41,11 @@ from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_p
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
 
+# Advanced desktop tools imports
+from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
+from src.tools.task_scheduler import win_schedule_daily, win_schedule_once, win_list_tasks, win_delete_task
+from src.tools.security_auditor import run_security_audit
+
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
     from database import ingest_into_knowledge_base
@@ -258,6 +263,20 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "voice_record_and_transcribe": {"tier": 1, "func": voice_record_and_transcribe},
     "voice_speak": {"tier": 1, "func": voice_speak},
     "generate_dynamic_tool": {"tier": 2, "func": generate_dynamic_tool},
+
+    # Ollama Model Manager
+    "ollama_list_models": {"tier": 0, "func": ollama_list_models},
+    "ollama_pull_model": {"tier": 1, "func": ollama_pull_model},
+    "ollama_delete_model": {"tier": 2, "func": ollama_delete_model},
+    
+    # Windows Task Scheduler
+    "win_schedule_daily": {"tier": 1, "func": win_schedule_daily},
+    "win_schedule_once": {"tier": 1, "func": win_schedule_once},
+    "win_list_tasks": {"tier": 0, "func": win_list_tasks},
+    "win_delete_task": {"tier": 2, "func": win_delete_task},
+    
+    # Security Diagnostics
+    "run_security_audit": {"tier": 1, "func": run_security_audit},
 
     # Meta-Learning reload plugins tool
     "reload_plugins": {"tier": 1, "func": lambda: reload_plugins_wrapper()},

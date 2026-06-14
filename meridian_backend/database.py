@@ -4,6 +4,7 @@ import json
 import random
 import sqlite3
 import pymongo
+import threading
 import numpy as np
 from turbovec import IdMapIndex
 from typing import Optional, List, Dict, Any
@@ -46,11 +47,20 @@ def get_ollama_client_host():
         return f"http://{host}"
     return host
 
+# Global cache for Ollama client
+_cached_ollama_client = None
+
+def get_ollama_client():
+    global _cached_ollama_client
+    if _cached_ollama_client is None:
+        import ollama
+        _cached_ollama_client = ollama.Client(host=get_ollama_client_host())
+    return _cached_ollama_client
+
 # Embedding client helper
 def get_embedding(text: str) -> List[float]:
     try:
-        import ollama
-        client = ollama.Client(host=get_ollama_client_host())
+        client = get_ollama_client()
         res = client.embeddings(model="nomic-embed-text", prompt=text)
         embedding = res.get("embedding")
         if embedding:
@@ -82,6 +92,7 @@ SQLITE_DB_PATH = os.path.join(db_dir, "metadata.db")
 kb_index = None
 cache_index = None
 conv_index = None
+_turbovec_lock = threading.Lock()
 
 def get_sqlite_conn():
     conn = sqlite3.connect(SQLITE_DB_PATH, timeout=10.0)
@@ -124,6 +135,11 @@ def init_turbovec_indexes():
 def init_tables():
     conn = get_sqlite_conn()
     cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    except Exception as e:
+        print("[Database] Failed to set SQLite WAL or synchronous mode:", e)
     
     # Create tables
     cursor.execute("""
@@ -256,8 +272,9 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_seconds: int 
         # Add to Turbovec index
         vector = get_embedding(query_text)
         vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-        cache_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
-        cache_index.write(CACHE_INDEX_PATH)
+        with _turbovec_lock:
+            cache_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
+            cache_index.write(CACHE_INDEX_PATH)
         
         print(f"[Semantic Cache] Saved to Turbovec vector cache: '{query_text}' (ID: {inserted_id})")
     except Exception as e:
@@ -342,8 +359,9 @@ def add_to_conversations(role: str, content: str, summary: str = ""):
         # Index the vector in Turbovec
         vector = get_embedding(content)
         vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-        conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
-        conv_index.write(CONV_INDEX_PATH)
+        with _turbovec_lock:
+            conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
+            conv_index.write(CONV_INDEX_PATH)
         
         print(f"[Conversations Log] Saved to Turbovec index (ID: {inserted_id})")
     except Exception as e:
@@ -384,13 +402,14 @@ def clear_conversations():
         conn.close()
         
         # Reset conversations index
-        conv_index = IdMapIndex(dim=768, bit_width=4)
-        if os.path.exists(CONV_INDEX_PATH):
-            try:
-                os.remove(CONV_INDEX_PATH)
-            except Exception:
-                pass
-        conv_index.write(CONV_INDEX_PATH)
+        with _turbovec_lock:
+            conv_index = IdMapIndex(dim=768, bit_width=4)
+            if os.path.exists(CONV_INDEX_PATH):
+                try:
+                    os.remove(CONV_INDEX_PATH)
+                except Exception:
+                    pass
+            conv_index.write(CONV_INDEX_PATH)
         print("[Conversations Log] Safely cleared all conversations and reset index.")
     except Exception as e:
         print("[Conversations Log] Clear failed:", e)
@@ -441,8 +460,9 @@ def ingest_into_knowledge_base(source: str, text: str, metadata: dict = None):
         if ids_to_add:
             ids_np = np.array(ids_to_add, dtype=np.uint64)
             vectors_np = np.array(vectors_to_add, dtype=np.float32)
-            kb_index.add_with_ids(vectors_np, ids=ids_np)
-            kb_index.write(KB_INDEX_PATH)
+            with _turbovec_lock:
+                kb_index.add_with_ids(vectors_np, ids=ids_np)
+                kb_index.write(KB_INDEX_PATH)
             print(f"[RAG] Ingested {len(ids_to_add)} chunks from '{source}' into SQLite and Turbovec.")
     except Exception as e:
         print("[RAG] Ingestion failed:", e)
@@ -499,18 +519,32 @@ def search_knowledge_base(query: str, limit: int = 2) -> List[Dict[str, Any]]:
 # ----------------- MONGODB HELPERS (MongoDB Offline Graceful Fallbacks) -----------------
 
 _mongo_client = None
+_mongo_online = None
+_last_mongo_check = 0
 
 def get_mongo_db() -> Optional[pymongo.database.Database]:
-    global _mongo_client
+    global _mongo_client, _mongo_online, _last_mongo_check
+    now = time.time()
+    if _mongo_online is not None and (now - _last_mongo_check < 30):
+        if not _mongo_online:
+            return None
+        return _mongo_client["meridian_kg"]
+        
     try:
         if _mongo_client is None:
             mongo_uri = os.environ.get("MONGODB_URI", "mongodb://localhost:27017/meridian_kg")
             _mongo_client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=1000)
         _mongo_client.admin.command('ping')
-        return _mongo_client["meridian_kg"]
+        _mongo_online = True
     except Exception:
         _mongo_client = None
-        return None
+        _mongo_online = False
+    finally:
+        _last_mongo_check = now
+        
+    if _mongo_online:
+        return _mongo_client["meridian_kg"]
+    return None
 
 def add_knowledge_fact(entity: str, relation: str, target: str):
     db_conn = get_mongo_db()
@@ -612,8 +646,9 @@ def purge_expired_cache():
                 vector = get_embedding(r["query_text"])
                 vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
                 new_index.add_with_ids(vector_np, ids=np.array([r["id"]], dtype=np.uint64))
-            cache_index = new_index
-            cache_index.write(CACHE_INDEX_PATH)
+            with _turbovec_lock:
+                cache_index = new_index
+                cache_index.write(CACHE_INDEX_PATH)
             print(f"[Semantic Cache] Purged {len(expired_ids)} expired entries and rebuilt Turbovec index.")
         conn.close()
     except Exception as e:
@@ -642,8 +677,7 @@ def consolidate_memory_sleep_cycle():
             for item in valid_records:
                 log_text += f"{item['role']}: {item['content']}\n"
             
-            import ollama
-            client = ollama.Client(host=ollama_host)
+            client = get_ollama_client()
             prompt = (
                 "Analyze the conversation log below. Extract key persistent facts about the user's "
                 "preferences, workflows, or project details as a JSON list. "
