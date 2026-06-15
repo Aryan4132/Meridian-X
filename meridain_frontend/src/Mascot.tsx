@@ -29,7 +29,10 @@ const THEME_COLORS: Record<string, { accent: string; bg: string; border: string 
   default: { accent: '#ea580c', bg: '#09090b', border: '#27272a' },
   cyberpunk: { accent: '#ff007f', bg: '#090214', border: '#ff007f' },
   amber: { accent: '#ffb000', bg: '#0f0a00', border: '#ffb000' },
-  slate: { accent: '#14b8a6', bg: '#0b1329', border: '#14b8a6' }
+  slate: { accent: '#14b8a6', bg: '#0b1329', border: '#14b8a6' },
+  nordic: { accent: '#7dd3fc', bg: '#0e131f', border: '#242f46' },
+  crimson_charcoal: { accent: '#fb7185', bg: '#121214', border: '#26262b' },
+  forest: { accent: '#34d399', bg: '#0a0e12', border: '#1c2633' }
 };
 
 type HudState = 'idle' | 'working' | 'success' | 'error';

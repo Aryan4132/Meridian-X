@@ -366,7 +366,7 @@ const renderDiffLines = (text: string, type: 'red' | 'green') => {
   });
 };
 
-function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' | 'slate' }) {
+function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' | 'slate' | 'nordic' | 'crimson_charcoal' | 'forest' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -409,7 +409,7 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
     const columns = Math.floor(width / fontSize) + 1;
     const rainDrops: number[] = Array(columns).fill(1).map(() => Math.floor(Math.random() * -100));
 
-    // --- slate (drifting space dust) ---
+    // --- slate/minimalist (drifting space dust) ---
     const stars: { x: number; y: number; r: number; alpha: number; speed: number }[] = [];
     for (let i = 0; i < 40; i++) {
       stars.push({
@@ -487,7 +487,7 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
         ctx.fillRect(0, amberScanlineY, width, 2);
         amberScanlineY = (amberScanlineY + 1) % height;
       }
-      else if (theme === 'slate') {
+      else if (theme === 'slate' || theme === 'nordic' || theme === 'crimson_charcoal' || theme === 'forest') {
         stars.forEach(s => {
           s.x -= s.speed * 8;
           if (s.x < 0) s.x = width;
@@ -495,7 +495,12 @@ function BackgroundCanvas({ theme }: { theme: 'default' | 'cyberpunk' | 'amber' 
           s.alpha += (Math.random() - 0.5) * 0.03;
           s.alpha = Math.max(0.1, Math.min(0.6, s.alpha));
 
-          ctx.fillStyle = `rgba(20, 184, 166, ${s.alpha * 0.15})`;
+          let starColor = '20, 184, 166'; // slate
+          if (theme === 'nordic') starColor = '125, 211, 252';
+          else if (theme === 'crimson_charcoal') starColor = '251, 113, 133';
+          else if (theme === 'forest') starColor = '52, 211, 153';
+
+          ctx.fillStyle = `rgba(${starColor}, ${s.alpha * 0.15})`;
           ctx.beginPath();
           ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
           ctx.fill();
@@ -532,12 +537,12 @@ export default function App() {
   const [backendConnected, setBackendConnected] = useState(false);
 
   // Custom visual theme switcher states
-  const [theme, setTheme] = useState<'default' | 'cyberpunk' | 'amber' | 'slate'>(() => {
+  const [theme, setTheme] = useState<'default' | 'cyberpunk' | 'amber' | 'slate' | 'nordic' | 'crimson_charcoal' | 'forest'>(() => {
     try {
       const saved = localStorage.getItem('meridian_theme');
-      return (saved as any) || 'default';
+      return (saved as any) || 'nordic';
     } catch {
-      return 'default';
+      return 'nordic';
     }
   });
 
@@ -1933,48 +1938,7 @@ export default function App() {
   const thoughtScrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasAttemptedAutoStartRef = useRef(false);
-  const [sidebarWidth, setSidebarWidth] = useState(1080);
-  const isResizingRef = useRef(false);
-  const [isResizing, setIsResizing] = useState(false);
 
-  const startResizing = (e: React.MouseEvent) => {
-    isResizingRef.current = true;
-    setIsResizing(true);
-    e.preventDefault();
-  };
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizingRef.current) return;
-      // Draggable divider is on the right side of the main console, resizing the right sidebar
-      const newWidth = Math.max(260, Math.min(window.innerWidth - e.clientX, window.innerWidth - 120));
-      setSidebarWidth(newWidth);
-    };
-
-    const handleMouseUp = () => {
-      if (isResizingRef.current) {
-        isResizingRef.current = false;
-        setIsResizing(false);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isResizing) {
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    }
-  }, [isResizing]);
 
   useEffect(() => {
     const fetchUsage = async () => {
@@ -2031,7 +1995,7 @@ export default function App() {
     if (isAtBottom || (messages.length > 0 && messages[messages.length - 1].sender === 'user')) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages, sidebarWidth]);
+  }, [messages]);
 
   // Maintain bottom scroll positioning on window resize
   useEffect(() => {
@@ -2043,7 +2007,6 @@ export default function App() {
           el.scrollTop = el.scrollHeight;
         }
       }
-      setSidebarWidth(prev => Math.min(prev, Math.max(260, window.innerWidth - 120)));
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -2055,7 +2018,7 @@ export default function App() {
     }
   }, [thoughts]);
 
-  // Auto-resize textarea when text, sidebar width, or window size changes
+  // Auto-resize textarea when text or window size changes
   useEffect(() => {
     const adjustHeight = () => {
       if (textareaRef.current) {
@@ -2066,7 +2029,7 @@ export default function App() {
     adjustHeight();
     window.addEventListener('resize', adjustHeight);
     return () => window.removeEventListener('resize', adjustHeight);
-  }, [inputText, sidebarWidth]);
+  }, [inputText]);
 
   useEffect(() => {
     if (isRecording) {
@@ -3437,6 +3400,9 @@ export default function App() {
               <option value="cyberpunk" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Cyberpunk Neo</option>
               <option value="amber" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Amber CRT</option>
               <option value="slate" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Midnight Slate</option>
+              <option value="nordic" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Nordic Minimalist (Sleek)</option>
+              <option value="crimson_charcoal" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Crimson Charcoal (Sleek)</option>
+              <option value="forest" className="bg-panel-theme text-theme-main" style={{ backgroundColor: 'var(--bg-panel)', color: 'var(--text-main)' }}>Deep Forest (Sleek)</option>
             </select>
             <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-theme-dim" />
           </div>
@@ -3692,7 +3658,7 @@ export default function App() {
           </aside>
 
           {/* COLUMN 2: CENTRAL CONSOLE VIEWPORT (DASHBOARD VIEWS) */}
-          <div className={`flex-1 flex flex-col min-w-0 bg-main-theme-20 overflow-hidden relative ${isResizing ? 'pointer-events-none' : ''}`}>
+          <div className="w-1/4 flex flex-col min-w-0 bg-main-theme-20 overflow-hidden relative">
             <div className="flex items-center justify-between px-6 py-4 border-b border-theme bg-panel-theme-40 shrink-0 select-none">
               <div className="flex items-center gap-2.5">
                 <span className="text-xs font-mono text-theme-accent uppercase font-bold tracking-widest">
@@ -4415,26 +4381,24 @@ export default function App() {
             </div>
           </div>
 
-          {/* COLUMN RESIZING DIVIDER */}
-          <div
-            onMouseDown={startResizing}
-            className={`w-[3px] hover:bg-theme-accent/50 transition-colors z-20 shrink-0 select-none relative ${isResizing ? 'bg-theme-accent' : 'bg-zinc-900/60'
-              }`}
-          >
-            <div className="absolute inset-y-0 -left-1.5 -right-1.5 cursor-col-resize z-30" />
-          </div>
-
           {/* COLUMN 3: RIGHT SIDEBAR CONSOLE (COMMAND INTERFACE & CHAT) */}
           <aside
-            className={`border-l border-theme bg-panel-theme flex flex-col overflow-hidden relative shrink-0 ${isResizing ? 'pointer-events-none' : ''}`}
-            style={{ width: `${sidebarWidth}px` }}
+            className="w-3/4 border-l border-theme bg-panel-theme flex flex-col overflow-hidden relative shrink-0"
           >
             {/* Right sidebar header with Mascot character and audio waveform */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-theme bg-panel-theme-40 shrink-0 min-h-[64px] select-none">
               <div className="flex items-center gap-2.5 min-w-0">
                 <MascotCharacter
                   state={mascotState}
-                  accentColor={theme === 'default' ? '#ea580c' : theme === 'cyberpunk' ? '#ff007f' : theme === 'amber' ? '#ffb000' : '#14b8a6'}
+                  accentColor={
+                    theme === 'default' ? '#ea580c' :
+                    theme === 'cyberpunk' ? '#ff007f' :
+                    theme === 'amber' ? '#ffb000' :
+                    theme === 'slate' ? '#14b8a6' :
+                    theme === 'nordic' ? '#7dd3fc' :
+                    theme === 'crimson_charcoal' ? '#fb7185' :
+                    '#34d399' // forest
+                  }
                   wardrobe={mascotWardrobe === 'auto' ? (mascotState === 'crown' ? 'crown' : mascotState === 'diagnostic' ? 'construction_hat' : mascotState === 'disapproving' ? 'detective_hat' : 'none') : mascotWardrobe}
                   speechAmplitude={speechAmplitude}
                 />
