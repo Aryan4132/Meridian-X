@@ -27,12 +27,13 @@ def is_resource_throttled() -> bool:
             print(f"[Resource Governor] High CPU load detected: {cpu_load}%")
             return True
             
-        # Check active window title for resource-intensive apps (e.g. games, renders, active compilers)
-        from src.core.proactive import get_active_window_title
-        window_title = (get_active_window_title() or "").lower()
-        heavy_keywords = ["valorant", "cyberpunk", "blender", "unity", "unreal", "steam", "render", "visual studio", "compiler"]
-        if any(k in window_title for k in heavy_keywords):
-            print(f"[Resource Governor] Throttled by active foreground process: '{window_title}'")
+        from src.core.proactive import get_active_process_and_title
+        proc_name, window_title = get_active_process_and_title()
+        proc_name = proc_name.lower()
+        window_title = window_title.lower()
+        heavy_keywords = ["valorant", "cyberpunk", "blender", "unity", "unreal", "steam", "render", "visual studio", "compiler", "csgo", "cs2", "dota2", "leagueoflegends", "minecraft", "javaw"]
+        if any(k in window_title or k in proc_name for k in heavy_keywords):
+            print(f"[Resource Governor] Throttled by active foreground process: '{window_title or proc_name}'")
             return True
     except Exception as e:
         print(f"[Resource Governor] Check failed: {e}")

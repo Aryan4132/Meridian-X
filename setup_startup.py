@@ -32,8 +32,8 @@ if not exist venv (
     pip install -r requirements.txt
 )
 start /b cmd /c "call venv\\Scripts\\activate.bat && python api.py"
-echo [System] Waiting for FastAPI Backend to bind to port 8000...
-powershell -Command "while ($true) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 8000); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500 }}"
+echo [System] Waiting for FastAPI Backend to bind to port 4132...
+powershell -Command "while ($true) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500 }}"
 echo [System] FastAPI Backend online! Starting Tauri Desktop App...
 cd ../meridain_frontend
 npm run tauri dev

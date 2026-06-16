@@ -4,7 +4,7 @@ echo ===================================================
 echo   Meridian-X: Autonomous Offline Desktop Agent
 echo ===================================================
 echo.
-echo 1. Start Python API Backend (FastAPI on Port 8000)
+echo 1. Start Python API Backend (FastAPI on Port 4132)
 echo 2. Start Tauri Desktop App (Dev Mode)
 echo 3. Start Both Backend and Frontend
 echo 4. Exit
@@ -52,8 +52,8 @@ if not exist venv (
 cd ..
 echo [System] Spawning FastAPI Backend in the same terminal...
 start /b cmd /c "cd meridian_backend && call venv\Scripts\activate.bat && python api.py"
-echo [System] Waiting for FastAPI Backend to bind to port 8000...
-powershell -Command "while ($true) { try { $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 8000); if ($c.Connected) { $c.Close(); break; } } catch {} Start-Sleep -Milliseconds 500 }"
+echo [System] Waiting for FastAPI Backend to bind to port 4132...
+powershell -Command "while ($true) { try { $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) { $c.Close(); break; } } catch {} Start-Sleep -Milliseconds 500 }"
 echo [System] FastAPI Backend online! Starting Tauri Desktop App...
 cd meridain_frontend
 npm run tauri dev

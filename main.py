@@ -80,7 +80,7 @@ async def run_cli_goal(goal: str, model: str):
                     # Fallback to REST confirm call if it was routed to the background API
                     import httpx
                     try:
-                        httpx.post("http://127.0.0.1:8000/api/chat/confirm", json={"id": conf_id, "approved": approved}, timeout=2.0)
+                        httpx.post("http://127.0.0.1:4132/api/chat/confirm", json={"id": conf_id, "approved": approved}, timeout=2.0)
                     except Exception:
                         pass
                 print("--------------------------------------------------\n")
@@ -101,7 +101,7 @@ if __name__ == "__main__":
         print("[System] Launching background FastAPI server for local API routing...")
         import subprocess
         backend_proc = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "8000"],
+            [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "4132"],
             cwd=backend_dir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -123,4 +123,4 @@ if __name__ == "__main__":
         os.chdir(backend_dir)
         import uvicorn
         from api import app
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        uvicorn.run(app, host="0.0.0.0", port=4132)

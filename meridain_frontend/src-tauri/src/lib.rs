@@ -122,21 +122,51 @@ fn kill_backend_process() {
 #[tauri::command]
 fn trigger_backend_restart() -> Result<String, String> {
     use std::process::Command;
-    use std::path::Path;
+    use std::path::PathBuf;
 
-    let path_parent = Path::new("../restart_backend.bat");
-    let path_cwd = Path::new("restart_backend.bat");
+    let mut current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let mut script_path = None;
 
-    let script_path = if path_parent.exists() {
-        path_parent
-    } else if path_cwd.exists() {
-        path_cwd
-    } else {
-        return Err("Could not find restart_backend.bat script".into());
+    // Check CWD and walk up to 5 parent directories to find restart_backend.bat
+    for _ in 0..6 {
+        let test_path = current_dir.join("restart_backend.bat");
+        if test_path.exists() {
+            script_path = Some(test_path);
+            break;
+        }
+        if let Some(parent) = current_dir.parent() {
+            current_dir = parent.to_path_buf();
+        } else {
+            break;
+        }
+    }
+
+    // Fallback to checking executable directory and walking up from there
+    if script_path.is_none() {
+        if let Ok(exe_path) = std::env::current_exe() {
+            let mut exe_dir = exe_path.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from("."));
+            for _ in 0..6 {
+                let test_path = exe_dir.join("restart_backend.bat");
+                if test_path.exists() {
+                    script_path = Some(test_path);
+                    break;
+                }
+                if let Some(parent) = exe_dir.parent() {
+                    exe_dir = parent.to_path_buf();
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    let resolved_path = match script_path {
+        Some(path) => path,
+        None => return Err("Could not find restart_backend.bat script".into()),
     };
 
     Command::new("cmd")
-        .args(&["/C", script_path.to_str().unwrap()])
+        .args(&["/C", resolved_path.to_str().unwrap()])
         .spawn()
         .map_err(|e| format!("Failed to spawn restart script: {}", e))?;
 

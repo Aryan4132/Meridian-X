@@ -31,7 +31,7 @@ def get_all_interfaces_listening_ports() -> set:
 def run_port_scan() -> List[Dict[str, Any]]:
     """Scan local ports and list active services, flagging external bindings."""
     # Ports to scan: standard network ports + common development local servers
-    ports_to_scan = list(range(1, 1025)) + [3000, 5000, 5173, 8000, 8080, 27017, 11434]
+    ports_to_scan = list(range(1, 1025)) + [3000, 4132, 5000, 5173, 8000, 8080, 27017, 11434]
     open_ports = []
     
     # Get all ports bound to 0.0.0.0 (externally accessible)
@@ -49,8 +49,9 @@ def run_port_scan() -> List[Dict[str, Any]]:
                         service = socket.getservbyport(port)
                     except Exception:
                         if port == 3000: service = "React Dev Server / Node"
+                        elif port == 4132: service = "FastAPI Backend / Uvicorn"
                         elif port == 5173: service = "Vite Dev Server"
-                        elif port == 8000: service = "FastAPI Backend / Uvicorn"
+                        elif port == 8000: service = "FastAPI Backend / Uvicorn (Legacy)"
                         elif port == 11434: service = "Ollama Local LLM API"
                         elif port == 27017: service = "MongoDB Server"
                         else: service = "Unknown Service"

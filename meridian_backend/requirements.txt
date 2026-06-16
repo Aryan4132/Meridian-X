@@ -24,3 +24,4 @@ soundfile
 numpy
 openai
 anthropic
+discord.py

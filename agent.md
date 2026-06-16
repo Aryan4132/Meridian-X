@@ -30,7 +30,7 @@ Meridian-X is designed as a **desktop application** with a modern Tauri shell fo
 | **Backend Only** | `python daemon.py` | Start the backend services only; dashboard remains closed until opened. |
 | **Open Dashboard** | `cargo tauri dev` | Launch the native Tauri dashboard when the backend is already running. |
 | Direct Goal | `python main.py --goal "Your goal here"` | Execute a single autonomous task without launching the desktop shell |
-| Local API | `uvicorn api:app --host 127.0.0.1 --port 8000` | Programmatic access to Meridian-X for external apps |
+| Local API | `uvicorn api:app --host 127.0.0.1 --port 4132` | Programmatic access to Meridian-X for external apps |
 | Windows launcher | `start_meridian.bat` | Quick menu for dashboard/API/daemon/autostart actions |
 
 **Activation Hotkeys:**
@@ -65,7 +65,7 @@ Additional maintenance utilities:
 | **Safety Net** | 10-minute global timeout | Prevents runaway loops from infinite execution |
 | **Cognitive Modes** | AUTO / ENGINEER / ANALYST / REVIEWER / OPERATOR | Single agent switches reasoning style per task |
 | **Plugin System** | `plugins/` auto-discovery | Drop `.py` files to add new tools instantly |
-| **API Mode** | `FastAPI` on `127.0.0.1:8000` | Other apps can call Meridian-X programmatically |
+| **API Mode** | `FastAPI` on `127.0.0.1:4132` | Other apps can call Meridian-X programmatically |
 | **Secrets Vault** | AES-256 encrypted local store | Zero plaintext credentials anywhere |
 | **Clipboard Memory** | MongoDB + semantic search | Searchable history of everything you've ever copied |
 | **NL Shell** | Natural Language → shell command | Type commands in plain English |
@@ -972,9 +972,9 @@ At startup, `plugins.py` walks the `plugins/` directory, imports each module, an
 
 ---
 
-### 12.9 Local REST API Mode (FastAPI on 127.0.0.1:8000)
+### 12.9 Local REST API Mode (FastAPI on 127.0.0.1:4132)
 
-Run `python api.py` or `uvicorn api:app --host 127.0.0.1 --port 8000` to expose Meridian-X as a local HTTP server. Other applications — VS Code extensions, Obsidian plugins, custom scripts, or another agent — can send tasks programmatically.
+Run `python api.py` or `uvicorn api:app --host 127.0.0.1 --port 4132` to expose Meridian-X as a local HTTP server. Other applications — VS Code extensions, Obsidian plugins, custom scripts, or another agent — can send tasks programmatically.
 
 #### Endpoints
 | Method | Endpoint | Description |
@@ -985,10 +985,10 @@ Run `python api.py` or `uvicorn api:app --host 127.0.0.1 --port 8000` to expose 
 
 ```bash
 # Start the API server
-uvicorn api:app --host 127.0.0.1 --port 8000
+uvicorn api:app --host 127.0.0.1 --port 4132
 
 # Submit a task to Meridian-X from another script
-curl -X POST http://127.0.0.1:8000/api/v1/run \
+curl -X POST http://127.0.0.1:4132/api/v1/run \
   -H "Content-Type: application/json" \
   -d '{"goal": "Find the largest file in C:/Users/aryan/Downloads and tell me its size."}'
 ```
@@ -1610,7 +1610,7 @@ meridian/
 | 33 | Fine-tuning data collection | ALL | JSONL auto-logging |
 | 34 | Session export (MD/HTML/runbook) | ALL | Markdown + Jinja2 |
 | 35 | Plugin auto-discovery | ALL | `plugins/` folder |
-| 36 | REST API mode | ALL | FastAPI + 127.0.0.1:8000 |
+| 36 | REST API mode | ALL | FastAPI + 127.0.0.1:4132 |
 | 37 | Tauri Desktop Shell | ALL | Tauri + native windowing |
 | 38 | Self-healing fallback (1.5B) | ALL | Ollama model swap |
 | 39 | Tier-gated safety system | ALL | 0-4 confirmation ladder |

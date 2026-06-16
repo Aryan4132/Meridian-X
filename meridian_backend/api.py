@@ -118,6 +118,11 @@ async def lifespan(app: FastAPI):
         start_whatsapp_bridge()
     except Exception as e:
         print("Failed to start WhatsApp bridge:", e)
+    try:
+        from src.core.discord_bridge import start_discord_bridge
+        start_discord_bridge()
+    except Exception as e:
+        print("Failed to start Discord bridge:", e)
 
     try:
         from src.core.doc_indexer import index_docs_directory
@@ -169,6 +174,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to stop WhatsApp bridge:", e)
     try:
+        from src.core.discord_bridge import stop_discord_bridge
+        stop_discord_bridge()
+    except Exception as e:
+        print("Failed to stop Discord bridge:", e)
+    try:
         from src.voice.wakeword import stop_wakeword_monitoring
         stop_wakeword_monitoring()
     except Exception as e:
@@ -206,7 +216,7 @@ app = FastAPI(title="Meridian-X API", version="1.0.0", lifespan=lifespan)
 # Setup CORS to allow requests from Vite and Tauri frontend origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For local desktop app, allowing all is robust and simple
+    allow_origin_regex=".*",  # Allows any origin (including tauri:// and localhost) with credentials
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -1725,4 +1735,4 @@ def api_security_audit():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=4132)

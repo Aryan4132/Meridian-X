@@ -2,6 +2,7 @@ import os
 import time
 import threading
 import tempfile
+from typing import Optional
 from playwright.sync_api import sync_playwright
 
 WHATSAPP_ACTIVE = False

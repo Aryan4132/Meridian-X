@@ -1014,6 +1014,7 @@ async def run_react_agent_loop(
     _loop_interrupted = False
     try:
         while turn < max_turns:
+            final_text = ""
             if _loop_interrupted:
                 _loop_interrupted = False
                 yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))

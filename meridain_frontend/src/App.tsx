@@ -41,12 +41,15 @@ import {
 } from 'lucide-react';
 import { Message, ThoughtStep, ModelSettings, SystemResource, ProactiveNudge } from './types';
 
+const API_BASE_URL = 'http://127.0.0.1:4132';
+
 import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { marked } from 'marked';
 import { MascotCharacter } from './Mascot';
+import logoImg from '../logo.png';
 
 const API_PROVIDERS = [
   { id: 'gemini', name: 'Gemini' },
@@ -669,7 +672,7 @@ export default function App() {
           playUISound('click');
           try {
             for (const path of paths) {
-              const res = await fetch('http://127.0.0.1:8000/api/rag/ingest-file', {
+              const res = await fetch(`${API_BASE_URL}/api/rag/ingest-file`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: path })
@@ -713,7 +716,7 @@ export default function App() {
 
   const fetchBackgroundRuns = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/scheduler/runs?limit=15');
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/runs?limit=15`);
       if (res.ok) {
         const data = await res.json();
         if (data.runs) {
@@ -741,7 +744,7 @@ export default function App() {
   const fetchWinTasks = async () => {
     setWinTasksLoading(true);
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/list');
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/win/list`);
       if (res.ok) {
         const data = await res.json();
         setWinTasks(data.tasks || []);
@@ -758,7 +761,7 @@ export default function App() {
     if (!newWinTask.name.trim() || !newWinTask.goal.trim() || !newWinTask.time.trim()) return;
     playUISound('click');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/create', {
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/win/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -787,7 +790,7 @@ export default function App() {
     if (!confirm(`Are you sure you want to delete scheduled task "${name}"?`)) return;
     playUISound('click');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/scheduler/win/delete', {
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/win/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name })
@@ -809,7 +812,7 @@ export default function App() {
     setSecurityAuditResult(null);
     playUISound('click');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/security/audit');
+      const res = await fetch(`${API_BASE_URL}/api/security/audit`);
       if (res.ok) {
         const data = await res.json();
         setSecurityAuditResult(data);
@@ -934,7 +937,7 @@ export default function App() {
   const handleCaptureScreen = async () => {
     setIsCapturingScreen(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/vision/screenshot', { method: 'POST' });
+      const response = await fetch(`${API_BASE_URL}/api/vision/screenshot`, { method: 'POST' });
       if (response.ok) {
         const data = await response.json();
         if (data.status === 'success') {
@@ -972,7 +975,7 @@ export default function App() {
       window.speechSynthesis.cancel();
     }
     try {
-      await fetch('http://127.0.0.1:8000/api/voice/interrupt', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/voice/interrupt`, { method: 'POST' });
     } catch (e) {
       console.error("Failed to notify backend of voice interrupt:", e);
     }
@@ -1064,7 +1067,7 @@ export default function App() {
     }
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/watcher/propose-heal', {
+      const res = await fetch(`${API_BASE_URL}/api/watcher/propose-heal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: filePath, error_message: errorMessage })
@@ -1100,7 +1103,7 @@ export default function App() {
   const handleApplyHeal = async () => {
     if (!diffData) return;
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/watcher/apply-heal', {
+      const response = await fetch(`${API_BASE_URL}/api/watcher/apply-heal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1137,7 +1140,7 @@ export default function App() {
 
   const handleRollbackToCheckpoint = async (checkpointId: string) => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/history/rollback', {
+      const response = await fetch(`${API_BASE_URL}/api/history/rollback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ checkpoint_id: checkpointId })
@@ -1167,7 +1170,7 @@ export default function App() {
   // Subscribe to backend proactive stream
   useEffect(() => {
     if (!backendConnected) return;
-    const es = new EventSource('http://127.0.0.1:8000/api/proactive/stream');
+    const es = new EventSource(`${API_BASE_URL}/api/proactive/stream`);
     es.addEventListener('nudge', (e: MessageEvent) => {
       try {
         const nudge: ProactiveNudge = JSON.parse(e.data);
@@ -1211,7 +1214,7 @@ export default function App() {
 
   const fetchClipboard = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/clipboard/history?limit=15');
+      const res = await fetch(`${API_BASE_URL}/api/clipboard/history?limit=15`);
       if (res.ok) {
         const data = await res.json();
         if (data.history) setClipboardHistory(data.history);
@@ -1221,7 +1224,7 @@ export default function App() {
 
   const fetchDevStats = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/developer/stats');
+      const res = await fetch(`${API_BASE_URL}/api/developer/stats`);
       if (res.ok) {
         const data = await res.json();
         setDevStats(data);
@@ -1253,7 +1256,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/lobby/debate', {
+      const response = await fetch(`${API_BASE_URL}/api/lobby/debate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: lobbyPrompt })
@@ -1344,7 +1347,7 @@ export default function App() {
     }
     else if (nudge.type === 'battery_saver') {
       try {
-        fetch('http://127.0.0.1:8000/api/system/power-save', {
+        fetch(`${API_BASE_URL}/api/system/power-save`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ active: true })
@@ -1384,7 +1387,7 @@ export default function App() {
       setBreakTimer(20);
 
       // Increment pomodoro count on backend
-      fetch('http://127.0.0.1:8000/api/profile/pomodoro/increment', { method: 'POST' })
+      fetch(`${API_BASE_URL}/api/profile/pomodoro/increment`, { method: 'POST' })
         .then(() => fetchDevStats())
         .catch(console.error);
 
@@ -1436,7 +1439,7 @@ export default function App() {
   useEffect(() => {
     let eventSource: EventSource | null = null;
     if (backendConnected) {
-      eventSource = new EventSource('http://127.0.0.1:8000/api/swarm/stream');
+      eventSource = new EventSource(`${API_BASE_URL}/api/swarm/stream`);
       eventSource.onmessage = (e) => {
         try {
           const message = JSON.parse(e.data);
@@ -1509,7 +1512,7 @@ export default function App() {
 
   useEffect(() => {
     if (backendConnected) {
-      fetch('http://127.0.0.1:8000/api/game-mode')
+      fetch(`${API_BASE_URL}/api/game-mode`)
         .then(res => res.json())
         .then(data => {
           if (data && typeof data.game_mode === 'boolean') {
@@ -1538,7 +1541,7 @@ export default function App() {
       }
     }
     try {
-      await fetch('http://127.0.0.1:8000/api/game-mode', {
+      await fetch(`${API_BASE_URL}/api/game-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ game_mode: enabled })
@@ -1585,7 +1588,7 @@ export default function App() {
           if (next) {
             setMascotEnabled(false);
           }
-          fetch('http://127.0.0.1:8000/api/game-mode', {
+          fetch(`${API_BASE_URL}/api/game-mode`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ game_mode: next })
@@ -1738,7 +1741,7 @@ export default function App() {
 
   const fetchOllamaModels = async () => {
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/ollama-models');
+      const res = await fetch(`${API_BASE_URL}/api/ollama-models`);
       if (res.ok) {
         const data = await res.json();
         if (data.models && data.models.length > 0) {
@@ -1783,7 +1786,7 @@ export default function App() {
     setOllamaPullProgress('Initiating download...');
     playUISound('click');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/ollama/pull', {
+      const res = await fetch(`${API_BASE_URL}/api/ollama/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName })
@@ -1791,7 +1794,7 @@ export default function App() {
       if (res.ok) {
         const pollInterval = setInterval(async () => {
           try {
-            const statusRes = await fetch(`http://127.0.0.1:8000/api/ollama/pull/status?name=${encodeURIComponent(modelName)}`);
+            const statusRes = await fetch(`${API_BASE_URL}/api/ollama/pull/status?name=${encodeURIComponent(modelName)}`);
             if (statusRes.ok) {
               const data = await statusRes.json();
               const status = data.pull_status || 'unknown';
@@ -1823,7 +1826,7 @@ export default function App() {
     if (!confirm(`Are you sure you want to delete local model "${modelName}"?`)) return;
     playUISound('click');
     try {
-      const res = await fetch('http://127.0.0.1:8000/api/ollama/delete', {
+      const res = await fetch(`${API_BASE_URL}/api/ollama/delete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName })
@@ -1843,7 +1846,7 @@ export default function App() {
     const fetchHistory = async () => {
       if (!backendConnected) return;
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/chat/history');
+        const res = await fetch(`${API_BASE_URL}/api/chat/history`);
         if (res.ok) {
           const data = await res.json();
           if (data.history && data.history.length > 0) {
@@ -1943,7 +1946,7 @@ export default function App() {
   useEffect(() => {
     const fetchUsage = async () => {
       try {
-        const res = await fetch('http://127.0.0.1:8000/api/system-usage');
+        const res = await fetch(`${API_BASE_URL}/api/system-usage`);
         if (res.ok) {
           const data = await res.json();
           setBackendConnected(true);
@@ -2129,7 +2132,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/tts', {
+      const response = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2275,7 +2278,7 @@ export default function App() {
     });
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/chat/stream', {
+      const response = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2599,7 +2602,7 @@ export default function App() {
 
   const handleConfirmResponse = async (id: string, approved: boolean) => {
     try {
-      await fetch('http://127.0.0.1:8000/api/chat/confirm', {
+      await fetch(`${API_BASE_URL}/api/chat/confirm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2627,7 +2630,7 @@ export default function App() {
 
     setIsRecording(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/voice/record', {
+      const response = await fetch(`${API_BASE_URL}/api/voice/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2679,7 +2682,7 @@ export default function App() {
     }
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/voice/record', {
+      const response = await fetch(`${API_BASE_URL}/api/voice/record`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -2704,7 +2707,7 @@ export default function App() {
 
   const handleClearHistory = async () => {
     try {
-      await fetch('http://127.0.0.1:8000/api/chat/clear', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/chat/clear`, { method: 'POST' });
     } catch (err) {
       console.error("Failed to clear chat history on backend:", err);
     }
@@ -2773,7 +2776,7 @@ export default function App() {
           reader.readAsText(file);
         });
 
-        const res = await fetch('http://127.0.0.1:8000/api/rag/ingest', {
+        const res = await fetch(`${API_BASE_URL}/api/rag/ingest`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -2822,7 +2825,7 @@ export default function App() {
             <div className="relative group">
               <div className="absolute inset-x-0 -inset-y-2 bg-theme-accent/10 rounded-full blur-2xl transition-all duration-300"></div>
               <img
-                src="/logo.png"
+                src={logoImg}
                 alt="Meridian Logo"
                 referrerPolicy="no-referrer"
                 className="w-20 h-20 sm:w-24 sm:h-24 object-contain relative z-10 transition-transform duration-500 hover:scale-105"
@@ -3476,7 +3479,7 @@ export default function App() {
           <div data-tauri-drag-region className="flex items-center gap-3 shrink-0">
             <div className="flex items-center justify-center w-8 h-8">
               <img
-                src="/logo.png"
+                src={logoImg}
                 alt="Meridian Logo"
                 referrerPolicy="no-referrer"
                 className="w-8 h-8 object-contain"
@@ -5130,7 +5133,7 @@ export default function App() {
 
                 <div className="w-64 h-64 bg-zinc-950/40 border border-theme rounded-xl flex items-center justify-center overflow-hidden p-4 relative">
                   <img
-                    src={`http://127.0.0.1:8000/api/whatsapp/qr?t=${qrTimestamp}`}
+                    src={`${API_BASE_URL}/api/whatsapp/qr?t=${qrTimestamp}`}
                     alt="WhatsApp QR Code"
                     className="max-w-full max-h-full object-contain"
                     onError={(e) => {
@@ -5206,7 +5209,7 @@ export default function App() {
                   Connecting to Meridian Core...
                 </h2>
                 <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
-                  FastAPI Backend API is offline or initializing. Spawning backend services and waiting to bind to port 8000.
+                  FastAPI Backend API is offline or initializing. Spawning backend services and waiting to bind to port 4132.
                 </p>
               </div>
 
@@ -5223,7 +5226,7 @@ export default function App() {
                   onClick={async () => {
                     playUISound('click');
                     try {
-                      const res = await fetch('http://127.0.0.1:8000/api/system-usage');
+                      const res = await fetch(`${API_BASE_URL}/api/system-usage`);
                       if (res.ok) {
                         setBackendConnected(true);
                       } else {

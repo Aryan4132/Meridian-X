@@ -432,6 +432,8 @@ const playSoundEffect = (state: string) => {
   }
 };
 
+const API_BASE_URL = 'http://127.0.0.1:4132';
+
 export default function Mascot({ mascotState: propMascotState }: { mascotState?: string }) {
   const [mascotState, setMascotState] = useState<string>('default');
   const [speechAmplitude, setSpeechAmplitude] = useState<number>(0);
@@ -735,7 +737,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
     try {
       // 1. Record & Transcribe
-      const recRes = await fetch('http://127.0.0.1:8000/api/voice/record', { method: 'POST', signal: controller.signal });
+      const recRes = await fetch(`${API_BASE_URL}/api/voice/record`, { method: 'POST', signal: controller.signal });
       if (!recRes.ok) throw new Error("Failed to record from microphone");
       
       setVoiceState('transcribing');
@@ -763,7 +765,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       } catch (e) {}
 
       // 2. Query Chat LLM in a streaming way
-      const chatRes = await fetch('http://127.0.0.1:8000/api/chat/stream', {
+      const chatRes = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -841,7 +843,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
         try {
           const savedVoice = localStorage.getItem('meridian_tts_voice') || 'M1';
-          const ttsRes = await fetch('http://127.0.0.1:8000/api/tts', {
+          const ttsRes = await fetch(`${API_BASE_URL}/api/tts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

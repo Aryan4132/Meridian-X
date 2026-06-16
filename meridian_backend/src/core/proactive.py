@@ -475,42 +475,78 @@ _last_distraction_alert: float = 0.0
 _distraction_start_time: Optional[float] = None
 _last_window_title: str = ""
 
-def get_active_window_title() -> str:
+def get_active_process_and_title() -> tuple[str, str]:
     sys_platform = platform.system()
+    title = ""
+    proc_name = ""
     if sys_platform == "Windows":
         try:
             import ctypes
+            from ctypes import wintypes
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-            length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
-            buf = ctypes.create_unicode_buffer(length + 1)
-            ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
-            return buf.value
+            if hwnd:
+                # 1. Get Window Title
+                length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                buf = ctypes.create_unicode_buffer(length + 1)
+                ctypes.windll.user32.GetWindowTextW(hwnd, buf, length + 1)
+                title = buf.value
+                
+                # 2. Get Process Executable Name
+                pid = wintypes.DWORD()
+                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                PROCESS_QUERY_INFORMATION = 0x0400
+                PROCESS_VM_READ = 0x0010
+                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid.value)
+                if handle:
+                    try:
+                        buf_path = ctypes.create_unicode_buffer(1024)
+                        size = wintypes.DWORD(1024)
+                        if ctypes.windll.kernel32.QueryFullProcessImageNameW(handle, 0, buf_path, ctypes.byref(size)):
+                            proc_name = os.path.basename(buf_path.value)
+                    finally:
+                        ctypes.windll.kernel32.CloseHandle(handle)
         except Exception:
             pass
     elif sys_platform == "Darwin":
         try:
             cmd = "osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'"
-            return subprocess.check_output(cmd, shell=True).decode("utf-8", errors="ignore").strip()
+            title = subprocess.check_output(cmd, shell=True).decode("utf-8", errors="ignore").strip()
+            proc_name = title
         except Exception:
             pass
-    return ""
+    return proc_name, title
+
+def is_game_process_running(keywords) -> bool:
+    try:
+        import psutil
+        for proc in psutil.process_iter(['name']):
+            try:
+                name = (proc.info['name'] or "").lower()
+                if any(k in name for k in keywords):
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+    except Exception:
+        pass
+    return False
 
 def check_active_window():
     global _last_window_title, _distraction_start_time, _last_distraction_alert, game_mode_active, auto_game_mode_active
-    title = get_active_window_title()
-    if not title:
+    proc_name, title = get_active_process_and_title()
+    if not title and not proc_name:
         return
         
     now = time.time()
     title_lower = title.lower()
+    proc_lower = proc_name.lower()
 
     # ── Game Mode Auto-Detection ──────────────────────────────
-    game_keywords = ["valorant", "cyberpunk", "counter-strike", "dota 2", "league of legends", "gta v", "minecraft", "fortnite", "genshin impact", "apex legends", "hades"]
-    is_playing_game = any(gk in title_lower for gk in game_keywords)
+    game_keywords = ["valorant", "cyberpunk", "counter-strike", "csgo", "cs2", "dota 2", "dota2", "league of legends", "gta v", "gta5", "minecraft", "javaw", "fortnite", "genshin impact", "genshinimpact", "apex legends", "apexlegends", "hades"]
+    is_playing_game = any(gk in title_lower or gk in proc_lower for gk in game_keywords)
     
     if is_playing_game:
         if not game_mode_active:
-            print(f"[Proactive] Game detected: '{title}'. Automatically entering Game Mode.")
+            print(f"[Proactive] Game detected: '{title or proc_name}'. Automatically entering Game Mode.")
             game_mode_active = True
             auto_game_mode_active = True
             publish_nudge_sync(
@@ -522,7 +558,13 @@ def check_active_window():
             )
         return
     elif game_mode_active and auto_game_mode_active:
-        print(f"[Proactive] Game exited: '{title}'. Automatically exiting Game Mode.")
+        # Check if the game process is still running in the background before disabling Game Mode
+        game_exe_keywords = ["valorant", "cyberpunk", "csgo", "cs2", "dota2", "leagueoflegends", "gta5", "minecraft", "fortnite", "genshin", "apexlegends", "hades"]
+        if is_game_process_running(game_exe_keywords):
+            # Game is still running in background, preserve Game Mode
+            return
+            
+        print(f"[Proactive] Game exited: '{title or proc_name}'. Automatically exiting Game Mode.")
         game_mode_active = False
         auto_game_mode_active = False
         publish_nudge_sync(
