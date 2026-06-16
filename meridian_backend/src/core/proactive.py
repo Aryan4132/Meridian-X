@@ -734,10 +734,11 @@ def check_network_status():
     
     offline_now = False
     try:
-        socket.setdefaulttimeout(2.0)
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(("1.1.1.1", 53))
-        s.close()
+        # BUG-7 fix: use create_connection with a scoped timeout instead of
+        # socket.setdefaulttimeout() which permanently alters the global socket timeout
+        # for the entire process (affecting MongoDB, Ollama, httpx, etc.)
+        with socket.create_connection(("1.1.1.1", 53), timeout=2.0):
+            pass
     except Exception:
         offline_now = True
         

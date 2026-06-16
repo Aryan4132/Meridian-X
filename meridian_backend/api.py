@@ -673,8 +673,13 @@ def chat_stream(request: ChatRequest):
     if shortcut:
         async def shortcut_generator():
             import json
+            # Emit thought event
             yield f"event: thought\ndata: {json.dumps(shortcut['thoughts'][0])}\n\n"
-            yield f"event: text\ndata: {shortcut['text']}\n\n"
+            # BUG-13 fix: properly format multi-line text as SSE (one data: line per newline)
+            # to prevent malformed events when output contains newlines (e.g., test results)
+            text_lines = shortcut['text'].split('\n')
+            data_block = '\n'.join(f"data: {line}" for line in text_lines)
+            yield f"event: text\n{data_block}\n\n"
             try:
                 from src.voice.wakeword import resume_wakeword
                 resume_wakeword()
@@ -683,7 +688,7 @@ def chat_stream(request: ChatRequest):
         return StreamingResponse(shortcut_generator(), media_type="text/event-stream")
 
     model_source = request.modelSettings.modelSource
-    api_provider = request.modelSettings.apiProvider
+    api_provider = request.modelSettings.apiProvider or "gemini"  # BUG-4/8 fix: default to gemini if None
     brain_model = request.modelSettings.brainModel if model_source == "local" else request.modelSettings.selectedModel
     ollama_host = get_ollama_client_host()
 

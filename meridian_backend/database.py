@@ -62,7 +62,9 @@ def get_embedding(text: str) -> List[float]:
     try:
         client = get_ollama_client()
         res = client.embeddings(model="nomic-embed-text", prompt=text)
-        embedding = res.get("embedding")
+        # BUG-2 fix: ollama SDK returns an EmbeddingResponse object, not a dict.
+        # Use attribute access first, fall back to dict .get() for older lib versions.
+        embedding = res.embedding if hasattr(res, "embedding") else res.get("embedding")
         if embedding:
             return embedding
     except Exception as e:
@@ -625,6 +627,9 @@ def get_user_profile(key: str) -> Optional[Any]:
     return None
 
 def purge_expired_cache():
+    # BUG-9 fix: use finally to guarantee connection is closed even if Turbovec
+    # rebuild raises mid-loop (which could leave in-memory index inconsistent).
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -637,7 +642,7 @@ def purge_expired_cache():
             cursor.execute("DELETE FROM semantic_cache WHERE expires_at < ?", (now,))
             conn.commit()
             
-            # Rebuild Turbovec semantic cache index
+            # Rebuild Turbovec semantic cache index from remaining entries
             cursor.execute("SELECT id, query_text FROM semantic_cache")
             remaining = cursor.fetchall()
             global cache_index
@@ -650,9 +655,11 @@ def purge_expired_cache():
                 cache_index = new_index
                 cache_index.write(CACHE_INDEX_PATH)
             print(f"[Semantic Cache] Purged {len(expired_ids)} expired entries and rebuilt Turbovec index.")
-        conn.close()
     except Exception as e:
         print("[Semantic Cache] Purge failed:", e)
+    finally:
+        if conn:
+            conn.close()
 
 def consolidate_memory_sleep_cycle():
     """Sleep cycle background consolidation of conversations and caches."""

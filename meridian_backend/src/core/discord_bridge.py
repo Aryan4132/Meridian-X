@@ -30,13 +30,19 @@ def stop_discord_bridge():
         return
     DISCORD_ACTIVE = False
     print("[Discord Bridge] Stopping Discord bot...")
-    if _bot and _loop:
+    if _bot and _loop and _loop.is_running():
         try:
             future = asyncio.run_coroutine_threadsafe(_bot.close(), _loop)
             future.result(timeout=5.0)
         except Exception as e:
             print("[Discord Bridge] Error during bot close:", e)
-    print("[Discord Bridge] Background thread stopped.")
+    # BUG-12 fix: explicitly stop the private event loop after bot close to prevent leak
+    if _loop and not _loop.is_closed():
+        try:
+            _loop.call_soon_threadsafe(_loop.stop)
+        except Exception:
+            pass
+    print("[Discord Bridge] Stopped.")
 
 def _run_bot(token):
     global _bot, _loop
@@ -69,18 +75,30 @@ def _run_bot(token):
 
             async with message.channel.typing():
                 try:
-                    from api import get_react_thoughts
+                    # BUG-1 fix: use run_react_agent_loop directly as an async generator.
+                    # This avoids the circular import (api imports discord_bridge at startup,
+                    # so discord_bridge cannot import api). It also avoids blocking the bot's
+                    # event loop with a synchronous LLM call.
+                    from src.core.loop import run_react_agent_loop
                     model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-                    ocr_model = "PaddleOCR-v4"
+                    ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+                    if not ollama_host.startswith("http"):
+                        ollama_host = f"http://{ollama_host}"
 
-                    result = get_react_thoughts(prompt_text, model, ocr_model)
-                    reply_text = result.get("text", "Task completed.")
+                    reply_parts = []
+                    async for event in run_react_agent_loop(prompt_text, model, ollama_host):
+                        if event.startswith("event: text\n"):
+                            for line in event.splitlines():
+                                if line.startswith("data: "):
+                                    reply_parts.append(line[6:])
+
+                    reply_text = "".join(reply_parts).strip() or "Task completed."
 
                     from database import add_to_conversations
                     add_to_conversations("user", prompt_text)
                     add_to_conversations("assistant", reply_text)
 
-                    # Discord has a 2000 character limit
+                    # Discord has a 2000 character limit per message
                     if len(reply_text) > 2000:
                         for i in range(0, len(reply_text), 2000):
                             await message.reply(reply_text[i:i+2000])
@@ -99,4 +117,6 @@ def _run_bot(token):
     except Exception as e:
         print(f"[Discord Bridge] Bot loop encountered error: {e}")
     finally:
-        _loop.close()
+        # BUG-12 fix: always close the private event loop when the bot exits
+        if not _loop.is_closed():
+            _loop.close()

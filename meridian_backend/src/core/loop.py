@@ -5,6 +5,7 @@ import asyncio
 import uuid
 import time
 import random
+import threading
 from typing import Dict, Any, List, AsyncGenerator, Tuple
 import ollama
 
@@ -20,11 +21,14 @@ active_confirmations: Dict[str, Dict[str, Any]] = {}
 active_trees: Dict[str, Dict[str, Any]] = {}
 active_debates: Dict[str, Dict[str, Any]] = {}
 
-_loop_interrupted = False
+# BUG-3 fix: use threading.Event instead of a plain bool flag.
+# threading.Event.is_set() / .set() / .clear() are atomic and thread-safe,
+# preventing race conditions between the voice-monitor thread and the async generator.
+_interrupt_event = threading.Event()
 
 def interrupt_agent_loop():
-    global _loop_interrupted
-    _loop_interrupted = True
+    """Signal the active agent loop to stop at the next safe checkpoint."""
+    _interrupt_event.set()
 
 
 def generate_tools_doc() -> str:
@@ -894,15 +898,20 @@ async def run_react_agent_loop(
             space = " " if i > 0 else ""
             yield sse_event("text", space + word)
             await asyncio.sleep(0.005)
-        add_to_conversations("user", prompt)
-        add_to_conversations("assistant", cached)
+        # BUG-5 fix: only log to DB when this is a user-facing (non-worker) call.
+        # HTP worker sub-loops run internal planner prompts that must not pollute
+        # the persistent conversation history shown to the user.
+        if not is_worker:
+            add_to_conversations("user", prompt)
+            add_to_conversations("assistant", cached)
         add_to_task_log("semantic_cache", 0, "success")
         return
 
     # Fetch recent conversations for context (excluding the new prompt that we are about to add)
     past_messages = get_conversation_history(limit=10)
 
-    add_to_conversations("user", prompt)
+    if not is_worker:  # BUG-5 fix: skip DB write for internal HTP worker loops
+        add_to_conversations("user", prompt)
     add_to_task_log("ollama_api", 2, "started")
 
     # Set up client and initial prompt context
@@ -1010,13 +1019,12 @@ async def run_react_agent_loop(
     
     # Session-scoped manifest to track temporary screenshots for automated cleanup
     created_temp_files = []
-    global _loop_interrupted
-    _loop_interrupted = False
+    _interrupt_event.clear()  # Reset any stale interrupt signal from a previous run
     try:
         while turn < max_turns:
             final_text = ""
-            if _loop_interrupted:
-                _loop_interrupted = False
+            if _interrupt_event.is_set():
+                _interrupt_event.clear()
                 yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                 return
             turn += 1
@@ -1186,8 +1194,13 @@ async def run_react_agent_loop(
 
             # Feed the stream to the tag parser in real time
             for chunk in response_stream:
-                if _loop_interrupted:
-                    _loop_interrupted = False
+                if _interrupt_event.is_set():
+                    _interrupt_event.clear()
+                    # BUG-14 fix: remove the temporary self-question warning from history
+                    # before returning, so it cannot bleed into the next request's context.
+                    if temp_sys_idx != -1 and temp_sys_idx < len(history):
+                        history.pop(temp_sys_idx)
+                        temp_sys_idx = -1
                     yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                     return
                 if model_source == "local":
@@ -1226,6 +1239,10 @@ async def run_react_agent_loop(
                         final_text += event["text"]
                         yield sse_event("text", event["text"])
                     elif event["type"] == "finish":
+                        # BUG-11 fix: skip consensus debate on empty/trivial finish text
+                        # to avoid wasting 2 extra LLM calls with zero-length input.
+                        if not event["text"].strip():
+                            continue
                         # Process/correct the final finish text before yielding it
                         corrected_finish = await process_final_response(event["text"], user_lang, client)
                         
@@ -1270,11 +1287,18 @@ async def run_react_agent_loop(
                         except Exception:
                             debated_finish = corrected_finish
                             
-                        active_debates[f"debate-{time.time()}"] = {
+                        _debate_key = f"debate-{time.time()}"
+                        active_debates[_debate_key] = {
                             "draft": corrected_finish,
                             "critique": critique,
                             "refined": debated_finish
                         }
+                        # BUG-10 fix: cap active_debates at 50 entries to prevent
+                        # unbounded memory growth (full chat text stored per entry).
+                        _MAX_DEBATES = 50
+                        if len(active_debates) > _MAX_DEBATES:
+                            for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+                                del active_debates[_old_k]
                         
                         yield sse_event("thought", json.dumps({
                             "id": f"debate-complete-{time.time()}",
@@ -1653,11 +1677,17 @@ async def run_react_agent_loop(
                     except Exception:
                         pass
                         
-                    active_debates[f"debate-{time.time()}"] = {
+                    _debate_key2 = f"debate-{time.time()}"
+                    active_debates[_debate_key2] = {
                         "draft": final_text,
                         "critique": critique,
                         "refined": final_text
                     }
+                    # BUG-10 fix: same cap as above — prune oldest entries
+                    _MAX_DEBATES = 50
+                    if len(active_debates) > _MAX_DEBATES:
+                        for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+                            del active_debates[_old_k]
                     
                     yield sse_event("text", final_text)
                 break
@@ -1665,8 +1695,12 @@ async def run_react_agent_loop(
         # Save the final text that was streamed to the user as-is.
         # process_final_response is already applied during streaming (finish event handler),
         # so re-processing here would cause the DB to store a different version than shown.
-        add_to_conversations("assistant", final_text)
-        add_to_semantic_cache(prompt, final_text)
+        # BUG-5 fix: only persist to DB when this is a user-facing (non-worker) call.
+        # HTP worker sub-loops should not write their internal results to conversation
+        # history or semantic cache since they are planning artifacts, not user interactions.
+        if not is_worker:
+            add_to_conversations("assistant", final_text)
+            add_to_semantic_cache(prompt, final_text)
         add_to_task_log("ollama_api", 2, "success")
 
         

@@ -120,9 +120,13 @@ def execute_scheduled_goal(goal: str):
             if output_str:
                 run_log_parts.append(f"📝 Output:\n{output_str}\n")
                 
-        loop.run_until_complete(run())
-        loop.close()
-        asyncio.set_event_loop(None)  # clean up thread-local loop reference
+        # BUG-6 fix: use finally to guarantee loop is always closed and cleared,
+        # even if run_until_complete() raises (previously leaked the loop on failure).
+        try:
+            loop.run_until_complete(run())
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)  # clean up thread-local loop reference
         
         # Log to database
         from database import add_background_run
