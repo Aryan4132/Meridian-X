@@ -113,11 +113,17 @@ class P2PSyncNode:
                 data, addr = self.udp_socket.recvfrom(1024)
                 msg = data.decode('utf-8').strip()
                 if msg.startswith("MERIDIAN_PEER:"):
-                    peer_info = msg.split(":")
-                    peer_port = int(peer_info[1])
+                    remainder = msg[len("MERIDIAN_PEER:"):]
+                    parts = remainder.rsplit(":", 1)
+                    peer_port = int(parts[-1])
                     peer_ip = addr[0]
                     # Don't add ourselves
-                    if peer_ip != socket.gethostbyname(socket.gethostname()) or peer_port != self.port:
+                    try:
+                        local_ips = {info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None)}
+                        local_ips.update({"127.0.0.1", "::1", "0.0.0.0"})
+                    except Exception:
+                        local_ips = {"127.0.0.1", "::1"}
+                    if peer_ip not in local_ips or peer_port != self.port:
                         with self.lock:
                             if (peer_ip, peer_port) not in self.peers:
                                 self.peers.add((peer_ip, peer_port))
@@ -239,7 +245,13 @@ class P2PSyncNode:
                 s.sendall(json.dumps(payload).encode('utf-8'))
                 
                 # Receive confirmation
-                resp = s.recv(4096).decode('utf-8')
+                chunks = []
+                while True:
+                    chunk = s.recv(4096)
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                resp = b"".join(chunks).decode('utf-8')
                 result = json.loads(resp)
                 if result.get("status") == "success":
                     m_data = result.get("data", {})

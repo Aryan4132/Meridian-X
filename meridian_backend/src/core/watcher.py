@@ -88,7 +88,9 @@ def start_watching_log(file_path: str, patterns: List[str], on_match_goal: str) 
         
     if not os.path.exists(abs_path):
         # Create empty file if not exists to watch it
-        os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+        parent = os.path.dirname(abs_path)
+        if parent:
+            os.makedirs(parent, exist_ok=True)
         with open(abs_path, "w", encoding="utf-8") as f:
             f.write("")
             

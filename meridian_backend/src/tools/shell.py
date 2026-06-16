@@ -20,7 +20,7 @@ def nl_to_shell(natural_language: str) -> str:
             f"Description: {natural_language}"
         )
         res = client.generate(model=_get_active_model(), prompt=prompt)
-        command = res.get("response", "").strip()
+        command = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         
         # Strip code formatting if model fails to comply
         if command.startswith("```"):
@@ -94,7 +94,7 @@ def nl_run(natural_language: str) -> str:
                 )
                 
                 fix_res = client.generate(model=model, prompt=prompt)
-                fix_command = fix_res.get("response", "").strip()
+                fix_command = (fix_res.response if hasattr(fix_res, "response") else fix_res.get("response", "")).strip()
                 if fix_command.startswith("```"):
                     fix_command = fix_command.strip("`").replace("powershell\n", "").replace("shell\n", "").strip()
             except Exception as e:

@@ -135,14 +135,28 @@ def _poll_loop():
                         json={"chat_id": chat_id, "text": "🤔 Processing command..."}
                     )
                     
-                    # Call local agent loop
-                    from api import get_react_thoughts
-                    # Set settings: run default local/Ollama model
-                    model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-                    ocr_model = "PaddleOCR-v4"
+                    # Call local agent loop asynchronously
+                    import asyncio
+                    from src.core.loop import run_react_agent_loop
                     
-                    result = get_react_thoughts(prompt_text, model, ocr_model)
-                    reply_text = result.get("text", "Task completed.")
+                    model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                    ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+                    
+                    loop = asyncio.new_event_loop()
+                    reply_parts = []
+                    
+                    async def _run():
+                        async for event in run_react_agent_loop(prompt_text, model, ollama_host):
+                            if event.startswith("event: text\n"):
+                                for line in event.splitlines():
+                                    if line.startswith("data: "):
+                                        reply_parts.append(line[6:])
+                    try:
+                        loop.run_until_complete(_run())
+                    finally:
+                        loop.close()
+                        
+                    reply_text = "".join(reply_parts).strip() or "Task completed."
                     
                     # Log to database conversation history
                     from database import add_to_conversations
@@ -158,7 +172,7 @@ def _poll_loop():
                     # 2. Synthesize TTS and send as Voice if original input was a voice note
                     if voice:
                         try:
-                            from api import get_tts_engine
+                            from src.voice.tts import get_tts_engine
                             engine = get_tts_engine()
                             if engine:
                                 print("[Telegram Bridge] Synthesizing speech reply...")
@@ -196,6 +210,14 @@ def _poll_loop():
                     except Exception:
                         pass
                         
+        except httpx.TransportError as te:
+            print(f"[Telegram Bridge] Transport error: {te}. Recreating client...")
+            try:
+                client.close()
+            except Exception:
+                pass
+            client = httpx.Client(timeout=15.0)
+            time.sleep(5.0)
         except Exception as e:
             print(f"[Telegram Bridge] Polling error: {e}")
             time.sleep(5.0)

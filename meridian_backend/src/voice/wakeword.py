@@ -76,7 +76,7 @@ def _listen_loop():
                     audio_data = chunk.flatten()
                     
                     predictions = oww_model.predict(audio_data)
-                    score = predictions.get('hey_meridian', 0.0)
+                    score = max(predictions.values()) if predictions else 0.0
                     
                     if score > 0.6:
                         print(f"[Wake Word] Wake word detected with score {score:.3f}! Pausing and triggering action.")

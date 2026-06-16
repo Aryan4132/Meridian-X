@@ -266,15 +266,18 @@ def format_file(path: str) -> str:
 
 # --- LSP Client integration ---
 import asyncio
+from typing import Optional
 from src.core.lsp_client import LspClient
 
 _lsp_client_instance = None
-_lsp_client_lock = asyncio.Lock()
+_lsp_client_lock: Optional[asyncio.Lock] = None
 
 async def _get_lsp_client() -> LspClient:
-    global _lsp_client_instance
+    global _lsp_client_instance, _lsp_client_lock
     if _lsp_client_instance is not None:
         return _lsp_client_instance
+    if _lsp_client_lock is None:
+        _lsp_client_lock = asyncio.Lock()
     async with _lsp_client_lock:
         if _lsp_client_instance is not None:
             return _lsp_client_instance

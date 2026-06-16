@@ -137,13 +137,28 @@ def _run_browser():
                         last_processed_msg = last_msg_text
                         print(f"[WhatsApp Bridge] Received command from {contact_name}: '{last_msg_text}'")
                         
-                        # Process using reactive agent loop
-                        from api import get_react_thoughts
-                        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-                        ocr_model = "PaddleOCR-v4"
+                        # Process using reactive agent loop asynchronously
+                        import asyncio
+                        from src.core.loop import run_react_agent_loop
                         
-                        result = get_react_thoughts(last_msg_text, model, ocr_model)
-                        reply_text = result.get("text", "Task completed.")
+                        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                        ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+                        
+                        loop = asyncio.new_event_loop()
+                        reply_parts = []
+                        
+                        async def _run():
+                            async for event in run_react_agent_loop(last_msg_text, model, ollama_host):
+                                if event.startswith("event: text\n"):
+                                    for line in event.splitlines():
+                                        if line.startswith("data: "):
+                                            reply_parts.append(line[6:])
+                        try:
+                            loop.run_until_complete(_run())
+                        finally:
+                            loop.close()
+                            
+                        reply_text = "".join(reply_parts).strip() or "Task completed."
                         
                         # Log to database conversation history
                         from database import add_to_conversations
