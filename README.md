@@ -118,10 +118,35 @@ Alternatively, run them in separate terminals:
    cd meridian_backend
    venv\Scripts\python.exe api.py
    ```
-2. **Frontend**:
+2. **Frontend (Development Mode)**:
    ```bash
-   cd meridain_frontend
-   npm run dev
+   cd meridian_frontend
+   npm run tauri dev
    ```
+
+---
+
+## 📦 Production Builds & Startup Configuration
+
+### Building the Installers
+To build the optimized production version of the application:
+1. Navigate to the frontend directory:
+   ```bash
+   cd meridian_frontend
+   ```
+2. Build the Tauri application:
+   ```bash
+   npm run tauri build
+   ```
+This compiles the Rust desktop wrapper and bundles the production binaries:
+* **Setup EXE**: [meridian-x_0.1.0_x64-setup.exe](file:///C:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/executables/meridian-x_0.1.0_x64-setup.exe) (located in `executables/`)
+* **MSI Installer**: [meridian-x_0.1.0_x64_en-US.msi](file:///C:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/executables/meridian-x_0.1.0_x64_en-US.msi) (located in `executables/`)
+
+### ⚡ Launch on Startup
+To configure the application to launch automatically when Windows starts up:
+* **Via Settings UI**: Open the Meridian-X companion window, go to **Settings**, and toggle **Launch on Startup**.
+* **Via CLI**: Run `python setup_startup.py` from the project root. (To disable, run `python setup_startup.py --disable`).
+
+**How it works**: The startup script automatically checks for the compiled production binary (`meridian_frontend/src-tauri/target/release/app.exe`). If found, it runs the optimized binary directly without starting a dev server or recompiling Cargo, enabling an instant, silent boot. If not found, it falls back to development mode.
 
 ---
