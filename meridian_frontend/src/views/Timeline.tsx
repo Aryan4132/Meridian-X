@@ -272,6 +272,8 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       }
     } catch {
       setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
+      setStreaming('');
+      setStreamThoughts([]);
     } finally { setLoading(false); }
   };
 
