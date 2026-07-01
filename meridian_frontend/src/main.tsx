@@ -1,5 +1,8 @@
 // Global error reporting to backend daemon for WebView2 debugging
 if (typeof window !== 'undefined') {
+  // Disable right-click context menu for standard native desktop feel
+  document.addEventListener('contextmenu', e => e.preventDefault());
+
   const sendDebugLog = (message: string, level = 'error') => {
     fetch('http://localhost:4132/api/debug/log', {
       method: 'POST',
