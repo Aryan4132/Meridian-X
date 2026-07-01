@@ -36,7 +36,17 @@ def extract_text_from_file(file_path: str) -> str:
         raise ValueError(f"Unsupported file extension: '{ext}'. Supported formats: .txt, .md, .json, .csv, .pdf, .docx")
 
 def get_ollama_client_host():
-    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    host = os.environ.get("OLLAMA_HOST")
+    if not host:
+        try:
+            db_host = get_user_profile("ollama_host")
+            if db_host:
+                host = db_host
+        except Exception:
+            pass
+    if not host:
+        host = "http://127.0.0.1:11434"
+
     if host == "0.0.0.0":
         return "http://127.0.0.1:11434"
     if host.startswith("0.0.0.0:"):
@@ -190,6 +200,13 @@ def init_tables():
             goal TEXT,
             status TEXT,
             log TEXT
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_profile (
+            key TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
     
@@ -601,6 +618,22 @@ def get_clipboard_history(limit: int = 10) -> List[Dict[str, Any]]:
     return []
 
 def save_user_profile(key: str, value: Any):
+    # 1. Save to SQLite user_profile table
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        val_str = json.dumps(value)
+        cursor.execute(
+            "INSERT OR REPLACE INTO user_profile (key, value) VALUES (?, ?)",
+            (key, val_str)
+        )
+        conn.commit()
+        conn.close()
+        print(f"[SQLite User Profile] Updated: '{key}'")
+    except Exception as e:
+        print(f"[SQLite User Profile] Save failed: {e}")
+
+    # 2. Save to MongoDB if online
     db_conn = get_mongo_db()
     if db_conn is not None:
         try:
@@ -615,6 +648,19 @@ def save_user_profile(key: str, value: Any):
             print("[MongoDB User Profile] Save failed:", e)
 
 def get_user_profile(key: str) -> Optional[Any]:
+    # 1. Try SQLite first
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM user_profile WHERE key = ?", (key,))
+        res = cursor.fetchone()
+        conn.close()
+        if res:
+            return json.loads(res["value"])
+    except Exception as e:
+        print(f"[SQLite User Profile] Fetch failed: {e}")
+
+    # 2. Fallback to MongoDB
     db_conn = get_mongo_db()
     if db_conn is not None:
         try:

@@ -5,7 +5,18 @@ import sys
 from typing import Dict, Any, Optional
 
 def get_ollama_client_host() -> str:
-    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    host = os.environ.get("OLLAMA_HOST")
+    if not host:
+        try:
+            from database import get_user_profile
+            db_host = get_user_profile("ollama_host")
+            if db_host:
+                host = db_host
+        except Exception:
+            pass
+    if not host:
+        host = "http://127.0.0.1:11434"
+
     if host == "0.0.0.0":
         return "http://127.0.0.1:11434"
     if host.startswith("0.0.0.0:"):

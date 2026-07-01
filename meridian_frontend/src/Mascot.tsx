@@ -1,38 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { getCurrentWindow, LogicalSize, LogicalPosition, currentMonitor } from '@tauri-apps/api/window';
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { listen, emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  X, 
-  Terminal, 
-  Settings2, 
-  Play, 
-  Square, 
   LogIn, 
   EyeOff, 
-  Moon, 
-  Sun,
   Loader2,
-  CheckCircle2,
-  AlertTriangle,
   Mic,
   MicOff,
   Volume2,
   VolumeX,
   Crown,
-  Wrench
+  X,
+  Play
 } from 'lucide-react';
 
 const THEME_COLORS: Record<string, { accent: string; bg: string; border: string }> = {
-  default: { accent: '#ea580c', bg: '#09090b', border: '#27272a' },
-  cyberpunk: { accent: '#ff007f', bg: '#090214', border: '#ff007f' },
-  amber: { accent: '#ffb000', bg: '#0f0a00', border: '#ffb000' },
-  slate: { accent: '#14b8a6', bg: '#0b1329', border: '#14b8a6' },
-  nordic: { accent: '#7dd3fc', bg: '#0e131f', border: '#242f46' },
-  crimson_charcoal: { accent: '#fb7185', bg: '#121214', border: '#26262b' },
-  forest: { accent: '#34d399', bg: '#0a0e12', border: '#1c2633' }
+  void:          { accent: '#00E5FF', bg: '#0A0D17', border: 'rgba(0, 229, 255, 0.15)' },
+  frost:         { accent: '#60A5FA', bg: '#050A14', border: 'rgba(96, 165, 250, 0.15)' },
+  'tokyo-storm': { accent: '#7AA2F7', bg: '#131421', border: 'rgba(122, 162, 247, 0.15)' },
+  abyss:         { accent: '#00A896', bg: '#00212B', border: 'rgba(0, 168, 150, 0.15)' },
+  carbon:        { accent: '#E2E8F0', bg: '#0E0E10', border: 'rgba(226, 232, 240, 0.15)' },
+  noir:          { accent: '#38BDF8', bg: '#000000', border: 'rgba(56, 189, 248, 0.15)' },
 };
 
 type HudState = 'idle' | 'working' | 'success' | 'error';
@@ -48,52 +38,51 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
   // Body animation variants
   const floatVariants = {
     default: {
-      y: [0, -3, 0],
+      y: [0, -2.5, 0],
       transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
     },
     happy: {
-      y: [0, -5, 0],
-      scaleY: [1, 0.95, 1.05, 1],
-      transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" }
+      y: [0, -4.5, 0],
+      scaleY: [1, 0.94, 1.06, 1],
+      transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
     },
     sleeping: {
-      y: [0, -1.5, 0],
-      scaleY: [1, 0.95, 1],
-      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+      y: [0, -1.2, 0],
+      scaleY: [1, 0.96, 1],
+      transition: { duration: 4.5, repeat: Infinity, ease: "easeInOut" }
     },
     tired: {
-      y: [1, 3, 1],
-      rotate: [0.5, -0.5, 0.5],
-      transition: { duration: 4, repeat: Infinity, ease: "easeInOut" }
+      y: [1, 2.5, 1],
+      rotate: [0.3, -0.3, 0.3],
+      transition: { duration: 4.2, repeat: Infinity, ease: "easeInOut" }
     },
     diagnostic: {
-      y: [0, -2, 0],
-      rotate: [0, 4, -4, 0],
-      transition: { duration: 3.5, repeat: Infinity, ease: "easeInOut" }
+      y: [0, -1.8, 0],
+      rotate: [0, 3, -3, 0],
+      transition: { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
     },
     disapproving: {
-      x: [0, -1, 1, -1, 1, 0],
-      y: [0, 0, 0, 0, 0, 0],
-      transition: { duration: 0.5, repeat: Infinity, ease: "linear" }
+      x: [0, -0.8, 0.8, -0.8, 0.8, 0],
+      transition: { duration: 0.6, repeat: Infinity, ease: "linear" }
     },
     typing: {
-      y: [0, -2, 0],
-      rotate: [0, -3, 3, 0],
-      transition: { duration: 0.8, repeat: Infinity, ease: "easeInOut" }
+      y: [0, -1.5, 0],
+      rotate: [0, -2, 2, 0],
+      transition: { duration: 0.75, repeat: Infinity, ease: "easeInOut" }
     }
   };
 
   const currentVariant = floatVariants[state as keyof typeof floatVariants] ? state : 'default';
 
   return (
-    <div className="relative w-6.5 h-6.5 flex-shrink-0 flex items-center justify-center">
+    <div className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
       {/* State-specific background glow */}
-      <span className={`absolute w-full h-full rounded-full opacity-35 blur-[5px] transition-colors duration-500 ${
+      <span className={`absolute w-7 h-7 rounded-full opacity-35 blur-[6px] transition-colors duration-500 ${
         state === 'sleeping' ? 'bg-indigo-500' :
         state === 'tired' ? 'bg-cyan-500' :
         state === 'disapproving' ? 'bg-rose-500' :
         state === 'diagnostic' ? 'bg-amber-500' : 
-        state === 'typing' ? 'bg-emerald-400' : 'bg-emerald-500'
+        state === 'typing' ? 'bg-emerald-400' : 'bg-cyan-400'
       }`} />
 
       <motion.div
@@ -104,56 +93,44 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
         <svg viewBox="0 0 32 32" className="w-full h-full overflow-visible" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="body-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#27272a" />
-              <stop offset="50%" stopColor="#18181b" />
-              <stop offset="100%" stopColor="#09090b" />
+              <stop offset="0%" stopColor="#1E293B" />
+              <stop offset="50%" stopColor="#0F172A" />
+              <stop offset="100%" stopColor="#020617" />
             </linearGradient>
             <linearGradient id="screen-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#09090b" />
-              <stop offset="100%" stopColor="#030303" />
+              <stop offset="0%" stopColor="#030712" />
+              <stop offset="100%" stopColor="#000000" />
             </linearGradient>
             <linearGradient id="glare-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="white" stopOpacity="0.15" />
-              <stop offset="35%" stopColor="white" stopOpacity="0.04" />
+              <stop offset="0%" stopColor="white" stopOpacity="0.12" />
+              <stop offset="35%" stopColor="white" stopOpacity="0.02" />
               <stop offset="35.1%" stopColor="white" stopOpacity="0" />
-              <stop offset="100%" stopColor="white" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="yellow-hat-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#fbbf24" />
-              <stop offset="100%" stopColor="#b45309" />
-            </linearGradient>
-            <linearGradient id="detective-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#5c2c16" />
-              <stop offset="100%" stopColor="#1f0a00" />
-            </linearGradient>
-            <linearGradient id="crown-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#fde047" />
-              <stop offset="100%" stopColor="#ca8a04" />
-            </linearGradient>
-            <linearGradient id="hoodie-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#52525b" />
-              <stop offset="100%" stopColor="#27272a" />
-            </linearGradient>
-            <linearGradient id="visor-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#ec4899" />
-              <stop offset="100%" stopColor="#9d174d" />
             </linearGradient>
             <filter id="glow-visor-filter" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="1.5" result="blur" />
+              <feGaussianBlur stdDeviation="1" result="blur" />
               <feComposite in="SourceGraphic" in2="blur" operator="over" />
             </filter>
+            <linearGradient id="yellow-hat" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fbbf24" />
+              <stop offset="100%" stopColor="#d97706" />
+            </linearGradient>
           </defs>
 
-          {/* Outer Shield / Ears (Robot Body) with Gradient */}
+          {/* Upgraded Rounded Box Shield Head */}
           <rect x="3" y="5" width="26" height="20" rx="6" fill="url(#body-grad)" stroke={accentColor} strokeWidth="1.5" />
           
           {/* Inner Screen Visor with Depth */}
-          <rect x="5" y="7" width="22" height="16" rx="4" fill="url(#screen-grad)" stroke={`${accentColor}40`} strokeWidth="1" />
-          
-          {/* Screen Glass Glare reflection overlay */}
+          <rect x="5" y="7" width="22" height="16" rx="4" fill="url(#screen-grad)" stroke={`${accentColor}25`} strokeWidth="1" />
+
+          {/* Visor scan lines */}
+          <line x1="6" y1="11" x2="26" y2="11" stroke={`${accentColor}15`} strokeWidth="0.5" />
+          <line x1="6" y1="15" x2="26" y2="15" stroke={`${accentColor}15`} strokeWidth="0.5" />
+          <line x1="6" y1="19" x2="26" y2="19" stroke={`${accentColor}15`} strokeWidth="0.5" />
+
+          {/* Glare */}
           <rect x="5" y="7" width="22" height="16" rx="4" fill="url(#glare-grad)" pointerEvents="none" />
 
-          {/* Eyes rendering based on state */}
+          {/* Eyes & Mouth depending on state */}
           {state === 'sleeping' ? (
             <>
               <path d="M9 14 Q11 17 13 14" stroke="#818cf8" strokeWidth="1.8" strokeLinecap="round" fill="none" />
@@ -161,10 +138,11 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
             </>
           ) : state === 'tired' ? (
             <>
-              <path d="M9 13 H13 M9 15 H13" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M19 13 H23 M19 15 H23" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="9" y1="14" x2="13" y2="14" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
+              <line x1="19" y1="14" x2="23" y2="14" stroke="#22d3ee" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M14 18 H18" stroke="#22d3ee" strokeWidth="1" strokeLinecap="round" />
             </>
-          ) : state === 'diagnostic' && wardrobe !== 'glasses' ? (
+          ) : state === 'diagnostic' ? (
             <>
               <rect x="7" y="11" width="18" height="6" rx="1.5" fill={`${accentColor}25`} stroke={accentColor} strokeWidth="1.5" filter="url(#glow-visor-filter)" />
               <line x1="8" y1="14" x2="24" y2="14" stroke={accentColor} strokeWidth="1" strokeDasharray="2 2" />
@@ -175,15 +153,14 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
               <path d="M24 11 L19 13" stroke="#f43f5e" strokeWidth="1.8" strokeLinecap="round" />
               <circle cx="10.5" cy="15" r="1.5" fill="#f43f5e" />
               <circle cx="21.5" cy="15" r="1.5" fill="#f43f5e" />
+              <path d="M13 19 Q16 17.5 19 19" stroke="#f43f5e" strokeWidth="1" strokeLinecap="round" fill="none" />
             </>
           ) : state === 'typing' ? (
             <>
-              {/* Squinting focused eyes */}
-              <path d="M9 14 L13 14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
-              <path d="M19 14 L23 14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
-              {/* Cute smile mouth */}
+              <line x1="9" y1="14" x2="13" y2="14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
+              <line x1="19" y1="14" x2="23" y2="14" stroke={accentColor} strokeWidth="2" strokeLinecap="round" />
               <path d="M14 17 Q16 19 18 17" stroke={accentColor} strokeWidth="1.5" strokeLinecap="round" fill="none" />
-              {/* Small typing hands below screen */}
+              {/* Animated small coding hands */}
               <circle cx="12" cy="21" r="0.8" fill={accentColor} />
               <circle cx="15" cy="22" r="0.8" fill={accentColor} />
               <circle cx="17" cy="22" r="0.8" fill={accentColor} />
@@ -191,29 +168,14 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
             </>
           ) : (
             <>
-              <motion.circle
-                cx="11"
-                cy="15"
-                r="2"
-                fill={accentColor}
-                animate={{ scaleY: [1, 1, 0.1, 1, 1] }}
-                transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
-                filter="url(#glow-visor-filter)"
-              />
-              <motion.circle
-                cx="21"
-                cy="15"
-                r="2"
-                fill={accentColor}
-                animate={{ scaleY: [1, 1, 0.1, 1, 1] }}
-                transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
-                filter="url(#glow-visor-filter)"
-              />
+              {/* standard eyes & responsive audio mouth */}
+              <circle cx="11" cy="15" r="2" fill={accentColor} filter="url(#glow-visor-filter)" />
+              <circle cx="21" cy="15" r="2" fill={accentColor} filter="url(#glow-visor-filter)" />
               <path d={`M14 18 Q16 ${20 + speechAmplitude * 6} 18 18`} stroke={accentColor} strokeWidth="1.2" strokeLinecap="round" fill="none" />
             </>
           )}
 
-          {/* Wardrobe Sunglasses Overlay */}
+          {/* Accessories perfect fit for rounded box head */}
           {wardrobe === 'glasses' && (
             <>
               <rect x="6" y="11" width="9" height="5" rx="1.5" fill="rgba(244, 63, 94, 0.45)" stroke="#f43f5e" strokeWidth="1.5" />
@@ -224,56 +186,32 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
             </>
           )}
 
-          {/* Wardrobe Construction Hat Overlay */}
           {wardrobe === 'construction_hat' && (
             <>
-              <path d="M8 7 C8 2 24 2 24 7 Z" fill="url(#yellow-hat-grad)" stroke="#92400e" strokeWidth="1" />
+              <path d="M8 7 C8 2 24 2 24 7 Z" fill="url(#yellow-hat)" stroke="#92400e" strokeWidth="1" />
               <path d="M4 7 H28" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round" />
               <rect x="14" y="3" width="4" height="4" fill="#d97706" rx="0.5" />
             </>
           )}
 
-          {/* Wardrobe Detective Hat Overlay */}
           {wardrobe === 'detective_hat' && (
             <>
-              <path d="M9 7 C9 2.5 13 2 16 3 C19 2 23 2.5 23 7 Z" fill="url(#detective-grad)" stroke="#270e00" strokeWidth="1" />
+              <path d="M9 7 C9 2.5 13 2 16 3 C19 2 23 2.5 23 7 Z" fill="#4b5563" stroke="#1f2937" strokeWidth="1" />
               <rect x="9.5" y="5.8" width="13" height="1.2" fill="#0f172a" />
-              <path d="M5 7 C10 6 22 6 27 7" stroke="#270e00" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M5 7 C10 6 22 6 27 7" stroke="#1f2937" strokeWidth="1.5" strokeLinecap="round" />
             </>
           )}
 
-          {/* Wardrobe Crown Overlay */}
           {wardrobe === 'crown' && (
             <>
-              {/* Crown base */}
-              <path d="M8 8 L10 4 L13 7.5 L16 2.5 L19 7.5 L22 4 L24 8 Z" fill="url(#crown-grad)" stroke="#9a3412" strokeWidth="1" />
-              {/* Little circles on tips */}
-              <circle cx="10" cy="4" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
-              <circle cx="16" cy="2.5" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
-              <circle cx="22" cy="4" r="0.8" fill="#fbbf24" stroke="#9a3412" strokeWidth="0.5" />
+              <path d="M8 8 L10 4 L13 7.5 L16 2.5 L19 7.5 L22 4 L24 8 Z" fill="gold" stroke="#b45309" strokeWidth="1" />
+              <circle cx="10" cy="4" r="0.8" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+              <circle cx="16" cy="2.5" r="0.8" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
+              <circle cx="22" cy="4" r="0.8" fill="#fbbf24" stroke="#b45309" strokeWidth="0.5" />
             </>
           )}
 
-          {/* Wardrobe Developer Hoodie Overlay */}
-          {wardrobe === 'dev_hoodie' && (
-            <>
-              {/* Hoodie background cap */}
-              <path d="M 2,11 C 2,3.5 30,3.5 30,11 L 30,22 C 30,22 28,24.5 26,24.5 C 24,24.5 22,22 22,22 L 10,22 C 10,22 8,24.5 6,24.5 C 4,24.5 2,22 2,22 Z" fill="url(#hoodie-grad)" stroke="#18181b" strokeWidth="1" />
-              {/* Hoodie drawstrings */}
-              <line x1="13" y1="23" x2="13" y2="28" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-              <line x1="19" y1="23" x2="19" y2="28" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" />
-            </>
-          )}
-
-          {/* Wardrobe Cyberpunk Visor Overlay */}
-          {wardrobe === 'cyberpunk_visor' && (
-            <>
-              <polygon points="4,10 28,8 28,17 4,19" fill="url(#visor-grad)" stroke="#f472b6" strokeWidth="1.5" opacity="0.85" filter="url(#glow-visor-filter)" />
-              <line x1="4" y1="14" x2="28" y2="12" stroke="#38bdf8" strokeWidth="1.2" />
-            </>
-          )}
-
-          {/* Core glow */}
+          {/* Floating chest core / top node */}
           <circle cx="16" cy="3" r="1.5" fill={
             state === 'sleeping' ? '#818cf8' :
             state === 'tired' ? '#22d3ee' :
@@ -283,74 +221,20 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
         </svg>
       </motion.div>
 
-      {/* Floating particles/elements outside the SVG container */}
+      {/* Floating particles */}
       {state === 'sleeping' && (
         <div className="absolute inset-0 pointer-events-none">
-          <motion.span
-            className="absolute text-[8px] font-bold text-indigo-400 select-none"
-            initial={{ x: 10, y: -2, opacity: 0, scale: 0.5 }}
-            animate={{ x: [10, 15, 18], y: [-2, -12, -20], opacity: [0, 1, 0], scale: [0.5, 1, 0.8] }}
-            transition={{ duration: 3, repeat: Infinity, delay: 0 }}
-          >
-            z
-          </motion.span>
-          <motion.span
-            className="absolute text-[10px] font-bold text-indigo-300 select-none"
-            initial={{ x: 12, y: -2, opacity: 0, scale: 0.5 }}
-            animate={{ x: [12, 18, 22], y: [-2, -14, -24], opacity: [0, 1, 0], scale: [0.5, 1.2, 0.9] }}
-            transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-          >
-            Z
-          </motion.span>
-          <motion.span
-            className="absolute text-[11px] font-bold text-indigo-200 select-none"
-            initial={{ x: 14, y: -2, opacity: 0, scale: 0.5 }}
-            animate={{ x: [14, 21, 26], y: [-2, -16, -28], opacity: [0, 1, 0], scale: [0.5, 1.4, 1.0] }}
-            transition={{ duration: 3, repeat: Infinity, delay: 2 }}
-          >
-            Z
-          </motion.span>
-        </div>
-      )}
-
-      {state === 'tired' && (
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.svg
-            className="absolute text-cyan-400"
-            style={{ top: '6px', right: '-4px', width: '6px', height: '8px' }}
-            viewBox="0 0 8 10"
-            fill="currentColor"
-            initial={{ y: -2, opacity: 0, scale: 0.5 }}
-            animate={{ y: [0, 5, 8], opacity: [0, 1, 0], scale: [0.5, 1, 0.8] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeIn" }}
-          >
-            <path d="M4 0 C2 3 0 5 0 7 C0 9 2 10 4 10 C6 10 8 9 8 7 C8 5 6 3 4 0 Z" />
-          </motion.svg>
-        </div>
-      )}
-
-      {state === 'disapproving' && (
-        <div className="absolute inset-0 pointer-events-none">
-          <motion.svg
-            className="absolute text-zinc-600"
-            style={{ left: '-6px', top: '6px', width: '6px', height: '6px' }}
-            viewBox="0 0 8 8"
-            fill="currentColor"
-            animate={{ x: [0, -5], y: [0, -2], opacity: [0, 0.8, 0], scale: [0.6, 1.1, 0.7] }}
-            transition={{ duration: 1.2, repeat: Infinity, delay: 0 }}
-          >
-            <circle cx="4" cy="4" r="3" />
-          </motion.svg>
-          <motion.svg
-            className="absolute text-zinc-600"
-            style={{ right: '-6px', top: '6px', width: '6px', height: '6px' }}
-            viewBox="0 0 8 8"
-            fill="currentColor"
-            animate={{ x: [0, 5], y: [0, -2], opacity: [0, 0.8, 0], scale: [0.6, 1.1, 0.7] }}
-            transition={{ duration: 1.2, repeat: Infinity, delay: 0.6 }}
-          >
-            <circle cx="4" cy="4" r="3" />
-          </motion.svg>
+          {[[9, 0], [12, 0.8], [15, 1.6]].map(([yShift, delay]) => (
+            <motion.span
+              key={delay}
+              className="absolute text-[8px] font-bold text-indigo-400 select-none"
+              initial={{ x: 10, y: -2, opacity: 0, scale: 0.5 }}
+              animate={{ x: [10, 14, 18], y: [-2, -yShift, -yShift - 8], opacity: [0, 1, 0], scale: [0.5, 1, 0.8] }}
+              transition={{ duration: 2.8, repeat: Infinity, delay }}
+            >
+              z
+            </motion.span>
+          ))}
         </div>
       )}
     </div>
@@ -358,69 +242,59 @@ export function MascotCharacter({ state, accentColor, wardrobe = 'none', speechA
 }
 
 const playSoundEffect = (state: string) => {
-  const isAudioEnabled = localStorage.getItem('meridian_mascot_audio_fx') !== 'false';
-  if (!isAudioEnabled) return;
+  if (localStorage.getItem('meridian_mascot_audio_fx') === 'false') return;
 
   try {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContextClass) return;
 
-    const volumeStr = localStorage.getItem('meridian_ui_volume');
-    const volume = volumeStr !== null ? parseFloat(volumeStr) : 0.5;
-
+    const volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
     const ctx = new AudioContextClass();
     
     if (state === 'happy' || state === 'default') {
-      // Happy chirp: 520Hz -> 780Hz
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(520, ctx.currentTime);
       osc.frequency.exponentialRampToValueAtTime(780, ctx.currentTime + 0.15);
-      gain.gain.setValueAtTime(0.12 * volume, ctx.currentTime);
+      gain.gain.setValueAtTime(0.1 * volume, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.15);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.15);
-    } 
-    else if (state === 'sleeping') {
-      // Yawn: 300Hz -> 140Hz
+    } else if (state === 'sleeping') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(300, ctx.currentTime);
-      osc.frequency.linearRampToValueAtTime(140, ctx.currentTime + 0.6);
-      gain.gain.setValueAtTime(0.08 * volume, ctx.currentTime);
+      osc.frequency.setValueAtTime(260, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(130, ctx.currentTime + 0.6);
+      gain.gain.setValueAtTime(0.06 * volume, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.6);
       osc.connect(gain);
       gain.connect(ctx.destination);
       osc.start();
       osc.stop(ctx.currentTime + 0.6);
-    } 
-    else if (state === 'diagnostic') {
-      // Diagnostic double click
+    } else if (state === 'diagnostic') {
       const now = ctx.currentTime;
       [now, now + 0.08].forEach(time => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
-        osc.frequency.setValueAtTime(1000, time);
-        gain.gain.setValueAtTime(0.08 * volume, time);
+        osc.frequency.setValueAtTime(950, time);
+        gain.gain.setValueAtTime(0.06 * volume, time);
         gain.gain.exponentialRampToValueAtTime(0.005 * volume, time + 0.03);
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(time);
         osc.stop(time + 0.03);
       });
-    } 
-    else if (state === 'disapproving') {
-      // Buzz
+    } else if (state === 'disapproving') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(180, ctx.currentTime);
-      gain.gain.setValueAtTime(0.1 * volume, ctx.currentTime);
+      osc.frequency.setValueAtTime(170, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08 * volume, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.005 * volume, ctx.currentTime + 0.4);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -437,29 +311,36 @@ const API_BASE_URL = 'http://127.0.0.1:4132';
 export default function Mascot({ mascotState: propMascotState }: { mascotState?: string }) {
   const [mascotState, setMascotState] = useState<string>('default');
   const [speechAmplitude, setSpeechAmplitude] = useState<number>(0);
-  const [activeWardrobe, setActiveWardrobe] = useState<string>(() => {
-    return localStorage.getItem('meridian_mascot_wardrobe') || 'auto';
-  });
-  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => {
-    return localStorage.getItem('meridian_mascot_audio_fx') !== 'false';
-  });
+  const [activeWardrobe, setActiveWardrobe] = useState<string>(() => localStorage.getItem('meridian_mascot_wardrobe') || 'auto');
+  const [audioEnabled, setAudioEnabled] = useState<boolean>(() => localStorage.getItem('meridian_mascot_audio_fx') !== 'false');
   const [showWardrobeMenu, setShowWardrobeMenu] = useState(false);
   const [voiceLogs, setVoiceLogs] = useState<string[]>([]);
+  const [hudState, setHudState] = useState<HudState>('idle');
+  const [isRunning, setIsRunning] = useState(false);
+  const [latestThought, setLatestThought] = useState<any | null>(null);
+  const [recentThoughts, setRecentThoughts] = useState<any[]>([]);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [theme, setTheme] = useState<string>('void');
+  const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
+  const [voiceText, setVoiceText] = useState<string>('');
+  const [isAutomating, setIsAutomating] = useState(false);
+  const [automatingTool, setAutomatingTool] = useState('');
+  
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const appWindow = getCurrentWindow();
+  const colors = THEME_COLORS[theme] || THEME_COLORS.void;
 
   useEffect(() => {
-    if (propMascotState) {
-      setMascotState(propMascotState);
-    }
+    if (propMascotState) setMascotState(propMascotState);
   }, [propMascotState]);
 
   useEffect(() => {
-    const handleContextMenu = (e: MouseEvent) => {
-      e.preventDefault();
-    };
+    const handleContextMenu = (e: MouseEvent) => e.preventDefault();
     document.addEventListener('contextmenu', handleContextMenu);
-    return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
-    };
+    return () => document.removeEventListener('contextmenu', handleContextMenu);
   }, []);
 
   useEffect(() => {
@@ -469,38 +350,31 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const handleVoiceChatRef = useRef<any>(null);
   useEffect(() => {
     handleVoiceChatRef.current = handleVoiceChat;
-  }, [handleVoiceChat]);
+  }, [voiceState, voiceText]);
 
+  // Synchronize events from main Tauri app
   useEffect(() => {
     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
     if (isTauri) {
       const unlistenState = listen('mascot-state-changed', (event: any) => {
-        const state = event.payload?.state || event.payload?.mascot_state || 'default';
-        setMascotState(state);
+        setMascotState(event.payload?.state || event.payload?.mascot_state || 'default');
       });
       const unlistenWardrobe = listen('mascot-wardrobe-changed', (event: any) => {
-        const item = event.payload?.item || 'auto';
-        setActiveWardrobe(item);
+        setActiveWardrobe(event.payload?.item || 'auto');
       });
       const unlistenAmplitude = listen('mascot-amplitude-changed', (event: any) => {
         setSpeechAmplitude(event.payload?.amplitude || 0);
       });
       const unlistenStopSpeech = listen('stop-all-speech', (event: any) => {
-        if (event.payload?.sender !== 'mascot') {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current = null;
-          }
+        if (event.payload?.sender !== 'mascot' && audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current = null;
         }
       });
       const unlistenUserTyping = listen('user-typing', () => {
         setMascotState('typing');
-        if (typingTimeoutRef.current) {
-          clearTimeout(typingTimeoutRef.current);
-        }
-        typingTimeoutRef.current = setTimeout(() => {
-          setMascotState('default');
-        }, 1200);
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => setMascotState('default'), 1200);
       });
       const unlistenAutomation = listen('automation-state-changed', (event: any) => {
         setIsAutomating(!!event.payload?.active);
@@ -509,6 +383,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       const unlistenGlobalPtt = listen('global-push-to-talk', () => {
         handleVoiceChatRef.current?.();
       });
+
       return () => {
         unlistenState.then(fn => fn());
         unlistenWardrobe.then(fn => fn());
@@ -521,45 +396,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     }
   }, []);
 
-  const [hudState, setHudState] = useState<HudState>('idle');
-  const [isRunning, setIsRunning] = useState(false);
-  const [latestThought, setLatestThought] = useState<any | null>(null);
-  const [recentThoughts, setRecentThoughts] = useState<any[]>([]);
-  const [isExpanded, setIsExpanded] = useState(false);
-  
-  const [theme, setTheme] = useState<string>('default');
-
-  const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
-  const [voiceText, setVoiceText] = useState<string>('');
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [isAutomating, setIsAutomating] = useState(false);
-  const [automatingTool, setAutomatingTool] = useState('');
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  const appWindow = getCurrentWindow() as any;
-  const colors = THEME_COLORS[theme] || THEME_COLORS.default;
-
-  // Resolve actual accessory
-  let equipped = activeWardrobe;
-  if (activeWardrobe === 'auto') {
-    if (mascotState === 'crown') {
-      equipped = 'crown';
-    } else if (mascotState === 'diagnostic' || mascotState === 'tired') {
-      equipped = 'construction_hat';
-    } else if (mascotState === 'disapproving') {
-      equipped = 'detective_hat';
-    } else if (mascotState === 'happy' || voiceState === 'listening' || voiceState === 'speaking') {
-      equipped = 'glasses';
-    } else {
-      equipped = 'none';
-    }
-  }
-
-  // Target dimensions based on states
+  // Window size logic (Dynamic Island bounds)
   let targetWidth = 180;
   let targetHeight = 36;
 
@@ -570,19 +407,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
   if (isWorking) {
     targetWidth = 340;
-    targetHeight = isExpanded ? (showWardrobeMenu ? 320 : 260) : 64;
+    targetHeight = isExpanded ? (showWardrobeMenu ? 290 : 220) : 60;
   } else if (isVoiceActive || isSuccessOrError) {
     targetWidth = 340;
-    targetHeight = 64;
+    targetHeight = 60;
   } else {
-    // Idle state: thin bar if hovered, pill if not
     targetWidth = isExpanded ? 340 : 180;
-    targetHeight = isExpanded ? (showWardrobeMenu ? 150 : 64) : 36;
+    targetHeight = isExpanded ? (showWardrobeMenu ? 150 : 60) : 36;
   }
 
   const resizeAndCenter = async (width: number, height: number) => {
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-    if (isTauri) {
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined) {
       try {
         await appWindow.setResizable(true);
         const monitor = await currentMonitor();
@@ -591,36 +426,33 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           const monitorWidth = monitor.size.width / scaleFactor;
           const monitorX = monitor.position.x / scaleFactor;
           
-          // Center the window on the active monitor's top edge
           const x = monitorX + (monitorWidth - width) / 2;
-          const y = 12; // 12px margin from the top edge
+          const y = 12; // 12px margins from top of display
           
           await appWindow.setSize(new LogicalSize(width, height));
           await appWindow.setPosition(new LogicalPosition(x, y));
         } else {
           await appWindow.setSize(new LogicalSize(width, height));
         }
-      } catch (err: any) {
-        console.error("Failed to resize and center window:", err);
+      } catch (err) {
+        console.error("Failed resizing Tauri window:", err);
       }
     }
   };
 
-  // Sync window size & position dynamically
   useEffect(() => {
     resizeAndCenter(targetWidth, targetHeight);
   }, [targetWidth, targetHeight]);
 
-  // Sync theme from localStorage
+  // Sync theme
   useEffect(() => {
     const updateTheme = () => {
       try {
-        const saved = localStorage.getItem('meridian_theme');
-        if (saved && THEME_COLORS[saved]) {
-          setTheme(saved);
-        }
+        const saved = localStorage.getItem('theme') || 'void';
+        if (THEME_COLORS[saved]) setTheme(saved);
+        document.body.className = `theme-${saved} mascot-body`;
       } catch (e) {
-        console.error("Failed to read theme:", e);
+        console.error("Theme reading error:", e);
       }
     };
     updateTheme();
@@ -628,23 +460,16 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     return () => clearInterval(interval);
   }, []);
 
-  // Listen to Tauri events for agent updates
+  // Listen to status updates
   useEffect(() => {
     let unlistenStatus: Promise<any> | undefined;
-    let unlistenAiState: Promise<any> | undefined;
-
     const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
     if (isTauri) {
       unlistenStatus = listen('agent-status-update', (event: any) => {
         const payload = event.payload;
-        
         setIsRunning(payload.isRunning);
-        if (payload.latestThought) {
-          setLatestThought(payload.latestThought);
-        }
-        if (payload.thoughts) {
-          setRecentThoughts(payload.thoughts);
-        }
+        if (payload.latestThought) setLatestThought(payload.latestThought);
+        if (payload.thoughts) setRecentThoughts(payload.thoughts);
 
         if (payload.isRunning) {
           if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
@@ -652,41 +477,27 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         } else {
           const lastType = payload.latestThought?.type;
           const lastStatus = payload.latestThought?.status;
-          
           if (lastType === 'warning' || lastType === 'error' || lastStatus === 'failed') {
             setHudState('error');
           } else {
             setHudState('success');
-            successTimeoutRef.current = setTimeout(() => {
-              setHudState('idle');
-            }, 4000);
+            successTimeoutRef.current = setTimeout(() => setHudState('idle'), 4000);
           }
         }
       });
-
-      unlistenAiState = listen('ai-state-changed', (event: any) => {
-        const isThinking = event.payload?.isThinking;
-        if (isThinking) {
-          setHudState('working');
-          setIsRunning(true);
-        }
-      });
     }
-
     return () => {
       if (unlistenStatus) unlistenStatus.then(fn => fn());
-      if (unlistenAiState) unlistenAiState.then(fn => fn());
       if (successTimeoutRef.current) clearTimeout(successTimeoutRef.current);
     };
   }, []);
 
   const handleOpenDashboard = async () => {
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-    if (isTauri) {
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined) {
       try {
         await invoke('set_mascot_visible', { visible: false });
       } catch (err) {
-        console.error("Failed to show main dashboard:", err);
+        console.error("Failed triggering main visibility:", err);
       }
     }
   };
@@ -699,18 +510,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       }
     };
     window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Voice recording & query processing
   async function handleVoiceChat() {
-    if (voiceState === 'listening' || voiceState === 'transcribing' || voiceState === 'thinking' || voiceState === 'speaking') {
+    if (voiceState !== 'idle') {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
@@ -727,8 +532,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     setVoiceState('listening');
     setVoiceText('');
 
-    const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-    if (isTauri) {
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined) {
       emit('stop-all-speech', { sender: 'mascot' }).catch(() => {});
     }
 
@@ -736,53 +540,34 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     abortControllerRef.current = controller;
 
     try {
-      // 1. Record & Transcribe
       const recRes = await fetch(`${API_BASE_URL}/api/voice/record`, { method: 'POST', signal: controller.signal });
-      if (!recRes.ok) throw new Error("Failed to record from microphone");
-      
+      if (!recRes.ok) throw new Error("Voice recording failed");
+
       setVoiceState('transcribing');
       const recData = await recRes.json();
-      const transcription = recData.text || "";
+      const transcription = recData.text || '';
       if (!transcription.trim() || transcription.startsWith("Error:") || transcription.startsWith("Recording and transcription failed")) {
-        throw new Error(transcription || "No speech detected.");
+        throw new Error("No clear voice command detected.");
       }
 
       setVoiceText(transcription);
-      setVoiceLogs(prev => [...prev.slice(-4), transcription]);
+      setVoiceLogs(prev => [...prev.slice(-3), transcription]);
       setVoiceState('thinking');
 
-      // Load model settings from localStorage
-      let modelSettings = {
-        modelSource: 'local',
-        apiProvider: 'gemini',
-        selectedModel: 'gemini-3.5-flash',
-        brainModel: 'Llama-3.1-Instruct-v3',
-        ocrModel: 'Florence-2-large'
-      };
-      try {
-        const saved = localStorage.getItem('meridian_model_settings');
-        if (saved) modelSettings = JSON.parse(saved);
-      } catch (e) {}
-
-      // 2. Query Chat LLM in a streaming way
+      // Chat stream request
       const chatRes = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: transcription,
-          modelSettings
-        }),
-        signal: controller.signal
+        body: JSON.stringify({ prompt: transcription }),
+        signal: controller.signal,
       });
-      if (!chatRes.ok) throw new Error("Chat completion failed");
-      
+      if (!chatRes.ok) throw new Error("Chat process failed");
+
       const reader = chatRes.body?.getReader();
-      if (!reader) throw new Error("Response body is not readable");
+      if (!reader) throw new Error("Non-readable stream returned");
 
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
-      
-      // Queues and players for audio chunks
       const audioQueue: string[] = [];
       let isPlayingAudio = false;
       let readerDone = false;
@@ -791,20 +576,11 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
       const playNextAudio = async () => {
         if (audioQueue.length === 0) {
-          if (!readerDone) {
-            // Keep waiting for more incoming chunks
-            return;
+          if (readerDone) {
+            setVoiceState('idle');
+            setVoiceText('');
           }
-          // Completed reading and playing all chunks
-          setVoiceState('idle');
-          setVoiceText('');
           return;
-        }
-
-        // Stop all speech cross-window
-        const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-        if (isTauri) {
-          emit('stop-all-speech', { sender: 'mascot' }).catch(() => {});
         }
 
         isPlayingAudio = true;
@@ -812,8 +588,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
         const nextUrl = audioQueue.shift()!;
         const audio = new Audio(nextUrl);
-        const volumeStr = localStorage.getItem('meridian_ui_volume');
-        audio.volume = volumeStr !== null ? parseFloat(volumeStr) : 0.5;
+        audio.volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
         audioRef.current = audio;
 
         audio.onended = () => {
@@ -821,7 +596,6 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           isPlayingAudio = false;
           playNextAudio();
         };
-
         audio.onerror = () => {
           URL.revokeObjectURL(nextUrl);
           isPlayingAudio = false;
@@ -830,8 +604,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
         try {
           await audio.play();
-        } catch (e) {
-          console.error("Audio playback error:", e);
+        } catch {
           isPlayingAudio = false;
           playNextAudio();
         }
@@ -840,30 +613,21 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       const fetchTTSForSentence = async (sentence: string) => {
         const cleanText = sentence.replace(/<[^>]*>/g, '').trim();
         if (!cleanText) return;
-
         try {
-          const savedVoice = localStorage.getItem('meridian_tts_voice') || 'M1';
+          const voice = localStorage.getItem('meridian_tts_voice') || 'M1';
           const ttsRes = await fetch(`${API_BASE_URL}/api/tts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              text: cleanText,
-              voice: savedVoice,
-              lang: 'na'
-            }),
-            signal: controller.signal
+            body: JSON.stringify({ text: cleanText, voice, lang: 'na' }),
+            signal: controller.signal,
           });
           if (ttsRes.ok) {
             const blob = await ttsRes.blob();
             const url = URL.createObjectURL(blob);
             audioQueue.push(url);
-            if (!isPlayingAudio) {
-              playNextAudio();
-            }
+            if (!isPlayingAudio) playNextAudio();
           }
-        } catch (e) {
-          console.warn("Failed to fetch TTS for chunk:", e);
-        }
+        } catch { /* noop */ }
       };
 
       while (true) {
@@ -872,7 +636,6 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           readerDone = true;
           break;
         }
-
         buffer += decoder.decode(value, { stream: true });
         buffer = buffer.replace(/\r\n/g, '\n');
 
@@ -886,15 +649,8 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             let event = "";
             const dataParts: string[] = [];
             for (const line of lines) {
-              if (line.startsWith("event: ")) {
-                event = line.slice(7).trim();
-              } else if (line.startsWith("event:")) {
-                event = line.slice(6).trim();
-              } else if (line.startsWith("data: ")) {
-                dataParts.push(line.slice(6));
-              } else if (line.startsWith("data:")) {
-                dataParts.push(line.slice(5));
-              }
+              if (line.startsWith("event: ")) event = line.slice(7).trim();
+              else if (line.startsWith("data: ")) dataParts.push(line.slice(6));
             }
             const data = dataParts.join('\n');
 
@@ -903,60 +659,32 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               textBuffer += data;
               setVoiceText(accumulatedText);
 
-              // Check for punctuation boundary (. ! ? \n) to trigger chunk synthesis
               const sentenceMatch = textBuffer.match(/^([^.!?\n]*[.!?\n])\s*(.*)$/s);
               if (sentenceMatch) {
                 const sentence = sentenceMatch[1].trim();
                 textBuffer = sentenceMatch[2];
-                if (sentence) {
-                  fetchTTSForSentence(sentence);
-                }
+                if (sentence) fetchTTSForSentence(sentence);
               }
-            } else if (event === "thought" && data) {
-              try {
-                const thoughtData = JSON.parse(data);
-                const isTauri = typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined;
-                if (isTauri) {
-                  if (thoughtData.mascot_state) {
-                    emit('mascot-state-changed', { state: thoughtData.mascot_state }).catch(console.error);
-                  }
-                  if (thoughtData.mascot_wardrobe) {
-                    emit('mascot-wardrobe-changed', { item: thoughtData.mascot_wardrobe }).catch(console.error);
-                  }
-                }
-              } catch (e) {}
             }
           }
           boundary = buffer.indexOf('\n\n');
         }
       }
 
-      // Final remaining text in buffer
-      if (textBuffer.trim()) {
-        await fetchTTSForSentence(textBuffer.trim());
-      }
-      
-      // If we finished reading but nothing ever played or got queued, reset state
+      if (textBuffer.trim()) await fetchTTSForSentence(textBuffer.trim());
       if (audioQueue.length === 0 && !isPlayingAudio) {
         setVoiceState('idle');
         setVoiceText('');
       }
-
     } catch (err: any) {
-      if (err.name === 'AbortError') {
-        console.log("Voice stream fetch aborted successfully.");
-        return;
-      }
-      console.error("Voice I/O error:", err);
+      if (err.name === 'AbortError') return;
       setVoiceState('idle');
-      setVoiceText(`Error: ${err?.message || String(err)}`);
-      setTimeout(() => {
-        setVoiceText('');
-      }, 4000);
+      setVoiceText(`Command input error`);
+      setTimeout(() => setVoiceText(''), 3000);
     } finally {
       abortControllerRef.current = null;
     }
-  };
+  }
 
   const handleCancelTask = () => {
     emit('cancel-agent-execution', {});
@@ -964,40 +692,33 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     setIsRunning(false);
   };
 
+  // Determine state-specific glow/styling on the island
+  const getIslandBorder = () => {
+    if (voiceState === 'listening') return '1px solid var(--danger)';
+    if (voiceState === 'transcribing' || voiceState === 'thinking' || hudState === 'working') return '1px solid var(--warning)';
+    if (voiceState === 'speaking' || hudState === 'success') return '1px solid var(--success)';
+    if (hudState === 'error') return '1px solid var(--danger)';
+    return `1px solid ${colors.accent}20`;
+  };
 
+  const getIslandShadow = () => {
+    if (voiceState === 'listening') return '0 6px 20px rgba(239, 68, 68, 0.35)';
+    if (voiceState === 'transcribing' || voiceState === 'thinking' || hudState === 'working') return '0 6px 20px rgba(245, 158, 11, 0.35)';
+    if (voiceState === 'speaking' || hudState === 'success') return '0 6px 20px rgba(16, 185, 129, 0.35)';
+    if (hudState === 'error') return '0 6px 20px rgba(239, 68, 68, 0.35)';
+    return '0 8px 24px rgba(0, 0, 0, 0.4)';
+  };
 
-  // Status Orb visuals
-  let orbColor = 'bg-emerald-500';
-  let orbShadow = 'shadow-[0_0_12px_rgba(16,185,129,0.6)]';
-  let orbPulseClass = 'animate-pulse';
-
-  if (voiceState === 'listening') {
-    orbColor = 'bg-rose-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(244,63,94,0.6)]';
-    orbPulseClass = 'animate-pulse';
-  } else if (voiceState === 'transcribing' || voiceState === 'thinking') {
-    orbColor = 'bg-amber-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(245,158,11,0.6)]';
-    orbPulseClass = 'animate-pulse';
-  } else if (voiceState === 'speaking') {
-    orbColor = 'bg-teal-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(20,184,166,0.6)]';
-    orbPulseClass = 'animate-ping';
-  } else if (hudState === 'working') {
-    orbColor = 'bg-amber-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(245,158,11,0.6)]';
-    orbPulseClass = 'animate-ping';
-  } else if (hudState === 'success') {
-    orbColor = 'bg-teal-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(20,184,166,0.6)]';
-    orbPulseClass = '';
-  } else if (hudState === 'error') {
-    orbColor = 'bg-rose-500';
-    orbShadow = 'shadow-[0_0_12px_rgba(244,63,94,0.6)]';
-    orbPulseClass = 'animate-pulse';
+  // Accessories visual resolver
+  let equipped = activeWardrobe;
+  if (activeWardrobe === 'auto') {
+    if (mascotState === 'crown') equipped = 'crown';
+    else if (mascotState === 'diagnostic' || mascotState === 'tired') equipped = 'construction_hat';
+    else if (mascotState === 'disapproving') equipped = 'detective_hat';
+    else if (mascotState === 'happy' || voiceState === 'listening' || voiceState === 'speaking') equipped = 'glasses';
+    else equipped = 'none';
   }
 
-  // Define display status text
   const displayStatusText = voiceState === 'listening'
     ? 'Listening...'
     : voiceState === 'transcribing'
@@ -1011,14 +732,14 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     : hudState === 'working'
     ? (latestThought?.tool ? `Using ${latestThought.tool}...` : latestThought?.text || 'Executing task...')
     : hudState === 'success'
-    ? 'Goal achieved successfully!'
+    ? 'Goal achieved!'
     : hudState === 'error'
-    ? 'Task failed / interrupted'
-    : 'System Standby — Online';
+    ? 'Task failed'
+    : 'System Standby';
 
   return (
     <div 
-      className="w-screen h-screen relative overflow-hidden select-none bg-transparent flex flex-col justify-start p-1.5 font-sans"
+      className="w-screen h-screen relative overflow-hidden select-none bg-transparent flex flex-col justify-start p-1 font-sans"
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
@@ -1029,27 +750,28 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           </span>
         </div>
       )}
+
       <motion.div
         layout
-        className={`w-full h-full border flex flex-col transition-all duration-300 relative ${isCompactIdle ? 'p-1' : 'p-2.5'}`}
+        className={`w-full h-full border flex flex-col transition-all duration-300 relative ${isCompactIdle ? 'p-1' : 'p-2'}`}
         style={{
-          borderColor: colors.accent + '25',
-          backgroundColor: colors.bg + 'd8',
-          boxShadow: `0 8px 32px 0 rgba(0, 0, 0, 0.45)`,
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          borderRadius: isCompactIdle ? '9999px' : '22px'
+          border: getIslandBorder(),
+          backgroundColor: 'var(--bg-panel)',
+          boxShadow: getIslandShadow(),
+          backdropFilter: 'blur(20px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+          borderRadius: isCompactIdle ? '9999px' : 'var(--radius-md)'
         }}
       >
         {isCompactIdle ? (
           /* Sleek Minimal Dynamic Island Pill */
           <div 
             data-tauri-drag-region 
-            className="flex items-center justify-center gap-2.5 w-full h-full cursor-grab active:cursor-grabbing px-3.5"
+            className="flex items-center justify-center gap-2 w-full h-full cursor-grab active:cursor-grabbing px-3"
           >
             <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} speechAmplitude={speechAmplitude} />
-            <span className="text-[10px] font-bold text-zinc-300 tracking-widest uppercase truncate" data-tauri-drag-region>
-              Meridian
+            <span className="text-[10px] font-bold text-zinc-300 tracking-wider uppercase truncate" data-tauri-drag-region>
+              MERIDIAN
             </span>
           </div>
         ) : (
@@ -1060,39 +782,26 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               data-tauri-drag-region 
               className="flex items-center justify-between w-full h-8 cursor-grab active:cursor-grabbing"
             >
-              {/* Left: Mascot Character and text */}
-              <div className="flex items-center gap-2.5 flex-1 min-w-0" data-tauri-drag-region>
+              <div className="flex items-center gap-2 flex-1 min-w-0" data-tauri-drag-region>
                 <MascotCharacter state={mascotState} accentColor={colors.accent} wardrobe={equipped} speechAmplitude={speechAmplitude} />
 
                 {voiceState === 'listening' || voiceState === 'speaking' ? (
                   <div className="flex items-center gap-1.5 h-6 px-1 flex-1 justify-center overflow-hidden">
-                    <svg className="w-24 h-6 overflow-visible text-theme-accent" viewBox="0 0 100 24" fill="none">
+                    <svg className="w-24 h-6 overflow-visible" viewBox="0 0 100 24" fill="none" style={{ color: colors.accent }}>
                       <motion.path
                         d="M0 12 Q25 2, 50 12 T100 12"
                         stroke="currentColor"
                         strokeWidth="1.5"
-                        animate={{
-                          d: [
-                            "M0 12 Q25 2, 50 12 T100 12",
-                            "M0 12 Q25 22, 50 12 T100 12",
-                            "M0 12 Q25 2, 50 12 T100 12"
-                          ]
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+                        animate={{ d: ["M0 12 Q25 2, 50 12 T100 12", "M0 12 Q25 22, 50 12 T100 12", "M0 12 Q25 2, 50 12 T100 12"] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
                       />
                       <motion.path
                         d="M0 12 Q25 22, 50 12 T100 12"
                         stroke="currentColor"
                         strokeWidth="1"
-                        opacity="0.5"
-                        animate={{
-                          d: [
-                            "M0 12 Q25 22, 50 12 T100 12",
-                            "M0 12 Q25 2, 50 12 T100 12",
-                            "M0 12 Q25 22, 50 12 T100 12"
-                          ]
-                        }}
-                        transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                        opacity="0.4"
+                        animate={{ d: ["M0 12 Q25 22, 50 12 T100 12", "M0 12 Q25 2, 50 12 T100 12", "M0 12 Q25 22, 50 12 T100 12"] }}
+                        transition={{ duration: 0.9, repeat: Infinity, ease: "easeInOut" }}
                       />
                     </svg>
                   </div>
@@ -1108,12 +817,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                 )}
               </div>
 
-              {/* Right: Actions */}
+              {/* Actions */}
               <div className="flex items-center gap-1.5 flex-shrink-0 z-20">
                 <button
                   onClick={handleOpenDashboard}
                   title="Open Dashboard"
-                  className="w-6.5 h-6.5 rounded-full bg-zinc-900 border border-zinc-850 hover:border-zinc-700 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                  className="w-6 h-6 rounded-full bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 cursor-pointer"
                 >
                   <LogIn className="w-3 h-3" />
                 </button>
@@ -1121,11 +830,11 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                 {!isWorking && (
                   <button
                     onClick={() => setShowWardrobeMenu(prev => !prev)}
-                    title="Mascot Customization"
-                    className={`w-6.5 h-6.5 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                    title="Mascot Accessories"
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer ${
                       showWardrobeMenu
                         ? 'bg-amber-950/40 border-amber-800/40 text-amber-400'
-                        : 'bg-zinc-900 border-zinc-850 hover:border-zinc-700 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100'
+                        : 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100'
                     }`}
                   >
                     <Crown className="w-3 h-3" />
@@ -1136,7 +845,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   <button
                     onClick={handleCancelTask}
                     title="Cancel Task"
-                    className="w-6.5 h-6.5 rounded-full bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/40 hover:border-rose-700 text-rose-400 hover:text-rose-300 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                    className="w-6 h-6 rounded-full bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/40 hover:border-rose-700 text-rose-400 hover:text-rose-300 flex items-center justify-center transition-all duration-200 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1145,15 +854,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                     onClick={handleVoiceChat}
                     title={
                       voiceState === 'listening' ? 'Stop Listening' :
-                      voiceState === 'transcribing' ? 'Transcribing...' :
-                      voiceState === 'thinking' ? 'Thinking...' :
                       voiceState === 'speaking' ? 'Stop Speaking' : 'Voice Chat'
                     }
-                    className={`w-6.5 h-6.5 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer ${
                       voiceState === 'listening' ? 'bg-red-950/40 border-red-800/40 hover:bg-red-900/50 hover:border-red-700' :
                       voiceState === 'speaking' ? 'bg-teal-950/40 border-teal-800/40 hover:bg-teal-900/50 hover:border-teal-700' :
-                      voiceState !== 'idle' ? 'bg-amber-950/40 border-amber-800/40' :
-                      'bg-zinc-900 border-zinc-850 hover:border-zinc-700 hover:bg-zinc-800'
+                      'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'
                     }`}
                   >
                     {voiceState === 'listening' ? (
@@ -1170,9 +876,9 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               </div>
             </div>
 
-            {/* Wardrobe & Audio Settings Panel */}
+            {/* Wardrobe accessories list */}
             {showWardrobeMenu && (
-              <div className="mt-2 border-t border-zinc-850 pt-2 flex flex-col gap-2">
+              <div className="mt-1.5 border-t border-zinc-900 pt-1.5 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wide">Accessories</span>
                   <button 
@@ -1181,14 +887,14 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                       setAudioEnabled(nextAudio);
                       localStorage.setItem('meridian_mascot_audio_fx', String(nextAudio));
                     }}
-                    className="flex items-center gap-1 text-[9px] text-zinc-400 hover:text-zinc-100 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800 cursor-pointer"
+                    className="flex items-center gap-1 text-[9px] text-zinc-400 hover:text-zinc-100 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-850 cursor-pointer"
                   >
                     {audioEnabled ? <Volume2 className="w-2.5 h-2.5 text-emerald-400" /> : <VolumeX className="w-2.5 h-2.5 text-zinc-500" />}
                     <span>Sound FX</span>
                   </button>
                 </div>
                 
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1">
                   {[
                     { id: 'auto', name: 'Auto' },
                     { id: 'glasses', name: 'Glasses' },
@@ -1204,10 +910,10 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                         localStorage.setItem('meridian_mascot_wardrobe', item.id);
                         emit('mascot-wardrobe-changed', { item: item.id }).catch(console.error);
                       }}
-                      className={`text-[9px] px-2 py-1 rounded border font-semibold transition-all duration-150 cursor-pointer ${
+                      className={`text-[9px] px-2 py-0.5 rounded border font-semibold transition-all duration-150 cursor-pointer ${
                         activeWardrobe === item.id
-                          ? 'bg-theme-accent/20 border-theme-accent text-theme-accent'
-                          : 'bg-zinc-950 border-zinc-850 text-zinc-400 hover:border-zinc-750'
+                          ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+                          : 'bg-zinc-950 border-zinc-900 text-zinc-400 hover:border-zinc-800'
                       }`}
                       style={{
                         borderColor: activeWardrobe === item.id ? colors.accent : undefined,
@@ -1221,7 +927,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               </div>
             )}
 
-            {/* Expanded Details Pane */}
+            {/* Step Tickers and History logs */}
             <AnimatePresence>
               {isExpanded && (
                 <motion.div 
@@ -1229,26 +935,23 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="flex-1 mt-2.5 border-t border-zinc-800/50 pt-2 flex flex-col justify-between overflow-hidden"
+                  className="flex-1 mt-1.5 border-t border-zinc-900 pt-1.5 flex flex-col justify-between overflow-hidden"
                 >
-                  {/* Steps / Logs Panel */}
                   {hudState === 'working' && (
                     <div className="flex-1 flex flex-col min-h-0">
                       <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
                         <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
                         <span>Live Step Ticker</span>
                       </span>
-                      <div className="flex-1 overflow-y-auto max-h-[70px] font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
+                      <div className="flex-1 overflow-y-auto max-h-[50px] font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
                         {recentThoughts.length === 0 ? (
-                          <div className="text-zinc-600 italic">Initializing local agent...</div>
+                          <div className="text-zinc-600 italic">Initializing agent...</div>
                         ) : (
                           recentThoughts.map((thought, idx) => (
                             <div key={thought.id || idx} className="flex gap-1.5 items-start leading-tight">
                               <span className="text-amber-500 flex-shrink-0">❯</span>
                               <div className="flex-1 truncate">
-                                {thought.tool && (
-                                  <span className="text-zinc-500 font-bold mr-1">[{thought.tool}]</span>
-                                )}
+                                {thought.tool && <span className="text-zinc-500 font-bold mr-1">[{thought.tool}]</span>}
                                 <span className="text-zinc-300">{thought.text}</span>
                               </div>
                             </div>
@@ -1258,15 +961,14 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                     </div>
                   )}
 
-                  {/* Voice Transcription History */}
-                  <div className="flex-1 flex flex-col min-h-0 border-t border-zinc-900 pt-1.5 mt-1.5">
+                  <div className="flex-1 flex flex-col min-h-0 border-t border-zinc-900 pt-1 mt-1">
                     <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-                      <Mic className="w-2.5 h-2.5 text-theme-accent" />
+                      <Mic className="w-2.5 h-2.5 text-cyan-400" />
                       <span>Voice Command History</span>
                     </span>
-                    <div className="max-h-[50px] overflow-y-auto font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
+                    <div className="max-h-[40px] overflow-y-auto font-mono text-[9px] text-zinc-450 space-y-1 pr-1 select-text scrollbar-thin">
                       {voiceLogs.length === 0 ? (
-                        <div className="text-zinc-650 italic">No voice sessions recorded.</div>
+                        <div className="text-zinc-700 italic">No voice sessions.</div>
                       ) : (
                         voiceLogs.map((logStr, idx) => (
                           <div key={idx} className="flex gap-1.5 items-start leading-tight">

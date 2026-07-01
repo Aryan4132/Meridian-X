@@ -280,6 +280,7 @@ pub fn run() {
             }
 
             let window = app.get_webview_window("main").unwrap();
+            let _ = window.maximize();
             let _ = window.show();
             let _ = window.set_focus();
             let app_handle = app.handle().clone();

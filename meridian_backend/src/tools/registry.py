@@ -1,3 +1,4 @@
+from src.core.mcp_client import mcp_manager
 import os
 import inspect
 import asyncio

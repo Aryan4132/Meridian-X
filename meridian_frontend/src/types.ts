@@ -4,11 +4,12 @@
  */
 
 export interface Message {
-  id: string;
-  sender: 'user' | 'assistant';
-  text: string;
-  timestamp: string;
+  id?: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number | string;
 }
+
 
 export type ThoughtType = 'planning' | 'ocr' | 'exec' | 'status' | 'info' | 'warning';
 
@@ -55,3 +56,30 @@ export interface ProactiveNudge {
   };
 }
 
+export interface JobRun {
+  id: number | string;
+  status: string;
+  goal: string;
+  timestamp: number;
+  log?: string;
+}
+
+export interface ClipboardRecord {
+  text: string;
+  timestamp: number;
+}
+
+export interface DeveloperStats {
+  total: number;
+  success: number;
+  failed: number;
+  audits: number;
+  heals: number;
+  gitCommits: number;
+  pomodoros: number;
+}
+
+export interface SystemUsage {
+  cpu: number;
+  ram: number;
+}

@@ -1,3 +1,4 @@
+from src.core.mcp_client import mcp_manager
 import os
 # Load local .env file if present
 env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -43,7 +44,17 @@ from database import (
 from src.core.loop import run_react_agent_loop, active_confirmations
 
 def get_ollama_client_host():
-    host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+    host = os.environ.get("OLLAMA_HOST")
+    if not host:
+        try:
+            db_host = get_user_profile("ollama_host")
+            if db_host:
+                host = db_host
+        except Exception:
+            pass
+    if not host:
+        host = "http://127.0.0.1:11434"
+
     if host == "0.0.0.0":
         return "http://127.0.0.1:11434"
     if host.startswith("0.0.0.0:"):
@@ -92,6 +103,11 @@ async def lifespan(app: FastAPI):
         print("Triggered initial workspace Knowledge Graph scan.")
     except Exception as e:
         print("Failed to trigger initial workspace scan:", e)
+    try:
+        await mcp_manager.initialize()
+        print("Initialized MCP servers connection.")
+    except Exception as e:
+        print("Failed to initialize MCP servers:", e)
     try:
         from src.core.p2p import p2p_node
         msg = p2p_node.start()
@@ -164,6 +180,11 @@ async def lifespan(app: FastAPI):
 
     # Shutdown operations
     try:
+        await mcp_manager.shutdown()
+        print("Stopped all MCP servers.")
+    except Exception:
+        pass
+    try:
         from src.core.telegram_bridge import stop_telegram_bridge
         stop_telegram_bridge()
     except Exception as e:
@@ -222,6 +243,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+class DebugLog(BaseModel):
+    message: str
+    level: str = "error"
+
+@app.post("/api/debug/log")
+def post_debug_log(log: DebugLog):
+    print(f"[FRONTEND DEBUG {log.level.upper()}] {log.message}")
+    try:
+        backend_dir = os.path.dirname(os.path.abspath(__file__))
+        log_path = os.path.join(backend_dir, "frontend_debug.log")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{log.level.upper()}] {log.message}\n")
+    except Exception as e:
+        print("Failed to write debug log to file:", e)
+    return {"status": "ok"}
+
 class ModelSettings(BaseModel):
     modelSource: str
     apiProvider: Optional[str] = None
@@ -231,7 +268,11 @@ class ModelSettings(BaseModel):
 
 class ChatRequest(BaseModel):
     prompt: str
-    modelSettings: ModelSettings
+    modelSettings: Optional[ModelSettings] = None
+
+@app.get("/api/health")
+def api_health():
+    return {"status": "healthy"}
 
 @app.get("/api/system-usage")
 def get_system_usage():
@@ -643,8 +684,22 @@ def chat(request: ChatRequest):
         add_to_conversations("user", request.prompt)
         add_to_task_log("ollama_api", 2, "started")
 
-        brain_label = request.modelSettings.brainModel if request.modelSettings.modelSource == "local" else request.modelSettings.selectedModel
-        result = get_react_thoughts(request.prompt, brain_label, request.modelSettings.ocrModel)
+        # Resolve modelSettings if missing
+        modelSettings = request.modelSettings
+        if not modelSettings:
+            provider = get_user_profile("meridian_provider") or "ollama"
+            selected_model = get_user_profile("meridian_model") or "qwen2.5-coder"
+            model_source = "local" if provider == "ollama" else "cloud"
+            modelSettings = ModelSettings(
+                modelSource=model_source,
+                apiProvider=provider,
+                selectedModel=selected_model,
+                brainModel=selected_model,
+                ocrModel=selected_model
+            )
+
+        brain_label = modelSettings.brainModel if modelSettings.modelSource == "local" else modelSettings.selectedModel
+        result = get_react_thoughts(request.prompt, brain_label, modelSettings.ocrModel)
         
         # Log to caches and logs
         add_to_conversations("assistant", result.get("text", ""))
@@ -687,9 +742,23 @@ def chat_stream(request: ChatRequest):
                 pass
         return StreamingResponse(shortcut_generator(), media_type="text/event-stream")
 
-    model_source = request.modelSettings.modelSource
-    api_provider = request.modelSettings.apiProvider or "gemini"  # BUG-4/8 fix: default to gemini if None
-    brain_model = request.modelSettings.brainModel if model_source == "local" else request.modelSettings.selectedModel
+    # Resolve modelSettings if missing
+    modelSettings = request.modelSettings
+    if not modelSettings:
+        provider = get_user_profile("meridian_provider") or "ollama"
+        selected_model = get_user_profile("meridian_model") or "qwen2.5-coder"
+        model_source = "local" if provider == "ollama" else "cloud"
+        modelSettings = ModelSettings(
+            modelSource=model_source,
+            apiProvider=provider,
+            selectedModel=selected_model,
+            brainModel=selected_model,
+            ocrModel=selected_model
+        )
+
+    model_source = modelSettings.modelSource
+    api_provider = modelSettings.apiProvider or "gemini"  # BUG-4/8 fix: default to gemini if None
+    brain_model = modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel
     ollama_host = get_ollama_client_host()
 
     # Record user activity for the idle nudge tracker
@@ -1054,10 +1123,79 @@ class ProfileRequest(BaseModel):
     key: str
     value: Any
 
-@app.post("/api/profile/save")
-def profile_save(request: ProfileRequest):
+
+from src.core.auth import require_api_key
+class ProfileSaveRequest(BaseModel):
+    tavily_key: Optional[str] = None
+    discord_token: Optional[str] = None
+    telegram_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
+    whatsapp_phone: Optional[str] = None
+    meridian_model: Optional[str] = None
+    meridian_vision_model: Optional[str] = None
+    openai_key: Optional[str] = None
+    anthropic_key: Optional[str] = None
+    gemini_key: Optional[str] = None
+    deepseek_key: Optional[str] = None
+    meridian_provider: Optional[str] = None
+    ollama_host: Optional[str] = None
+
+ENV_KEY_MAP = {
+    "ollama_host": "OLLAMA_HOST",
+    "openai_key": "OPENAI_API_KEY",
+    "anthropic_key": "ANTHROPIC_API_KEY",
+    "gemini_key": "GEMINI_API_KEY",
+    "deepseek_key": "DEEPSEEK_API_KEY",
+    "tavily_key": "TAVILY_API_KEY",
+    "discord_token": "DISCORD_BOT_TOKEN",
+    "telegram_token": "TELEGRAM_BOT_TOKEN",
+    "telegram_chat_id": "TELEGRAM_CHAT_ID",
+    "whatsapp_phone": "WHATSAPP_PHONE",
+    "meridian_provider": "MERIDIAN_PROVIDER",
+    "meridian_model": "MERIDIAN_MODEL",
+    "meridian_vision_model": "MERIDIAN_VISION_MODEL"
+}
+
+def update_local_env_file(key: str, val: str):
+    env_vars = {}
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    env_path = os.path.join(backend_dir, ".env")
+    
+    # Read existing env vars
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        env_vars[k.strip()] = v.strip().strip("\"'")
+        except Exception as e:
+            print(f"Failed to read existing .env file: {e}")
+            
+    # Update the target key
+    env_vars[key] = val
+    
+    # Write back to .env
     try:
-        save_user_profile(request.key, request.value)
+        with open(env_path, "w", encoding="utf-8") as f:
+            for k, v in env_vars.items():
+                f.write(f"{k}={v}\n")
+        print(f"[Env File] Successfully updated {key} in .env file.")
+    except Exception as e:
+        print(f"Failed to write to .env file: {e}")
+
+@app.post("/api/profile/save")
+def profile_save(req: ProfileSaveRequest):
+    try:
+        update_data = req.dict(exclude_unset=True)
+        for k, v in update_data.items():
+            if v is not None:
+                save_user_profile(k, v)
+                env_key = ENV_KEY_MAP.get(k)
+                if env_key:
+                    os.environ[env_key] = str(v)
+                    update_local_env_file(env_key, str(v))
         return {"status": "success"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1637,6 +1775,46 @@ def toggle_power_save(request: PowerSaveRequest):
             os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:7b-instruct-q4_K_M"
             print("[Resource Governor] Power-Saving Mode deactivated. Model restored to Qwen 7B.")
             return {"status": "success", "message": "Power-Saving Mode deactivated. Restored default model."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def check_startup_enabled():
+    import os
+    startup_dir = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+    vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
+    return os.path.exists(vbs_path)
+
+class StartupRequest(BaseModel):
+    enabled: bool
+
+@app.get("/api/system/startup")
+def get_startup_status():
+    try:
+        return {"enabled": check_startup_enabled()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/system/startup")
+def toggle_startup_status(request: StartupRequest):
+    try:
+        import sys
+        import subprocess
+        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_path = os.path.join(project_dir, "setup_startup.py")
+        
+        python_exe = sys.executable
+        if not python_exe:
+            python_exe = "python"
+            
+        args = [python_exe, script_path]
+        if not request.enabled:
+            args.append("--disable")
+            
+        res = subprocess.run(args, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise Exception(res.stderr or res.stdout)
+            
+        return {"status": "success", "enabled": check_startup_enabled(), "output": res.stdout}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
