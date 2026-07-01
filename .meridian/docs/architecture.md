@@ -9,31 +9,31 @@ graph TD
     N3["main.py ()"]
     N4["setup_db.py ()"]
     N5["setup_startup.py ()"]
-    N6["vite.config.ts (meridain_frontend)"]
-    N7["App.tsx (meridain_frontend/src)"]
-    N8["main.tsx (meridain_frontend/src)"]
-    N9["Mascot.tsx (meridain_frontend/src)"]
-    N10["api.py (meridian_backend)"]
-    N11["database.py (meridian_backend)"]
-    N12["discord_bridge.py (meridian_backend)"]
-    N13["bus.py (meridian_backend/src/core)"]
-    N14["clipboard.py (meridian_backend/src/core)"]
-    N15["code_graph.py (meridian_backend/src/core)"]
-    N16["doc_generator.py (meridian_backend/src/core)"]
-    N17["doc_indexer.py (meridian_backend/src/core)"]
-    N18["exporter.py (meridian_backend/src/core)"]
-    N19["graph_sync.py (meridian_backend/src/core)"]
-    N20["history_manager.py (meridian_backend/src/core)"]
-    N21["loop.py (meridian_backend/src/core)"]
-    N22["lsp_client.py (meridian_backend/src/core)"]
-    N23["mode.py (meridian_backend/src/core)"]
-    N24["p2p.py (meridian_backend/src/core)"]
-    N25["plugins.py (meridian_backend/src/core)"]
-    N26["proactive.py (meridian_backend/src/core)"]
-    N27["scheduler.py (meridian_backend/src/core)"]
-    N28["speculative.py (meridian_backend/src/core)"]
-    N29["telegram_bridge.py (meridian_backend/src/core)"]
-    N30["vault.py (meridian_backend/src/core)"]
+    N6["api.py (meridian_backend)"]
+    N7["database.py (meridian_backend)"]
+    N8["auth.py (meridian_backend/src/core)"]
+    N9["bus.py (meridian_backend/src/core)"]
+    N10["clipboard.py (meridian_backend/src/core)"]
+    N11["code_graph.py (meridian_backend/src/core)"]
+    N12["discord_bridge.py (meridian_backend/src/core)"]
+    N13["doc_generator.py (meridian_backend/src/core)"]
+    N14["doc_indexer.py (meridian_backend/src/core)"]
+    N15["exporter.py (meridian_backend/src/core)"]
+    N16["graph_sync.py (meridian_backend/src/core)"]
+    N17["history_manager.py (meridian_backend/src/core)"]
+    N18["llm_provider.py (meridian_backend/src/core)"]
+    N19["loop.py (meridian_backend/src/core)"]
+    N20["lsp_client.py (meridian_backend/src/core)"]
+    N21["mcp_client.py (meridian_backend/src/core)"]
+    N22["mode.py (meridian_backend/src/core)"]
+    N23["p2p.py (meridian_backend/src/core)"]
+    N24["plugins.py (meridian_backend/src/core)"]
+    N25["proactive.py (meridian_backend/src/core)"]
+    N26["scheduler.py (meridian_backend/src/core)"]
+    N27["speculative.py (meridian_backend/src/core)"]
+    N28["telegram_bridge.py (meridian_backend/src/core)"]
+    N29["vault.py (meridian_backend/src/core)"]
+    N30["vision.py (meridian_backend/src/core)"]
     N31["watcher.py (meridian_backend/src/core)"]
     N32["whatsapp_bridge.py (meridian_backend/src/core)"]
     N33["clipboard.py (meridian_backend/src/tools)"]
@@ -62,39 +62,97 @@ graph TD
     N56["stt.py (meridian_backend/src/voice)"]
     N57["tts.py (meridian_backend/src/voice)"]
     N58["wakeword.py (meridian_backend/src/voice)"]
-    N59["get_system_platform_info.py (plugins)"]
+    N59["vite.config.ts (meridian_frontend)"]
+    N60["AppContext.tsx (meridian_frontend/src)"]
+    N61["main.tsx (meridian_frontend/src)"]
+    N62["Mascot.tsx (meridian_frontend/src)"]
+    N63["NavRail.tsx (meridian_frontend/src/components)"]
+    N64["RightDrawer.tsx (meridian_frontend/src/components)"]
+    N65["Shell.tsx (meridian_frontend/src/components)"]
+    N66["StatusBar.tsx (meridian_frontend/src/components)"]
+    N67["DataBadge.tsx (meridian_frontend/src/components/ui)"]
+    N68["GlowCard.tsx (meridian_frontend/src/components/ui)"]
+    N69["HoloButton.tsx (meridian_frontend/src/components/ui)"]
+    N70["ProgressArc.tsx (meridian_frontend/src/components/ui)"]
+    N71["TerminalLine.tsx (meridian_frontend/src/components/ui)"]
+    N72["BootSequence.tsx (meridian_frontend/src/startup)"]
+    N73["SetupWizard.tsx (meridian_frontend/src/startup)"]
+    N74["Clipboard.tsx (meridian_frontend/src/views)"]
+    N75["Jobs.tsx (meridian_frontend/src/views)"]
+    N76["Productivity.tsx (meridian_frontend/src/views)"]
+    N77["Settings.tsx (meridian_frontend/src/views)"]
+    N78["SwarmDebate.tsx (meridian_frontend/src/views)"]
+    N79["Timeline.tsx (meridian_frontend/src/views)"]
+    N80["get_system_platform_info.py (plugins)"]
 
-    N3 --> N10
-    N7 --> N9
-    N10 --> N11
-    N11 --> N10
-    N14 --> N11
-    N17 --> N11
-    N18 --> N11
-    N21 --> N11
-    N23 --> N11
-    N24 --> N11
-    N26 --> N11
-    N26 --> N10
-    N27 --> N11
-    N27 --> N10
-    N29 --> N10
-    N29 --> N11
-    N31 --> N11
-    N32 --> N10
-    N32 --> N11
-    N33 --> N11
-    N35 --> N11
-    N36 --> N11
-    N39 --> N11
-    N41 --> N11
-    N42 --> N11
-    N43 --> N11
-    N44 --> N11
-    N45 --> N11
-    N48 --> N11
-    N54 --> N11
-    N55 --> N11
+    N3 --> N6
+    N6 --> N7
+    N7 --> N6
+    N10 --> N7
+    N12 --> N7
+    N14 --> N7
+    N15 --> N7
+    N18 --> N7
+    N19 --> N7
+    N22 --> N7
+    N23 --> N7
+    N25 --> N7
+    N25 --> N6
+    N26 --> N7
+    N26 --> N6
+    N28 --> N7
+    N30 --> N7
+    N31 --> N7
+    N32 --> N7
+    N33 --> N7
+    N35 --> N7
+    N36 --> N7
+    N38 --> N7
+    N39 --> N7
+    N41 --> N7
+    N42 --> N7
+    N43 --> N7
+    N44 --> N7
+    N45 --> N7
+    N48 --> N7
+    N54 --> N7
+    N55 --> N7
+    N61 --> N62
+    N61 --> N72
+    N61 --> N73
+    N61 --> N65
+    N61 --> N60
+    N63 --> N60
+    N64 --> N60
+    N64 --> N70
+    N64 --> N67
+    N65 --> N60
+    N65 --> N63
+    N65 --> N66
+    N65 --> N64
+    N65 --> N79
+    N65 --> N75
+    N65 --> N74
+    N65 --> N76
+    N65 --> N78
+    N65 --> N77
+    N66 --> N60
+    N66 --> N67
+    N73 --> N69
+    N74 --> N69
+    N75 --> N69
+    N75 --> N68
+    N76 --> N70
+    N76 --> N69
+    N76 --> N68
+    N77 --> N60
+    N77 --> N70
+    N77 --> N69
+    N77 --> N68
+    N78 --> N71
+    N78 --> N69
+    N79 --> N69
+    N79 --> N68
 ```
 
 ## Detailed File Index
@@ -116,32 +174,6 @@ graph TD
   - Imports: `sys`
   - Imports: `time`
   - Imports: `uvicorn`
-- **meridain_frontend/src/App.tsx**
-  - Imports: `Mascot`
-  - Imports: `core`
-  - Imports: `event`
-  - Imports: `marked`
-  - Imports: `react`
-  - Imports: `types`
-  - Imports: `webviewWindow`
-  - Imports: `window`
-- **meridain_frontend/src/Mascot.tsx**
-  - Imports: `core`
-  - Imports: `event`
-  - Imports: `react`
-  - Imports: `webviewWindow`
-  - Imports: `window`
-- **meridain_frontend/src/main.tsx**
-  - Imports: `Appx`
-  - Imports: `Mascotx`
-  - Imports: `client`
-  - Imports: `index.css`
-  - Imports: `react`
-  - Imports: `window`
-- **meridain_frontend/vite.config.ts**
-  - Imports: `path`
-  - Imports: `plugin-react`
-  - Imports: `vite`
 - **meridian_backend/api.py**
   - Imports: `ast`
   - Imports: `base64`
@@ -158,6 +190,7 @@ graph TD
   - Imports: `re`
   - Imports: `src`
   - Imports: `subprocess`
+  - Imports: `sys`
   - Imports: `tempfile`
   - Imports: `threading`
   - Imports: `time`
@@ -180,10 +213,11 @@ graph TD
   - Imports: `time`
   - Imports: `turbovec`
   - Imports: `typing`
-- **meridian_backend/discord_bridge.py**
-  - Imports: `discord`
+- **meridian_backend/src/core/auth.py**
+  - Imports: `fastapi`
+  - Imports: `hmac`
   - Imports: `os`
-  - Imports: `requests`
+  - Imports: `secrets`
 - **meridian_backend/src/core/bus.py**
   - Imports: `asyncio`
   - Imports: `typing`
@@ -198,6 +232,13 @@ graph TD
   - Imports: `os`
   - Imports: `re`
   - Imports: `src`
+- **meridian_backend/src/core/discord_bridge.py**
+  - Imports: `asyncio`
+  - Imports: `database`
+  - Imports: `discord`
+  - Imports: `os`
+  - Imports: `src`
+  - Imports: `threading`
 - **meridian_backend/src/core/doc_generator.py**
   - Imports: `os`
   - Imports: `re`
@@ -224,6 +265,13 @@ graph TD
 - **meridian_backend/src/core/history_manager.py**
   - Imports: `os`
   - Imports: `subprocess`
+- **meridian_backend/src/core/llm_provider.py**
+  - Imports: `database`
+  - Imports: `httpx`
+  - Imports: `json`
+  - Imports: `logging`
+  - Imports: `os`
+  - Imports: `typing`
 - **meridian_backend/src/core/loop.py**
   - Imports: `anthropic`
   - Imports: `ast`
@@ -239,6 +287,7 @@ graph TD
   - Imports: `re`
   - Imports: `src`
   - Imports: `subprocess`
+  - Imports: `threading`
   - Imports: `time`
   - Imports: `typing`
   - Imports: `uuid`
@@ -247,6 +296,12 @@ graph TD
   - Imports: `json`
   - Imports: `os`
   - Imports: `sys`
+  - Imports: `typing`
+- **meridian_backend/src/core/mcp_client.py**
+  - Imports: `asyncio`
+  - Imports: `json`
+  - Imports: `logging`
+  - Imports: `os`
   - Imports: `typing`
 - **meridian_backend/src/core/mode.py**
   - Imports: `database`
@@ -311,7 +366,7 @@ graph TD
   - Imports: `typing`
   - Imports: `urllib`
 - **meridian_backend/src/core/telegram_bridge.py**
-  - Imports: `api`
+  - Imports: `asyncio`
   - Imports: `database`
   - Imports: `httpx`
   - Imports: `os`
@@ -326,6 +381,15 @@ graph TD
   - Imports: `json`
   - Imports: `os`
   - Imports: `typing`
+- **meridian_backend/src/core/vision.py**
+  - Imports: `base64`
+  - Imports: `database`
+  - Imports: `httpx`
+  - Imports: `logging`
+  - Imports: `mss`
+  - Imports: `os`
+  - Imports: `pyautogui`
+  - Imports: `src`
 - **meridian_backend/src/core/watcher.py**
   - Imports: `ast`
   - Imports: `database`
@@ -337,13 +401,15 @@ graph TD
   - Imports: `typing`
   - Imports: `watchdog`
 - **meridian_backend/src/core/whatsapp_bridge.py**
-  - Imports: `api`
+  - Imports: `asyncio`
   - Imports: `database`
   - Imports: `os`
   - Imports: `playwright`
+  - Imports: `src`
   - Imports: `tempfile`
   - Imports: `threading`
   - Imports: `time`
+  - Imports: `typing`
 - **meridian_backend/src/tools/clipboard.py**
   - Imports: `bson`
   - Imports: `database`
@@ -382,8 +448,10 @@ graph TD
   - Imports: `subprocess`
   - Imports: `tempfile`
   - Imports: `time`
+  - Imports: `typing`
 - **meridian_backend/src/tools/dynamic_manager.py**
   - Imports: `ast`
+  - Imports: `database`
   - Imports: `ollama`
   - Imports: `os`
   - Imports: `re`
@@ -534,6 +602,109 @@ graph TD
   - Imports: `src`
   - Imports: `threading`
   - Imports: `time`
+- **meridian_frontend/src/AppContext.tsx**
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/src/Mascot.tsx**
+  - Imports: `core`
+  - Imports: `event`
+  - Imports: `react`
+  - Imports: `window`
+- **meridian_frontend/src/components/NavRail.tsx**
+  - Imports: `AppContext`
+  - Imports: `core`
+  - Imports: `react`
+  - Imports: `window`
+- **meridian_frontend/src/components/RightDrawer.tsx**
+  - Imports: `AppContext`
+  - Imports: `DataBadge`
+  - Imports: `ProgressArc`
+  - Imports: `lucide-react`
+  - Imports: `react`
+- **meridian_frontend/src/components/Shell.tsx**
+  - Imports: `AppContext`
+  - Imports: `Clipboard`
+  - Imports: `Jobs`
+  - Imports: `NavRail`
+  - Imports: `Productivity`
+  - Imports: `RightDrawer`
+  - Imports: `Settings`
+  - Imports: `StatusBar`
+  - Imports: `SwarmDebate`
+  - Imports: `Timeline`
+  - Imports: `react`
+- **meridian_frontend/src/components/StatusBar.tsx**
+  - Imports: `AppContext`
+  - Imports: `DataBadge`
+  - Imports: `react`
+- **meridian_frontend/src/components/ui/DataBadge.tsx**
+  - Imports: `react`
+- **meridian_frontend/src/components/ui/GlowCard.tsx**
+  - Imports: `react`
+- **meridian_frontend/src/components/ui/HoloButton.tsx**
+  - Imports: `lucide-react`
+  - Imports: `react`
+- **meridian_frontend/src/components/ui/ProgressArc.tsx**
+  - Imports: `react`
+- **meridian_frontend/src/components/ui/TerminalLine.tsx**
+  - Imports: `react`
+- **meridian_frontend/src/main.tsx**
+  - Imports: `AppContext`
+  - Imports: `BootSequence`
+  - Imports: `Mascot`
+  - Imports: `SetupWizard`
+  - Imports: `Shell`
+  - Imports: `client`
+  - Imports: `index.css`
+  - Imports: `react`
+- **meridian_frontend/src/startup/BootSequence.tsx**
+  - Imports: `react`
+- **meridian_frontend/src/startup/SetupWizard.tsx**
+  - Imports: `HoloButton`
+  - Imports: `lucide-react`
+  - Imports: `react`
+- **meridian_frontend/src/views/Clipboard.tsx**
+  - Imports: `HoloButton`
+  - Imports: `lucide-react`
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/src/views/Jobs.tsx**
+  - Imports: `GlowCard`
+  - Imports: `HoloButton`
+  - Imports: `lucide-react`
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/src/views/Productivity.tsx**
+  - Imports: `GlowCard`
+  - Imports: `HoloButton`
+  - Imports: `ProgressArc`
+  - Imports: `lucide-react`
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/src/views/Settings.tsx**
+  - Imports: `AppContext`
+  - Imports: `GlowCard`
+  - Imports: `HoloButton`
+  - Imports: `ProgressArc`
+  - Imports: `event`
+  - Imports: `lucide-react`
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/src/views/SwarmDebate.tsx**
+  - Imports: `HoloButton`
+  - Imports: `TerminalLine`
+  - Imports: `lucide-react`
+  - Imports: `react`
+- **meridian_frontend/src/views/Timeline.tsx**
+  - Imports: `GlowCard`
+  - Imports: `HoloButton`
+  - Imports: `lucide-react`
+  - Imports: `react`
+  - Imports: `types`
+- **meridian_frontend/vite.config.ts**
+  - Imports: `path`
+  - Imports: `plugin-react`
+  - Imports: `vite`
 - **plugins/get_system_platform_info.py**
   - Imports: `platform`
 - **setup_db.py**

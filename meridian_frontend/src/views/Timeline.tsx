@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX } from 'lucide-react';
+import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square } from 'lucide-react';
 import { Message } from '../types';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
@@ -277,6 +277,14 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     } finally { setLoading(false); }
   };
 
+  const handleInterrupt = async () => {
+    try {
+      await fetch('http://localhost:4132/api/voice/interrupt', { method: 'POST' });
+    } catch (e) {
+      console.warn("Failed to send interrupt request:", e);
+    }
+  };
+
   const handleConfirm = async (id: string, approved: boolean) => {
     try {
       await fetch('http://localhost:4132/api/chat/confirm', {
@@ -509,9 +517,15 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         >
           {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
-        <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim() || loading} loading={loading}>
-          <Send size={14} />
-        </HoloButton>
+        {loading ? (
+          <HoloButton type="button" variant="danger" size="sm" onClick={handleInterrupt}>
+            <Square size={14} fill="currentColor" />
+          </HoloButton>
+        ) : (
+          <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim()}>
+            <Send size={14} />
+          </HoloButton>
+        )}
       </form>
     </div>
   );
