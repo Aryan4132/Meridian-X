@@ -39,6 +39,7 @@ Every turn you MUST use this structure:
      b. If details are missing, prioritize exploratory search/observation commands (e.g. read_file, dir_list, grep_search) to resolve ambiguity first.
      c. Analyze current state, previous observations, and plan next action.
      d. If an observation has an error, debug it here and plan a fix.
+     e. Keep your `<thought>` blocks extremely concise, strictly technical, and brief. Never write conversational descriptions of actions, status updates, or intentions addressed to the user inside `<thought>`. List only technical reasoning, file paths, and tool parameters.
    </thought>
 
 2. CALL TOOLS — use zero or more calls per turn:

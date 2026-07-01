@@ -50,3 +50,6 @@ logs/
 
 # CodeGraph files
 .codegraph/
+
+# Compiled Installers
+executables/

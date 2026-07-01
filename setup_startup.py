@@ -20,8 +20,13 @@ def enable_startup():
     os.makedirs(appdata_dir, exist_ok=True)
     bat_path = os.path.join(appdata_dir, "start_silent.bat")
     
+    release_exe_relative = r"meridian_frontend\src-tauri\target\release\app.exe"
+    
     bat_content = f"""@echo off
 cd /d "{project_dir}"
+if exist ".env" (
+    copy /Y ".env" "meridian_backend\\.env" >nul 2>&1
+)
 echo [System] Starting FastAPI Backend...
 cd meridian_backend
 if not exist venv (
@@ -35,8 +40,17 @@ start /b cmd /c "call venv\\Scripts\\activate.bat && python api.py"
 echo [System] Waiting for FastAPI Backend to bind to port 4132...
 powershell -Command "while ($true) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500 }}"
 echo [System] FastAPI Backend online! Starting Tauri Desktop App...
-cd ../meridian_frontend
-npm run tauri dev
+
+cd /d "{project_dir}"
+if exist "{release_exe_relative}" (
+    echo [System] Starting compiled production release...
+    cd meridian_frontend\\src-tauri\\target\\release
+    start "" "app.exe"
+) else (
+    echo [System] Production binary not found. Falling back to development mode...
+    cd meridian_frontend
+    npm run tauri dev
+)
 """
     
     try:
