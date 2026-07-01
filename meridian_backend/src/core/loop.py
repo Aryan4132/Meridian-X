@@ -1047,7 +1047,7 @@ async def run_react_agent_loop(
             
             # Dynamic VRAM/RAM Offloading Scheduler (Only trigger for local model configurations)
             vram_load = get_gpu_vram_usage()
-            if model_source == "local" and vram_load > 85.0:
+            if model_source == "local" and vram_load > 85.0 and "cloud" not in active_model.lower() and "cl" not in active_model.lower():
                 fallback_brain = "qwen2.5-coder:1.5b-instruct-q8_0"
                 if active_model != fallback_brain:
                     yield sse_event("thought", json.dumps({
