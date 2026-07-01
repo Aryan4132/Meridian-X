@@ -96,7 +96,7 @@ def start_watching_log(file_path: str, patterns: List[str], on_match_goal: str) 
             
     handler = LogFileHandler(abs_path, patterns, on_match_goal)
     observer = Observer()
-    observer.schedule(handler, path=os.path.dirname(abs_path), recursive=False)
+    observer.schedule(handler, path=os.path.dirname(abs_path) or os.getcwd(), recursive=False)
     observer.start()
     
     _log_observers[abs_path] = observer

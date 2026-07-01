@@ -232,6 +232,7 @@ class P2PSyncNode:
 
         sync_summary = []
         for peer_ip, peer_port in list(self.peers):
+            s = None
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(3.0)
@@ -258,9 +259,14 @@ class P2PSyncNode:
                     sync_summary.append(f"Synced with {peer_ip}:{peer_port} (merged {m_data.get('merged_facts')} facts, {m_data.get('merged_caches')} caches)")
                 else:
                     sync_summary.append(f"Rejected by {peer_ip}:{peer_port}: {result.get('message')}")
-                s.close()
             except Exception as e:
                 sync_summary.append(f"Failed to sync with {peer_ip}:{peer_port}: {e}")
+            finally:
+                if s:
+                    try:
+                        s.close()
+                    except Exception:
+                        pass
                 
         return "\n".join(sync_summary)
 
