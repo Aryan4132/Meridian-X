@@ -819,6 +819,39 @@ def chat_history(limit: Optional[int] = 50):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class SaveMcpConfig(BaseModel):
+    mcpServers: Dict[str, Any]
+
+@app.get("/api/mcp/config")
+def get_mcp_config_route():
+    import json
+    config_path = "mcp_config.json"
+    if not os.path.exists(config_path):
+        return {"mcpServers": {}}
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            content = f.read().strip()
+            if not content:
+                return {"mcpServers": {}}
+            return json.loads(content)
+    except Exception:
+        return {"mcpServers": {}}
+
+@app.post("/api/mcp/config")
+async def save_mcp_config_route(request: SaveMcpConfig):
+    import json
+    config_path = "mcp_config.json"
+    try:
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump({"mcpServers": request.mcpServers}, f, indent=2)
+            
+        # Hot-reload the subprocesses
+        await mcp_manager.shutdown()
+        await mcp_manager.initialize()
+        return {"status": "success", "message": "MCP configuration updated and servers hot-reloaded."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/scheduler/runs")
 def scheduler_runs(limit: Optional[int] = 20):
     try:

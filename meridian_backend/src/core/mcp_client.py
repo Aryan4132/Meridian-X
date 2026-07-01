@@ -170,8 +170,12 @@ class McpManager:
       return
 
     try:
-      with open(self.config_path, "r") as f:
-        config = json.load(f)
+      with open(self.config_path, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+        if not content:
+          config = {"mcpServers": {}}
+        else:
+          config = json.loads(content)
         
       servers = config.get("mcpServers", {})
       for name, srv_conf in servers.items():

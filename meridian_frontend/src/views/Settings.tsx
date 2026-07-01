@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save } from 'lucide-react';
+import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
@@ -86,6 +86,84 @@ export default function Settings() {
   const [ttsVoice, setTtsVoice]             = useState(() => localStorage.getItem('meridian_tts_voice') || 'M1');
   const [ttsVolume, setTtsVolume]           = useState(() => parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5'));
   const [startupEnabled, setStartupEnabled] = useState(false);
+
+  // MCP state variables
+  const [mcpServers, setMcpServers] = useState<Record<string, any>>({});
+  const [newServerName, setNewServerName] = useState('');
+  const [newServerCommand, setNewServerCommand] = useState('');
+  const [newServerArgs, setNewServerArgs] = useState('');
+  const [newServerEnv, setNewServerEnv] = useState('');
+
+  // Fetch MCP config on mount
+  useEffect(() => {
+    fetch('http://localhost:4132/api/mcp/config')
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.mcpServers) {
+          setMcpServers(data.mcpServers);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const saveMcpConfig = async (servers: Record<string, any>) => {
+    try {
+      await fetch('http://localhost:4132/api/mcp/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mcpServers: servers })
+      });
+    } catch (e) {
+      console.error("Failed to save MCP config:", e);
+    }
+  };
+
+  const handleAddMcpServer = async () => {
+    if (!newServerName.trim() || !newServerCommand.trim()) return;
+    
+    // Parse args
+    const parsedArgs = newServerArgs
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
+      
+    // Parse env
+    const parsedEnv: Record<string, string> = {};
+    if (newServerEnv.trim()) {
+      newServerEnv.split(',').forEach(kv => {
+        const parts = kv.split('=');
+        if (parts.length >= 2) {
+          parsedEnv[parts[0].trim()] = parts.slice(1).join('=').trim();
+        }
+      });
+    }
+    
+    const updatedServers = {
+      ...mcpServers,
+      [newServerName.trim()]: {
+        command: newServerCommand.trim(),
+        args: parsedArgs,
+        env: parsedEnv
+      }
+    };
+    
+    setMcpServers(updatedServers);
+    
+    // Reset form
+    setNewServerName('');
+    setNewServerCommand('');
+    setNewServerArgs('');
+    setNewServerEnv('');
+    
+    await saveMcpConfig(updatedServers);
+  };
+
+  const handleRemoveMcpServer = async (name: string) => {
+    const updated = { ...mcpServers };
+    delete updated[name];
+    setMcpServers(updated);
+    await saveMcpConfig(updated);
+  };
 
   // Query startup status on mount
   useEffect(() => {
@@ -291,6 +369,83 @@ export default function Settings() {
                 </label>
                 <input type="text" value={whatsappPhone} onChange={e => setWhatsappPhone(e.target.value)} placeholder="+1234567890" className="input-base" />
               </div>
+            </div>
+          </GlowCard>
+
+          {/* MCP Servers Manager */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">MCP Servers Manager</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              
+              {/* Active Servers List */}
+              {Object.keys(mcpServers).length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Active Servers
+                  </label>
+                  {Object.entries(mcpServers).map(([name, srv]) => (
+                    <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>
+                          {name} <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, fontFamily: 'JetBrains Mono' }}>({srv.command})</span>
+                        </div>
+                        {srv.args && srv.args.length > 0 && (
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', wordBreak: 'break-all' }}>
+                            args: {srv.args.join(' ')}
+                          </div>
+                        )}
+                        {srv.env && Object.keys(srv.env).length > 0 && (
+                          <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                            env: {Object.entries(srv.env).map(([k, v]) => `${k}=${v}`).join(', ')}
+                          </div>
+                        )}
+                      </div>
+                      <HoloButton type="button" variant="danger" size="sm" onClick={() => handleRemoveMcpServer(name)}>
+                        <Trash2 size={12} />
+                      </HoloButton>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '12px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                  No active MCP servers configured. Add one below to extend agent capabilities.
+                </div>
+              )}
+
+              {/* Add New Server Form */}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                  Add Stdio MCP Server
+                </label>
+                
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server ID Name</label>
+                    <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. sqlite" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Startup Command</label>
+                    <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                  </div>
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (comma-separated)</label>
+                  <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y, @modelcontextprotocol/server-sqlite, --db, test.db" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Environment Variables (comma-separated KEY=VAL)</label>
+                  <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="e.g. API_KEY=abc, DB_PATH=def" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                  <HoloButton type="button" variant="primary" size="sm" onClick={handleAddMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
+                    <Plus size={12} /> Add Server
+                  </HoloButton>
+                </div>
+              </div>
+
             </div>
           </GlowCard>
 
