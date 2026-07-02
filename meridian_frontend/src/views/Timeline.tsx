@@ -214,7 +214,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let finalContent = '';
-      let finalThoughts: string[] = [];
+      let finalThoughts: { id: string; text: string }[] = [];
       // Buffer accumulates partial TCP chunks; we split on \n\n (SSE event separator)
       let buffer = '';
 
@@ -249,13 +249,14 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             try {
               const thoughtData = JSON.parse(payload);
               const thoughtText = thoughtData.text || thoughtData.thought || String(thoughtData);
-              const append = thoughtData.append;
-              if (append && finalThoughts.length > 0) {
-                finalThoughts[finalThoughts.length - 1] += thoughtText;
+              const id = thoughtData.id || `thought-fallback-${Date.now()}-${Math.random()}`;
+              const existingIdx = finalThoughts.findIndex(t => t.id === id);
+              if (existingIdx !== -1) {
+                finalThoughts[existingIdx].text += thoughtText;
               } else {
-                finalThoughts = [...finalThoughts, thoughtText];
+                finalThoughts.push({ id, text: thoughtText });
               }
-              setStreamThoughts([...finalThoughts]);
+              setStreamThoughts(finalThoughts.map(t => t.text));
             } catch { /* non-JSON thought, skip */ }
           } else if (eventType === 'text') {
             // text events carry raw text chunks (not JSON)
@@ -278,8 +279,8 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       }
       // Final: extract chat text from any JSON wrapper and strip duplicate content
       // The backend may stream chunks then send the full text again as final event
-      const cleanedContent = extractChatText(finalContent).trim();
-      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || 'Operation completed.', thoughts: finalThoughts }]);
+      const thoughtsList = finalThoughts.map(t => t.text);
+      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || 'Operation completed.', thoughts: thoughtsList }]);
       setStreaming('');
       setStreamThoughts([]);
 

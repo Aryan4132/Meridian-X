@@ -890,6 +890,19 @@ class ConfirmRequest(BaseModel):
     id: str
     approved: bool
 
+class GameModeRequest(BaseModel):
+    enabled: bool
+
+@app.post("/api/game-mode")
+def post_game_mode(request: GameModeRequest):
+    try:
+        import src.core.proactive as proactive
+        proactive.game_mode_active = request.enabled
+        print(f"[API] Game Mode set to: {proactive.game_mode_active}")
+        return {"status": "success", "game_mode_active": proactive.game_mode_active}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/swarm/stream")
 async def swarm_stream():
     async def event_generator():

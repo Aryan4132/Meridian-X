@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SystemUsage } from './types';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 
 export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'settings';
 
@@ -14,6 +16,8 @@ interface AppContextValue {
   rightDrawerOpen: boolean;
   setRightDrawerOpen: (v: boolean) => void;
   systemUsage: SystemUsage;
+  gameMode: boolean;
+  setGameMode: (enabled: boolean) => void;
 }
 
 const AppCtx = createContext<AppContextValue | null>(null);
@@ -28,6 +32,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [rightDrawerOpen, setRightDrawerOpen] = useState(true);
   const [systemUsage, setSystemUsage] = useState<SystemUsage>({ cpu: 0, ram: 0 });
+  const [gameMode, _setGameMode] = useState(() => localStorage.getItem('GAME_MODE') === 'true');
+
+  const setGameMode = async (enabled: boolean) => {
+    _setGameMode(enabled);
+    localStorage.setItem('GAME_MODE', enabled ? 'true' : 'false');
+    
+    // Sync to Tauri (Rust)
+    if ((window as any).__TAURI_INTERNALS__) {
+      try {
+        await invoke('toggle_game_mode', { enabled });
+      } catch (e) {
+        console.error("Failed to toggle game mode in Tauri:", e);
+      }
+    }
+
+    // Sync to Python Backend
+    try {
+      await fetch('http://localhost:4132/api/game-mode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled }),
+      });
+    } catch (e) {
+      console.error("Failed to toggle game mode on backend:", e);
+    }
+  };
 
   const setTheme = (t: string) => {
     _setTheme(t);
@@ -72,6 +102,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, []);
 
+  // Sync initial game mode to Tauri on mount
+  useEffect(() => {
+    if ((window as any).__TAURI_INTERNALS__) {
+      const initialMode = localStorage.getItem('GAME_MODE') === 'true';
+      invoke('toggle_game_mode', { enabled: initialMode }).catch(err =>
+        console.error("Failed to sync initial game mode:", err)
+      );
+    }
+  }, []);
+
+  // Listen to system tray menu events
+  useEffect(() => {
+    let unlisten: any;
+    if ((window as any).__TAURI_INTERNALS__) {
+      listen('tray-toggle-game-mode', () => {
+        const current = localStorage.getItem('GAME_MODE') === 'true';
+        setGameMode(!current);
+      }).then(u => {
+        unlisten = u;
+      }).catch(err => console.error("Failed to setup tray listener:", err));
+    }
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, []);
+
+  // Listen to proactive nudge stream for game mode auto-detection
+  useEffect(() => {
+    if (!backendAlive) return;
+
+    const eventSource = new EventSource('http://localhost:4132/api/proactive/stream');
+
+    eventSource.addEventListener('nudge', (e) => {
+      try {
+        const nudge = JSON.parse(e.data);
+        if (nudge.type === 'game_mode_changed') {
+          const enabled = nudge.message === 'enabled';
+          _setGameMode(enabled);
+          localStorage.setItem('GAME_MODE', enabled ? 'true' : 'false');
+          // Sync to Tauri (Rust)
+          if ((window as any).__TAURI_INTERNALS__) {
+            invoke('toggle_game_mode', { enabled }).catch(err =>
+              console.error("Failed to toggle game mode in Tauri from auto-nudge:", err)
+            );
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse proactive nudge:", err);
+      }
+    });
+
+    return () => {
+      eventSource.close();
+    };
+  }, [backendAlive]);
+
   return (
     <AppCtx.Provider value={{
       activeTab, setActiveTab,
@@ -81,6 +167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setModelName,
       rightDrawerOpen, setRightDrawerOpen,
       systemUsage,
+      gameMode, setGameMode,
     }}>
       {children}
     </AppCtx.Provider>

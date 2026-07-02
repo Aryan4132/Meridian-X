@@ -63,7 +63,7 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
 }
 
 export default function Settings() {
-  const { theme, setTheme, systemUsage, setModelName } = useApp();
+  const { theme, setTheme, systemUsage, setModelName, gameMode, setGameMode } = useApp();
   const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
@@ -77,7 +77,6 @@ export default function Settings() {
   const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
   const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
-  const [gameMode, setGameMode]             = useState(() => localStorage.getItem('GAME_MODE') === 'true');
   const [saveStatus, setSaveStatus]         = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
 
   const [mascotWardrobe, setMascotWardrobe] = useState(() => localStorage.getItem('meridian_mascot_wardrobe') || 'auto');
@@ -222,10 +221,6 @@ export default function Settings() {
 
   const handleGameMode = async (checked: boolean) => {
     setGameMode(checked);
-    localStorage.setItem('GAME_MODE', checked ? 'true' : 'false');
-    if ((window as any).__TAURI_INTERNALS__) {
-      try { await (window as any).__TAURI_INTERNALS__.invoke('toggle_game_mode', { enabled: checked }); } catch { /* noop */ }
-    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
