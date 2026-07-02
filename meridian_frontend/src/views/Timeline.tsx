@@ -4,6 +4,18 @@ import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Pa
 import { Message } from '../types';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
+import { marked } from 'marked';
+
+// Helper function to render Markdown safely
+const renderMarkdown = (text: string) => {
+  try {
+    const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
+    return { __html: rawHtml };
+  } catch (e) {
+    console.error("Markdown parse error:", e);
+    return { __html: text };
+  }
+};
 
 interface TimelineProps {
   onThoughtsUpdate: (feed: { thoughts: string[]; streaming: boolean }) => void;
@@ -237,7 +249,12 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             try {
               const thoughtData = JSON.parse(payload);
               const thoughtText = thoughtData.text || thoughtData.thought || String(thoughtData);
-              finalThoughts = [...finalThoughts, thoughtText];
+              const append = thoughtData.append;
+              if (append && finalThoughts.length > 0) {
+                finalThoughts[finalThoughts.length - 1] += thoughtText;
+              } else {
+                finalThoughts = [...finalThoughts, thoughtText];
+              }
               setStreamThoughts([...finalThoughts]);
             } catch { /* non-JSON thought, skip */ }
           } else if (eventType === 'text') {
@@ -423,7 +440,11 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
                   </div>
 
                   {msg.thoughts?.length > 0 && <ThoughtsBlock thoughts={msg.thoughts} />}
-                  <p style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{msg.content}</p>
+                  <div
+                    className="markdown-content"
+                    style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
+                    dangerouslySetInnerHTML={renderMarkdown(msg.content)}
+                  />
                   {msg.confirmation && <SafetyGate gate={msg.confirmation} onConfirm={handleConfirm} />}
                   {msg.proposedHeal && <HealBlock heal={msg.proposedHeal} onApply={handleApplyHeal} />}
                 </div>
@@ -453,7 +474,13 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace', animation: 'blink-cursor 1s step-end infinite'" }}>
                 THINKING...
               </span>
-              {streaming && <p style={{ fontSize: 13, color: 'var(--text-main)', margin: '6px 0 0', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{streaming}</p>}
+              {streaming && (
+                <div
+                  className="markdown-content"
+                  style={{ fontSize: 13, color: 'var(--text-main)', margin: '6px 0 0', lineHeight: 1.6 }}
+                  dangerouslySetInnerHTML={renderMarkdown(streaming)}
+                />
+              )}
             </div>
           </motion.div>
         )}

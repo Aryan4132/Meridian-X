@@ -278,9 +278,21 @@ def get_system_usage():
         }
 
 @app.get("/api/ollama-models")
-def get_ollama_models():
+def get_ollama_models(host: Optional[str] = None):
     models = []
-    ollama_host = get_ollama_client_host()
+    if host:
+        if host == "0.0.0.0":
+            ollama_host = "http://127.0.0.1:11434"
+        elif host.startswith("0.0.0.0:"):
+            ollama_host = f"http://127.0.0.1:{host.split(':')[1]}"
+        elif "0.0.0.0" in host:
+            ollama_host = host.replace("0.0.0.0", "127.0.0.1")
+        elif not host.startswith("http://") and not host.startswith("https://"):
+            ollama_host = f"http://{host}"
+        else:
+            ollama_host = host
+    else:
+        ollama_host = get_ollama_client_host()
 
     # Method 1: Using the official 'ollama' Python library
     try:

@@ -63,7 +63,7 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
 }
 
 export default function Settings() {
-  const { theme, setTheme, systemUsage } = useApp();
+  const { theme, setTheme, systemUsage, setModelName } = useApp();
   const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
@@ -254,8 +254,15 @@ export default function Settings() {
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
         }),
       });
-      setSaveStatus(res.ok ? 'saved' : 'fail');
-    } catch { setSaveStatus('saved'); /* saved locally */ }
+      if (res.ok) {
+        setModelName(brainModel);
+        setSaveStatus('saved');
+      } else {
+        setSaveStatus('fail');
+      }
+    } catch {
+      setSaveStatus('fail');
+    }
     setTimeout(() => setSaveStatus('idle'), 2500);
   };
 
@@ -375,7 +382,7 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Active Servers
                   </label>
-                  {Object.entries(mcpServers).map(([name, srv]) => (
+                  {Object.entries(mcpServers).map(([name, srv]: [string, any]) => (
                     <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>

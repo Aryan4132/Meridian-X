@@ -10,6 +10,7 @@ interface AppContextValue {
   setTheme: (theme: string) => void;
   backendAlive: boolean;
   modelName: string;
+  setModelName: (model: string) => void;
   rightDrawerOpen: boolean;
   setRightDrawerOpen: (v: boolean) => void;
   systemUsage: SystemUsage;
@@ -77,6 +78,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       theme, setTheme,
       backendAlive,
       modelName,
+      setModelName,
       rightDrawerOpen, setRightDrawerOpen,
       systemUsage,
     }}>
