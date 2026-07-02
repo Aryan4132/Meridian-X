@@ -50,7 +50,6 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
   const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
-  const [whatsappPhone, setWhatsappPhone]   = useState(() => localStorage.getItem('WHATSAPP_PHONE') || '');
   const [openSection, setOpenSection]       = useState<string | null>(null);
 
   // Step 3 — model
@@ -99,7 +98,6 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     localStorage.setItem('DISCORD_BOT_TOKEN', discordToken);
     localStorage.setItem('TELEGRAM_BOT_TOKEN', telegramToken);
     localStorage.setItem('TELEGRAM_CHAT_ID', telegramChatId);
-    localStorage.setItem('WHATSAPP_PHONE', whatsappPhone);
     localStorage.setItem('MERIDIAN_PROVIDER', selectedProvider);
     localStorage.setItem('MERIDIAN_MODEL', selectedModel);
     localStorage.setItem('OLLAMA_HOST', ollamaHost);
@@ -115,7 +113,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
         body: JSON.stringify({
           tavily_key: tavilyKey, discord_token: discordToken,
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
-          whatsapp_phone: whatsappPhone, meridian_provider: selectedProvider,
+          meridian_provider: selectedProvider,
           meridian_model: selectedModel, ollama_host: ollamaHost,
           openai_key: openaiKey, anthropic_key: anthropicKey,
           gemini_key: geminiKey, deepseek_key: deepseekKey,
@@ -284,10 +282,6 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                         <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>CHAT ID</label>
                         <input type="text" placeholder="123..." value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} className="input-base" />
                       </div>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>WHATSAPP PHONE (E.164)</label>
-                      <input type="text" placeholder="+1234567890" value={whatsappPhone} onChange={e => setWhatsappPhone(e.target.value)} className="input-base" />
                     </div>
                   </AccordionSection>
                 </div>

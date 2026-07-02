@@ -90,10 +90,7 @@ def normalize_vector(v: List[float]) -> np.ndarray:
     return arr
 
 # Database directories setup
-backend_dir = os.path.dirname(os.path.abspath(__file__))
-root_dir = os.path.dirname(backend_dir)
-db_dir = os.path.join(root_dir, "meridian_memory")
-os.makedirs(db_dir, exist_ok=True)
+from src.core.config import DB_DIR as db_dir
 
 # Turbovec Index paths
 KB_INDEX_PATH = os.path.join(db_dir, "knowledge_base.tq")

@@ -405,15 +405,16 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const isSuccessOrError = hudState === 'success' || hudState === 'error';
   const isCompactIdle = hudState === 'idle' && voiceState === 'idle' && !isExpanded;
 
+  // Add +16px buffer to window size to accommodate p-3 (12px) transparent padding without clipping shadows
   if (isWorking) {
-    targetWidth = 340;
-    targetHeight = isExpanded ? (showWardrobeMenu ? 290 : 220) : 60;
+    targetWidth = 340 + 16;
+    targetHeight = isExpanded ? (showWardrobeMenu ? 290 : 220) + 16 : 60 + 16;
   } else if (isVoiceActive || isSuccessOrError) {
-    targetWidth = 340;
-    targetHeight = 60;
+    targetWidth = 340 + 16;
+    targetHeight = 60 + 16;
   } else {
-    targetWidth = isExpanded ? 340 : 180;
-    targetHeight = isExpanded ? (showWardrobeMenu ? 150 : 60) : 36;
+    targetWidth = isExpanded ? 340 + 16 : 180 + 16;
+    targetHeight = isExpanded ? (showWardrobeMenu ? 150 : 60) + 16 : 36 + 16;
   }
 
   const resizeAndCenter = async (width: number, height: number) => {
@@ -434,6 +435,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         } else {
           await appWindow.setSize(new LogicalSize(width, height));
         }
+        await appWindow.setResizable(false);
       } catch (err) {
         console.error("Failed resizing Tauri window:", err);
       }
@@ -702,11 +704,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   };
 
   const getIslandShadow = () => {
-    if (voiceState === 'listening') return '0 6px 20px rgba(239, 68, 68, 0.35)';
-    if (voiceState === 'transcribing' || voiceState === 'thinking' || hudState === 'working') return '0 6px 20px rgba(245, 158, 11, 0.35)';
-    if (voiceState === 'speaking' || hudState === 'success') return '0 6px 20px rgba(16, 185, 129, 0.35)';
-    if (hudState === 'error') return '0 6px 20px rgba(239, 68, 68, 0.35)';
-    return '0 8px 24px rgba(0, 0, 0, 0.4)';
+    // Soften and tighten shadows so they fit inside transparent boundaries and don't create sharp clipping borders
+    if (voiceState === 'listening') return '0 4px 10px rgba(239, 68, 68, 0.25)';
+    if (voiceState === 'transcribing' || voiceState === 'thinking' || hudState === 'working') return '0 4px 10px rgba(245, 158, 11, 0.25)';
+    if (voiceState === 'speaking' || hudState === 'success') return '0 4px 10px rgba(16, 185, 129, 0.25)';
+    if (hudState === 'error') return '0 4px 10px rgba(239, 68, 68, 0.25)';
+    return '0 4px 12px rgba(0, 0, 0, 0.35)';
   };
 
   // Accessories visual resolver
@@ -739,7 +742,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
   return (
     <div 
-      className="w-screen h-screen relative overflow-hidden select-none bg-transparent flex flex-col justify-start p-1 font-sans"
+      className="w-screen h-screen relative select-none bg-transparent flex flex-col justify-start p-3 font-sans"
       onMouseEnter={() => setIsExpanded(true)}
       onMouseLeave={() => setIsExpanded(false)}
     >
@@ -758,8 +761,6 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           border: getIslandBorder(),
           backgroundColor: 'var(--bg-panel)',
           boxShadow: getIslandShadow(),
-          backdropFilter: 'blur(20px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(20px) saturate(180%)',
           borderRadius: isCompactIdle ? '9999px' : 'var(--radius-md)'
         }}
       >

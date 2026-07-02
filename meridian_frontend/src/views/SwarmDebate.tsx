@@ -44,14 +44,17 @@ export default function SwarmDebate() {
       });
       if (res.ok) {
         const data = await res.json();
-        (data.debate_logs as string[] || []).forEach(line => {
+        const logs = data.debate_logs || (data.debate || []).map((d: any) => `${d.agent}: ${d.message}`);
+        const decision = data.decision || (data.proposed_code ? `Consensus reached. Proposed code:\n${data.proposed_code}` : '');
+        
+        logs.forEach((line: string) => {
           const type: LineType = line.startsWith('Coder') ? 'coder'
                                 : line.startsWith('Auditor') ? 'auditor'
                                 : line.startsWith('QA') ? 'qa'
                                 : 'system';
           addLine(line, type);
         });
-        if (data.decision) addLine(`Decision: ${data.decision}`, 'consensus');
+        if (decision) addLine(`Decision: ${decision}`, 'consensus');
       } else {
         addLine('Debate processing failed.', 'error');
       }

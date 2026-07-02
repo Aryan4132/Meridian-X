@@ -158,9 +158,16 @@ body {
 }
 
 /* Mascot window — transparent bg */
-body.mascot-body {
+html.mascot-html,
+html:has(body.mascot-body),
+body.mascot-body,
+body.mascot-body #root {
   background: transparent !important;
+  background-color: transparent !important;
   overflow: visible;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 /* ============================================================

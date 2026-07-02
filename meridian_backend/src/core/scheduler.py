@@ -6,10 +6,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 
 # Initialize directories
-backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-root_dir = os.path.dirname(backend_dir)
-db_path = os.path.join(root_dir, "meridian_memory", "scheduler.db")
-os.makedirs(os.path.dirname(db_path), exist_ok=True)
+from src.core.config import DB_DIR
+db_path = os.path.join(DB_DIR, "scheduler.db")
 
 # Define job store
 jobstores = {

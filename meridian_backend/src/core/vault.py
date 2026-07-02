@@ -16,10 +16,8 @@ def _derive_key(passphrase: str, salt: bytes) -> bytes:
     )
     return kdf.derive(passphrase.encode())
 
-# Path mapping for vault file in root
-backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-root_dir = os.path.dirname(backend_dir)
-VAULT_FILE = os.path.join(root_dir, "vault.enc")
+# Path mapping for vault file
+from src.core.config import VAULT_FILE
 
 def save_secret(key: str, value: str, passphrase: str) -> str:
     # 1. Load existing secrets if vault file exists

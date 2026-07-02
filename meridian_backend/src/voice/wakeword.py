@@ -41,9 +41,14 @@ def resume_wakeword():
 def _listen_loop():
     global WAKEWORD_ACTIVE, WAKEWORD_PAUSED
     
-    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    root_dir = os.path.dirname(backend_dir)
-    onnx_path = os.path.join(root_dir, "hey_meridian.onnx")
+    import sys
+    if getattr(sys, 'frozen', False):
+        base_dir = sys._MEIPASS
+        onnx_path = os.path.join(base_dir, "hey_meridian.onnx")
+    else:
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        root_dir = os.path.dirname(backend_dir)
+        onnx_path = os.path.join(root_dir, "hey_meridian.onnx")
     
     if not os.path.exists(onnx_path):
         print(f"[Wake Word] Custom model not found at {onnx_path}. Wake word monitoring disabled.")

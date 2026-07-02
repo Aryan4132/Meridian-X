@@ -1,7 +1,7 @@
 from src.core.mcp_client import mcp_manager
 import os
 # Load local .env file if present
-env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+from src.core.config import ENV_FILE as env_path
 if os.path.exists(env_path):
     with open(env_path, "r", encoding="utf-8") as f:
         for line in f:
@@ -68,9 +68,7 @@ def get_ollama_client_host():
 def log_finetune_data(prompt: str, response_text: str):
     try:
         import json
-        backend_dir = os.path.dirname(os.path.abspath(__file__))
-        root_dir = os.path.dirname(backend_dir)
-        filepath = os.path.join(root_dir, "finetune_data.jsonl")
+        from src.core.config import FINETUNE_FILE as filepath
         
         entry = {
             "prompt": prompt,
@@ -129,11 +127,7 @@ async def lifespan(app: FastAPI):
         start_telegram_bridge()
     except Exception as e:
         print("Failed to start Telegram bridge:", e)
-    try:
-        from src.core.whatsapp_bridge import start_whatsapp_bridge
-        start_whatsapp_bridge()
-    except Exception as e:
-        print("Failed to start WhatsApp bridge:", e)
+
     try:
         from src.core.discord_bridge import start_discord_bridge
         start_discord_bridge()
@@ -189,11 +183,7 @@ async def lifespan(app: FastAPI):
         stop_telegram_bridge()
     except Exception as e:
         print("Failed to stop Telegram bridge:", e)
-    try:
-        from src.core.whatsapp_bridge import stop_whatsapp_bridge
-        stop_whatsapp_bridge()
-    except Exception as e:
-        print("Failed to stop WhatsApp bridge:", e)
+
     try:
         from src.core.discord_bridge import stop_discord_bridge
         stop_discord_bridge()
@@ -861,6 +851,29 @@ def scheduler_runs(limit: Optional[int] = 20):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class CreateSchedulerJob(BaseModel):
+    goal: str
+    interval_seconds: int
+
+@app.post("/api/scheduler/create")
+def api_scheduler_create(request: CreateSchedulerJob):
+    try:
+        from src.core.scheduler import scheduler, execute_scheduled_goal
+        import uuid
+        job_id = f"user_job_{uuid.uuid4().hex[:8]}"
+        scheduler.add_job(
+            execute_scheduled_goal,
+            trigger='interval',
+            seconds=request.interval_seconds,
+            args=[request.goal],
+            id=job_id,
+            name=request.goal[:50],
+            replace_existing=True
+        )
+        return {"status": "success", "message": f"Successfully scheduled background job '{job_id}' every {request.interval_seconds}s."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 class ConfirmRequest(BaseModel):
     id: str
     approved: bool
@@ -1059,7 +1072,7 @@ def apply_heal(request: ApplyHealRequest):
             
         # Append secret to .env if provided
         if request.secret_to_env:
-            env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+            from src.core.config import ENV_FILE as env_file
             # Parse key and value to load into current process environment immediately
             if "=" in request.secret_to_env:
                 k, v = request.secret_to_env.split("=", 1)
@@ -1172,6 +1185,7 @@ class ProfileSaveRequest(BaseModel):
     deepseek_key: Optional[str] = None
     meridian_provider: Optional[str] = None
     ollama_host: Optional[str] = None
+    first_run_completed: Optional[bool] = None
 
 ENV_KEY_MAP = {
     "ollama_host": "OLLAMA_HOST",
@@ -1191,8 +1205,7 @@ ENV_KEY_MAP = {
 
 def update_local_env_file(key: str, val: str):
     env_vars = {}
-    backend_dir = os.path.dirname(os.path.abspath(__file__))
-    env_path = os.path.join(backend_dir, ".env")
+    from src.core.config import ENV_FILE as env_path
     
     # Read existing env vars
     if os.path.exists(env_path):
@@ -1229,7 +1242,27 @@ def profile_save(req: ProfileSaveRequest):
                 if env_key:
                     os.environ[env_key] = str(v)
                     update_local_env_file(env_key, str(v))
+        # Mark onboarding/first-run completed in the persistent backend DB
+        save_user_profile("first_run_completed", True)
         return {"status": "success"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/profile/all")
+def profile_get_all():
+    try:
+        keys = [
+            "tavily_key", "discord_token", "telegram_token", "telegram_chat_id",
+            "whatsapp_phone", "meridian_model", "meridian_vision_model",
+            "openai_key", "anthropic_key", "gemini_key", "deepseek_key",
+            "meridian_provider", "ollama_host", "first_run_completed"
+        ]
+        profile = {}
+        for k in keys:
+            val = get_user_profile(k)
+            if val is not None:
+                profile[k] = val
+        return profile
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1573,17 +1606,7 @@ def api_generate_tool(request: ToolGenerateRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/whatsapp/qr")
-def get_whatsapp_qr():
-    try:
-        from src.core.whatsapp_bridge import get_whatsapp_qr_path
-        from fastapi.responses import FileResponse
-        qr_path = get_whatsapp_qr_path()
-        if qr_path and os.path.exists(qr_path):
-            return FileResponse(qr_path, media_type="image/png")
-        raise HTTPException(status_code=404, detail="No active WhatsApp authentication pending.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/vision/screenshot")
 def api_vision_screenshot():
@@ -1704,9 +1727,17 @@ class LobbyDebateRequest(BaseModel):
 @app.post("/api/lobby/debate")
 async def lobby_debate(request: LobbyDebateRequest):
     try:
-        import ollama
-        client = ollama.Client(host=get_ollama_client_host())
+        provider = os.environ.get("MERIDIAN_PROVIDER", "ollama")
         model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+
+        async def get_completion(prompt_text: str) -> str:
+            from src.core.llm_provider import generate_completion_stream
+            parts = []
+            async for chunk in generate_completion_stream([{"role": "user", "content": prompt_text}], provider, model):
+                if chunk.startswith("Error:"):
+                    raise Exception(chunk)
+                parts.append(chunk)
+            return "".join(parts).strip()
         
         # Turn 1: Coder
         coder_prompt = (
@@ -1715,8 +1746,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Request: {request.prompt}\n\n"
             f"Output your implementation along with a brief description of your strategy. Do not wrap the final code yet."
         )
-        coder_res = client.generate(model=model, prompt=coder_prompt)
-        coder_msg = coder_res.get("response", "").strip()
+        coder_msg = await get_completion(coder_prompt)
         
         # Turn 2: QA Tester
         qa_prompt = (
@@ -1725,8 +1755,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Coder's response:\n{coder_msg}\n\n"
             f"Point out potential bugs, edge cases, incorrect assumptions, or performance issues in their code. Suggest fixes."
         )
-        qa_res = client.generate(model=model, prompt=qa_prompt)
-        qa_msg = qa_res.get("response", "").strip()
+        qa_msg = await get_completion(qa_prompt)
         
         # Turn 3: Auditor
         auditor_prompt = (
@@ -1737,8 +1766,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Analyze security vulnerabilities (e.g. SQL injection, path traversal, buffer overflows), resource efficiency, "
             f"and overall readability. Propose optimizations."
         )
-        auditor_res = client.generate(model=model, prompt=auditor_prompt)
-        auditor_msg = auditor_res.get("response", "").strip()
+        auditor_msg = await get_completion(auditor_prompt)
         
         # Turn 4: Coder (Final Resolution & Code block output)
         final_prompt = (
@@ -1750,8 +1778,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"- Auditor Security Review: {auditor_msg}\n\n"
             f"Provide your final explanation of the changes made, followed by the complete code block wrapped in standard markdown code fences (e.g. ```python ... ```)."
         )
-        final_res = client.generate(model=model, prompt=final_prompt)
-        final_msg = final_res.get("response", "").strip()
+        final_msg = await get_completion(final_prompt)
         
         # Extract the proposed code from final_msg code blocks
         import re
@@ -1763,6 +1790,14 @@ async def lobby_debate(request: LobbyDebateRequest):
             # Fallback if no fence blocks found
             proposed_code = final_msg
             
+        debate_logs = [
+            f"Coder: {coder_msg}",
+            f"QA Tester: {qa_msg}",
+            f"Auditor: {auditor_msg}",
+            f"Coder (Final): {final_msg}"
+        ]
+        decision = f"Consensus reached. Proposed code:\n{proposed_code}" if proposed_code else final_msg
+
         return {
             "status": "success",
             "debate": [
@@ -1771,6 +1806,8 @@ async def lobby_debate(request: LobbyDebateRequest):
                 {"agent": "Auditor", "avatar": "🔍", "message": auditor_msg},
                 {"agent": "Coder (Final)", "avatar": "🚀", "message": final_msg}
             ],
+            "debate_logs": debate_logs,
+            "decision": decision,
             "proposed_code": proposed_code
         }
     except Exception as e:

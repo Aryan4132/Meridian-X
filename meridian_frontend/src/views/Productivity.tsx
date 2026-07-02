@@ -24,7 +24,8 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
 
 export default function Productivity() {
   const [stats, setStats] = useState<DeveloperStats>({ total: 0, success: 0, failed: 0, audits: 0, heals: 0, gitCommits: 0, pomodoros: 0 });
-  const [secsLeft, setSecsLeft] = useState(POMODORO_SECS);
+  const [durationMins, setDurationMins] = useState(25);
+  const [secsLeft, setSecsLeft] = useState(25 * 60);
   const [active, setActive] = useState(false);
   const intervalRef = useRef<any>(null);
 
@@ -55,11 +56,17 @@ export default function Productivity() {
       intervalRef.current = setInterval(() => setSecsLeft(s => s - 1), 1000);
     } else if (secsLeft === 0) {
       setActive(false);
-      setSecsLeft(POMODORO_SECS);
+      setSecsLeft(durationMins * 60);
       fetch('http://localhost:4132/api/profile/pomodoro/increment', { method: 'POST' }).then(() => fetchStats()).catch(() => {});
     }
     return () => clearInterval(intervalRef.current);
-  }, [active, secsLeft]);
+  }, [active, secsLeft, durationMins]);
+
+  const handleDurationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const mins = parseInt(e.target.value, 10);
+    setDurationMins(mins);
+    setSecsLeft(mins * 60);
+  };
 
   const successRate = stats.total > 0 ? Math.round((stats.success / stats.total) * 100) : 0;
 
@@ -88,7 +95,7 @@ export default function Productivity() {
             </div>
             <ProgressArc
               value={secsLeft}
-              max={POMODORO_SECS}
+              max={durationMins * 60}
               size={140}
               strokeWidth={7}
               color={active ? 'var(--accent)' : 'var(--text-dim)'}
@@ -109,7 +116,7 @@ export default function Productivity() {
                 {active ? <Pause size={18} /> : <Play size={18} />}
               </button>
               <button
-                onClick={() => { setActive(false); setSecsLeft(POMODORO_SECS); }}
+                onClick={() => { setActive(false); setSecsLeft(durationMins * 60); }}
                 style={{
                   width: 40, height: 40, borderRadius: '50%', border: '1px solid var(--border-subtle)',
                   background: 'var(--bg-surface)', cursor: 'pointer', color: 'var(--text-dim)',
@@ -118,6 +125,34 @@ export default function Productivity() {
               >
                 <RefreshCw size={16} />
               </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '100%' }}>
+              <label style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Duration
+              </label>
+              <select
+                value={durationMins}
+                onChange={handleDurationChange}
+                disabled={active}
+                style={{
+                  fontSize: 11,
+                  padding: '4px 8px',
+                  background: 'var(--bg-surface)',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: active ? 'not-allowed' : 'pointer',
+                  width: '80%',
+                  textAlign: 'center',
+                  outline: 'none',
+                  fontFamily: "'JetBrains Mono', monospace",
+                }}
+              >
+                <option value={15} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>15 mins</option>
+                <option value={25} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>25 mins</option>
+                <option value={45} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>45 mins</option>
+                <option value={60} style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>60 mins</option>
+              </select>
             </div>
           </GlowCard>
 

@@ -52,9 +52,8 @@ def list_sessions() -> str:
 # --- Fine-Tuning Tools ---
 
 def _get_finetune_file() -> str:
-    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    root_dir = os.path.dirname(backend_dir)
-    return os.path.join(root_dir, "finetune_data.jsonl")
+    from src.core.config import FINETUNE_FILE
+    return FINETUNE_FILE
 
 def export_finetune_data(output_path: str) -> str:
     """Export the collected fine-tuning JSONL instruction-response dataset to a specified file path."""

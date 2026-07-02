@@ -25,7 +25,7 @@
 
 ---
 
-## Round 2 — June 17 2026 (Open)
+## Round 2 — June 17 2026 (All Fixed ✅)
 
 ### BUG-15 🔴 CRITICAL — `telegram_bridge.py:139` + `whatsapp_bridge.py:141`
 
@@ -238,16 +238,16 @@ if parent:
 
 ## Round 2 Summary Table
 
-| ID | Severity | File | Short Description |
-|---|---|---|---|
-| BUG-15 | 🔴 Critical | `telegram_bridge.py`, `whatsapp_bridge.py` | Circular `from api import` + sync LLM → double-delivery on Telegram |
-| BUG-16 | 🟠 High | `shell.py:23,97` | `.get("response")` on ollama object → NL shell silently produces empty commands |
-| BUG-17 | 🟠 High | `p2p.py:116,120` | Port parse breaks on IPv6; self-detect adds own node as peer |
-| BUG-18 | 🟠 High | `developer.py:272` | `asyncio.Lock()` at module import → attached to wrong event loop in Python 3.12 |
-| BUG-19 | 🟡 Medium | `wakeword.py:79` | Hardcoded model key → wake word silently stops on file rename |
-| BUG-20 | 🟡 Medium | `telegram_bridge.py:43` | Broken `httpx.Client` reused after network error → permanent poll failure |
-| BUG-21 | 🟡 Medium | `p2p.py:242` | `recv(4096)` truncates large JSON sync replies → `JSONDecodeError` |
-| BUG-23 | 🔵 Low | `watcher.py:91` | `os.makedirs("")` raises if bare filename passed with no parent directory |
+| ID | Severity | File | Short Description | Status |
+|---|---|---|---|---|
+| BUG-15 | 🔴 Critical | `telegram_bridge.py`, `whatsapp_bridge.py` | Circular `from api import` + sync LLM → double-delivery on Telegram | ✅ Fixed |
+| BUG-16 | 🟠 High | `shell.py:23,97` | `.get("response")` on ollama object → NL shell silently produces empty commands | ✅ Fixed |
+| BUG-17 | 🟠 High | `p2p.py:116,120` | Port parse breaks on IPv6; self-detect adds own node as peer | ✅ Fixed |
+| BUG-18 | 🟠 High | `developer.py:272` | `asyncio.Lock()` at module import → attached to wrong event loop in Python 3.12 | ✅ Fixed |
+| BUG-19 | 🟡 Medium | `wakeword.py:79` | Hardcoded model key → wake word silently stops on file rename | ✅ Fixed |
+| BUG-20 | 🟡 Medium | `telegram_bridge.py:43` | Broken `httpx.Client` reused after network error → permanent poll failure | ✅ Fixed |
+| BUG-21 | 🟡 Medium | `p2p.py:242` | `recv(4096)` truncates large JSON sync replies → `JSONDecodeError` | ✅ Fixed |
+| BUG-23 | 🔵 Low | `watcher.py:91` | `os.makedirs("")` raises if bare filename passed with no parent directory | ✅ Fixed |
 
 ---
 

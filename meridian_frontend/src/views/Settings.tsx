@@ -77,7 +77,6 @@ export default function Settings() {
   const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
   const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
-  const [whatsappPhone, setWhatsappPhone]   = useState(() => localStorage.getItem('WHATSAPP_PHONE') || '');
   const [gameMode, setGameMode]             = useState(() => localStorage.getItem('GAME_MODE') === 'true');
   const [saveStatus, setSaveStatus]         = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
 
@@ -239,7 +238,7 @@ export default function Settings() {
       GEMINI_API_KEY: geminiKey, DEEPSEEK_API_KEY: deepseekKey,
       TAVILY_API_KEY: tavilyKey, DISCORD_BOT_TOKEN: discordToken,
       TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
-      WHATSAPP_PHONE: whatsappPhone, GAME_MODE: gameMode ? 'true' : 'false',
+      GAME_MODE: gameMode ? 'true' : 'false',
     };
     Object.entries(entries).forEach(([k, v]) => localStorage.setItem(k, v));
 
@@ -253,7 +252,6 @@ export default function Settings() {
           gemini_key: geminiKey, deepseek_key: deepseekKey,
           tavily_key: tavilyKey, discord_token: discordToken,
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
-          whatsapp_phone: whatsappPhone,
         }),
       });
       setSaveStatus(res.ok ? 'saved' : 'fail');
@@ -362,12 +360,6 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
                   <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
                 </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  WhatsApp Phone (E.164)
-                </label>
-                <input type="text" value={whatsappPhone} onChange={e => setWhatsappPhone(e.target.value)} placeholder="+1234567890" className="input-base" />
               </div>
             </div>
           </GlowCard>

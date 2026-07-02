@@ -113,7 +113,7 @@ fn kill_backend_process() {
         let _ = Command::new("powershell")
             .args(&[
                 "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+                "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'api.exe'\" | Where-Object {$_.CommandLine -like '*api.py*' or $_.Name -eq 'api.exe'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
             ])
             .status();
     }
@@ -277,6 +277,48 @@ pub fn run() {
                         .level(log::LevelFilter::Info)
                         .build(),
                 )?;
+            }
+
+            // Spawn the python backend in production mode if packaged as a resource
+            let app_handle = app.handle();
+            let resource_path = app_handle
+                .path()
+                .resolve("api/api.exe", tauri::path::BaseDirectory::Resource);
+
+            if let Ok(api_exe_path) = resource_path {
+                if api_exe_path.exists() {
+                    // Get OS app local data directory: %LOCALAPPDATA%/meridian-x
+                    if let Ok(app_local_data_dir) = app_handle.path().app_local_data_dir() {
+                        let data_dir = app_local_data_dir.join("Meridian");
+                        let _ = std::fs::create_dir_all(&data_dir);
+                        
+                        log::info!("Spawning backend sidecar: {:?}", api_exe_path);
+                        let mut cmd = std::process::Command::new(&api_exe_path);
+                        
+                        // Set CWD to resources/api directory
+                        if let Some(parent) = api_exe_path.parent() {
+                            cmd.current_dir(parent);
+                        }
+                        
+                        // Configure MERIDIAN_DATA_DIR env variable
+                        if let Some(data_dir_str) = data_dir.to_str() {
+                            cmd.env("MERIDIAN_DATA_DIR", data_dir_str);
+                        }
+                        
+                        #[cfg(target_os = "windows")]
+                        {
+                            // On Windows, run the process in the background without opening a command window
+                            use std::os::windows::process::CommandExt;
+                            const CREATE_NO_WINDOW: u32 = 0x08000000;
+                            cmd.creation_flags(CREATE_NO_WINDOW);
+                        }
+                        
+                        match cmd.spawn() {
+                            Ok(_) => log::info!("Successfully spawned backend daemon!"),
+                            Err(e) => log::error!("Failed to spawn backend daemon: {:?}", e),
+                        }
+                    }
+                }
             }
 
             let window = app.get_webview_window("main").unwrap();

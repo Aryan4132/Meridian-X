@@ -110,7 +110,7 @@ export default function Jobs({ onRunsUpdate }: JobsProps) {
     if (!goal.trim() || !interval.trim() || loading) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4132/api/scheduler/win/create', {
+      const res = await fetch('http://localhost:4132/api/scheduler/create', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal, interval_seconds: parseInt(interval) || 60 }),
       });

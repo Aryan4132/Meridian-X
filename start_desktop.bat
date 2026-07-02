@@ -9,6 +9,8 @@ echo.
 :: 1. Terminate any stale python backend instances to prevent port 4132 conflicts
 echo [1/4] Terminating any running daemon instances...
 taskkill /f /im python.exe /fi "WINDOWTITLE eq Meridian-X Daemon" >nul 2>&1
+taskkill /f /im api.exe >nul 2>&1
+taskkill /f /im app.exe >nul 2>&1
 powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
 timeout /t 1 /nobreak >nul
 

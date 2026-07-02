@@ -4,158 +4,177 @@ Generated automatically by Meridian-X.
 ## Component Dependency Graph
 ```mermaid
 graph TD
-    N1["cleanup.py ()"]
-    N2["create_shortcut.py ()"]
-    N3["main.py ()"]
-    N4["setup_db.py ()"]
-    N5["setup_startup.py ()"]
-    N6["api.py (meridian_backend)"]
-    N7["database.py (meridian_backend)"]
-    N8["auth.py (meridian_backend/src/core)"]
-    N9["bus.py (meridian_backend/src/core)"]
-    N10["clipboard.py (meridian_backend/src/core)"]
-    N11["code_graph.py (meridian_backend/src/core)"]
-    N12["discord_bridge.py (meridian_backend/src/core)"]
-    N13["doc_generator.py (meridian_backend/src/core)"]
-    N14["doc_indexer.py (meridian_backend/src/core)"]
-    N15["exporter.py (meridian_backend/src/core)"]
-    N16["graph_sync.py (meridian_backend/src/core)"]
-    N17["history_manager.py (meridian_backend/src/core)"]
-    N18["llm_provider.py (meridian_backend/src/core)"]
-    N19["loop.py (meridian_backend/src/core)"]
-    N20["lsp_client.py (meridian_backend/src/core)"]
-    N21["mcp_client.py (meridian_backend/src/core)"]
-    N22["mode.py (meridian_backend/src/core)"]
-    N23["p2p.py (meridian_backend/src/core)"]
-    N24["plugins.py (meridian_backend/src/core)"]
-    N25["proactive.py (meridian_backend/src/core)"]
-    N26["scheduler.py (meridian_backend/src/core)"]
-    N27["speculative.py (meridian_backend/src/core)"]
-    N28["telegram_bridge.py (meridian_backend/src/core)"]
-    N29["vault.py (meridian_backend/src/core)"]
-    N30["vision.py (meridian_backend/src/core)"]
-    N31["watcher.py (meridian_backend/src/core)"]
-    N32["whatsapp_bridge.py (meridian_backend/src/core)"]
-    N33["clipboard.py (meridian_backend/src/tools)"]
-    N34["communication.py (meridian_backend/src/tools)"]
-    N35["db_query.py (meridian_backend/src/tools)"]
-    N36["desktop.py (meridian_backend/src/tools)"]
-    N37["developer.py (meridian_backend/src/tools)"]
-    N38["dynamic_manager.py (meridian_backend/src/tools)"]
-    N39["exporter.py (meridian_backend/src/tools)"]
-    N40["filesystem.py (meridian_backend/src/tools)"]
-    N41["knowledge.py (meridian_backend/src/tools)"]
-    N42["ollama_manager.py (meridian_backend/src/tools)"]
-    N43["recording.py (meridian_backend/src/tools)"]
-    N44["registry.py (meridian_backend/src/tools)"]
-    N45["review.py (meridian_backend/src/tools)"]
-    N46["scheduler.py (meridian_backend/src/tools)"]
-    N47["security_auditor.py (meridian_backend/src/tools)"]
-    N48["shell.py (meridian_backend/src/tools)"]
-    N49["system.py (meridian_backend/src/tools)"]
-    N50["task_scheduler.py (meridian_backend/src/tools)"]
-    N51["vault.py (meridian_backend/src/tools)"]
-    N52["voice.py (meridian_backend/src/tools)"]
-    N53["watcher.py (meridian_backend/src/tools)"]
-    N54["web.py (meridian_backend/src/tools)"]
-    N55["web_browser.py (meridian_backend/src/tools)"]
-    N56["stt.py (meridian_backend/src/voice)"]
-    N57["tts.py (meridian_backend/src/voice)"]
-    N58["wakeword.py (meridian_backend/src/voice)"]
-    N59["vite.config.ts (meridian_frontend)"]
-    N60["AppContext.tsx (meridian_frontend/src)"]
-    N61["main.tsx (meridian_frontend/src)"]
-    N62["Mascot.tsx (meridian_frontend/src)"]
-    N63["NavRail.tsx (meridian_frontend/src/components)"]
-    N64["RightDrawer.tsx (meridian_frontend/src/components)"]
-    N65["Shell.tsx (meridian_frontend/src/components)"]
-    N66["StatusBar.tsx (meridian_frontend/src/components)"]
-    N67["DataBadge.tsx (meridian_frontend/src/components/ui)"]
-    N68["GlowCard.tsx (meridian_frontend/src/components/ui)"]
-    N69["HoloButton.tsx (meridian_frontend/src/components/ui)"]
-    N70["ProgressArc.tsx (meridian_frontend/src/components/ui)"]
-    N71["TerminalLine.tsx (meridian_frontend/src/components/ui)"]
-    N72["BootSequence.tsx (meridian_frontend/src/startup)"]
-    N73["SetupWizard.tsx (meridian_frontend/src/startup)"]
-    N74["Clipboard.tsx (meridian_frontend/src/views)"]
-    N75["Jobs.tsx (meridian_frontend/src/views)"]
-    N76["Productivity.tsx (meridian_frontend/src/views)"]
-    N77["Settings.tsx (meridian_frontend/src/views)"]
-    N78["SwarmDebate.tsx (meridian_frontend/src/views)"]
-    N79["Timeline.tsx (meridian_frontend/src/views)"]
-    N80["get_system_platform_info.py (plugins)"]
+    N1["build_standalone.py ()"]
+    N2["cleanup.py ()"]
+    N3["create_shortcut.py ()"]
+    N4["main.py ()"]
+    N5["setup_db.py ()"]
+    N6["setup_startup.py ()"]
+    N7["api.py (meridian_backend)"]
+    N8["database.py (meridian_backend)"]
+    N9["auth.py (meridian_backend/src/core)"]
+    N10["bus.py (meridian_backend/src/core)"]
+    N11["clipboard.py (meridian_backend/src/core)"]
+    N12["code_graph.py (meridian_backend/src/core)"]
+    N13["config.py (meridian_backend/src/core)"]
+    N14["discord_bridge.py (meridian_backend/src/core)"]
+    N15["doc_generator.py (meridian_backend/src/core)"]
+    N16["doc_indexer.py (meridian_backend/src/core)"]
+    N17["exporter.py (meridian_backend/src/core)"]
+    N18["graph_sync.py (meridian_backend/src/core)"]
+    N19["history_manager.py (meridian_backend/src/core)"]
+    N20["llm_provider.py (meridian_backend/src/core)"]
+    N21["loop.py (meridian_backend/src/core)"]
+    N22["lsp_client.py (meridian_backend/src/core)"]
+    N23["mcp_client.py (meridian_backend/src/core)"]
+    N24["mode.py (meridian_backend/src/core)"]
+    N25["p2p.py (meridian_backend/src/core)"]
+    N26["plugins.py (meridian_backend/src/core)"]
+    N27["proactive.py (meridian_backend/src/core)"]
+    N28["scheduler.py (meridian_backend/src/core)"]
+    N29["speculative.py (meridian_backend/src/core)"]
+    N30["telegram_bridge.py (meridian_backend/src/core)"]
+    N31["vault.py (meridian_backend/src/core)"]
+    N32["vision.py (meridian_backend/src/core)"]
+    N33["watcher.py (meridian_backend/src/core)"]
+    N34["whatsapp_bridge.py (meridian_backend/src/core)"]
+    N35["clipboard.py (meridian_backend/src/tools)"]
+    N36["communication.py (meridian_backend/src/tools)"]
+    N37["db_query.py (meridian_backend/src/tools)"]
+    N38["desktop.py (meridian_backend/src/tools)"]
+    N39["developer.py (meridian_backend/src/tools)"]
+    N40["dynamic_manager.py (meridian_backend/src/tools)"]
+    N41["exporter.py (meridian_backend/src/tools)"]
+    N42["filesystem.py (meridian_backend/src/tools)"]
+    N43["knowledge.py (meridian_backend/src/tools)"]
+    N44["ollama_manager.py (meridian_backend/src/tools)"]
+    N45["recording.py (meridian_backend/src/tools)"]
+    N46["registry.py (meridian_backend/src/tools)"]
+    N47["review.py (meridian_backend/src/tools)"]
+    N48["scheduler.py (meridian_backend/src/tools)"]
+    N49["security_auditor.py (meridian_backend/src/tools)"]
+    N50["shell.py (meridian_backend/src/tools)"]
+    N51["system.py (meridian_backend/src/tools)"]
+    N52["task_scheduler.py (meridian_backend/src/tools)"]
+    N53["vault.py (meridian_backend/src/tools)"]
+    N54["voice.py (meridian_backend/src/tools)"]
+    N55["watcher.py (meridian_backend/src/tools)"]
+    N56["web.py (meridian_backend/src/tools)"]
+    N57["web_browser.py (meridian_backend/src/tools)"]
+    N58["stt.py (meridian_backend/src/voice)"]
+    N59["tts.py (meridian_backend/src/voice)"]
+    N60["wakeword.py (meridian_backend/src/voice)"]
+    N61["vite.config.ts (meridian_frontend)"]
+    N62["AppContext.tsx (meridian_frontend/src)"]
+    N63["main.tsx (meridian_frontend/src)"]
+    N64["Mascot.tsx (meridian_frontend/src)"]
+    N65["NavRail.tsx (meridian_frontend/src/components)"]
+    N66["RightDrawer.tsx (meridian_frontend/src/components)"]
+    N67["Shell.tsx (meridian_frontend/src/components)"]
+    N68["StatusBar.tsx (meridian_frontend/src/components)"]
+    N69["DataBadge.tsx (meridian_frontend/src/components/ui)"]
+    N70["GlowCard.tsx (meridian_frontend/src/components/ui)"]
+    N71["HoloButton.tsx (meridian_frontend/src/components/ui)"]
+    N72["ProgressArc.tsx (meridian_frontend/src/components/ui)"]
+    N73["TerminalLine.tsx (meridian_frontend/src/components/ui)"]
+    N74["BootSequence.tsx (meridian_frontend/src/startup)"]
+    N75["SetupWizard.tsx (meridian_frontend/src/startup)"]
+    N76["Clipboard.tsx (meridian_frontend/src/views)"]
+    N77["Jobs.tsx (meridian_frontend/src/views)"]
+    N78["Productivity.tsx (meridian_frontend/src/views)"]
+    N79["Settings.tsx (meridian_frontend/src/views)"]
+    N80["SwarmDebate.tsx (meridian_frontend/src/views)"]
+    N81["Timeline.tsx (meridian_frontend/src/views)"]
+    N82["coreBundle.js (meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib)"]
+    N83["utilsBundle.js (meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib)"]
+    N84["structs.d.ts (meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types)"]
+    N85["types.d.ts (meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types)"]
+    N86["get_system_platform_info.py (plugins)"]
 
-    N3 --> N6
-    N6 --> N7
-    N7 --> N6
-    N10 --> N7
-    N12 --> N7
-    N14 --> N7
-    N15 --> N7
-    N18 --> N7
-    N19 --> N7
-    N22 --> N7
-    N23 --> N7
-    N25 --> N7
-    N25 --> N6
-    N26 --> N7
-    N26 --> N6
+    N4 --> N7
+    N7 --> N8
+    N8 --> N7
+    N11 --> N8
+    N14 --> N8
+    N16 --> N8
+    N17 --> N8
+    N20 --> N8
+    N21 --> N8
+    N24 --> N8
+    N25 --> N8
+    N27 --> N8
+    N27 --> N7
+    N28 --> N8
     N28 --> N7
-    N30 --> N7
-    N31 --> N7
-    N32 --> N7
-    N33 --> N7
-    N35 --> N7
-    N36 --> N7
-    N38 --> N7
-    N39 --> N7
-    N41 --> N7
-    N42 --> N7
-    N43 --> N7
-    N44 --> N7
-    N45 --> N7
-    N48 --> N7
-    N54 --> N7
-    N55 --> N7
-    N61 --> N62
-    N61 --> N72
-    N61 --> N73
-    N61 --> N65
-    N61 --> N60
-    N63 --> N60
-    N64 --> N60
-    N64 --> N70
-    N64 --> N67
-    N65 --> N60
-    N65 --> N63
-    N65 --> N66
-    N65 --> N64
-    N65 --> N79
-    N65 --> N75
-    N65 --> N74
-    N65 --> N76
-    N65 --> N78
-    N65 --> N77
-    N66 --> N60
-    N66 --> N67
-    N73 --> N69
-    N74 --> N69
-    N75 --> N69
-    N75 --> N68
-    N76 --> N70
-    N76 --> N69
-    N76 --> N68
-    N77 --> N60
+    N30 --> N8
+    N32 --> N8
+    N33 --> N8
+    N34 --> N8
+    N35 --> N8
+    N37 --> N8
+    N38 --> N8
+    N40 --> N8
+    N41 --> N8
+    N43 --> N8
+    N44 --> N8
+    N45 --> N8
+    N46 --> N8
+    N47 --> N8
+    N50 --> N8
+    N56 --> N8
+    N57 --> N8
+    N62 --> N85
+    N63 --> N64
+    N63 --> N74
+    N63 --> N75
+    N63 --> N67
+    N63 --> N62
+    N65 --> N62
+    N66 --> N62
+    N66 --> N72
+    N66 --> N69
+    N67 --> N62
+    N67 --> N65
+    N67 --> N68
+    N67 --> N66
+    N67 --> N81
+    N67 --> N77
+    N67 --> N76
+    N67 --> N78
+    N67 --> N80
+    N67 --> N79
+    N68 --> N62
+    N68 --> N69
+    N75 --> N71
+    N76 --> N85
+    N76 --> N71
+    N77 --> N85
+    N77 --> N71
     N77 --> N70
-    N77 --> N69
-    N77 --> N68
+    N78 --> N85
+    N78 --> N72
     N78 --> N71
-    N78 --> N69
-    N79 --> N69
-    N79 --> N68
+    N78 --> N70
+    N79 --> N85
+    N79 --> N62
+    N79 --> N72
+    N79 --> N71
+    N79 --> N70
+    N80 --> N73
+    N80 --> N71
+    N81 --> N85
+    N81 --> N71
+    N81 --> N70
+    N84 --> N85
+    N85 --> N84
 ```
 
 ## Detailed File Index
+- **build_standalone.py**
+  - Imports: `os`
+  - Imports: `shutil`
+  - Imports: `subprocess`
+  - Imports: `sys`
 - **cleanup.py**
   - Imports: `os`
   - Imports: `shutil`
@@ -232,6 +251,8 @@ graph TD
   - Imports: `os`
   - Imports: `re`
   - Imports: `src`
+- **meridian_backend/src/core/config.py**
+  - Imports: `os`
 - **meridian_backend/src/core/discord_bridge.py**
   - Imports: `asyncio`
   - Imports: `database`
@@ -380,6 +401,7 @@ graph TD
   - Imports: `cryptography`
   - Imports: `json`
   - Imports: `os`
+  - Imports: `src`
   - Imports: `typing`
 - **meridian_backend/src/core/vision.py**
   - Imports: `base64`
@@ -600,8 +622,25 @@ graph TD
   - Imports: `os`
   - Imports: `sounddevice`
   - Imports: `src`
+  - Imports: `sys`
   - Imports: `threading`
   - Imports: `time`
+- **meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib/coreBundle.js**
+  - Imports: `test`
+- **meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib/utilsBundle.js**
+  - Imports: `ajv`
+  - Imports: `ajv-formats`
+- **meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types/structs.d.ts**
+  - Imports: `types`
+- **meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types/types.d.ts**
+  - Imports: `child_process`
+  - Imports: `fs`
+  - Imports: `protocol`
+  - Imports: `stream`
+  - Imports: `structs`
+  - Imports: `test`
+  - Imports: `v3`
+  - Imports: `zod`
 - **meridian_frontend/src/AppContext.tsx**
   - Imports: `react`
   - Imports: `types`
