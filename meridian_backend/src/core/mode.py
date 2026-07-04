@@ -197,7 +197,7 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
     """Queries RAG, KG facts, user profile, and system specs to format the complete prompt."""
     mode = classify_mode(prompt)
     mode_directive = MODE_DIRECTIVES[mode]
-    
+
     # Load workspace config overrides
     config = load_workspace_config()
     custom_directives = config.get("custom_directives")
@@ -260,7 +260,7 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
         print("[System Prompt] RAG search error:", e)
         
     # User Profile
-    user_profile = "- Preferred response tone: concise\n- Coding preference: Python\n- Shell: PowerShell"
+    user_profile = "- Coding preference: Python\n- Shell: PowerShell"
     try:
         from database import get_mongo_db
         db_conn = get_mongo_db()

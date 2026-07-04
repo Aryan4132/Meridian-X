@@ -489,7 +489,7 @@ def get_react_thoughts(prompt: str, brain_model: str, ocr_model: str) -> Dict[st
             from src.core.mode import build_system_prompt
             system_prompt = build_system_prompt(prompt, brain_model, get_ollama_client_host(), "")
         except Exception:
-            system_prompt = "You are Meridian-X, an intelligent desktop assistant built by Aryan. Be concise, helpful, and clear."
+            system_prompt = "You are Meridian-X, an intelligent desktop assistant built by Aryan. Be helpful and clear."
 
         from database import get_conversation_history
         past_messages = get_conversation_history(limit=10)

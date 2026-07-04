@@ -631,6 +631,8 @@ graph TD
   - Imports: `v3`
   - Imports: `zod`
 - **meridian_frontend/src/AppContext.tsx**
+  - Imports: `core`
+  - Imports: `event`
   - Imports: `react`
   - Imports: `types`
 - **meridian_frontend/src/Mascot.tsx**
@@ -727,6 +729,7 @@ graph TD
   - Imports: `GlowCard`
   - Imports: `HoloButton`
   - Imports: `lucide-react`
+  - Imports: `marked`
   - Imports: `react`
   - Imports: `types`
 - **meridian_frontend/vite.config.ts**
