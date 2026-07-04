@@ -890,18 +890,7 @@ class ConfirmRequest(BaseModel):
     id: str
     approved: bool
 
-class GameModeRequest(BaseModel):
-    enabled: bool
 
-@app.post("/api/game-mode")
-def post_game_mode(request: GameModeRequest):
-    try:
-        import src.core.proactive as proactive
-        proactive.game_mode_active = request.enabled
-        print(f"[API] Game Mode set to: {proactive.game_mode_active}")
-        return {"status": "success", "game_mode_active": proactive.game_mode_active}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/swarm/stream")
 async def swarm_stream():
@@ -980,7 +969,7 @@ def watcher_list():
         raise HTTPException(status_code=500, detail=str(e))
 
 class GameModeRequest(BaseModel):
-    game_mode: bool
+    enabled: bool
 
 @app.get("/api/game-mode")
 def get_game_mode():
@@ -994,7 +983,7 @@ def get_game_mode():
 def set_game_mode(request: GameModeRequest):
     try:
         from src.core import proactive
-        proactive.game_mode_active = request.game_mode
+        proactive.game_mode_active = request.enabled
         # If user manually changes it, we reset the auto_game_mode flag
         proactive.auto_game_mode_active = False
         
@@ -1003,7 +992,7 @@ def set_game_mode(request: GameModeRequest):
         publish_nudge_sync(
             nudge_type="game_mode_changed",
             title="Game Mode Update",
-            message="enabled" if request.game_mode else "disabled",
+            message="enabled" if request.enabled else "disabled",
             icon="🎮",
             action="game_mode_update"
         )
