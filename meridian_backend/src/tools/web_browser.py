@@ -126,7 +126,7 @@ def _locate_element_by_vision(description: str) -> Optional[tuple]:
             prompt=prompt,
             images=[temp_path]
         )
-        coord_text = res.get("response", "").strip()
+        coord_text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         print(f"[Vision Browser] Moondream coordinate prediction: {coord_text}")
         
         # Parse percentage coordinates using regex
@@ -242,7 +242,7 @@ def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
                     "Respond with a valid JSON block of fields. No other text."
                 )
                 ollama_res = client.generate(model=_get_active_model(), prompt=prompt)
-                extracted_data = ollama_res.get("response", "{}").strip()
+                extracted_data = (ollama_res.response if hasattr(ollama_res, "response") else ollama_res.get("response", "{}")).strip()
                 results.append(f"URL: {url} (Title: {title_text})\nExtracted Data:\n{extracted_data}")
             else:
                 results.append(f"URL: {url} (Title: {title_text})\nText snippet:\n{body_text[:300]}...")
@@ -287,6 +287,10 @@ def scrape_table(url: str, table_index: int = 0) -> str:
         lines.append("| " + " | ".join(headers) + " |")
         lines.append("| " + " | ".join(["---"] * len(headers)) + " |")
         for row in rows:
+            if len(row) < len(headers):
+                row = row + [""] * (len(headers) - len(row))
+            elif len(row) > len(headers):
+                row = row[:len(headers)]
             lines.append("| " + " | ".join(row) + " |")
             
         return "\n".join(lines)

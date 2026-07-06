@@ -40,6 +40,8 @@ def review_file(path: str) -> str:
                 {"role": "user", "content": prompt}
             ]
         )
+        if hasattr(res, "message") and hasattr(res.message, "content"):
+            return res.message.content
         return res.get("message", {}).get("content", "Failed to generate code review.")
     except Exception as e:
         return f"Error reviewing file: {e}"
@@ -61,6 +63,8 @@ def review_diff(repo_path: str) -> str:
                 {"role": "user", "content": prompt}
             ]
         )
+        if hasattr(res, "message") and hasattr(res.message, "content"):
+            return res.message.content
         return res.get("message", {}).get("content", "Failed to generate diff review.")
     except Exception as e:
         return f"Error reviewing git diff: {e}"

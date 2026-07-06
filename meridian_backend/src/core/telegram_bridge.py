@@ -143,6 +143,7 @@ def _poll_loop():
                     ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
                     
                     loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
                     reply_parts = []
                     
                     async def _run():
@@ -155,6 +156,7 @@ def _poll_loop():
                         loop.run_until_complete(_run())
                     finally:
                         loop.close()
+                        asyncio.set_event_loop(None)
                         
                     reply_text = "".join(reply_parts).strip() or "Task completed."
                     
@@ -202,6 +204,13 @@ def _poll_loop():
                             
                 except Exception as ae:
                     print(f"[Telegram Bridge] Error executing command: {ae}")
+                    if isinstance(ae, httpx.TransportError):
+                        print("[Telegram Bridge] Transport error during update lifecycle. Recreating client...")
+                        try:
+                            client.close()
+                        except Exception:
+                            pass
+                        client = httpx.Client(timeout=15.0)
                     try:
                         client.post(
                             f"https://api.telegram.org/bot{token}/sendMessage",

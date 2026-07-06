@@ -72,12 +72,13 @@ class P2PSyncNode:
 
     def _handle_client(self, conn, addr):
         try:
-            data = ""
+            chunks = []
             while True:
                 chunk = conn.recv(4096)
                 if not chunk:
                     break
-                data += chunk.decode('utf-8')
+                chunks.append(chunk)
+            data = b"".join(chunks).decode('utf-8')
             
             if not data.strip():
                 return
@@ -175,13 +176,25 @@ class P2PSyncNode:
 
         # 2. Merge Turbovec Semantic Caches
         try:
-            from database import add_to_semantic_cache, check_semantic_cache
+            from database import add_to_semantic_cache, check_semantic_cache, get_sqlite_conn
             peer_caches = peer_data.get("semantic_cache", [])
+            existing_queries = set()
+            try:
+                conn = get_sqlite_conn()
+                cursor = conn.cursor()
+                cursor.execute("SELECT query_text FROM semantic_cache")
+                existing_queries = {r["query_text"] for r in cursor.fetchall()}
+                conn.close()
+            except Exception as dbe:
+                print(f"[P2P Sync] Failed to pre-fetch cache queries: {dbe}")
+
             for cache in peer_caches:
                 query_text = cache.get("query_text")
                 response_text = cache.get("response_text")
                 if query_text and response_text:
-                    # Check if already exists in cache
+                    if query_text in existing_queries:
+                        continue
+                    # Check if already exists in cache (semantic similarity check fallback)
                     existing = check_semantic_cache(query_text)
                     if not existing:
                         ttl = int(cache.get("expires_at", time.time() + 86400) - time.time())
@@ -244,6 +257,7 @@ class P2PSyncNode:
                     "data": local_data
                 }
                 s.sendall(json.dumps(payload).encode('utf-8'))
+                s.shutdown(socket.SHUT_WR)
                 
                 # Receive confirmation
                 chunks = []

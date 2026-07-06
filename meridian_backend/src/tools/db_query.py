@@ -174,7 +174,7 @@ def db_nl_query(natural_language: str) -> str:
             f"Respond with ONLY the raw SQL query. Do not wrap in markdown fences or explanations."
         )
         res = client.generate(model=_get_active_model(), prompt=prompt)
-        sql = res.get("response", "").strip()
+        sql = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         
         # Clean formatting
         if sql.startswith("```"):

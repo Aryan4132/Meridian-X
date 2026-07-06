@@ -494,9 +494,8 @@ def get_active_process_and_title() -> tuple[str, str]:
                 # 2. Get Process Executable Name
                 pid = wintypes.DWORD()
                 ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                PROCESS_QUERY_INFORMATION = 0x0400
-                PROCESS_VM_READ = 0x0010
-                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid.value)
+                PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
                 if handle:
                     try:
                         buf_path = ctypes.create_unicode_buffer(1024)
@@ -505,6 +504,14 @@ def get_active_process_and_title() -> tuple[str, str]:
                             proc_name = os.path.basename(buf_path.value)
                     finally:
                         ctypes.windll.kernel32.CloseHandle(handle)
+                
+                # Robust fallback for anti-cheat protected processes (e.g., Valorant under Riot Vanguard)
+                if not proc_name and pid.value:
+                    try:
+                        import psutil
+                        proc_name = psutil.Process(pid.value).name()
+                    except Exception:
+                        pass
         except Exception:
             pass
     elif sys_platform == "Darwin":
@@ -541,7 +548,13 @@ def check_active_window():
     proc_lower = proc_name.lower()
 
     # ── Game Mode Auto-Detection ──────────────────────────────
-    game_keywords = ["valorant", "cyberpunk", "counter-strike", "csgo", "cs2", "dota 2", "dota2", "league of legends", "gta v", "gta5", "minecraft", "javaw", "fortnite", "genshin impact", "genshinimpact", "apex legends", "apexlegends", "hades"]
+    game_keywords = [
+        "valorant", "cyberpunk", "counter-strike", "csgo", "cs2", 
+        "dota 2", "dota2", "league of legends", "leagueoflegends", 
+        "gta v", "gta5", "minecraft", "javaw", "fortnite", 
+        "genshin impact", "genshinimpact", "genshin", 
+        "apex legends", "apexlegends", "r5apex", "hades"
+    ]
     is_playing_game = any(gk in title_lower or gk in proc_lower for gk in game_keywords)
     
     if is_playing_game:
@@ -559,8 +572,7 @@ def check_active_window():
         return
     elif game_mode_active and auto_game_mode_active:
         # Check if the game process is still running in the background before disabling Game Mode
-        game_exe_keywords = ["valorant", "cyberpunk", "csgo", "cs2", "dota2", "leagueoflegends", "gta5", "minecraft", "fortnite", "genshin", "apexlegends", "hades"]
-        if is_game_process_running(game_exe_keywords):
+        if is_game_process_running(game_keywords):
             # Game is still running in background, preserve Game Mode
             return
             

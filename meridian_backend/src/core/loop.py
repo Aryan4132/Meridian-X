@@ -811,7 +811,7 @@ async def execute_single_tool_async(
 
     # 2. Run approved tool
     try:
-        result = await asyncio.to_thread(call_tool, tool_name, args)
+        result = await call_tool(tool_name, args)
         add_to_task_log(tool_name, tier, "success")
         return tool_name, result, "success"
     except Exception as e:
@@ -1570,8 +1570,7 @@ async def run_react_agent_loop(
 
                     # Run the actual tool call
                     try:
-                        # Run in thread pool to prevent blocking event loop if slow/IO bound
-                        result = await asyncio.to_thread(call_tool, tool_name, args)
+                        result = await call_tool(tool_name, args)
                         
                         # Multi-Modal Thought Anchoring Layout verification: capture validation screenshot on layout changes
                         if tool_name == "run_python" and ("matplotlib" in json.dumps(args) or "plt." in json.dumps(args)):

@@ -280,6 +280,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       // Final: extract chat text from any JSON wrapper and strip duplicate content
       // The backend may stream chunks then send the full text again as final event
       const thoughtsList = finalThoughts.map(t => t.text);
+      const cleanedContent = extractChatText(finalContent);
       setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || 'Operation completed.', thoughts: thoughtsList }]);
       setStreaming('');
       setStreamThoughts([]);

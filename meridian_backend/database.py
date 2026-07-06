@@ -232,6 +232,7 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
             del _exact_match_cache[query_text]
 
     # Tier-2: Cosine Similarity Vector Cache (Turbovec + SQLite lookup)
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -258,17 +259,20 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
                             print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
                             # Store back to Tier-1
                             _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])
-                            conn.close()
                             return res["response_text"]
-        conn.close()
     except Exception as e:
         print("[Semantic Cache] Search failed:", e)
+    finally:
+        if conn:
+            conn.close()
     return None
 
 def add_to_semantic_cache(query_text: str, response_text: str, ttl_seconds: int = 86400):
     expires_at = time.time() + ttl_seconds
     _exact_match_cache[query_text] = (response_text, expires_at)
     
+    conn = None
+    inserted_id = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -283,22 +287,28 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_seconds: int 
         )
         inserted_id = cursor.lastrowid
         conn.commit()
-        conn.close()
-        
-        # Add to Turbovec index
-        vector = get_embedding(query_text)
-        vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-        with _turbovec_lock:
-            cache_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
-            cache_index.write(CACHE_INDEX_PATH)
-        
-        print(f"[Semantic Cache] Saved to Turbovec vector cache: '{query_text}' (ID: {inserted_id})")
     except Exception as e:
-        print("[Semantic Cache] Save to Turbovec failed:", e)
+        print("[Semantic Cache] SQLite write failed:", e)
+    finally:
+        if conn:
+            conn.close()
+            
+    # Add to Turbovec index outside the connection scope
+    if inserted_id is not None:
+        try:
+            vector = get_embedding(query_text)
+            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+            with _turbovec_lock:
+                cache_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
+                cache_index.write(CACHE_INDEX_PATH)
+            print(f"[Semantic Cache] Saved to Turbovec vector cache: '{query_text}' (ID: {inserted_id})")
+        except Exception as e:
+            print("[Semantic Cache] Save to Turbovec index failed:", e)
 
 # ----------------- TASK LOG AUDIT TRAIL HELPERS -----------------
 
 def add_to_task_log(tool: str, tier: int, outcome: str, error: str = ""):
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -308,11 +318,14 @@ def add_to_task_log(tool: str, tier: int, outcome: str, error: str = ""):
             (log_id, time.time(), tool, tier, outcome, error)
         )
         conn.commit()
-        conn.close()
     except Exception as e:
         print("[Task Log] Save failed:", e)
+    finally:
+        if conn:
+            conn.close()
 
 def get_recent_failures(limit: int = 5) -> List[Dict[str, Any]]:
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -321,15 +334,18 @@ def get_recent_failures(limit: int = 5) -> List[Dict[str, Any]]:
             (limit,)
         )
         rows = cursor.fetchall()
-        conn.close()
         return [dict(r) for r in rows]
     except Exception as e:
         print("[RLEF] Failed to fetch task logs:", e)
         return []
+    finally:
+        if conn:
+            conn.close()
 
 # ----------------- BACKGROUND SCHEDULER RUNS HELPERS -----------------
 
 def add_background_run(goal: str, status: str, log: str):
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -338,12 +354,15 @@ def add_background_run(goal: str, status: str, log: str):
             (time.time(), goal, status, log)
         )
         conn.commit()
-        conn.close()
         print(f"[Scheduler Log] Logged background run: {goal[:30]} ({status})")
     except Exception as e:
         print("[Scheduler Log] Save failed:", e)
+    finally:
+        if conn:
+            conn.close()
 
 def get_background_runs(limit: int = 20) -> List[Dict[str, Any]]:
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -352,15 +371,19 @@ def get_background_runs(limit: int = 20) -> List[Dict[str, Any]]:
             (limit,)
         )
         rows = cursor.fetchall()
-        conn.close()
         return [dict(r) for r in rows]
     except Exception as e:
         print("[Scheduler Log] Retrieval failed:", e)
         return []
+    finally:
+        if conn:
+            conn.close()
 
 # ----------------- CONVERSATIONS HELPERS -----------------
 
 def add_to_conversations(role: str, content: str, summary: str = ""):
+    conn = None
+    inserted_id = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -370,20 +393,26 @@ def add_to_conversations(role: str, content: str, summary: str = ""):
         )
         inserted_id = cursor.lastrowid
         conn.commit()
-        conn.close()
-        
-        # Index the vector in Turbovec
-        vector = get_embedding(content)
-        vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-        with _turbovec_lock:
-            conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
-            conv_index.write(CONV_INDEX_PATH)
-        
-        print(f"[Conversations Log] Saved to Turbovec index (ID: {inserted_id})")
     except Exception as e:
-        print("[Conversations Log] Save failed:", e)
+        print("[Conversations Log] SQLite write failed:", e)
+    finally:
+        if conn:
+            conn.close()
+            
+    # Index the vector in Turbovec outside the connection scope
+    if inserted_id is not None:
+        try:
+            vector = get_embedding(content)
+            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+            with _turbovec_lock:
+                conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
+                conv_index.write(CONV_INDEX_PATH)
+            print(f"[Conversations Log] Saved to Turbovec index (ID: {inserted_id})")
+        except Exception as e:
+            print("[Conversations Log] Turbovec index save failed:", e)
 
 def get_conversation_history(limit: int = 10) -> List[Dict[str, Any]]:
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -391,7 +420,6 @@ def get_conversation_history(limit: int = 10) -> List[Dict[str, Any]]:
             "SELECT id, timestamp, role, content, summary FROM conversations ORDER BY timestamp ASC"
         )
         rows = cursor.fetchall()
-        conn.close()
         
         results = []
         for r in rows:
@@ -407,17 +435,26 @@ def get_conversation_history(limit: int = 10) -> List[Dict[str, Any]]:
     except Exception as e:
         print("[Conversations Log] Retrieval failed:", e)
         return []
+    finally:
+        if conn:
+            conn.close()
 
 def clear_conversations():
     global conv_index
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM conversations")
         conn.commit()
-        conn.close()
-        
-        # Reset conversations index
+    except Exception as e:
+        print("[Conversations Log] Failed to clear conversations from SQLite:", e)
+    finally:
+        if conn:
+            conn.close()
+            
+    # Reset conversations index outside the connection scope
+    try:
         with _turbovec_lock:
             conv_index = IdMapIndex(dim=768, bit_width=4)
             if os.path.exists(CONV_INDEX_PATH):
@@ -451,26 +488,29 @@ def ingest_into_knowledge_base(source: str, text: str, metadata: dict = None):
         if not chunks:
             return
             
-        conn = get_sqlite_conn()
-        cursor = conn.cursor()
-        
+        conn = None
         ids_to_add = []
         vectors_to_add = []
-        
-        for index, chunk in enumerate(chunks):
-            meta_json = json.dumps(metadata or {})
-            cursor.execute(
-                "INSERT INTO knowledge_base (source, chunk_text, metadata) VALUES (?, ?, ?)",
-                (source, chunk, meta_json)
-            )
-            inserted_id = cursor.lastrowid
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
             
-            vector = get_embedding(chunk)
-            ids_to_add.append(inserted_id)
-            vectors_to_add.append(normalize_vector(vector))
-            
-        conn.commit()
-        conn.close()
+            for index, chunk in enumerate(chunks):
+                meta_json = json.dumps(metadata or {})
+                cursor.execute(
+                    "INSERT INTO knowledge_base (source, chunk_text, metadata) VALUES (?, ?, ?)",
+                    (source, chunk, meta_json)
+                )
+                inserted_id = cursor.lastrowid
+                
+                vector = get_embedding(chunk)
+                ids_to_add.append(inserted_id)
+                vectors_to_add.append(normalize_vector(vector))
+                
+            conn.commit()
+        finally:
+            if conn:
+                conn.close()
         
         # Add to Turbovec index
         if ids_to_add:
@@ -484,13 +524,13 @@ def ingest_into_knowledge_base(source: str, text: str, metadata: dict = None):
         print("[RAG] Ingestion failed:", e)
 
 def search_knowledge_base(query: str, limit: int = 2) -> List[Dict[str, Any]]:
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) FROM knowledge_base")
         count = cursor.fetchone()[0]
         if count == 0:
-            conn.close()
             return []
             
         vector = get_embedding(query)
@@ -526,11 +566,13 @@ def search_knowledge_base(query: str, limit: int = 2) -> List[Dict[str, Any]]:
                         "similarity": similarity,
                         "metadata": meta_dict
                     })
-        conn.close()
         return clean_results[:limit]
     except Exception as e:
         print("[RAG] Search failed:", e)
         return []
+    finally:
+        if conn:
+            conn.close()
 
 # ----------------- MONGODB HELPERS (MongoDB Offline Graceful Fallbacks) -----------------
 
@@ -616,6 +658,7 @@ def get_clipboard_history(limit: int = 10) -> List[Dict[str, Any]]:
 
 def save_user_profile(key: str, value: Any):
     # 1. Save to SQLite user_profile table
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -625,10 +668,12 @@ def save_user_profile(key: str, value: Any):
             (key, val_str)
         )
         conn.commit()
-        conn.close()
         print(f"[SQLite User Profile] Updated: '{key}'")
     except Exception as e:
         print(f"[SQLite User Profile] Save failed: {e}")
+    finally:
+        if conn:
+            conn.close()
 
     # 2. Save to MongoDB if online
     db_conn = get_mongo_db()
@@ -646,16 +691,19 @@ def save_user_profile(key: str, value: Any):
 
 def get_user_profile(key: str) -> Optional[Any]:
     # 1. Try SQLite first
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
         cursor.execute("SELECT value FROM user_profile WHERE key = ?", (key,))
         res = cursor.fetchone()
-        conn.close()
         if res:
             return json.loads(res["value"])
     except Exception as e:
         print(f"[SQLite User Profile] Fetch failed: {e}")
+    finally:
+        if conn:
+            conn.close()
 
     # 2. Fallback to MongoDB
     db_conn = get_mongo_db()
@@ -715,11 +763,16 @@ def consolidate_memory_sleep_cycle():
         from api import get_ollama_client_host
         ollama_host = get_ollama_client_host()
         
-        conn = get_sqlite_conn()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, timestamp, role, content FROM conversations ORDER BY timestamp ASC")
-        rows = cursor.fetchall()
-        conn.close()
+        conn = None
+        rows = []
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, timestamp, role, content FROM conversations ORDER BY timestamp ASC")
+            rows = cursor.fetchall()
+        finally:
+            if conn:
+                conn.close()
         
         valid_records = [dict(r) for r in rows]
         if len(valid_records) >= 5:
@@ -753,14 +806,18 @@ def consolidate_memory_sleep_cycle():
                         added_count += 1
                 
                 # Delete processed conversations
-                conn = get_sqlite_conn()
-                cursor = conn.cursor()
-                ids_to_delete = [r["id"] for r in valid_records]
-                placeholders = ",".join("?" for _ in ids_to_delete)
-                cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids_to_delete)
-                conn.commit()
-                conn.close()
-                print(f"[Sleep Cycle] Successfully consolidated {len(valid_records)} turns into {added_count} KB facts.")
+                conn = None
+                try:
+                    conn = get_sqlite_conn()
+                    cursor = conn.cursor()
+                    ids_to_delete = [r["id"] for r in valid_records]
+                    placeholders = ",".join("?" for _ in ids_to_delete)
+                    cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids_to_delete)
+                    conn.commit()
+                    print(f"[Sleep Cycle] Successfully consolidated {len(valid_records)} turns into {added_count} KB facts.")
+                finally:
+                    if conn:
+                        conn.close()
             except Exception as je:
                 print("[Sleep Cycle] JSON parse error during facts distillation:", je, text)
         else:

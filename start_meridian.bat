@@ -35,7 +35,7 @@ if not exist ".\meridian_backend\venv" (
     pause
     goto menu
 )
-call .\meridian_backend\venv\Scripts\python main.py --prompt "%userprompt%"
+call .\meridian_backend\venv\Scripts\python main.py --goal "%userprompt%"
 echo.
 pause
 goto menu

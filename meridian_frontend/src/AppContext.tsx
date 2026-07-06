@@ -102,14 +102,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, []);
 
-  // Sync initial game mode to Tauri on mount
+  // Sync initial game mode to Tauri and Python Backend on mount
   useEffect(() => {
+    const initialMode = localStorage.getItem('GAME_MODE') === 'true';
     if ((window as any).__TAURI_INTERNALS__) {
-      const initialMode = localStorage.getItem('GAME_MODE') === 'true';
       invoke('toggle_game_mode', { enabled: initialMode }).catch(err =>
-        console.error("Failed to sync initial game mode:", err)
+        console.error("Failed to sync initial game mode in Tauri:", err)
       );
     }
+
+    // Sync to Python Backend
+    fetch('http://localhost:4132/api/game-mode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: initialMode }),
+    }).catch(err =>
+      console.error("Failed to sync initial game mode on backend:", err)
+    );
   }, []);
 
   // Listen to system tray menu events

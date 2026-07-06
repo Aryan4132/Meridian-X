@@ -50,7 +50,7 @@ def cleanup_workspace():
             print(f"  [Error] Failed to remove fine-tuning logs: {e}")
 
     # 5. Clean frontend build outputs (dist)
-    dist_dir = os.path.join(root_dir, "meridain_frontend", "dist")
+    dist_dir = os.path.join(root_dir, "meridian_frontend", "dist")
     if os.path.exists(dist_dir):
         try:
             shutil.rmtree(dist_dir)
@@ -59,7 +59,7 @@ def cleanup_workspace():
             print(f"  [Error] Failed to remove frontend dist: {e}")
 
     # 6. Clean Tauri Rust target directory
-    tauri_target_dir = os.path.join(root_dir, "meridain_frontend", "src-tauri", "target")
+    tauri_target_dir = os.path.join(root_dir, "meridian_frontend", "src-tauri", "target")
     if os.path.exists(tauri_target_dir):
         try:
             shutil.rmtree(tauri_target_dir)

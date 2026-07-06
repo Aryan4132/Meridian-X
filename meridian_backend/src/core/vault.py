@@ -23,10 +23,25 @@ def save_secret(key: str, value: str, passphrase: str) -> str:
     # 1. Load existing secrets if vault file exists
     secrets = {}
     if os.path.exists(VAULT_FILE):
+        # First check if the vault file is readable and has valid JSON structure
+        is_valid_json = False
         try:
-            secrets = load_all_secrets(passphrase)
+            with open(VAULT_FILE, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+            if isinstance(payload, dict) and "salt" in payload and "nonce" in payload and "ciphertext" in payload:
+                is_valid_json = True
         except Exception:
-            # If wrong password or corrupt, initialize new
+            # If json is corrupted or unreadable, we will treat it as new/corrupt
+            pass
+
+        if is_valid_json:
+            try:
+                secrets = load_all_secrets(passphrase)
+            except Exception as e:
+                # Decryption failed on a structurally valid vault file
+                raise ValueError("Decryption failed. The master passphrase may be incorrect or the vault is corrupted.") from e
+        else:
+            # Vault file is present but structurally invalid/corrupted - start fresh
             pass
             
     secrets[key] = value

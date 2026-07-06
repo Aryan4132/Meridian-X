@@ -82,7 +82,7 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: str = "base
                 recording.append(chunk)
                 
                 # Calculate root-mean-square (RMS) energy
-                rms = np.sqrt(np.mean(chunk**2)) if chunk.size > 0 else 0
+                rms = np.sqrt(np.mean(chunk.astype(np.float32)**2)) if chunk.size > 0 else 0.0
                 
                 if rms > threshold:
                     if not speech_detected:

@@ -1295,32 +1295,35 @@ class SandboxRequest(BaseModel):
 @app.get("/api/developer/stats")
 def get_developer_stats():
     from database import get_sqlite_conn, get_user_profile
+    conn = None
     try:
-        conn = get_sqlite_conn()
-        cursor = conn.cursor()
-        
-        # Total tasks
-        cursor.execute("SELECT COUNT(*) FROM task_log")
-        total_tasks = cursor.fetchone()[0]
-        
-        # Success tasks
-        cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'success'")
-        success_tasks = cursor.fetchone()[0]
-        
-        # Failed tasks
-        cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'failed'")
-        failed_tasks = cursor.fetchone()[0]
-        
-        # Security audits (tier >= 2)
-        cursor.execute("SELECT COUNT(*) FROM task_log WHERE tier >= 2")
-        security_audits = cursor.fetchone()[0]
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            
+            # Total tasks
+            cursor.execute("SELECT COUNT(*) FROM task_log")
+            total_tasks = cursor.fetchone()[0]
+            
+            # Success tasks
+            cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'success'")
+            success_tasks = cursor.fetchone()[0]
+            
+            # Failed tasks
+            cursor.execute("SELECT COUNT(*) FROM task_log WHERE outcome = 'failed'")
+            failed_tasks = cursor.fetchone()[0]
+            
+            # Security audits (tier >= 2)
+            cursor.execute("SELECT COUNT(*) FROM task_log WHERE tier >= 2")
+            security_audits = cursor.fetchone()[0]
 
-        # Successful heals
-        cursor.execute("SELECT COUNT(*) FROM task_log WHERE tool = 'heal_file' AND outcome = 'success'")
-        successful_heals = cursor.fetchone()[0]
-        
-        conn.close()
-        
+            # Successful heals
+            cursor.execute("SELECT COUNT(*) FROM task_log WHERE tool = 'heal_file' AND outcome = 'success'")
+            successful_heals = cursor.fetchone()[0]
+        finally:
+            if conn:
+                conn.close()
+            
         # Pomodoros completed
         pomodoros = get_user_profile("pomodoros_completed")
         if pomodoros is None:

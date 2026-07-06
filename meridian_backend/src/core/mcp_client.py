@@ -18,6 +18,7 @@ class McpClient:
     self.env = env or {}
     self.process: Optional[asyncio.subprocess.Process] = None
     self.read_task: Optional[asyncio.Task] = None
+    self.stderr_task: Optional[asyncio.Task] = None
     self.pending_requests: Dict[int, asyncio.Future] = {}
     self.next_id = 1
     self._lock = asyncio.Lock()
@@ -39,8 +40,9 @@ class McpClient:
         env=full_env
       )
       
-      # Start background stdout read listener
+      # Start background stdout and stderr read listeners
       self.read_task = asyncio.create_task(self._read_loop())
+      self.stderr_task = asyncio.create_task(self._read_stderr_loop())
       logger.info(f"MCP server '{self.name}' started successfully.")
       return True
     except Exception as e:
@@ -51,6 +53,8 @@ class McpClient:
     """Gracefully terminates the MCP server subprocess."""
     if self.read_task:
       self.read_task.cancel()
+    if self.stderr_task:
+      self.stderr_task.cancel()
     if self.process:
       try:
         self.process.terminate()
@@ -79,6 +83,19 @@ class McpClient:
         break
       except Exception as e:
         logger.error(f"Error in MCP client read loop for '{self.name}': {e}")
+
+  async def _read_stderr_loop(self):
+    """Listens to stderr and logs messages to avoid buffer overflow hangs."""
+    while self.process and self.process.stderr:
+      try:
+        line = await self.process.stderr.readline()
+        if not line:
+          break
+        logger.warning(f"[{self.name} stderr] {line.decode('utf-8').strip()}")
+      except asyncio.CancelledError:
+        break
+      except Exception as e:
+        logger.error(f"Error in MCP client stderr loop for '{self.name}': {e}")
 
   async def _send_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """Sends JSON-RPC request and awaits response."""

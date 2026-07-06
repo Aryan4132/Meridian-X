@@ -325,7 +325,7 @@ try:
 except Exception as e:
     print("[Plugins] Auto-discovery activation failed:", e)
 
-def call_tool(name: str, args: Dict[str, Any]) -> str:
+async def call_tool(name: str, args: Dict[str, Any]) -> str:
     if name not in TOOL_REGISTRY:
         raise ValueError(f"Unknown tool: '{name}'")
         
@@ -335,15 +335,8 @@ def call_tool(name: str, args: Dict[str, Any]) -> str:
     try:
         # Support both synchronous and asynchronous tool functions
         if inspect.iscoroutinefunction(func):
-            try:
-                loop = asyncio.get_running_loop()
-            except RuntimeError:
-                loop = None
-            if loop and loop.is_running():
-                return str(asyncio.run_coroutine_threadsafe(func(**args), loop).result())
-            else:
-                return str(asyncio.run(func(**args)))
+            return str(await func(**args))
         else:
-            return str(func(**args))
+            return str(await asyncio.to_thread(func, **args))
     except Exception as e:
         return f"Error executing {name}: {str(e)}"

@@ -85,7 +85,7 @@ def analyze_recording(frame_dir: str) -> str:
         )
         try:
             res = client.generate(model=_get_vision_model(), prompt=prompt, images=[fpath])
-            desc = res.get("response", "").strip()
+            desc = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
             descriptions.append(f"Step {idx+1}: {desc}")
         except Exception as e:
             descriptions.append(f"Step {idx+1}: Failed to analyze frame due to {e}")
@@ -103,7 +103,7 @@ def analyze_recording(frame_dir: str) -> str:
     )
     try:
         res_qwen = client.generate(model=_get_active_model(), prompt=prompt_qwen)
-        action_plan = res_qwen.get("response", "[]").strip()
+        action_plan = (res_qwen.response if hasattr(res_qwen, "response") else res_qwen.get("response", "[]")).strip()
         if action_plan.startswith("```"):
             action_plan = action_plan.strip("`").replace("json\n", "").strip()
         return action_plan
