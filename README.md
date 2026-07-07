@@ -64,20 +64,20 @@ Meridian-X is an agentic, context-aware desktop development assistant built with
                  +-----------------------------------+
                        /                       \
         Event Streams /                         \ IPC / HTTP
-                     /                           \
+                     /
                     v                             v
      +---------------------------+       +---------------------------+
      |      Mascot Companion     |       |      FastAPI Backend      |
      |          Window           |       |         (Python)          |
      +---------------------------+       +---------------------------+
                                            /           |           \
-                                          /            |            \
+                                          /
                                          v             v             v
                               +------------+    +------------+    +------------+
                               |  Turbovec  |    |   SQLite   |    |  MongoDB   |
                               |  (Vectors) |    | (Metadata) |    |  (Graph)   |
                               +------------+    +------------+    +------------+
-                                     \                 |                 /
+                                     \
                                       \                |                /
                                        v               v               v
                                     +-------------------------------------+
@@ -150,3 +150,20 @@ To configure the application to launch automatically when Windows starts up:
 **How it works**: The startup script automatically checks for the compiled production binary (`meridian_frontend/src-tauri/target/release/app.exe`). If found, it runs the optimized binary directly without starting a dev server or recompiling Cargo, enabling an instant, silent boot. If not found, it falls back to development mode.
 
 ---
+
+## 🗺️ Roadmap
+- [ ] **Multi-Agent Orchestration**: Support for specialized sub-agents for different coding languages.
+- [ ] **Enhanced GUI Automation**: Deeper integration with Accessibility APIs for complex app interactions.
+- [ ] **Dynamic Plugin Market**: Ability to load third-party toolsets dynamically.
+- [ ] **Advanced Memory Graph**: Integration of temporal-aware knowledge graphs to track project evolution.
+
+## 🤝 Contributing
+Contributions are welcome! Please follow these steps:
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/AmazingFeature`).
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
+4. Push to the branch (`git push origin feature/AmazingFeature`).
+5. Open a Pull Request.
+
+---
+© 2026 Built by Aryan.
