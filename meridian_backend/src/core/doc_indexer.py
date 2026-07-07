@@ -66,111 +66,112 @@ def index_docs_directory(docs_dir: str):
         return
         
     conn = get_sqlite_conn()
-    cursor = conn.cursor()
-    
-    # Load last modified times of already indexed files
-    cursor.execute("SELECT file_path, last_modified FROM indexed_files")
-    indexed_times = {row["file_path"]: row["last_modified"] for row in cursor.fetchall()}
-    
-    any_changed = False
-    
-    for root, _, files in os.walk(docs_dir):
-        for file in files:
-            if file.lower().endswith(".md"):
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, docs_dir).replace("\\", "/")
-                
-                mtime = os.path.getmtime(file_path)
-                # Skip indexing if the file has not been modified since the last run
-                if rel_path in indexed_times and indexed_times[rel_path] >= mtime:
-                    continue
+    try:
+        cursor = conn.cursor()
+        
+        # Load last modified times of already indexed files
+        cursor.execute("SELECT file_path, last_modified FROM indexed_files")
+        indexed_times = {row["file_path"]: row["last_modified"] for row in cursor.fetchall()}
+        
+        any_changed = False
+        
+        for root, _, files in os.walk(docs_dir):
+            for file in files:
+                if file.lower().endswith(".md"):
+                    file_path = os.path.join(root, file)
+                    rel_path = os.path.relpath(file_path, docs_dir).replace("\\", "/")
                     
-                any_changed = True
-                print(f"[Docs Indexer] Re-indexing modified file: {rel_path}")
-                
-                # Delete existing entries for this file
-                cursor.execute("DELETE FROM offline_docs WHERE file_path = ?", (rel_path,))
-                
-                try:
-                    with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                        text = f.read()
+                    mtime = os.path.getmtime(file_path)
+                    # Skip indexing if the file has not been modified since the last run
+                    if rel_path in indexed_times and indexed_times[rel_path] >= mtime:
+                        continue
                         
-                    # Simple chunking by headers or double newlines
-                    chunks = []
-                    current_section = "General"
-                    lines = text.splitlines()
-                    current_chunk = []
+                    any_changed = True
+                    print(f"[Docs Indexer] Re-indexing modified file: {rel_path}")
                     
-                    for line in lines:
-                        if line.startswith("#"):
-                            # Save current chunk if exists
-                            if current_chunk:
-                                chunks.append((current_section, "\n".join(current_chunk).strip()))
-                                current_chunk = []
-                            current_section = line.strip("# ")
-                        else:
-                            current_chunk.append(line)
+                    # Delete existing entries for this file
+                    cursor.execute("DELETE FROM offline_docs WHERE file_path = ?", (rel_path,))
+                    
+                    try:
+                        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                            text = f.read()
                             
-                    if current_chunk:
-                        chunks.append((current_section, "\n".join(current_chunk).strip()))
+                        # Simple chunking by headers or double newlines
+                        chunks = []
+                        current_section = "General"
+                        lines = text.splitlines()
+                        current_chunk = []
                         
-                    for sec, chunk_txt in chunks:
-                        if not chunk_txt.strip():
-                            continue
+                        for line in lines:
+                            if line.startswith("#"):
+                                # Save current chunk if exists
+                                if current_chunk:
+                                    chunks.append((current_section, "\n".join(current_chunk).strip()))
+                                    current_chunk = []
+                                current_section = line.strip("# ")
+                            else:
+                                current_chunk.append(line)
+                                
+                        if current_chunk:
+                            chunks.append((current_section, "\n".join(current_chunk).strip()))
                             
-                        # Generate embedding
-                        vector = get_embedding(chunk_txt)
-                        vector_json = json.dumps(vector)
-                        
-                        # Insert metadata and serialized vector into SQLite
+                        for sec, chunk_txt in chunks:
+                            if not chunk_txt.strip():
+                                continue
+                                
+                            # Generate embedding
+                            vector = get_embedding(chunk_txt)
+                            vector_json = json.dumps(vector)
+                            
+                            # Insert metadata and serialized vector into SQLite
+                            cursor.execute(
+                                "INSERT INTO offline_docs (file_path, section, content, embedding) VALUES (?, ?, ?, ?)",
+                                (rel_path, sec, chunk_txt, vector_json)
+                            )
+                            
+                        # Update modification log table
                         cursor.execute(
-                            "INSERT INTO offline_docs (file_path, section, content, embedding) VALUES (?, ?, ?, ?)",
-                            (rel_path, sec, chunk_txt, vector_json)
+                            "INSERT OR REPLACE INTO indexed_files (file_path, last_modified) VALUES (?, ?)",
+                            (rel_path, mtime)
                         )
+                            
+                    except Exception as fe:
+                        print(f"[Docs Indexer] Failed to read/parse '{file}': {fe}")
                         
-                    # Update modification log table
-                    cursor.execute(
-                        "INSERT OR REPLACE INTO indexed_files (file_path, last_modified) VALUES (?, ?)",
-                        (rel_path, mtime)
-                    )
-                        
-                except Exception as fe:
-                    print(f"[Docs Indexer] Failed to read/parse '{file}': {fe}")
-                    
-    if any_changed:
-        conn.commit()
-        
-        # Rebuild the entire Turbovec docs index from stored SQLite vectors
-        print("[Docs Indexer] Rebuilding Turbovec docs index...")
-        cursor.execute("SELECT id, embedding FROM offline_docs")
-        all_rows = cursor.fetchall()
-        
-        new_index = IdMapIndex(dim=768, bit_width=4)
-        ids_to_add = []
-        vectors_to_add = []
-        
-        for r in all_rows:
-            if r["embedding"]:
-                try:
-                    vector = json.loads(r["embedding"])
-                    ids_to_add.append(r["id"])
-                    vectors_to_add.append(normalize_vector(vector))
-                except Exception:
-                    pass
-                    
-        if ids_to_add:
-            ids_np = np.array(ids_to_add, dtype=np.uint64)
-            vectors_np = np.array(vectors_to_add, dtype=np.float32)
-            new_index.add_with_ids(vectors_np, ids=ids_np)
+        if any_changed:
+            conn.commit()
             
-        with _turbovec_lock:
-            docs_index = new_index
-            docs_index.write(DOCS_INDEX_PATH)
-        print("[Docs Indexer] Rebuild complete.")
-    else:
-        print("[Docs Indexer] All documents are up to date (0 files changed).")
-        
-    conn.close()
+            # Rebuild the entire Turbovec docs index from stored SQLite vectors
+            print("[Docs Indexer] Rebuilding Turbovec docs index...")
+            cursor.execute("SELECT id, embedding FROM offline_docs")
+            all_rows = cursor.fetchall()
+            
+            new_index = IdMapIndex(dim=768, bit_width=4)
+            ids_to_add = []
+            vectors_to_add = []
+            
+            for r in all_rows:
+                if r["embedding"]:
+                    try:
+                        vector = json.loads(r["embedding"])
+                        ids_to_add.append(r["id"])
+                        vectors_to_add.append(normalize_vector(vector))
+                    except Exception:
+                        pass
+                        
+            if ids_to_add:
+                ids_np = np.array(ids_to_add, dtype=np.uint64)
+                vectors_np = np.array(vectors_to_add, dtype=np.float32)
+                new_index.add_with_ids(vectors_np, ids=ids_np)
+                
+            with _turbovec_lock:
+                docs_index = new_index
+                docs_index.write(DOCS_INDEX_PATH)
+            print("[Docs Indexer] Rebuild complete.")
+        else:
+            print("[Docs Indexer] All documents are up to date (0 files changed).")
+    finally:
+        conn.close()
 
 def search_offline_docs(query: str, limit: int = 5):
     """Executes offline vector search on indexed manuals and documentation."""

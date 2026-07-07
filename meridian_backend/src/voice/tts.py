@@ -90,6 +90,15 @@ def speak_text(text: str, voice_name: str = "M1") -> str:
         
         # 1. Initialize or retrieve the cached TTS engine
         engine = get_tts_engine()
+        # BUG-62 fix: validate voice_name against available voices before calling get_voice_style.
+        # An invalid name causes a cryptic/unhelpful supertonic exception with no context.
+        try:
+            available_voices = engine.list_voices()
+            if voice_name not in available_voices:
+                print(f"[TTS] Warning: voice '{voice_name}' not found. Available: {available_voices}. Falling back to first.")
+                voice_name = available_voices[0] if available_voices else voice_name
+        except Exception:
+            pass  # If list_voices() is unavailable, proceed anyway
         style = engine.get_voice_style(voice_name=voice_name)
         
         # 2. Split text into optimized synthesis chunks

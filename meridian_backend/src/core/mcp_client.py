@@ -21,7 +21,10 @@ class McpClient:
     self.stderr_task: Optional[asyncio.Task] = None
     self.pending_requests: Dict[int, asyncio.Future] = {}
     self.next_id = 1
-    self._lock = asyncio.Lock()
+    # BUG-45 fix: lazy-initialize the lock inside the first async call.
+    # asyncio.Lock() created before the event loop is running (e.g. at module import)
+    # attaches to no loop in Python 3.12 and raises RuntimeError when awaited.
+    self._lock: Optional[asyncio.Lock] = None
 
   async def start(self) -> bool:
     """Launches the MCP server subprocess."""
@@ -102,6 +105,9 @@ class McpClient:
     if not self.process or not self.process.stdin:
       raise RuntimeError(f"MCP server '{self.name}' is not running.")
 
+    # BUG-45 fix: lazy lock creation — initialise on first call when event loop is running.
+    if self._lock is None:
+        self._lock = asyncio.Lock()
     async with self._lock:
       req_id = self.next_id
       self.next_id += 1

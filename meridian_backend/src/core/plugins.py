@@ -7,9 +7,14 @@ from typing import Dict, Any, Callable
 
 def load_plugins(tool_registry: Dict[str, Dict[str, Any]]):
     """Loads all public functions in Python files under root/plugins/ into the tool registry."""
-    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    root_dir = os.path.dirname(backend_dir)
-    plugins_dir = os.path.join(root_dir, "plugins")
+    # BUG-60 fix: use find_workspace_root() for consistent directory resolution.
+    try:
+        from src.core.history_manager import find_workspace_root
+        plugins_dir = os.path.join(find_workspace_root(), "plugins")
+    except Exception:
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        root_dir = os.path.dirname(backend_dir)
+        plugins_dir = os.path.join(root_dir, "plugins")
     
     if not os.path.exists(plugins_dir):
         os.makedirs(plugins_dir, exist_ok=True)

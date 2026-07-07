@@ -2,7 +2,7 @@ import os
 import re
 from typing import List, Dict, Any, Optional
 from src.core.watcher import (
-    start_watching_log, stop_watching_log, list_log_watchers,
+    start_watching_log, stop_watching_log, list_log_watchers as core_list_log_watchers,
     start_watching_folder, stop_watching_folder, list_folder_watchers
 )
 
@@ -18,7 +18,7 @@ def unwatch_log(path: str) -> str:
 
 def list_log_watchers() -> str:
     """List all currently active log file observers."""
-    watchers = list_log_watchers()
+    watchers = core_list_log_watchers()
     if not watchers:
         return "No log files are currently being watched."
     return "Active Log Watchers:\n" + "\n".join(f"- {w}" for w in watchers)

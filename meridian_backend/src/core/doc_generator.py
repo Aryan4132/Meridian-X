@@ -94,7 +94,8 @@ def generate_mermaid_docs(workspace_dir: str = None) -> str:
     for file_path, imports in dependency_graph.items():
         nid = node_ids[file_path]
         label = file_path.split("/")[-1]
-        lines.append(f'    {nid}["{label} ({os.path.dirname(file_path)})"]')
+        dir_label = os.path.dirname(file_path).replace("(", "").replace(")", "")
+        lines.append(f'    {nid}["{label} [{dir_label}]"]')
         
     lines.append("")
     

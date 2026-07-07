@@ -116,9 +116,13 @@ def win_list_tasks_raw() -> list:
                     
         tasks = []
         for row in reader:
-            if not row or len(row) <= max(indices.values()):
+            # BUG-49 fix: explicitly guard against -1 indices. max(indices.values())==-1
+            # when no column is found, making `len(row) <= -1` always False (never skips).
+            # Accessing row[-1] returns last column silently with wrong data.
+            max_idx = max(indices.values())
+            if not row or max_idx < 0 or len(row) <= max_idx:
                 continue
-            name_val = row[indices["name"]] if indices["name"] != -1 else ""
+            name_val = row[indices["name"]] if indices["name"] >= 0 else ""
             short_name = name_val.lstrip("\\")
             if short_name.startswith("Meridian_"):
                 next_run = row[indices["next_run"]] if indices["next_run"] != -1 else "Unknown"

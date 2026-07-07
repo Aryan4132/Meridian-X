@@ -298,9 +298,14 @@ def create_dynamic_tool_wrapper(name: str, code: str) -> str:
         return f"Tool compilation check failed: {e}"
         
     try:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        root_dir = os.path.dirname(backend_dir)
-        plugins_dir = os.path.join(root_dir, "plugins")
+        # BUG-63 fix: use find_workspace_root() instead of fragile dirname chain.
+        try:
+            from src.core.history_manager import find_workspace_root
+            plugins_dir = os.path.join(find_workspace_root(), "plugins")
+        except Exception:
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            root_dir = os.path.dirname(backend_dir)
+            plugins_dir = os.path.join(root_dir, "plugins")
         
         os.makedirs(plugins_dir, exist_ok=True)
         plugin_path = os.path.join(plugins_dir, f"{name}.py")

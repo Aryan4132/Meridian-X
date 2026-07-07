@@ -33,9 +33,15 @@ def browser_open(url: str) -> str:
         if not _page:
             _page = _browser.new_page(viewport={"width": _viewport_w, "height": _viewport_h})
             
-        _page.goto(url)
-        # Wait for network idle/load state
-        _page.wait_for_load_state("load")
+        try:
+            _page.goto(url)
+            # Wait for network idle/load state
+            _page.wait_for_load_state("load")
+        except Exception as e:
+            # BUG-34 fix: reset _page to None so the next call creates a fresh page
+            # instead of reusing this broken/stale Playwright page.
+            _page = None
+            return f"Failed to navigate browser: {e}"
         return f"Successfully opened visual headless browser context and navigated to: {url}"
     except ImportError:
         return "Error: 'playwright' Python library is not installed or configured. Please install it."
@@ -129,11 +135,11 @@ def _locate_element_by_vision(description: str) -> Optional[tuple]:
         coord_text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         print(f"[Vision Browser] Moondream coordinate prediction: {coord_text}")
         
-        # Parse percentage coordinates using regex
-        match = re.search(r"\[\s*(\d+)\s*,\s*(\d+)\s*\]", coord_text)
+        # BUG-33 fix: use [\d.]+ to match float coordinates returned by moondream (e.g. [50.5, 20.3])
+        match = re.search(r"\[\s*([\d.]+)\s*,\s*([\d.]+)\s*\]", coord_text)
         if match:
-            pct_x = int(match.group(1))
-            pct_y = int(match.group(2))
+            pct_x = float(match.group(1))
+            pct_y = float(match.group(2))
             
             # Map percentages to pixel dimensions
             px_x = int((pct_x / 100.0) * _viewport_w)
@@ -233,19 +239,21 @@ def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
             # Simple text extraction
             body_text = " ".join([p.text().strip() for p in parser.css("p")])
             
+            # BUG-37 fix: unified truncation constant for consistency across schema and plain paths.
+            SCRAPE_PREVIEW_CHARS = 1000
             # If a schema is specified, ask Ollama to extract structure
             if extract_schema:
                 client = ollama.Client(host=get_ollama_client_host())
                 prompt = (
                     f"Extract fields conforming to this schema: {extract_schema}\n\n"
-                    f"From this text content scraped from URL '{url}':\n{body_text[:1000]}\n\n"
+                    f"From this text content scraped from URL '{url}':\n{body_text[:SCRAPE_PREVIEW_CHARS]}\n\n"
                     "Respond with a valid JSON block of fields. No other text."
                 )
                 ollama_res = client.generate(model=_get_active_model(), prompt=prompt)
                 extracted_data = (ollama_res.response if hasattr(ollama_res, "response") else ollama_res.get("response", "{}")).strip()
                 results.append(f"URL: {url} (Title: {title_text})\nExtracted Data:\n{extracted_data}")
             else:
-                results.append(f"URL: {url} (Title: {title_text})\nText snippet:\n{body_text[:300]}...")
+                results.append(f"URL: {url} (Title: {title_text})\nText snippet:\n{body_text[:SCRAPE_PREVIEW_CHARS]}...")
         except Exception as e:
             results.append(f"URL: {url} -> Error: {e}")
             

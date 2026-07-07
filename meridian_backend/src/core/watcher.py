@@ -230,7 +230,18 @@ class WorkspaceWatcher(FileSystemEventHandler):
         if matches:
             # Avoid matching .env files themselves or placeholder values
             is_env_file = file_name.startswith(".env")
-            has_placeholder = any("your_" in val or "placeholder" in val or "test_key" in val for key, val in matches)
+            # BUG-48 fix: expanded placeholder detection to reduce false positives on
+            # config templates, TypeScript env declarations, and YAML boilerplate.
+            def _is_placeholder(val: str) -> bool:
+                v = val.lower()
+                if any(kw in v for kw in ("your_", "placeholder", "test_key", "<your", "example")):
+                    return True
+                if val.startswith(("$", "<")) or "${" in val:
+                    return True
+                if any(kw in val for kw in ("process.env", "os.environ", "os.getenv", "env[")):
+                    return True
+                return False
+            has_placeholder = any(_is_placeholder(val) for key, val in matches)
             if not is_env_file and not has_placeholder:
                 from src.core.proactive import publish_nudge_sync
                 publish_nudge_sync(

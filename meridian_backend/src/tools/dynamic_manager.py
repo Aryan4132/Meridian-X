@@ -159,9 +159,15 @@ def generate_dynamic_tool(prompt: str) -> str:
 
     # 2. Save code as dynamic plugin file
     try:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) # src/tools -> src -> backend -> root
-        root_dir = os.path.dirname(backend_dir)
-        plugins_dir = os.path.join(root_dir, "plugins")
+        # BUG-55 fix: use find_workspace_root() instead of fragile 3-level dirname chain.
+        try:
+            from src.core.history_manager import find_workspace_root
+            plugins_dir = os.path.join(find_workspace_root(), "plugins")
+        except Exception:
+            # Fallback to dirname chain if history_manager is unavailable
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            root_dir = os.path.dirname(backend_dir)
+            plugins_dir = os.path.join(root_dir, "plugins")
         os.makedirs(plugins_dir, exist_ok=True)
         
         plugin_path = os.path.join(plugins_dir, f"{tool_name}.py")

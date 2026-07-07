@@ -94,17 +94,16 @@ def _poll_loop():
                     if file_info_res.status_code == 200 and file_info_res.json().get("ok"):
                         file_path = file_info_res.json()["result"].get("file_path")
                         file_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
-                        
-                        # Download voice note (.ogg)
-                        ogg_data = client.get(file_url).content
-                        
-                        # Save to temp file
+                        # BUG-67 fix: stream OGG download in chunks to avoid loading
+                        # up to 20MB entirely into RAM before writing to disk.
                         import tempfile
                         temp_dir = tempfile.gettempdir()
                         temp_ogg = os.path.join(temp_dir, f"meridian_telegram_voice_{int(time.time())}.ogg")
-                        with open(temp_ogg, "wb") as f:
-                            f.write(ogg_data)
-                            
+                        with client.stream("GET", file_url) as r:
+                            with open(temp_ogg, "wb") as f:
+                                for chunk in r.iter_bytes(chunk_size=8192):
+                                    f.write(chunk)
+
                         # Transcribe voice note using faster-whisper VAD pipeline
                         try:
                             from src.voice.stt import transcribe_audio_file
@@ -142,8 +141,10 @@ def _poll_loop():
                     model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
                     ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
                     
+                    # BUG-56 fix: use isolated new_event_loop without asyncio.set_event_loop().
+                    # Per-message event loops with set_event_loop in non-main threads is
+                    # deprecated in Python 3.10+ and can cause resource leaks.
                     loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
                     reply_parts = []
                     
                     async def _run():
@@ -156,7 +157,6 @@ def _poll_loop():
                         loop.run_until_complete(_run())
                     finally:
                         loop.close()
-                        asyncio.set_event_loop(None)
                         
                     reply_text = "".join(reply_parts).strip() or "Task completed."
                     

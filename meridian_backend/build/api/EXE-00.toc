@@ -76,7 +76,7 @@
  [],
  False,
  False,
- 1783361839,
+ 1783422928,
  [('run.exe',
    'C:\\Users\\aryan\\OneDrive\\Dokumen\\Mini_Project\\Meridian-X\\meridian_backend\\venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')],

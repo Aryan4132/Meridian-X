@@ -5,8 +5,7 @@ from src.core.vault import save_secret, get_secret, load_all_secrets, VAULT_FILE
 def _get_master_passphrase() -> str:
     key = os.environ.get("MERIDIAN_VAULT_KEY")
     if not key:
-        print("[WARNING] MERIDIAN_VAULT_KEY env variable is unset! Using standard fallback passphrase. Vault is in INSECURE mode.")
-        return "meridian_offline_vault_secure_key_1337"
+        raise EnvironmentError("MERIDIAN_VAULT_KEY environment variable is not set. Cannot access vault in secure mode.")
     return key
 
 def vault_set(name: str, value: str) -> str:

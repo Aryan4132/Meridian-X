@@ -9,16 +9,25 @@ def ollama_list_models() -> str:
     try:
         client = get_ollama_client()
         res = client.list()
-        models = res.get("models", [])
+        models = res.get("models", []) if isinstance(res, dict) else getattr(res, "models", [])
         if not models:
             return "No models installed in local Ollama."
         
         lines = ["Installed Ollama Models:"]
         for m in models:
-            name = m.get("name", "Unknown")
-            size_gb = m.get("size", 0) / (1024 ** 3)
-            details = m.get("details", {})
-            family = details.get("family", "Unknown")
+            # BUG-64 fix: support both dict-style and object-style Ollama SDK response.
+            # The SDK has changed ModelInfo from dict to dataclass across versions.
+            if isinstance(m, dict):
+                name = m.get("name", "Unknown")
+                size_bytes = m.get("size", 0)
+                details = m.get("details", {})
+                family = details.get("family", "Unknown") if isinstance(details, dict) else getattr(details, "family", "Unknown")
+            else:
+                name = getattr(m, "model", getattr(m, "name", "Unknown"))
+                size_bytes = getattr(m, "size", 0) or 0
+                details = getattr(m, "details", None)
+                family = (details.family if hasattr(details, "family") else getattr(details, "family", "Unknown")) if details else "Unknown"
+            size_gb = size_bytes / (1024 ** 3)
             lines.append(f"- {name} (Size: {size_gb:.2f} GB | Family: {family})")
         return "\n".join(lines)
     except Exception as e:

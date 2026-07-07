@@ -44,9 +44,18 @@ def fetch_page(url: str) -> str:
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
+    # BUG-76 fix: stream response and enforce a max 5MB body size limit to prevent OOM
     with httpx.Client(follow_redirects=True) as client:
-        res = client.get(url, headers=headers, timeout=15.0)
-        return res.text
+        with client.stream("GET", url, headers=headers, timeout=15.0) as res:
+            chunks = []
+            total = 0
+            for chunk in res.iter_text(chunk_size=8192):
+                total += len(chunk)
+                if total > 5 * 1024 * 1024:  # 5MB limit
+                    chunks.append("\n\n[Warning: Content truncated at 5MB limit]")
+                    break
+                chunks.append(chunk)
+            return "".join(chunks)
 
 def parse_page(html: str) -> str:
     try:

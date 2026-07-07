@@ -31,9 +31,12 @@ def get_whisper_model(model_size: str = "base"):
                 except Exception as e:
                     print(f"[Whisper STT] Error detecting GPU status: {e}. Defaulting to CPU.")
                 
-                # Protect against using extremely slow large models on CPU
-                if device == "cpu" and model_size == "turbo":
-                    print("[Whisper STT] Warning: 'turbo' model is extremely slow on CPU. Swapping to 'base' for faster performance.")
+                # BUG-50 fix: expanded CPU guard to include all heavy models.
+                # Only 'turbo' was downgraded before; large/large-v2/large-v3 are
+                # equally slow on CPU and should also be swapped to 'base'.
+                CPU_HEAVY_MODELS = {"turbo", "large", "large-v2", "large-v3"}
+                if device == "cpu" and model_size in CPU_HEAVY_MODELS:
+                    print(f"[Whisper STT] Warning: '{model_size}' model is slow on CPU. Swapping to 'base' for faster performance.")
                     model_size = "base"
                 
                 _cached_whisper_model = WhisperModel(model_size, device=device, compute_type=compute_type)

@@ -10,6 +10,28 @@ P2P_PORT = 8009
 UDP_DISCOVERY_PORT = 8010
 _server_running = False
 
+def _encrypt_payload(data_str: str, token: str) -> bytes:
+    if not token:
+        return data_str.encode('utf-8')
+    import base64
+    import hashlib
+    from cryptography.fernet import Fernet
+    h = hashlib.sha256(token.encode('utf-8')).digest()
+    key = base64.urlsafe_b64encode(h)
+    f = Fernet(key)
+    return f.encrypt(data_str.encode('utf-8'))
+
+def _decrypt_payload(data_bytes: bytes, token: str) -> str:
+    if not token:
+        return data_bytes.decode('utf-8')
+    import base64
+    import hashlib
+    from cryptography.fernet import Fernet
+    h = hashlib.sha256(token.encode('utf-8')).digest()
+    key = base64.urlsafe_b64encode(h)
+    f = Fernet(key)
+    return f.decrypt(data_bytes).decode('utf-8')
+
 class P2PSyncNode:
     def __init__(self, host="0.0.0.0", port=P2P_PORT):
         self.host = host
@@ -78,27 +100,37 @@ class P2PSyncNode:
                 if not chunk:
                     break
                 chunks.append(chunk)
-            data = b"".join(chunks).decode('utf-8')
+            data_bytes = b"".join(chunks)
             
-            if not data.strip():
+            if not data_bytes:
+                return
+
+            local_token = os.environ.get("P2P_SECRET_TOKEN", "")
+            try:
+                decrypted_str = _decrypt_payload(data_bytes, local_token)
+            except Exception as e:
+                print(f"[P2P Sync] REJECTED unauthorized sync request from {addr[0]} (decryption failed: {e})")
+                conn.sendall(json.dumps({"status": "error", "message": "Unauthorized: Decryption failed or invalid token"}).encode('utf-8'))
+                return
+
+            # BUG-72 fix: enforce MAX_PAYLOAD limit BEFORE json.loads() to prevent DoS.
+            # A malicious peer could send a multi-MB payload that is fully deserialized
+            # into memory before the token check, exhausting RAM.
+            MAX_PAYLOAD = 10 * 1024 * 1024  # 10MB hard limit
+            if len(decrypted_str) > MAX_PAYLOAD:
+                print(f"[P2P Sync] REJECTED oversized payload ({len(decrypted_str)} bytes) from {addr[0]}")
+                conn.sendall(json.dumps({"status": "error", "message": "Payload too large"}).encode('utf-8'))
                 return
                 
-            payload = json.loads(data)
+            payload = json.loads(decrypted_str)
             action = payload.get("action")
             
             if action == "sync_request":
-                # Check cryptographic validation token
-                local_token = os.environ.get("P2P_SECRET_TOKEN", "")
-                peer_token = payload.get("token", "")
-                if local_token and peer_token != local_token:
-                    print(f"[P2P Sync] REJECTED unauthorized sync request from {addr[0]} (invalid token)")
-                    conn.sendall(json.dumps({"status": "error", "message": "Unauthorized: Invalid P2P_SECRET_TOKEN"}).encode('utf-8'))
-                    return
-
                 # Received peer's database state. Perform similarity merge.
                 print(f"[P2P Sync] Sync request received from {addr[0]}")
                 response = self._merge_peer_state(payload.get("data", {}))
-                conn.sendall(json.dumps({"status": "success", "data": response}).encode('utf-8'))
+                resp_str = json.dumps({"status": "success", "data": response})
+                conn.sendall(_encrypt_payload(resp_str, local_token))
         except Exception as e:
             print(f"[P2P Sync] Error handling client {addr}: {e}")
         finally:
@@ -253,10 +285,11 @@ class P2PSyncNode:
                 
                 payload = {
                     "action": "sync_request",
-                    "token": os.environ.get("P2P_SECRET_TOKEN", ""),
                     "data": local_data
                 }
-                s.sendall(json.dumps(payload).encode('utf-8'))
+                token = os.environ.get("P2P_SECRET_TOKEN", "")
+                encrypted_payload = _encrypt_payload(json.dumps(payload), token)
+                s.sendall(encrypted_payload)
                 s.shutdown(socket.SHUT_WR)
                 
                 # Receive confirmation
@@ -266,8 +299,9 @@ class P2PSyncNode:
                     if not chunk:
                         break
                     chunks.append(chunk)
-                resp = b"".join(chunks).decode('utf-8')
-                result = json.loads(resp)
+                resp_bytes = b"".join(chunks)
+                decrypted_resp = _decrypt_payload(resp_bytes, token)
+                result = json.loads(decrypted_resp)
                 if result.get("status") == "success":
                     m_data = result.get("data", {})
                     sync_summary.append(f"Synced with {peer_ip}:{peer_port} (merged {m_data.get('merged_facts')} facts, {m_data.get('merged_caches')} caches)")

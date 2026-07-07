@@ -83,6 +83,14 @@ def rollback_to_checkpoint(checkpoint_id: str, workspace_dir: str = None) -> boo
             print(f"[History Manager] Checkpoint '{checkpoint_id}' not found in git log.")
             return False
             
+        # BUG-46 fix: stash uncommitted changes before hard reset to prevent silent data loss.
+        stash_result = subprocess.run(
+            ["git", "stash", "--include-untracked"],
+            cwd=workspace_dir, capture_output=True
+        )
+        if stash_result.returncode == 0 and b"No local changes" not in stash_result.stdout:
+            print(f"[History Manager] Uncommitted changes stashed before rollback.")
+        
         # Reset hard to that commit
         subprocess.run(["git", "reset", "--hard", commit_hash], cwd=workspace_dir, check=True, capture_output=True)
         print(f"[History Manager] Successfully rolled back to checkpoint '{checkpoint_id}' (commit {commit_hash})")

@@ -17,6 +17,29 @@ from src.core.speculative import preheat_tool
 # Map active confirmations globally
 active_confirmations: Dict[str, Dict[str, Any]] = {}
 
+# Tools exempt from consecutive loop repetition checks (read-only, diagnostic, visual poll, search)
+EXEMPT_TOOLS = {
+    # Search & Information Retrieval
+    "read_file", "list_directory", "search_files", "search_web", "autonomous_research",
+    "search_knowledge", "search_offline_docs", "search_codebase", "lsp_get_definition",
+    "lsp_get_references", "lsp_get_hover_info", "kg_query", "kg_search", "kg_get_facts",
+    "kg_traverse", "vault_get", "vault_list", "tail_log", "search_log", "log_stats",
+    "clipboard_search", "read_emails", "browser_get_text", "scrape_table", "db_schema",
+    # System Metrics & Diagnostics
+    "get_system_info", "get_hardware_info", "get_disk_info", "get_battery_status",
+    "get_temperature", "list_processes", "get_process_detail", "list_startup_items",
+    "list_installed_apps", "list_services", "get_network_connections", "get_wifi_networks",
+    "ping_host", "clipboard_get", "list_log_watchers", "list_watchers", "list_scheduled",
+    "win_list_tasks", "clipboard_history", "list_workflows", "list_sessions",
+    "export_finetune_data", "finetune_stats", "suggest_cross_project_patterns",
+    # Visual Capture & UI Outlines
+    "screenshot", "screenshot_region", "ocr_screen", "vision_analyze", "find_on_screen",
+    "segment_screen", "browser_screenshot", "analyze_recording",
+    # Code Review & Linting
+    "lint_file", "lsp_diagnose_file", "run_tests", "review_file", "review_diff",
+    "review_directory", "run_security_audit", "shell_history", "nl_to_shell"
+}
+
 # Active tree and debate state tables
 active_trees: Dict[str, Dict[str, Any]] = {}
 active_debates: Dict[str, Dict[str, Any]] = {}
@@ -704,7 +727,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     except Exception as e2:
                         return False, args_str, f"JSON syntax check failed: {e} (Auto-healing failed: {e2})"
 
-        return False, args_str, ""
+        return True, args_str, ""  # BUG-25 fix: True = validated OK (no correction needed)
     except Exception as e:
         return False, args_str, f"Critique verification failed: {e}"
 
@@ -748,7 +771,8 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
         
     # Build new history list
     new_history = [history[0]]
-    new_history.append({"role": "system", "content": f"[System Context Archive - Consolidating earlier turns]:\n{summary}"})
+    # BUG-27 fix: Anthropic forbids role:system mid-messages array; use role:user with [SYSTEM] prefix
+    new_history.append({"role": "user", "content": f"[SYSTEM — Context Archive]:\n{summary}"})
     new_history.extend(keep_turns)
     
     return new_history
@@ -1017,6 +1041,10 @@ async def run_react_agent_loop(
     final_text = ""
     active_model = brain_model
     
+    # Repetition detector tracking variables
+    last_tool_call = None
+    consecutive_repeat_count = 0
+    
     # Session-scoped manifest to track temporary screenshots for automated cleanup
     created_temp_files = []
     _interrupt_event.clear()  # Reset any stale interrupt signal from a previous run
@@ -1196,7 +1224,8 @@ async def run_react_agent_loop(
             # Feed the stream to the tag parser in real time
             for chunk in response_stream:
                 if _interrupt_event.is_set():
-                    _interrupt_event.clear()
+                    # BUG-32 fix: do NOT clear here — a second interrupt between is_set() and clear()
+                    # would be silently lost. The turn-start clear at line 1049 is sufficient.
                     # BUG-14 fix: remove the temporary self-question warning from history
                     # before returning, so it cannot bleed into the next request's context.
                     if temp_sys_idx != -1 and temp_sys_idx < len(history):
@@ -1288,7 +1317,7 @@ async def run_react_agent_loop(
                         except Exception:
                             debated_finish = corrected_finish
                             
-                        _debate_key = f"debate-{time.time()}"
+                        _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
                         active_debates[_debate_key] = {
                             "draft": corrected_finish,
                             "critique": critique,
@@ -1368,20 +1397,44 @@ async def run_react_agent_loop(
                         continue
                         
                     tier = tool_meta["tier"]
+
+                    # Consecutive loop check (Strategy 1)
+                    if tool_name not in EXEMPT_TOOLS:
+                        try:
+                            # Sort keys to ensure argument structure hashes identically
+                            sorted_args_str = json.dumps(args, sort_keys=True)
+                        except Exception:
+                            sorted_args_str = str(args)
+                        
+                        call_signature = (tool_name, sorted_args_str)
+                        if call_signature == last_tool_call:
+                            consecutive_repeat_count += 1
+                        else:
+                            consecutive_repeat_count = 1
+                            last_tool_call = call_signature
+                        
+                        if consecutive_repeat_count >= 3:
+                            err_msg = f"Loop Guardrail: The agent tried calling '{tool_name}' with the same arguments {consecutive_repeat_count} times consecutively. Halting execution."
+                            yield sse_event("thought", json.dumps({
+                                "id": f"loop-detected-{time.time()}",
+                                "type": "error",
+                                "text": f"⚠️ [Loop Guardrail] {err_msg}",
+                                "status": "failed"
+                            }))
+                            add_to_task_log(tool_name, tier, "failed", err_msg)
+                            
+                            # Build the final aborted JSON response for the user
+                            final_text = json.dumps({
+                                "chat": f"I aborted the operation because I entered an infinite loop trying to run the `{tool_name}` tool repeatedly with the same parameters. Please review your prompt or environment constraints.",
+                                "speech": "I had to abort the operation because I entered an infinite loop.",
+                                "lang": "en"
+                            }, ensure_ascii=False)
+                            yield sse_event("text", final_text)
+                            return
                     
-                    # 2. Self-Consistency majority voting for critical Tier >= 3 operations
-                    if tier >= 3:
-                        yield sse_event("thought", json.dumps({
-                            "id": f"vote-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Majority Voting] Running self-consistency voting path checks for critical tool '{tool_name}'...",
-                            "status": "running"
-                        }))
-                        # Simulate majority verification consensus check
-                        vote_passed = True
-                        if not vote_passed:
-                            observations.append(f"<observation:{tool_name}>Error: Majority consensus voting check failed. Action rejected.</observation:{tool_name}>")
-                            continue
+                    # BUG-29 fix: removed dead majority-vote stub (vote_passed was always True,
+                    # making the if-not-vote_passed branch unreachable dead code that misled users
+                    # into thinking a real consensus gate was active for high-risk operations).
                     
                     if tier == 0:
                         concurrent_calls.append((tool_name, args, tier))
@@ -1538,8 +1591,10 @@ async def run_react_agent_loop(
                             }))
                             observations.append(f"<observation:{tool_name}>{obs_text}</observation:{tool_name}>")
                             continue
- 
-                     # Track temporary screenshot assets for dynamic cleanup
+
+                    # BUG-24 fix: removed extra leading space — these blocks were at 5-space
+                    # indent (outside the `if not approved: continue` rejection guard).
+                    # Track temporary screenshot assets for dynamic cleanup
                     if tool_name in ["screenshot", "screenshot_region"]:
                         path = args.get("output_path")
                         if path:
@@ -1547,8 +1602,8 @@ async def run_react_agent_loop(
                     elif tool_name == "browser_screenshot":
                         path = args.get("output_path", "browser.png")
                         created_temp_files.append(os.path.abspath(path))
- 
-                     # Run safe or approved tool
+
+                    # Run safe or approved tool
                     yield sse_event("thought", json.dumps({
                         "id": tool_run_id,
                         "type": "exec",

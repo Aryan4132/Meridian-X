@@ -212,6 +212,9 @@ def init_tables():
     
     init_turbovec_indexes()
 
+# BUG-44 fix: ensure DB_DIR exists before init_tables() is called,
+# otherwise sqlite3.connect() raises on first run when the directory is missing.
+os.makedirs(db_dir, exist_ok=True)
 init_tables()
 
 # Dummy db for loop.py import compatibility
@@ -760,7 +763,8 @@ def consolidate_memory_sleep_cycle():
         purge_expired_cache()
         
         # 2. Distill episodic conversations
-        from api import get_ollama_client_host
+        # BUG-38 fix: get_ollama_client_host is already defined in this file (line 38).
+        # Importing from api creates a circular dependency (api imports database at startup).
         ollama_host = get_ollama_client_host()
         
         conn = None

@@ -138,6 +138,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Listen to proactive nudge stream for game mode auto-detection
+  const [reconnectKey, setReconnectKey] = useState(0);
   useEffect(() => {
     if (!backendAlive) return;
 
@@ -162,10 +163,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    eventSource.onerror = () => {
+      console.warn("EventSource disconnected, scheduling reconnect...");
+      eventSource.close();
+      setTimeout(() => {
+        setReconnectKey(prev => prev + 1);
+      }, 3000);
+    };
+
     return () => {
       eventSource.close();
     };
-  }, [backendAlive]);
+  }, [backendAlive, reconnectKey]);
 
   return (
     <AppCtx.Provider value={{

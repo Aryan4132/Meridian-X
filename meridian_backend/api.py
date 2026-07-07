@@ -97,7 +97,14 @@ async def lifespan(app: FastAPI):
     try:
         from src.core.graph_sync import scan_workspaces
         import threading
-        threading.Thread(target=scan_workspaces, daemon=True).start()
+        # BUG-71 fix: resolve workspace root explicitly instead of relying on
+        # scan_workspaces() default (hardcoded developer OneDrive path — BUG-57).
+        try:
+            from src.core.history_manager import find_workspace_root
+            parent_dir = os.path.dirname(find_workspace_root())
+        except Exception:
+            parent_dir = os.getcwd()
+        threading.Thread(target=scan_workspaces, args=(parent_dir,), daemon=True).start()
         print("Triggered initial workspace Knowledge Graph scan.")
     except Exception as e:
         print("Failed to trigger initial workspace scan:", e)
@@ -224,10 +231,21 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Meridian-X API", version="1.0.0", lifespan=lifespan)
 
-# Setup CORS to allow requests from Vite and Tauri frontend origins
+# BUG-70 fix: replaced allow_origin_regex='.*' + allow_credentials=True (security misconfiguration).
+# Wildcard origin + credentials means any visited webpage could make authenticated requests to the
+# local backend — an RCE vector combined with the run_python tool.
+# Restricted to known local/Tauri origins only.
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*",  # Allows any origin (including tauri:// and localhost) with credentials
+    allow_origins=[
+        "tauri://localhost",
+        "https://tauri.localhost",
+        "http://tauri.localhost",
+        "http://localhost:5173",
+        "http://localhost:4132",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:4132",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

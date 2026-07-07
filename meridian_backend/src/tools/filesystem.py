@@ -10,7 +10,12 @@ def read_file(path: str) -> str:
         return f.read()
 
 def write_file(path: str, content: str) -> str:
-    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    # BUG-53 fix: guard against empty parent when path is a bare filename (no directory component).
+    # os.makedirs("") raises FileNotFoundError; os.path.abspath("file.txt") returns CWD which
+    # os.makedirs would redundantly try to create.
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
     return f"Successfully wrote {len(content)} characters to {path}"

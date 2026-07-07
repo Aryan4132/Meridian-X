@@ -4,8 +4,16 @@ import time
 from typing import List, Dict, Any
 from src.tools.knowledge import kg_add_entity, kg_add_relation, kg_add_fact
 
-def scan_workspaces(parent_dir: str = r"C:\Users\aryan\OneDrive\Dokumen\Mini_Project") -> str:
+def scan_workspaces(parent_dir: str = None) -> str:
     """Scans parent folder for sub-projects and maps their tech stacks into the MongoDB knowledge graph."""
+    # BUG-57 fix: replaced hardcoded developer OneDrive path with dynamic resolution.
+    # The old default caused os.listdir failure (or wrong directory scan) on any other machine.
+    if parent_dir is None:
+        try:
+            from src.core.history_manager import find_workspace_root
+            parent_dir = os.path.dirname(find_workspace_root())
+        except Exception:
+            parent_dir = os.getcwd()
     if not os.path.exists(parent_dir):
         return f"Error: Parent directory '{parent_dir}' does not exist."
         

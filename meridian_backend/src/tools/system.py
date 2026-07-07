@@ -67,7 +67,9 @@ def wait_for_window(title: str, timeout: int = 5) -> str:
 # ----------------- APP LAUNCH & PROCESS CONTROL -----------------
 
 def open_app(name_or_path: str) -> str:
-    subprocess.Popen(name_or_path, shell=True)
+    # BUG-42 fix: use shell=False to prevent shell injection via LLM-provided arguments.
+    # With shell=True, a value like 'calc.exe & del /f C:\important' becomes an injection vector.
+    subprocess.Popen([name_or_path], shell=False)
     return f"Dispatched application launch for: {name_or_path}"
 
 def open_file(path: str) -> str:

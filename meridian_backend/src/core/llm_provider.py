@@ -142,18 +142,21 @@ async def generate_completion_stream(
       "anthropic-version": "2023-06-01",
       "content-type": "application/json"
     }
-    # Anthropic message model expects role to be assistant / user
-    # System instructions must be supplied separately
+    # BUG-47 fix: use explicit elif for user/assistant roles.
+    # The original loop silently overwrote system_prompt for each role:system message
+    # (only the last would be sent). This defensive version keeps the last system message
+    # and explicitly filters to only user/assistant for refined_messages.
     system_prompt = ""
     refined_messages = []
     for msg in messages:
       if msg.get("role") == "system":
-        system_prompt = msg.get("content", "")
-      else:
+        system_prompt = msg.get("content", "")  # keeps last system msg (Anthropic only uses one)
+      elif msg.get("role") in ("user", "assistant"):
         refined_messages.append({
           "role": msg.get("role"),
           "content": msg.get("content")
         })
+      # Other roles (e.g. tool/function) are intentionally dropped for Anthropic compatibility
         
     payload = {
       "model": model,

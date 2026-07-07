@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square } from 'lucide-react';
+import { emit } from '@tauri-apps/api/event';
 import { Message } from '../types';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 // Helper function to render Markdown safely
 const renderMarkdown = (text: string) => {
   try {
     const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
-    return { __html: rawHtml };
+    const cleanHtml = DOMPurify.sanitize(rawHtml);
+    return { __html: cleanHtml };
   } catch (e) {
     console.error("Markdown parse error:", e);
     return { __html: text };
@@ -204,6 +207,14 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     const userMsg = { id: Date.now(), role: 'user', timestamp: Date.now(), content: text };
     setMessages(prev => [...prev, userMsg]);
 
+    if ((window as any).__TAURI_INTERNALS__) {
+      emit('agent-status-update', {
+        isRunning: true,
+        latestThought: { text: 'Initializing agent...', type: 'planning' },
+        thoughts: []
+      }).catch(console.error);
+    }
+
     try {
       const res = await fetch('http://localhost:4132/api/chat/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -256,7 +267,15 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               } else {
                 finalThoughts.push({ id, text: thoughtText });
               }
-              setStreamThoughts(finalThoughts.map(t => t.text));
+              const updatedThoughts = finalThoughts.map(t => t.text);
+              setStreamThoughts(updatedThoughts);
+              if ((window as any).__TAURI_INTERNALS__) {
+                emit('agent-status-update', {
+                  isRunning: true,
+                  latestThought: thoughtData,
+                  thoughts: updatedThoughts
+                }).catch(console.error);
+              }
             } catch { /* non-JSON thought, skip */ }
           } else if (eventType === 'text') {
             // text events carry raw text chunks (not JSON)
@@ -284,6 +303,13 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || 'Operation completed.', thoughts: thoughtsList }]);
       setStreaming('');
       setStreamThoughts([]);
+      if ((window as any).__TAURI_INTERNALS__) {
+        emit('agent-status-update', {
+          isRunning: false,
+          latestThought: { text: 'Task completed', type: 'status' },
+          thoughts: []
+        }).catch(console.error);
+      }
 
       // If dashboard TTS is enabled, read response out loud
       if (ttsEnabled && cleanedContent) {
@@ -293,6 +319,13 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
       setStreaming('');
       setStreamThoughts([]);
+      if ((window as any).__TAURI_INTERNALS__) {
+        emit('agent-status-update', {
+          isRunning: false,
+          latestThought: { text: 'Task failed', type: 'error' },
+          thoughts: []
+        }).catch(console.error);
+      }
     } finally { setLoading(false); }
   };
 

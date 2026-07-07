@@ -182,8 +182,14 @@ def detect_user_language(prompt: str) -> str:
     return "ENGLISH"
 
 def load_workspace_config() -> Dict[str, Any]:
-    """Loads .meridian.json configuration file from the current working directory."""
-    config_path = os.path.join(os.getcwd(), ".meridian.json")
+    """Loads .meridian.json configuration file from the project root."""
+    # BUG-40 fix: os.getcwd() resolves to wherever uvicorn was launched from (e.g.
+    # meridian_backend/), not the project root. Use find_workspace_root() instead.
+    try:
+        from src.core.history_manager import find_workspace_root
+        config_path = os.path.join(find_workspace_root(), ".meridian.json")
+    except Exception:
+        config_path = os.path.join(os.getcwd(), ".meridian.json")
     if os.path.exists(config_path):
         try:
             import json

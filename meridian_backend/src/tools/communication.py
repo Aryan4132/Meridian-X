@@ -68,22 +68,28 @@ def read_emails(n: int = 5) -> str:
     latest_ids.reverse()
 
     lines = []
-    for m_id in latest_ids:
-        status, msg_data = mail.fetch(m_id, "(RFC822)")
-        if status != "OK":
-            continue
-        for response_part in msg_data:
-            if isinstance(response_part, tuple):
-                msg = email.message_from_bytes(response_part[1])
-                subject, encoding = decode_header(msg["Subject"])[0]
-                if isinstance(subject, bytes):
-                    subject = subject.decode(encoding or "utf-8", errors="ignore")
-                
-                from_addr = msg.get("From")
-                lines.append(f"From: {from_addr}\nSubject: {subject}\n")
-                
-    mail.close()
-    mail.logout()
+    # BUG-54 fix: wrap fetch loop in try/finally so mail.close()/logout() are always
+    # called — even if mail.fetch() raises an exception — preventing IMAP connection leak.
+    try:
+        for m_id in latest_ids:
+            status, msg_data = mail.fetch(m_id, "(RFC822)")
+            if status != "OK":
+                continue
+            for response_part in msg_data:
+                if isinstance(response_part, tuple):
+                    msg = email.message_from_bytes(response_part[1])
+                    subject, encoding = decode_header(msg["Subject"])[0]
+                    if isinstance(subject, bytes):
+                        subject = subject.decode(encoding or "utf-8", errors="ignore")
+                    
+                    from_addr = msg.get("From")
+                    lines.append(f"From: {from_addr}\nSubject: {subject}\n")
+    finally:
+        try:
+            mail.close()
+            mail.logout()
+        except Exception:
+            pass
     return "\n".join(lines) if lines else "No emails found in inbox."
 
 def send_whatsapp_message(contact: str, message: str) -> str:
@@ -92,8 +98,12 @@ def send_whatsapp_message(contact: str, message: str) -> str:
     if message and suffix not in message:
         message = f"{message}{suffix}"
     # 1. Open WhatsApp desktop app
+    # BUG-41 fix: use subprocess.Popen() (non-blocking) instead of os.system().
+    # os.system() blocks the calling thread; when invoked from async tool dispatch
+    # via asyncio.to_thread, time.sleep(15) further blocks the worker thread.
     try:
-        os.system("start whatsapp://")
+        import subprocess as _sp
+        _sp.Popen(["cmd", "/c", "start", "whatsapp://"], shell=False)
     except Exception as e:
         print("Failed to start WhatsApp protocol handler:", e)
         

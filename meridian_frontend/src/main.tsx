@@ -3,11 +3,23 @@ if (typeof window !== 'undefined') {
   // Disable right-click context menu for standard native desktop feel
   document.addEventListener('contextmenu', e => e.preventDefault());
 
+  const sanitizeMessage = (msg: string): string => {
+    return msg
+      .replace(/(sk-[a-zA-Z0-9]{20,})/g, 'sk-***[REDACTED]***')
+      .replace(/(AIzaSy[a-zA-Z0-9_-]{33})/g, 'AIzaSy***[REDACTED]***')
+      .replace(/(xoxb-[a-zA-Z0-9-]{10,})/g, 'xoxb-***[REDACTED]***')
+      .replace(/(ghp_[a-zA-Z0-9]{36,})/g, 'ghp_***[REDACTED]***')
+      .replace(/(?:key|token|auth|pass|password|secret)(?:\s*[:=]\s*["']?)([a-zA-Z0-9_-]{12,})/gi, (match, p1) => {
+        return match.replace(p1, '***[REDACTED]***');
+      });
+  };
+
   const sendDebugLog = (message: string, level = 'error') => {
+    const cleanMessage = sanitizeMessage(message);
     fetch('http://localhost:4132/api/debug/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, level }),
+      body: JSON.stringify({ message: cleanMessage, level }),
     }).catch(() => {});
   };
 

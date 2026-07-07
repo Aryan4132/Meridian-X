@@ -5,6 +5,7 @@ from database import get_sqlite_conn
 
 def export_session_runbook(output_path: str, format_type: str = "md") -> str:
     # 1. Load conversation items from SQLite
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -19,12 +20,15 @@ def export_session_runbook(output_path: str, format_type: str = "md") -> str:
                 "content": r["content"],
                 "summary": r["summary"]
             })
-        conn.close()
     except Exception as e:
         conv_items = []
         print("[Exporter] Failed to load conversations:", e)
+    finally:
+        if conn:
+            conn.close()  # BUG-61 fix: always close connection
         
     # 2. Load execution task log logs
+    conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -40,10 +44,12 @@ def export_session_runbook(output_path: str, format_type: str = "md") -> str:
                 "outcome": r["outcome"],
                 "error": r["error"]
             })
-        conn.close()
     except Exception as e:
         log_items = []
         print("[Exporter] Failed to load task logs:", e)
+    finally:
+        if conn:
+            conn.close()  # BUG-61 fix: always close connection
 
     if format_type.lower() == "md":
         content = generate_markdown(conv_items, log_items)

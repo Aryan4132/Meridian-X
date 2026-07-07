@@ -6,6 +6,8 @@ class LocalEventBus:
         self._subscribers: Dict[str, List[asyncio.Queue]] = {}
 
     def subscribe(self, topic: str) -> asyncio.Queue:
+        # BUG-75 fix: Note that subscribe() must only be called from an async context
+        # or after the event loop has started, to ensure the Queue binds to the correct loop.
         if topic not in self._subscribers:
             self._subscribers[topic] = []
         queue = asyncio.Queue()

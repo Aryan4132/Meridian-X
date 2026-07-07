@@ -13,7 +13,14 @@ def bootstrap_api_key():
   writes it to the root .env file (both MERIDIAN_API_KEY and VITE_API_KEY),
   and sets it in the environment.
   """
-  env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env")
+  # BUG-51 fix: replaced fragile 4-level dirname chain with find_workspace_root().
+  # Chaining dirname N times is brittle if the file is ever moved to a sub-package.
+  try:
+    from src.core.history_manager import find_workspace_root
+    env_path = os.path.join(find_workspace_root(), ".env")
+  except Exception:
+    # Fallback to dirname chain if history_manager is unavailable
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env")
   
   api_key = os.getenv("MERIDIAN_API_KEY")
   if not api_key:

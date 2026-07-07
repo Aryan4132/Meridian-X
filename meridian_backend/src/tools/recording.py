@@ -158,7 +158,15 @@ def replay_workflow(name: str) -> str:
                 steps_executed += 1
             elif action == "type":
                 text = str(step.get("text", ""))
-                pyautogui.typewrite(text)
+                # BUG-43 fix: pyautogui.typewrite() silently drops non-ASCII characters
+                # (accented, CJK, emoji). Use clipboard paste for full Unicode support.
+                try:
+                    import pyperclip
+                    pyperclip.copy(text)
+                    pyautogui.hotkey('ctrl', 'v')
+                except ImportError:
+                    # Fallback to typewrite if pyperclip not available
+                    pyautogui.typewrite(text)
                 steps_executed += 1
             elif action == "hotkey":
                 keys = list(step.get("keys", []))

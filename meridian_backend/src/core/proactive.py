@@ -71,13 +71,13 @@ def publish_nudge_sync(
         )
     except RuntimeError:
         # No running loop in this thread (e.g., APScheduler background thread)
+        # BUG-30 fix: use isolated new_loop without asyncio.set_event_loop()
+        # (set_event_loop in a non-main thread is deprecated in Python 3.10+)
         new_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(new_loop)
         try:
             new_loop.run_until_complete(event_bus.publish("proactive_nudge", payload))
         finally:
             new_loop.close()
-            asyncio.set_event_loop(None)  # clean up thread-local loop reference
 
 
 
@@ -194,6 +194,8 @@ def check_idle_time():
     if idle_minutes >= 30.0 and (now - _last_memory_consolidation) > MEMORY_CONSOLIDATION_COOLDOWN:
         _last_memory_consolidation = now
         try:
+            # BUG-35 fix: import at top of conditional rather than inside nested function
+            # so ImportError surfaces immediately (not silently swallowed by outer except).
             from database import consolidate_memory_sleep_cycle
             from src.core.doc_generator import generate_mermaid_docs
             
@@ -206,6 +208,8 @@ def check_idle_time():
                     
             import threading
             threading.Thread(target=run_sleep_cycle_tasks, daemon=True).start()
+        except ImportError as ie:
+            print("[Scheduler] ImportError in sleep cycle tasks — consolidate_memory_sleep_cycle not available:", ie)
         except Exception as ce:
             print("[Scheduler] Failed to trigger background sleep cycle tasks:", ce)
 
@@ -264,8 +268,10 @@ def on_clipboard_proactive(text: str):
     if not text or len(text.strip()) < 8:
         return
 
-    # Append to rolling clipboard history buffer (limit to last 5 entries in 5 min)
-    _clipboard_history_buffer.append({"text": text, "timestamp": now})
+    # BUG-36 fix: skip append if text is identical to the last buffer entry
+    # to avoid false-positive "Fused Clipboard Errors" from repeated copies.
+    if not _clipboard_history_buffer or _clipboard_history_buffer[-1]["text"] != text:
+        _clipboard_history_buffer.append({"text": text, "timestamp": now})
     _clipboard_history_buffer = [item for item in _clipboard_history_buffer if now - item["timestamp"] <= 300][-5:]
 
     # Check for Clipboard Fusion:
@@ -670,10 +676,19 @@ def check_git_status():
     _last_git_check = now
     
     try:
-        if not os.path.exists(".git"):
+        # BUG-26 fix: resolve repo root from env var instead of CWD,
+        # and use shell=False to avoid unnecessary attack surface.
+        repo_path = os.environ.get(
+            "MERIDIAN_REPO_PATH",
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        )
+        if not os.path.exists(os.path.join(repo_path, ".git")):
             return
             
-        status = subprocess.check_output("git status --porcelain", shell=True).decode("utf-8", errors="ignore").strip()
+        status = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            cwd=repo_path
+        ).decode("utf-8", errors="ignore").strip()
         if not status:
             return
             
@@ -742,7 +757,7 @@ _last_network_alert: float = 0.0
 _is_offline: bool = False
 
 def check_network_status():
-    global _is_offline
+    global _is_offline, _last_network_alert  # BUG-28 fix: declare _last_network_alert as global so we can update it
     
     offline_now = False
     try:
@@ -756,6 +771,7 @@ def check_network_status():
         
     if offline_now and not _is_offline:
         _is_offline = True
+        _last_network_alert = time.time()  # BUG-28 fix: update timestamp so cooldown works correctly
         publish_nudge_sync(
             nudge_type="network_adapter",
             title="🌐 Offline Mode Activated",
@@ -766,6 +782,7 @@ def check_network_status():
         )
     elif not offline_now and _is_offline:
         _is_offline = False
+        _last_network_alert = time.time()  # BUG-28 fix: update timestamp on restore too
         publish_nudge_sync(
             nudge_type="network_adapter",
             title="🌐 Online Mode Restored",

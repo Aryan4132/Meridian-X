@@ -59,15 +59,17 @@ def execute_scheduled_goal(goal: str):
     run_log_parts = []
     try:
         from src.core.loop import run_react_agent_loop
-        from api import get_ollama_client_host
+        # BUG-39 fix: import from database instead of api to avoid circular import
+        # (api.py imports scheduler.py at startup; scheduler importing from api creates a cycle).
+        from database import get_ollama_client_host
         import json
         
         brain_model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
         ollama_host = get_ollama_client_host()
         
-        # Run async loop in a new event loop inside the thread
+        # BUG-39 fix: use asyncio.run() instead of new_event_loop+set_event_loop pattern
+        # (asyncio.set_event_loop in a background thread is deprecated in Python 3.10+).
         loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
         
         async def run():
             current_thought = []

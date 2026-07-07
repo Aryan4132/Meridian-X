@@ -43,8 +43,10 @@ async def preheat_tool(tool_name: str, partial_args_str: str):
     if not args:
         return
 
-    # Create a unique key for the preheating run to avoid duplicate preheating
-    cache_key = f"{tool_name}:{sorted(args.items())}"
+    # BUG-52 fix: json.dumps is safe for mixed-type values (None, int, str, etc.).
+    # sorted(args.items()) raises TypeError when values are non-comparable (e.g. None < 'str').
+    import json as _json
+    cache_key = f"{tool_name}:{_json.dumps(args, sort_keys=True, default=str)}"
     if cache_key in _preheated_cache:
         return
     _preheated_cache.add(cache_key)

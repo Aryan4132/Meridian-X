@@ -20,7 +20,8 @@ def clipboard_history(n: int = 10) -> str:
         for r in records:
             time_str = time.strftime('%H:%M:%S', time.localtime(r.get("timestamp", 0.0)))
             pinned_str = " [PINNED]" if r.get("pinned") else ""
-            lines.append(f"- ID: {r['_id']} | Time: {time_str} | Text: '{r['text'][:50]}...'{pinned_str}")
+            text_preview = r['text'] if len(r['text']) <= 50 else r['text'][:50] + '...'
+            lines.append(f"- ID: {r['_id']} | Time: {time_str} | Text: '{text_preview}'{pinned_str}")
         return "\n".join(lines)
     except Exception as e:
         return f"Error loading clipboard history: {e}"
@@ -42,7 +43,8 @@ def clipboard_search(query: str) -> str:
         for r in records:
             time_str = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(r.get("timestamp", 0.0)))
             pinned_str = " [PINNED]" if r.get("pinned") else ""
-            lines.append(f"- ID: {r['_id']} | Date: {time_str} | Text: '{r['text'][:60]}...'{pinned_str}")
+            text_preview = r['text'] if len(r['text']) <= 60 else r['text'][:60] + '...'
+            lines.append(f"- ID: {r['_id']} | Date: {time_str} | Text: '{text_preview}'{pinned_str}")
         return "\n".join(lines)
     except Exception as e:
         return f"Error searching clipboard: {e}"
