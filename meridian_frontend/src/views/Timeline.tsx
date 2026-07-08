@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 import { Message } from '../types';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
@@ -145,6 +146,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [dragActive, setDragActive] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('meridian_dashboard_tts') === 'true');
 
   const speakMessage = async (text: string) => {
@@ -176,6 +178,20 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   useEffect(() => {
     onThoughtsUpdate({ thoughts: streamThoughts, streaming: loading });
   }, [streamThoughts, loading]);
+
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const target = e.target as HTMLElement;
+    const anchor = target.closest('a');
+    if (anchor) {
+      const href = anchor.getAttribute('href');
+      if (href && !href.startsWith('#')) {
+        e.preventDefault();
+        invoke('open_url', { url: href }).catch(err => {
+          console.error("Failed to open URL externally:", err);
+        });
+      }
+    }
+  };
 
   const clearChat = async () => {
     try { await fetch('http://localhost:4132/api/chat/clear', { method: 'POST' }); } catch { /* noop */ }
@@ -215,10 +231,14 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       }).catch(console.error);
     }
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch('http://localhost:4132/api/chat/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: text }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error('Stream failed');
 
@@ -315,21 +335,35 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       if (ttsEnabled && cleanedContent) {
         speakMessage(cleanedContent);
       }
-    } catch {
-      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Execution interrupted.' }]);
+      } else {
+        setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
+      }
       setStreaming('');
       setStreamThoughts([]);
       if ((window as any).__TAURI_INTERNALS__) {
         emit('agent-status-update', {
           isRunning: false,
-          latestThought: { text: 'Task failed', type: 'error' },
+          latestThought: { text: err.name === 'AbortError' ? 'Task interrupted' : 'Task failed', type: 'error' },
           thoughts: []
         }).catch(console.error);
       }
-    } finally { setLoading(false); }
+    } finally {
+      abortControllerRef.current = null;
+      setLoading(false);
+    }
   };
 
   const handleInterrupt = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setStreaming('');
+    setStreamThoughts([]);
     try {
       await fetch('http://localhost:4132/api/voice/interrupt', { method: 'POST' });
     } catch (e) {
@@ -426,7 +460,10 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       </div>
 
       {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
+      <div
+        onClick={handleTimelineClick}
+        style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}
+      >
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => {
             const isUser = msg.role === 'user';

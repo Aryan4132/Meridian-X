@@ -209,15 +209,18 @@ def list_services() -> str:
     return "\n".join(services[:50]) + (f"\n... ({len(services)-50} services total)" if len(services) > 50 else "")
 
 def start_service(name: str) -> str:
+    # N-2 fix: shell=False — service name is LLM-provided; shell=True allows injection
+    # (e.g., name='spooler & del /f C:\important').
     try:
-        subprocess.check_call(f"sc start {name}", shell=True)
+        subprocess.check_call(["sc", "start", name], shell=False)
         return f"Dispatched start command for service: {name}"
     except Exception as e:
         return f"Failed to start service: {str(e)}"
 
 def stop_service(name: str) -> str:
+    # N-2 fix: same as start_service — shell=False with list.
     try:
-        subprocess.check_call(f"sc stop {name}", shell=True)
+        subprocess.check_call(["sc", "stop", name], shell=False)
         return f"Dispatched stop command for service: {name}"
     except Exception as e:
         return f"Failed to stop service: {str(e)}"
@@ -278,7 +281,8 @@ def get_wifi_networks() -> str:
 
 def ping_host(host: str) -> str:
     try:
-        out = subprocess.check_output(f"ping -n 3 {host}", shell=True).decode('utf-8', errors='ignore')
+        # N-2 fix: shell=False with list; host is user-provided so must not be shell-interpolated.
+        out = subprocess.check_output(["ping", "-n", "3", host], shell=False).decode('utf-8', errors='ignore')
         return out
     except Exception as e:
         return f"Ping to {host} failed: {str(e)}"

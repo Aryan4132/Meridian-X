@@ -126,7 +126,8 @@ def execute_scheduled_goal(goal: str):
             loop.run_until_complete(run())
         finally:
             loop.close()
-            asyncio.set_event_loop(None)  # clean up thread-local loop reference
+            # BUG-39 residual fix: asyncio.set_event_loop(None) after close() is deprecated
+            # in Python 3.10+ and unnecessary — the isolated loop is already closed.
         
         # Log to database
         from database import add_background_run

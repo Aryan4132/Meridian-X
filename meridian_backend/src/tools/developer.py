@@ -93,40 +93,45 @@ def run_python(code: str, timeout: float = 10.0) -> str:
 
 def open_editor(file: str) -> str:
     # Attempt to open the file in VS Code (assumes `code` is in system PATH)
+    # N-2 fix: use shell=False with a list to prevent shell injection via file path.
     try:
-        subprocess.Popen(f"code \"{file}\"", shell=True)
+        subprocess.Popen(["code", file], shell=False)
         return f"Successfully spawned editor window (VS Code) for file: {file}"
     except Exception as e:
         return f"Failed to open VS Code: {str(e)}"
 
 def git_status(repo_path: str) -> str:
+    # N-2 fix: shell=False with list avoids shell injection and is preferred on all platforms.
     try:
-        out = subprocess.check_output("git status --short", cwd=repo_path, shell=True, stderr=subprocess.STDOUT).decode('utf-8')
+        out = subprocess.check_output(["git", "status", "--short"], cwd=repo_path, shell=False, stderr=subprocess.STDOUT).decode('utf-8')
         return out if out.strip() else "Git directory clean, no changes."
     except Exception as e:
         return f"Git status failed: {str(e)}"
 
 def git_commit(message: str, repo_path: str) -> str:
+    # N-2 fix: shell=False list form prevents injection via commit message content.
     try:
         # stage and commit
-        subprocess.check_call("git add .", cwd=repo_path, shell=True)
-        out = subprocess.check_output(f"git commit -m \"{message}\"", cwd=repo_path, shell=True).decode('utf-8')
+        subprocess.check_call(["git", "add", "."], cwd=repo_path, shell=False)
+        out = subprocess.check_output(["git", "commit", "-m", message], cwd=repo_path, shell=False).decode('utf-8')
         return f"Git commit successful:\n{out}"
     except Exception as e:
         return f"Git commit failed: {str(e)}"
 
 def git_diff(repo_path: str) -> str:
+    # N-2 fix: shell=False with list.
     try:
-        out = subprocess.check_output("git diff HEAD", cwd=repo_path, shell=True).decode('utf-8')
+        out = subprocess.check_output(["git", "diff", "HEAD"], cwd=repo_path, shell=False).decode('utf-8')
         return out if out.strip() else "No diff changes detected against HEAD."
     except Exception as e:
         return f"Git diff failed: {str(e)}"
 
 def search_codebase(query: str, path: str) -> str:
     # Use ripgrep or fallback to manual python file search inside the path
+    # N-2 fix: shell=False with list; query passed as a separate arg to prevent injection.
     try:
         # Check if git grep is available
-        out = subprocess.check_output(f"git grep -n \"{query}\"", cwd=path, shell=True).decode('utf-8', errors='ignore')
+        out = subprocess.check_output(["git", "grep", "-n", query], cwd=path, shell=False).decode('utf-8', errors='ignore')
         return out if out.strip() else "No matching code lines found in repository."
     except Exception:
         # Fallback manual text search
@@ -206,7 +211,8 @@ def run_tests(path: str, framework: str = "pytest") -> str:
             python_exe = os.path.join(venv_scripts, "python.exe") if os.path.exists(venv_scripts) else "python"
             cmd = [python_exe, "-m", "unittest"]
             
-        res = subprocess.run(cmd, cwd=path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        # N-2 fix: shell=False — cmd is already a list of safe executable paths.
+        res = subprocess.run(cmd, cwd=path, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         return f"--- TEST RESULTS ---\nSTDOUT:\n{res.stdout}\nSTDERR:\n{res.stderr}"
     except Exception as e:
         return f"Failed to execute tests: {e}"
@@ -219,7 +225,8 @@ def install_package(package: str) -> str:
         if not os.path.exists(pip_exe):
             pip_exe = "pip"
             
-        res = subprocess.run([pip_exe, "install", package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        # N-2 fix: shell=False — executable + args already in list form.
+        res = subprocess.run([pip_exe, "install", package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         if res.returncode == 0:
             return f"Successfully installed package: {package}\n{res.stdout}"
         return f"Failed to install package {package}:\n{res.stderr}"
@@ -238,7 +245,8 @@ def lint_file(path: str) -> str:
             return "Error: Linter 'ruff' is not installed. Run 'install_package' tool with arg: 'ruff' first."
             
         executable = ruff_exe if os.path.exists(ruff_exe) else "ruff"
-        res = subprocess.run([executable, "check", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        # N-2 fix: shell=False — list form, no user input in args.
+        res = subprocess.run([executable, "check", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         if res.returncode == 0:
             return "Linting check passed. No issues found."
         return f"Linting issues found:\n{res.stdout}\n{res.stderr}"
@@ -257,7 +265,8 @@ def format_file(path: str) -> str:
             return "Error: Formatter 'black' is not installed. Run 'install_package' tool with arg: 'black' first."
             
         executable = black_exe if os.path.exists(black_exe) else "black"
-        res = subprocess.run([executable, path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=True)
+        # N-2 fix: shell=False — list form.
+        res = subprocess.run([executable, path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         if res.returncode == 0:
             return f"Successfully formatted file in-place: {path}"
         return f"Formatting failed:\n{res.stderr}"

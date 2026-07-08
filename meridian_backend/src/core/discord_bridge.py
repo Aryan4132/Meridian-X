@@ -47,7 +47,9 @@ def stop_discord_bridge():
 def _run_bot(token):
     global _bot, _loop
     _loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(_loop)
+    # N-1 fix: do NOT call asyncio.set_event_loop(_loop) in a non-main thread.
+    # Setting the thread-local event loop is deprecated in Python 3.10+ and unnecessary
+    # here because the bot runs directly inside _loop.run_until_complete() below.
 
     intents = discord.Intents.default()
     intents.message_content = True

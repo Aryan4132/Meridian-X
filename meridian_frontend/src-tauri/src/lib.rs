@@ -113,7 +113,7 @@ fn kill_backend_process() {
         let _ = Command::new("powershell")
             .args(&[
                 "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'api.exe'\" | Where-Object {$_.CommandLine -like '*api.py*' or $_.Name -eq 'api.exe'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
+                "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'pythonw.exe' or Name = 'api.exe'\" | Where-Object {$_.CommandLine -like '*api.py*' or $_.Name -eq 'api.exe'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
             ])
             .status();
     }
@@ -173,10 +173,39 @@ fn trigger_backend_restart() -> Result<String, String> {
     Ok("Restart initiated".into())
 }
 
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        Command::new("cmd")
+            .args(&["/C", "start", "", &url])
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        Command::new("open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        use std::process::Command;
+        Command::new("xdg-open")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_island_mode, trigger_backend_restart, set_mascot_visible, close_application, toggle_game_mode])
+        .invoke_handler(tauri::generate_handler![set_island_mode, trigger_backend_restart, set_mascot_visible, close_application, toggle_game_mode, open_url])
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {

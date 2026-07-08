@@ -11,7 +11,7 @@ echo [1/4] Terminating any running daemon instances...
 taskkill /f /im python.exe /fi "WINDOWTITLE eq Meridian-X Daemon" >nul 2>&1
 taskkill /f /im api.exe >nul 2>&1
 taskkill /f /im app.exe >nul 2>&1
-powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'pythonw.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 :: 1.5 Sync root .env to meridian_backend/.env so API keys are loaded correctly
@@ -45,7 +45,7 @@ cd ..
 
 echo.
 echo Desktop Shell closed. Cleaning up background daemon...
-powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'pythonw.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
 echo Cleanup complete.
 timeout /t 2 /nobreak >nul
 exit

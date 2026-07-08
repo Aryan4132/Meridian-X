@@ -1525,3 +1525,68 @@ API keys for OpenAI, Anthropic, Gemini, DeepSeek, Tavily, Discord, and Telegram 
    cd meridian_backend
    Get-ChildItem -Recurse -Filter "*.py" | Where-Object { $_.FullName -notlike "*venv*" -and $_.FullName -notlike "*__pycache__*" } | ForEach-Object { $r = & venv\Scripts\python.exe -m py_compile $_.FullName 2>&1; if ($r) { Write-Host "FAIL: $($_.FullName)"; Write-Host $r } }; Write-Host "--- Syntax scan complete ---"
    ```
+
+---
+
+## Round 7 — July 7 2026 (All Fixed ✅)
+
+Audit scope: Verification pass on all previously marked-fixed bugs. Found 1 fix that was not applied (BUG-62), 1 partial fix (BUG-39 residual), and 2 new unregistered issues (N-1, N-2).
+
+---
+
+### BUG-62 🟡 MEDIUM — `tts.py:160` — **REAL FIX APPLIED**
+
+Previously marked ✅ Fixed but `sd.wait()` was still in the file. Now replaced with a deadline-bounded polling loop:
+```python
+max_wait = (len(data) / fs) + 2.0
+deadline = time.monotonic() + max_wait
+while sd.get_stream().active and time.monotonic() < deadline:
+    time.sleep(0.05)
+```
+If the audio device disconnects mid-playback the loop exits at the deadline instead of hanging the `asyncio.to_thread` worker forever.
+
+---
+
+### BUG-39 Residual 🔵 LOW — `scheduler.py:129`
+
+`asyncio.set_event_loop(None)` remained in the `finally` block despite BUG-39 being closed. Removed — the isolated loop is already closed; calling `set_event_loop(None)` is deprecated in Python 3.10+ and unnecessary.
+
+---
+
+### N-1 🔵 LOW — `discord_bridge.py:50`
+
+`asyncio.set_event_loop(_loop)` in a non-main thread — same deprecated pattern as BUG-30/39/56. The discord bridge was not covered by prior audits. Removed the `set_event_loop` call; the bot runs directly via `_loop.run_until_complete(_bot.start(token))`.
+
+---
+
+### N-2 🟠 HIGH — `developer.py` + `system.py` — Multiple `shell=True` with user/LLM-controlled input
+
+**BUG-42 only fixed `open_app` in `system.py`. The same injection pattern existed at 10 more callsites:**
+
+| File | Function | Fixed |
+|---|---|---|
+| `developer.py:97` | `open_editor` — file path in shell string | ✅ Fixed |
+| `developer.py:104` | `git_status` — shell=True | ✅ Fixed |
+| `developer.py:112-113` | `git_commit` — message interpolated | ✅ Fixed |
+| `developer.py:120` | `git_diff` — shell=True | ✅ Fixed |
+| `developer.py:129` | `search_codebase` — query interpolated | ✅ Fixed |
+| `developer.py:209` | `run_tests` — shell=True with list | ✅ Fixed |
+| `developer.py:222` | `install_package` — shell=True with list | ✅ Fixed |
+| `developer.py:241` | `lint_file` — shell=True with list | ✅ Fixed |
+| `developer.py:260` | `format_file` — shell=True with list | ✅ Fixed |
+| `system.py:213` | `start_service` — name interpolated | ✅ Fixed |
+| `system.py:220` | `stop_service` — name interpolated | ✅ Fixed |
+| `system.py:281` | `ping_host` — host interpolated | ✅ Fixed |
+
+All callsites converted to `shell=False` with list-form arguments.
+
+---
+
+## Round 7 Summary Table
+
+| ID | Severity | File | Short Description | Status |
+|---|---|---|---|---|
+| BUG-62 (re-fix) | 🟡 Medium | `tts.py:160` | `sd.wait()` still present after Round 5 — now replaced with deadline-bounded loop | ✅ Fixed |
+| BUG-39 Residual | 🔵 Low | `scheduler.py:129` | `asyncio.set_event_loop(None)` remained in finally block — removed | ✅ Fixed |
+| N-1 | 🔵 Low | `discord_bridge.py:50` | `asyncio.set_event_loop(_loop)` in background thread — deprecated, removed | ✅ Fixed |
+| N-2 | 🟠 High | `developer.py`, `system.py` | 12 `shell=True` callsites with LLM/user-controlled input — all converted to `shell=False` | ✅ Fixed |

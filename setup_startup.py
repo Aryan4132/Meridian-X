@@ -24,10 +24,22 @@ def enable_startup():
     
     bat_content = f"""@echo off
 cd /d "{project_dir}"
+
+:: 1. Clean up any stale backend/frontend instances before startup
+taskkill /f /im api.exe >nul 2>&1
+taskkill /f /im app.exe >nul 2>&1
+powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'python.exe' or Name = 'pythonw.exe'\\" | Where-Object {{$_.CommandLine -like '*api.py*'}} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}" >nul 2>&1
+
+:: 2. Sync the root .env configuration to backend and production AppData folder
 if exist ".env" (
     copy /Y ".env" "meridian_backend\\.env" >nul 2>&1
+    if not exist "%LOCALAPPDATA%\\com.meridian.x\\Meridian" (
+        mkdir "%LOCALAPPDATA%\\com.meridian.x\\Meridian" >nul 2>&1
+    )
+    copy /Y ".env" "%LOCALAPPDATA%\\com.meridian.x\\Meridian\\.env" >nul 2>&1
 )
 
+:: 3. Launch compiled release or fallback to development mode
 if exist "{release_exe_relative}" (
     echo [System] Starting compiled production release...
     cd meridian_frontend\\src-tauri\\target\\release
@@ -45,11 +57,11 @@ if exist "{release_exe_relative}" (
     )
     start "" "venv\\Scripts\\pythonw.exe" api.py
     echo [System] Waiting for FastAPI Backend to bind to port 4132...
-    powershell -Command "while ($true) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500 }}"
+    powershell -Command "$retry = 0; while ($retry -lt 120) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500; $retry++ }}"
     echo [System] FastAPI Backend online! Starting Tauri Desktop App...
     cd /d "{project_dir}"
     cd meridian_frontend
-    npm run tauri dev
+    call npx tauri dev
 )
 """
     

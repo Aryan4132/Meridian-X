@@ -157,7 +157,15 @@ def speak_text(text: str, voice_name: str = "M1") -> str:
             data, fs = item
             try:
                 sd.play(data, fs)
-                sd.wait() # Block until current chunk completes playing
+                # BUG-62 fix: replace sd.wait() with a deadline-bounded loop.
+                # sd.wait() can hang forever if the audio device disconnects mid-playback,
+                # permanently consuming this asyncio.to_thread worker. The deadline is
+                # clip duration + 2s grace, after which we stop waiting and move on.
+                import time as _time
+                max_wait = (len(data) / fs) + 2.0
+                deadline = _time.monotonic() + max_wait
+                while sd.get_stream().active and _time.monotonic() < deadline:
+                    _time.sleep(0.05)
                 played_chunks_count += 1
             except Exception as e:
                 error_container.append(f"Playback failed: {e}")

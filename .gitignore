@@ -12,9 +12,15 @@ node_modules/
 dist/
 dist-ssr/
 *.local
-meridain_frontend/node_modules/
-meridain_frontend/dist/
-meridain_frontend/src-tauri/target/
+meridian_frontend/node_modules/
+meridian_frontend/dist/
+meridian_frontend/src-tauri/target/
+meridian_frontend/src-tauri/api/
+
+# PyInstaller build outputs
+meridian_backend/build/
+meridian_backend/dist/
+meridian_backend/*.spec
 
 # Python Virtual Environment and caches
 venv/
