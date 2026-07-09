@@ -106,7 +106,8 @@ def generate_dynamic_tool(prompt: str) -> str:
     )
     
     client = ollama.Client(host=get_ollama_client_host())
-    model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    model = get_brain_model()
     
     code = ""
     error_msg = ""

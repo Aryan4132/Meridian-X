@@ -16,10 +16,12 @@ _record_thread = None
 _frames_captured = 0
 
 def _get_active_model() -> str:
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    return get_brain_model()
 
 def _get_vision_model() -> str:
-    return os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
+    from database import get_vision_model
+    return get_vision_model()
 
 def _recording_worker(output_dir: str, fps: float):
     global _recording_active, _frames_captured

@@ -16,10 +16,13 @@ _viewport_w = 1280
 _viewport_h = 800
 
 def _get_active_model() -> str:
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    return get_brain_model()
 
 def _get_vision_model() -> str:
-    return os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
+    from database import get_vision_model
+    return get_vision_model()
+
 
 def browser_open(url: str) -> str:
     """Launch headless browser and navigate to a specified URL."""
@@ -30,8 +33,19 @@ def browser_open(url: str) -> str:
             _playwright = sync_playwright().start()
             _browser = _playwright.chromium.launch(headless=True)
             
+        # Dynamically load viewport dimensions
+        try:
+            from database import get_user_profile
+            vw = get_user_profile("browser_viewport_width")
+            vh = get_user_profile("browser_viewport_height")
+            viewport_w = int(vw) if vw else _viewport_w
+            viewport_h = int(vh) if vh else _viewport_h
+        except Exception:
+            viewport_w = _viewport_w
+            viewport_h = _viewport_h
+
         if not _page:
-            _page = _browser.new_page(viewport={"width": _viewport_w, "height": _viewport_h})
+            _page = _browser.new_page(viewport={"width": viewport_w, "height": viewport_h})
             
         try:
             _page.goto(url)

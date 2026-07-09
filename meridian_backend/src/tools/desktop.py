@@ -22,7 +22,7 @@ def screenshot_region(x: int, y: int, w: int, h: int, output_path: str) -> str:
 
 def vision_analyze(image_path: str, prompt: str) -> str:
     try:
-        from database import get_ollama_client
+        from database import get_ollama_client, get_vision_model
         
         if not os.path.exists(image_path):
             raise FileNotFoundError(f"Image not found: {image_path}")
@@ -31,7 +31,7 @@ def vision_analyze(image_path: str, prompt: str) -> str:
             img_data = f.read()
             
         client = get_ollama_client()
-        vision_model = os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
+        vision_model = get_vision_model()
         
         res = client.generate(
             model=vision_model,

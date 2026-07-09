@@ -1218,6 +1218,21 @@ class ProfileSaveRequest(BaseModel):
     meridian_provider: Optional[str] = None
     ollama_host: Optional[str] = None
     first_run_completed: Optional[bool] = None
+    meridian_auditor_model: Optional[str] = None
+    meridian_voice: Optional[str] = None
+    wakeword_threshold: Optional[float] = None
+    wakeword_model_filename: Optional[str] = None
+    wakeword_phrase: Optional[str] = None
+    stt_model_size: Optional[str] = None
+    stt_silence_timeout: Optional[float] = None
+    stt_vad_threshold: Optional[float] = None
+    stt_max_duration: Optional[float] = None
+    browser_viewport_width: Optional[int] = None
+    browser_viewport_height: Optional[int] = None
+    cpu_warn_threshold: Optional[float] = None
+    ram_warn_threshold: Optional[float] = None
+    disk_warn_threshold: Optional[float] = None
+    distraction_sites: Optional[List[str]] = None
 
 ENV_KEY_MAP = {
     "ollama_host": "OLLAMA_HOST",
@@ -1232,7 +1247,22 @@ ENV_KEY_MAP = {
     "whatsapp_phone": "WHATSAPP_PHONE",
     "meridian_provider": "MERIDIAN_PROVIDER",
     "meridian_model": "MERIDIAN_MODEL",
-    "meridian_vision_model": "MERIDIAN_VISION_MODEL"
+    "meridian_vision_model": "MERIDIAN_VISION_MODEL",
+    "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
+    "meridian_voice": "MERIDIAN_VOICE",
+    "wakeword_threshold": "WAKEWORD_THRESHOLD",
+    "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
+    "wakeword_phrase": "WAKEWORD_PHRASE",
+    "stt_model_size": "STT_MODEL_SIZE",
+    "stt_silence_timeout": "STT_SILENCE_TIMEOUT",
+    "stt_vad_threshold": "STT_VAD_THRESHOLD",
+    "stt_max_duration": "STT_MAX_DURATION",
+    "browser_viewport_width": "BROWSER_VIEWPORT_WIDTH",
+    "browser_viewport_height": "BROWSER_VIEWPORT_HEIGHT",
+    "cpu_warn_threshold": "CPU_WARN_THRESHOLD",
+    "ram_warn_threshold": "RAM_WARN_THRESHOLD",
+    "disk_warn_threshold": "DISK_WARN_THRESHOLD",
+    "distraction_sites": "DISTRACTION_SITES"
 }
 
 def update_local_env_file(key: str, val: str):
@@ -1287,7 +1317,13 @@ def profile_get_all():
             "tavily_key", "discord_token", "telegram_token", "telegram_chat_id",
             "whatsapp_phone", "meridian_model", "meridian_vision_model",
             "openai_key", "anthropic_key", "gemini_key", "deepseek_key",
-            "meridian_provider", "ollama_host", "first_run_completed"
+            "meridian_provider", "ollama_host", "first_run_completed",
+            "meridian_auditor_model", "meridian_voice", "wakeword_threshold",
+            "wakeword_model_filename", "wakeword_phrase", "stt_model_size",
+            "stt_silence_timeout", "stt_vad_threshold", "stt_max_duration",
+            "browser_viewport_width", "browser_viewport_height",
+            "cpu_warn_threshold", "ram_warn_threshold", "disk_warn_threshold",
+            "distraction_sites"
         ]
         profile = {}
         for k in keys:
@@ -1421,7 +1457,8 @@ def sandbox_run(request: SandboxRequest):
     # 2. Security Auditor consensus check
     ollama_host = get_ollama_client_host()
     client = ollama.Client(host=ollama_host)
-    auditor_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+    from database import get_auditor_model
+    auditor_model = get_auditor_model()
     
     args_str = json.dumps({"code": request.code})
     audit_prompt = (
@@ -1444,7 +1481,8 @@ def sandbox_run(request: SandboxRequest):
                 reasoning = line.split(":", 1)[1].strip()
     except Exception as e:
         try:
-            main_model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+            from database import get_user_profile
+            main_model = os.environ.get("MERIDIAN_MODEL") or get_user_profile("meridian_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
             audit_res = client.generate(model=main_model, prompt=audit_prompt)
             audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
             for line in audit_text.split("\n"):
@@ -1871,21 +1909,26 @@ class PowerSaveRequest(BaseModel):
 @app.post("/api/system/power-save")
 def toggle_power_save(request: PowerSaveRequest):
     try:
-        active = request.active
         if active:
-            os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:1.5b-instruct-q8_0"
-            print("[Resource Governor] Power-Saving Mode activated. Model set to Qwen 1.5B.")
+            from database import get_auditor_model
+            os.environ["MERIDIAN_MODEL"] = get_auditor_model()
+            print("[Resource Governor] Power-Saving Mode activated. Model set to lightweight auditor.")
             return {"status": "success", "message": "Power-Saving Mode activated. Using lightweight fallback model."}
         else:
-            os.environ["MERIDIAN_MODEL"] = "qwen2.5-coder:7b-instruct-q4_K_M"
-            print("[Resource Governor] Power-Saving Mode deactivated. Model restored to Qwen 7B.")
-            return {"status": "success", "message": "Power-Saving Mode deactivated. Restored default model."}
+            from database import get_user_profile
+            default_model = get_user_profile("meridian_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
+            os.environ["MERIDIAN_MODEL"] = default_model
+            print(f"[Resource Governor] Power-Saving Mode deactivated. Model restored to {default_model}.")
+            return {"status": "success", "message": f"Power-Saving Mode deactivated. Restored default model {default_model}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 def check_startup_enabled():
     import os
-    startup_dir = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+    appdata = os.environ.get("APPDATA", "")
+    if not appdata:
+        return False
+    startup_dir = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
     vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
     return os.path.exists(vbs_path)
 

@@ -92,6 +92,65 @@ export default function Settings() {
   const [newServerArgs, setNewServerArgs] = useState('');
   const [newServerEnv, setNewServerEnv] = useState('');
 
+  // Additional dynamic settings state variables
+  const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
+  const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
+  const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
+  const [wakewordPhrase, setWakewordPhrase] = useState(() => localStorage.getItem('wakeword_phrase') || 'Hey Meridian');
+  const [sttModelSize, setSttModelSize] = useState(() => localStorage.getItem('stt_model_size') || 'base');
+  const [sttSilenceTimeout, setSttSilenceTimeout] = useState(() => parseFloat(localStorage.getItem('stt_silence_timeout') || '1.0'));
+  const [sttVadThreshold, setSttVadThreshold] = useState(() => parseFloat(localStorage.getItem('stt_vad_threshold') || '300.0'));
+  const [sttMaxDuration, setSttMaxDuration] = useState(() => parseFloat(localStorage.getItem('stt_max_duration') || '8.0'));
+  const [browserWidth, setBrowserWidth] = useState(() => parseInt(localStorage.getItem('browser_viewport_width') || '1280'));
+  const [browserHeight, setBrowserHeight] = useState(() => parseInt(localStorage.getItem('browser_viewport_height') || '800'));
+  const [cpuWarn, setCpuWarn] = useState(() => parseFloat(localStorage.getItem('cpu_warn_threshold') || '85.0'));
+  const [ramWarn, setRamWarn] = useState(() => parseFloat(localStorage.getItem('ram_warn_threshold') || '88.0'));
+  const [diskWarn, setDiskWarn] = useState(() => parseFloat(localStorage.getItem('disk_warn_threshold') || '90.0'));
+  const [distractions, setDistractions] = useState(() => localStorage.getItem('distraction_sites') || 'facebook.com, instagram.com, youtube.com, twitter.com, reddit.com');
+
+  // Fetch profile configurations on mount to hydrate local storage & states
+  useEffect(() => {
+    fetch('http://localhost:4132/api/profile/all')
+      .then(r => r.json())
+      .then(data => {
+        if (data) {
+          if (data.meridian_provider) { setProvider(data.meridian_provider); localStorage.setItem('MERIDIAN_PROVIDER', data.meridian_provider); }
+          if (data.ollama_host) { setOllamaHost(data.ollama_host); localStorage.setItem('OLLAMA_HOST', data.ollama_host); }
+          if (data.meridian_model) { setBrainModel(data.meridian_model); localStorage.setItem('MERIDIAN_MODEL', data.meridian_model); setModelName(data.meridian_model); }
+          if (data.meridian_vision_model) { setVisionModel(data.meridian_vision_model); localStorage.setItem('MERIDIAN_VISION_MODEL', data.meridian_vision_model); }
+          if (data.openai_key) { setOpenaiKey(data.openai_key); localStorage.setItem('OPENAI_API_KEY', data.openai_key); }
+          if (data.anthropic_key) { setAnthropicKey(data.anthropic_key); localStorage.setItem('ANTHROPIC_API_KEY', data.anthropic_key); }
+          if (data.gemini_key) { setGeminiKey(data.gemini_key); localStorage.setItem('GEMINI_API_KEY', data.gemini_key); }
+          if (data.deepseek_key) { setDeepseekKey(data.deepseek_key); localStorage.setItem('DEEPSEEK_API_KEY', data.deepseek_key); }
+          if (data.tavily_key) { setTavilyKey(data.tavily_key); localStorage.setItem('TAVILY_API_KEY', data.tavily_key); }
+          if (data.discord_token) { setDiscordToken(data.discord_token); localStorage.setItem('DISCORD_BOT_TOKEN', data.discord_token); }
+          if (data.telegram_token) { setTelegramToken(data.telegram_token); localStorage.setItem('TELEGRAM_BOT_TOKEN', data.telegram_token); }
+          if (data.telegram_chat_id) { setTelegramChatId(data.telegram_chat_id); localStorage.setItem('TELEGRAM_CHAT_ID', data.telegram_chat_id); }
+          
+          if (data.meridian_auditor_model) { setAuditorModel(data.meridian_auditor_model); localStorage.setItem('meridian_auditor_model', data.meridian_auditor_model); }
+          if (data.meridian_voice) { setTtsVoice(data.meridian_voice); localStorage.setItem('meridian_tts_voice', data.meridian_voice); }
+          if (data.wakeword_threshold) { setWakewordThreshold(data.wakeword_threshold); localStorage.setItem('wakeword_threshold', String(data.wakeword_threshold)); }
+          if (data.wakeword_model_filename) { setWakewordModel(data.wakeword_model_filename); localStorage.setItem('wakeword_model_filename', data.wakeword_model_filename); }
+          if (data.wakeword_phrase) { setWakewordPhrase(data.wakeword_phrase); localStorage.setItem('wakeword_phrase', data.wakeword_phrase); }
+          if (data.stt_model_size) { setSttModelSize(data.stt_model_size); localStorage.setItem('stt_model_size', data.stt_model_size); }
+          if (data.stt_silence_timeout) { setSttSilenceTimeout(data.stt_silence_timeout); localStorage.setItem('stt_silence_timeout', String(data.stt_silence_timeout)); }
+          if (data.stt_vad_threshold) { setSttVadThreshold(data.stt_vad_threshold); localStorage.setItem('stt_vad_threshold', String(data.stt_vad_threshold)); }
+          if (data.stt_max_duration) { setSttMaxDuration(data.stt_max_duration); localStorage.setItem('stt_max_duration', String(data.stt_max_duration)); }
+          if (data.browser_viewport_width) { setBrowserWidth(data.browser_viewport_width); localStorage.setItem('browser_viewport_width', String(data.browser_viewport_width)); }
+          if (data.browser_viewport_height) { setBrowserHeight(data.browser_viewport_height); localStorage.setItem('browser_viewport_height', String(data.browser_viewport_height)); }
+          if (data.cpu_warn_threshold) { setCpuWarn(data.cpu_warn_threshold); localStorage.setItem('cpu_warn_threshold', String(data.cpu_warn_threshold)); }
+          if (data.ram_warn_threshold) { setRamWarn(data.ram_warn_threshold); localStorage.setItem('ram_warn_threshold', String(data.ram_warn_threshold)); }
+          if (data.disk_warn_threshold) { setDiskWarn(data.disk_warn_threshold); localStorage.setItem('disk_warn_threshold', String(data.disk_warn_threshold)); }
+          if (data.distraction_sites) {
+            const listStr = Array.isArray(data.distraction_sites) ? data.distraction_sites.join(', ') : data.distraction_sites;
+            setDistractions(listStr);
+            localStorage.setItem('distraction_sites', listStr);
+          }
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Fetch MCP config on mount
   useEffect(() => {
     fetch('http://localhost:4132/api/mcp/config')
@@ -234,8 +293,29 @@ export default function Settings() {
       TAVILY_API_KEY: tavilyKey, DISCORD_BOT_TOKEN: discordToken,
       TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
       GAME_MODE: gameMode ? 'true' : 'false',
+      meridian_auditor_model: auditorModel,
+      meridian_tts_voice: ttsVoice,
+      wakeword_threshold: String(wakewordThreshold),
+      wakeword_model_filename: wakewordModel,
+      wakeword_phrase: wakewordPhrase,
+      stt_model_size: sttModelSize,
+      stt_silence_timeout: String(sttSilenceTimeout),
+      stt_vad_threshold: String(sttVadThreshold),
+      stt_max_duration: String(sttMaxDuration),
+      browser_viewport_width: String(browserWidth),
+      browser_viewport_height: String(browserHeight),
+      cpu_warn_threshold: String(cpuWarn),
+      ram_warn_threshold: String(ramWarn),
+      disk_warn_threshold: String(diskWarn),
+      distraction_sites: distractions,
     };
     Object.entries(entries).forEach(([k, v]) => localStorage.setItem(k, v));
+
+    // Parse distraction sites list
+    const parsedDistractions = distractions
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => s.length > 0);
 
     try {
       const res = await fetch('http://localhost:4132/api/profile/save', {
@@ -247,6 +327,21 @@ export default function Settings() {
           gemini_key: geminiKey, deepseek_key: deepseekKey,
           tavily_key: tavilyKey, discord_token: discordToken,
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
+          meridian_auditor_model: auditorModel,
+          meridian_voice: ttsVoice,
+          wakeword_threshold: wakewordThreshold,
+          wakeword_model_filename: wakewordModel,
+          wakeword_phrase: wakewordPhrase,
+          stt_model_size: sttModelSize,
+          stt_silence_timeout: sttSilenceTimeout,
+          stt_vad_threshold: sttVadThreshold,
+          stt_max_duration: sttMaxDuration,
+          browser_viewport_width: browserWidth,
+          browser_viewport_height: browserHeight,
+          cpu_warn_threshold: cpuWarn,
+          ram_warn_threshold: ramWarn,
+          disk_warn_threshold: diskWarn,
+          distraction_sites: parsedDistractions,
         }),
       });
       if (res.ok) {
@@ -346,6 +441,14 @@ export default function Settings() {
                   </label>
                   <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                 </div>
+
+                {/* Auditor model */}
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Security Auditor Model (Ollama)
+                  </label>
+                  <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                </div>
               </div>
             </div>
           </GlowCard>
@@ -362,6 +465,87 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
                   <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
                 </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Voice & Wake Word Advanced Config */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Voice & Wake Word Settings</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>STT Whisper Model</label>
+                <select value={sttModelSize} onChange={e => setSttModelSize(e.target.value)} className="select-base">
+                  <option value="base">base (Fastest)</option>
+                  <option value="small">small</option>
+                  <option value="medium">medium</option>
+                  <option value="large-v3">large-v3</option>
+                  <option value="turbo">turbo (Accurate)</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Score Threshold</label>
+                <input type="number" min="0.1" max="1.0" step="0.05" value={wakewordThreshold} onChange={e => setWakewordThreshold(parseFloat(e.target.value))} className="input-base" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Filename</label>
+                <input type="text" value={wakewordModel} onChange={e => setWakewordModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Phrase Text</label>
+                <input type="text" value={wakewordPhrase} onChange={e => setWakewordPhrase(e.target.value)} className="input-base" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Silence Timeout (sec)</label>
+                <input type="number" min="0.2" max="5.0" step="0.1" value={sttSilenceTimeout} onChange={e => setSttSilenceTimeout(parseFloat(e.target.value))} className="input-base" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Amplitude Threshold</label>
+                <input type="number" min="50" max="2000" step="50" value={sttVadThreshold} onChange={e => setSttVadThreshold(parseFloat(e.target.value))} className="input-base" />
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max STT Recording Duration (sec)</label>
+                <input type="number" min="2.0" max="60.0" step="1.0" value={sttMaxDuration} onChange={e => setSttMaxDuration(parseFloat(e.target.value))} className="input-base" />
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Proactive Guard Config */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Proactive Monitoring & System Guard</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPU Warn (%)</label>
+                  <input type="number" min="10" max="95" value={cpuWarn} onChange={e => setCpuWarn(parseFloat(e.target.value))} className="input-base" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>RAM Warn (%)</label>
+                  <input type="number" min="10" max="95" value={ramWarn} onChange={e => setRamWarn(parseFloat(e.target.value))} className="input-base" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Disk Warn (%)</label>
+                  <input type="number" min="10" max="95" value={diskWarn} onChange={e => setDiskWarn(parseFloat(e.target.value))} className="input-base" />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Distraction Websites Blocklist (comma-separated)</label>
+                <input type="text" value={distractions} onChange={e => setDistractions(e.target.value)} className="input-base" />
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Browser Tool Config */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Web Browser Tool Settings</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Width (px)</label>
+                <input type="number" min="320" max="3840" value={browserWidth} onChange={e => setBrowserWidth(parseInt(e.target.value))} className="input-base" />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Height (px)</label>
+                <input type="number" min="240" max="2160" value={browserHeight} onChange={e => setBrowserHeight(parseInt(e.target.value))} className="input-base" />
               </div>
             </div>
           </GlowCard>

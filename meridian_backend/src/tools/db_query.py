@@ -12,7 +12,8 @@ _conn_dsn = ""
 _db_lock = threading.RLock()
 
 def _get_active_model() -> str:
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    return get_brain_model()
 
 def db_connect(type: str, path_or_dsn: str) -> str:
     """Connect to a local database ('sqlite', 'postgresql', or 'mysql')."""

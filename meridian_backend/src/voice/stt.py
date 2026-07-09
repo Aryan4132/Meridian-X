@@ -6,9 +6,18 @@ from typing import Optional
 _cached_whisper_model = None
 _whisper_lock = threading.Lock()
 
-def get_whisper_model(model_size: str = "base"):
+def get_whisper_model(model_size: Optional[str] = None):
     """Get or initialize the cached Whisper model instance."""
     global _cached_whisper_model
+    if model_size is None:
+        try:
+            from database import get_user_profile
+            model_size = get_user_profile("stt_model_size")
+        except Exception:
+            pass
+        if not model_size:
+            model_size = "base"
+
     if _cached_whisper_model is None:
         with _whisper_lock:
             if _cached_whisper_model is None:
@@ -42,7 +51,7 @@ def get_whisper_model(model_size: str = "base"):
                 _cached_whisper_model = WhisperModel(model_size, device=device, compute_type=compute_type)
     return _cached_whisper_model
 
-def transcribe_audio_file(audio_path: str, model_size: str = "base") -> str:
+def transcribe_audio_file(audio_path: str, model_size: Optional[str] = None) -> str:
     """Transcribe a local WAV/MP3 audio file using faster-whisper locally."""
     try:
         model = get_whisper_model(model_size)
@@ -54,7 +63,7 @@ def transcribe_audio_file(audio_path: str, model_size: str = "base") -> str:
     except Exception as e:
         return f"Transcription failed: {e}"
 
-def record_and_transcribe(duration_seconds: float = 5.0, model_size: str = "base") -> str:
+def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[str] = None) -> str:
     """Record audio from the microphone and automatically stop when silence is detected using energy VAD."""
     try:
         import sounddevice as sd
@@ -71,13 +80,25 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: str = "base
         recording = []
         speech_detected = False
         silence_start = None
-        silence_timeout = 1.0 # Stop after 1.0s of silence
-        max_duration = max(duration_seconds, 8.0) # Up to 8 seconds maximum
         
+        # Load VAD parameters dynamically from database profile
+        try:
+            from database import get_user_profile
+            silence_timeout_val = get_user_profile("stt_silence_timeout")
+            silence_timeout = float(silence_timeout_val) if silence_timeout_val is not None else 1.0
+            
+            threshold_val = get_user_profile("stt_vad_threshold")
+            threshold = float(threshold_val) if threshold_val is not None else 300.0
+            
+            max_duration_val = get_user_profile("stt_max_duration")
+            max_duration_limit = float(max_duration_val) if max_duration_val is not None else 8.0
+        except Exception:
+            silence_timeout = 1.0
+            threshold = 300.0
+            max_duration_limit = 8.0
+
+        max_duration = max(duration_seconds, max_duration_limit)
         start_time = time.time()
-        
-        # Audio threshold for speech detection (RMS amplitude)
-        threshold = 300.0
         
         with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
             while time.time() - start_time < max_duration:

@@ -3,6 +3,7 @@ import asyncio
 import os
 import sys
 import json
+import time
 
 # Insert backend folder into path for core imports
 backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meridian_backend")
@@ -107,9 +108,7 @@ if __name__ == "__main__":
             stderr=subprocess.DEVNULL
         )
         # Give server time to bind port
-        time_sleep = lambda: time.sleep(1.5)
-        import time
-        time_sleep()
+        time.sleep(1.5)
         
         try:
             asyncio.run(run_cli_goal(args.goal, args.model))

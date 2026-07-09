@@ -99,11 +99,12 @@ def close_app(name: str) -> str:
 def get_system_info() -> str:
     cpu = psutil.cpu_percent(interval=0.1)
     ram = psutil.virtual_memory()
-    disk = psutil.disk_usage('C:\\')
+    root_drive = os.path.abspath(os.sep)
+    disk = psutil.disk_usage(root_drive)
     return (
         f"CPU Load: {cpu}%\n"
         f"RAM Usage: {ram.percent}% (Used: {ram.used // (1024**2)}MB / Total: {ram.total // (1024**2)}MB)\n"
-        f"Disk C:\\: {disk.percent}% full (Free: {disk.free // (1024**3)}GB / Total: {disk.total // (1024**3)}GB)"
+        f"Disk {root_drive}: {disk.percent}% full (Free: {disk.free // (1024**3)}GB / Total: {disk.total // (1024**3)}GB)"
     )
 
 def get_hardware_info() -> str:

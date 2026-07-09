@@ -20,7 +20,8 @@ Return a structured markdown review. Focus only on actionable critiques. Use ind
 """
 
 def _get_active_model() -> str:
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    return get_brain_model()
 
 def review_file(path: str) -> str:
     """Perform a structured 5-pillar code review of a single file."""

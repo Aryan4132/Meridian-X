@@ -419,11 +419,14 @@ def get_conversation_history(limit: int = 10) -> List[Dict[str, Any]]:
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
+        # Push LIMIT into SQL — avoids loading the entire table into RAM on
+        # long-running sessions (previous code fetched ALL rows then sliced in Python).
         cursor.execute(
-            "SELECT id, timestamp, role, content, summary FROM conversations ORDER BY timestamp ASC"
+            "SELECT id, timestamp, role, content, summary FROM conversations ORDER BY timestamp DESC LIMIT ?",
+            (limit,)
         )
         rows = cursor.fetchall()
-        
+
         results = []
         for r in rows:
             results.append({
@@ -434,7 +437,8 @@ def get_conversation_history(limit: int = 10) -> List[Dict[str, Any]]:
                 "summary": r["summary"],
                 "vector": [0.0] * 768  # Return dummy vector for schema compatibility
             })
-        return results[-limit:]
+        # Reverse so caller receives chronological (oldest-first) order
+        return list(reversed(results))
     except Exception as e:
         print("[Conversations Log] Retrieval failed:", e)
         return []
@@ -720,6 +724,35 @@ def get_user_profile(key: str) -> Optional[Any]:
             print("[MongoDB User Profile] Fetch failed:", e)
     return None
 
+def get_auditor_model() -> str:
+    try:
+        model = get_user_profile("meridian_auditor_model")
+        if model:
+            return str(model)
+    except Exception:
+        pass
+    return os.environ.get("MERIDIAN_AUDITOR_MODEL", "qwen2.5-coder:1.5b-instruct-q8_0")
+
+def get_brain_model() -> str:
+    try:
+        model = get_user_profile("meridian_model")
+        if model:
+            return str(model)
+    except Exception:
+        pass
+    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+
+def get_vision_model() -> str:
+    try:
+        model = get_user_profile("meridian_vision_model")
+        if model:
+            return str(model)
+    except Exception:
+        pass
+    return os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
+
+
+
 def purge_expired_cache():
     # BUG-9 fix: use finally to guarantee connection is closed even if Turbovec
     # rebuild raises mid-loop (which could leave in-memory index inconsistent).
@@ -793,7 +826,7 @@ def consolidate_memory_sleep_cycle():
                 f"Log:\n{log_text}"
             )
             
-            res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+            res = client.generate(model=get_auditor_model(), prompt=prompt)
             text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
             if text.startswith("```"):
                 text = text.strip("`").replace("json\n", "").strip()

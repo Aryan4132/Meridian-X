@@ -10,7 +10,7 @@ from typing import Dict, Any, List, AsyncGenerator, Tuple
 import ollama
 
 from src.tools.registry import call_tool, TOOL_REGISTRY
-from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base
+from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model
 from src.core.bus import event_bus
 from src.core.speculative import preheat_tool
 
@@ -64,7 +64,7 @@ async def transliterate_to_devanagari(text: str, client: ollama.Client) -> str:
     if not text.strip():
         return text
     
-    model = "qwen2.5-coder:1.5b-instruct-q8_0"
+    model = get_auditor_model()
     messages = [
         {
             "role": "system",
@@ -486,7 +486,7 @@ async def run_memory_summarization_background(ollama_host: str):
             f"Log:\n{conversation_log}"
         )
         
-        fallback_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+        fallback_model = get_auditor_model()
         try:
             res = client.generate(model=fallback_model, prompt=prompt)
         except Exception:
@@ -568,7 +568,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 f"Invalid JSON:\n{args_str}\n\n"
                 f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
             )
-            res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+            res = client.generate(model=get_auditor_model(), prompt=prompt)
             corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
             # clean code blocks if model added them
             if corrected.startswith("```"):
@@ -618,7 +618,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     f"Validation Error: {sig_err_msg}\n\n"
                     f"Correct or map the keys in the arguments to match the expected signature. Output ONLY the corrected JSON string. Do not include markdown code block syntax."
                 )
-                res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+                res = client.generate(model=get_auditor_model(), prompt=prompt)
                 corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
                 if corrected.startswith("```"):
                     corrected = corrected.strip("`").replace("json\n", "").strip()
@@ -670,7 +670,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                         f"Code:\n```python\n{code_to_validate}\n```\n\n"
                         f"Rewrite the code to fix the syntax error. Output ONLY the raw corrected Python code, no explanation, no markdown blocks."
                     )
-                    res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+                    res = client.generate(model=get_auditor_model(), prompt=prompt)
                     corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
                     if corrected_code.startswith("```"):
                         corrected_code = corrected_code.strip("`").replace("python\n", "").strip()
@@ -696,7 +696,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     f"Code:\n```python\n{code_to_validate}\n```\n\n"
                     f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
                 )
-                res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=lint_prompt)
+                res = client.generate(model=get_auditor_model(), prompt=lint_prompt)
                 lint_resp = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
                 if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
                     # Feed the lint warning back to the agent to prompt self-correction
@@ -712,7 +712,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                         f"Invalid JSON:\n{code_to_validate}\n\n"
                         f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
                     )
-                    res = client.generate(model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+                    res = client.generate(model=get_auditor_model(), prompt=prompt)
                     corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
                     if corrected_code.startswith("```"):
                         corrected_code = corrected_code.strip("`").replace("json\n", "").strip()
@@ -757,7 +757,7 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
     )
     
     try:
-        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
         summary = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
     except Exception:
         summary = "Older context consolidated by System."
@@ -789,7 +789,7 @@ async def execute_single_tool_async(
     
     # 1. Security Auditor local consensus verification
     if tier >= 2:
-        auditor_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+        auditor_model = get_auditor_model()
         await event_bus.publish("agent_thoughts", {
             "agent": "Security Auditor", 
             "thought": f"Auditing '{tool_name}' execution with arguments: {args_str}"
@@ -856,7 +856,7 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client) -> Lis
         "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
     )
     try:
-        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=decomp_prompt)
+        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=decomp_prompt)
         text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         if text.startswith("```"):
             text = text.strip("`").replace("json\n", "").strip()
@@ -875,7 +875,7 @@ async def score_candidate_branch(tool_name: str, args_str: str, history: List[Di
         f"Output ONLY the numeric score (e.g. 0.85). Do not include any text or commentary."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=prompt)
+        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
         val_str = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         score = float(re.findall(r"[-+]?\d*\.\d+|\d+", val_str)[0])
         return min(max(score, 0.0), 1.0)
@@ -890,7 +890,7 @@ async def run_self_question_check(goal: str, history: List[Dict[str, str]], clie
         "Answer ONLY 'YES' if they are verified, or 'NO' if they are not verified."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=check_prompt)
+        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=check_prompt)
         ans = (res.response if hasattr(res, "response") else res.get("response", "")).strip().upper()
         if "NO" in ans:
             return False, "You do not have verified information. You MUST run search or observation commands first (e.g. read_file, dir_list, grep_search) to inspect paths and verify details before making assumptions."
@@ -1071,13 +1071,15 @@ async def run_react_agent_loop(
                     "text": f"[Self-Questioning] Lack verified information for target path/dependencies. Injecting exploratory search gate...",
                     "status": "completed"
                 }))
-                history.append({"role": "system", "content": f"[Self-Questioning Gate Warning]: {warning_msg}"})
+                # BUG-27 fix (extended): Anthropic forbids role:system mid-messages array.
+                # Use role:user with [SYSTEM] prefix, same as the context compression path.
+                history.append({"role": "user", "content": f"[SYSTEM — Self-Questioning Gate Warning]: {warning_msg}"})
                 temp_sys_idx = len(history) - 1
             
             # Dynamic VRAM/RAM Offloading Scheduler (Only trigger for local model configurations)
             vram_load = get_gpu_vram_usage()
             if model_source == "local" and vram_load > 85.0 and "cloud" not in active_model.lower():
-                fallback_brain = "qwen2.5-coder:1.5b-instruct-q8_0"
+                fallback_brain = get_auditor_model()
                 if active_model != fallback_brain:
                     yield sse_event("thought", json.dumps({
                         "id": f"vram-warning-{turn}-{time.time()}",
@@ -1165,8 +1167,8 @@ async def run_react_agent_loop(
                         raise ValueError(f"Unsupported API Provider: '{api_provider}'")
             except Exception as e:
                 # Self-healing fallback to 1.5B model if RAM/VRAM/API issues
-                if active_model != "qwen2.5-coder:1.5b-instruct-q8_0":
-                    fallback_brain = "qwen2.5-coder:1.5b-instruct-q8_0"
+                if active_model != get_auditor_model():
+                    fallback_brain = get_auditor_model()
                     print(f"[Fallback Engine] Switching to local model '{fallback_brain}' due to: {e}")
                     yield sse_event("thought", json.dumps({
                         "id": f"api-fallback-{turn}-{time.time()}",
@@ -1289,7 +1291,7 @@ async def run_react_agent_loop(
                             "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
                             f"Proposed Response:\n{corrected_finish}"
                         )
-                        qa_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=qa_prompt)
+                        qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
                         critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
                         
                         yield sse_event("thought", json.dumps({
@@ -1305,7 +1307,7 @@ async def run_react_agent_loop(
                             f"Original Response:\n{corrected_finish}\n\n"
                             f"Critique:\n{critique}"
                         )
-                        coder_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=coder_prompt)
+                        coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
                         refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
                         
                         if refined.startswith("```"):
@@ -1479,7 +1481,7 @@ async def run_react_agent_loop(
                     
                     # Security Auditor local consensus verification
                     if tier >= 2:
-                        auditor_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+                        auditor_model = get_auditor_model()
                         yield sse_event("thought", json.dumps({
                             "id": audit_id,
                             "type": "planning",
@@ -1705,7 +1707,7 @@ async def run_react_agent_loop(
                         "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
                         f"Proposed Response:\n{final_text}"
                     )
-                    qa_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=qa_prompt)
+                    qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
                     critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
                     
                     yield sse_event("thought", json.dumps({
@@ -1721,7 +1723,7 @@ async def run_react_agent_loop(
                         f"Original Response:\n{final_text}\n\n"
                         f"Critique:\n{critique}"
                     )
-                    coder_res = await asyncio.to_thread(client.generate, model="qwen2.5-coder:1.5b-instruct-q8_0", prompt=coder_prompt)
+                    coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
                     refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
                     if refined.startswith("```"):
                         refined = refined.strip("`").replace("json\n", "").strip()
@@ -1732,7 +1734,7 @@ async def run_react_agent_loop(
                     except Exception:
                         pass
                         
-                    _debate_key2 = f"debate-{time.time()}"
+                    _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
                     active_debates[_debate_key2] = {
                         "draft": final_text,
                         "critique": critique,

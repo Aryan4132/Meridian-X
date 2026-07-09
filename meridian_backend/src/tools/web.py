@@ -111,7 +111,8 @@ def autonomous_research(topic: str, max_depth: int = 3) -> str:
     unique_urls = unique_urls[:max_depth]
     
     client = get_ollama_client()
-    model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    model = get_brain_model()
     
     report_lines = [
         f"# Consolidated Research Report: {topic}",

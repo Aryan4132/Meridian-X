@@ -7,7 +7,8 @@ from database import get_ollama_client_host
 from database import get_mongo_db
 
 def _get_active_model() -> str:
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    from database import get_brain_model
+    return get_brain_model()
 
 def nl_to_shell(natural_language: str) -> str:
     """Translate a natural language description into a valid Windows PowerShell command."""
@@ -79,9 +80,9 @@ def nl_run(natural_language: str) -> str:
             fix_command = ""
             try:
                 import ollama
-                from database import get_ollama_client_host
+                from database import get_ollama_client_host, get_brain_model
                 client = ollama.Client(host=get_ollama_client_host())
-                model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                model = get_brain_model()
                 
                 prompt = (
                     f"You are a command line terminal self-healing assistant. A Windows PowerShell command just failed.\n"

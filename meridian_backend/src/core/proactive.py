@@ -102,10 +102,26 @@ def check_system_health():
     global _last_cpu_alert, _last_ram_alert, _last_disk_alert
     now = time.time()
 
+    # Dynamic thresholds and disk path loading
+    try:
+        from database import get_user_profile
+        cpu_warn_threshold = get_user_profile("cpu_warn_threshold") or CPU_WARN_THRESHOLD
+        ram_warn_threshold = get_user_profile("ram_warn_threshold") or RAM_WARN_THRESHOLD
+        disk_warn_threshold = get_user_profile("disk_warn_threshold") or DISK_WARN_THRESHOLD
+    except Exception:
+        cpu_warn_threshold = CPU_WARN_THRESHOLD
+        ram_warn_threshold = RAM_WARN_THRESHOLD
+        disk_warn_threshold = DISK_WARN_THRESHOLD
+
+    try:
+        disk_path = os.path.abspath(os.sep)
+    except Exception:
+        disk_path = DISK_PATH
+
     try:
         # CPU
         cpu = psutil.cpu_percent(interval=1.0)
-        if cpu > CPU_WARN_THRESHOLD and (now - _last_cpu_alert) > _health_cooldown:
+        if cpu > cpu_warn_threshold and (now - _last_cpu_alert) > _health_cooldown:
             _last_cpu_alert = now
             # Try to identify top CPU process
             top_proc = ""
@@ -126,7 +142,7 @@ def check_system_health():
 
         # RAM
         ram = psutil.virtual_memory().percent
-        if ram > RAM_WARN_THRESHOLD and (now - _last_ram_alert) > _health_cooldown:
+        if ram > ram_warn_threshold and (now - _last_ram_alert) > _health_cooldown:
             _last_ram_alert = now
             ram_avail_gb = psutil.virtual_memory().available / (1024 ** 3)
             publish_nudge_sync(
@@ -139,15 +155,15 @@ def check_system_health():
 
         # Disk
         try:
-            disk = psutil.disk_usage(DISK_PATH)
+            disk = psutil.disk_usage(disk_path)
             disk_pct = disk.percent
-            if disk_pct > DISK_WARN_THRESHOLD and (now - _last_disk_alert) > _health_cooldown:
+            if disk_pct > disk_warn_threshold and (now - _last_disk_alert) > _health_cooldown:
                 _last_disk_alert = now
                 free_gb = disk.free / (1024 ** 3)
                 publish_nudge_sync(
                     nudge_type="system_health",
                     title="💾 Low Disk Space",
-                    message=f"C: drive is {disk_pct:.0f}% full — only {free_gb:.1f} GB remaining.",
+                    message=f"Drive ({disk_path}) is {disk_pct:.0f}% full — only {free_gb:.1f} GB remaining.",
                     action_hint="Free up disk space",
                     icon="💾"
                 )
@@ -243,7 +259,11 @@ _URL_RE = re.compile(
 
 # Python traceback signature
 _TRACEBACK_RE = re.compile(
-    r'Traceback \(most recent call last\)|Error:|Exception:',
+    r'Traceback \(most recent call last\)|'
+    r'thread \'.*\' panicked at|'
+    r'Error:|'
+    r'Exception:|'
+    r'at\s+.*:\d+:\d+',
     re.IGNORECASE
 )
 
@@ -481,10 +501,14 @@ _last_distraction_alert: float = 0.0
 _distraction_start_time: Optional[float] = None
 _last_window_title: str = ""
 
-def get_active_process_and_title() -> tuple[str, str]:
+_auto_detected_game_pid = None
+_auto_detected_game_name = None
+
+def get_active_process_and_title() -> tuple[str, str, Optional[int]]:
     sys_platform = platform.system()
     title = ""
     proc_name = ""
+    pid_val = None
     if sys_platform == "Windows":
         try:
             import ctypes
@@ -500,6 +524,7 @@ def get_active_process_and_title() -> tuple[str, str]:
                 # 2. Get Process Executable Name
                 pid = wintypes.DWORD()
                 ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                pid_val = pid.value
                 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
                 handle = ctypes.windll.kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid.value)
                 if handle:
@@ -527,25 +552,67 @@ def get_active_process_and_title() -> tuple[str, str]:
             proc_name = title
         except Exception:
             pass
-    return proc_name, title
+    return proc_name, title, pid_val
 
-def is_game_process_running(keywords) -> bool:
+def is_system_busy_or_fullscreen(hwnd) -> bool:
+    sys_platform = platform.system()
+    if sys_platform != "Windows":
+        return False
+        
+    # 1. Check SHQueryUserNotificationState
+    try:
+        import ctypes
+        state = ctypes.c_int()
+        if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) == 0:
+            # QUNS_BUSY = 2, QUNS_RUNNING_DND = 3, QUNS_PRESENTATION_MODE = 4, QUNS_APP = 7
+            if state.value in [2, 3, 4, 7]:
+                return True
+    except Exception:
+        pass
+
+    # 2. Check window style and size
+    try:
+        if hwnd:
+            import ctypes
+            from ctypes import wintypes
+            sw = ctypes.windll.user32.GetSystemMetrics(0)
+            sh = ctypes.windll.user32.GetSystemMetrics(1)
+            rect = wintypes.RECT()
+            if ctypes.windll.user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                w = rect.right - rect.left
+                h = rect.bottom - rect.top
+                if w >= sw and h >= sh:
+                    GWL_STYLE = -16
+                    style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+                    WS_CAPTION = 0x00C00000
+                    if (style & WS_CAPTION) != WS_CAPTION:
+                        class_buf = ctypes.create_unicode_buffer(256)
+                        ctypes.windll.user32.GetClassNameW(hwnd, class_buf, 256)
+                        class_name = class_buf.value
+                        if class_name not in ["Progman", "WorkerW"]:
+                            return True
+    except Exception:
+        pass
+        
+    return False
+
+def is_game_process_running(pid: int, expected_name: str) -> bool:
+    if not pid or not expected_name:
+        return False
     try:
         import psutil
-        for proc in psutil.process_iter(['name']):
-            try:
-                name = (proc.info['name'] or "").lower()
-                if any(k in name for k in keywords):
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
+        if psutil.pid_exists(pid):
+            p = psutil.Process(pid)
+            return p.name().lower() == expected_name.lower()
     except Exception:
         pass
     return False
 
 def check_active_window():
-    global _last_window_title, _distraction_start_time, _last_distraction_alert, game_mode_active, auto_game_mode_active
-    proc_name, title = get_active_process_and_title()
+    global _last_window_title, _distraction_start_time, _last_distraction_alert
+    global game_mode_active, auto_game_mode_active, _auto_detected_game_pid, _auto_detected_game_name
+    
+    proc_name, title, pid = get_active_process_and_title()
     if not title and not proc_name:
         return
         
@@ -554,20 +621,23 @@ def check_active_window():
     proc_lower = proc_name.lower()
 
     # ── Game Mode Auto-Detection ──────────────────────────────
-    game_keywords = [
-        "valorant", "cyberpunk", "counter-strike", "csgo", "cs2", 
-        "dota 2", "dota2", "league of legends", "leagueoflegends", 
-        "gta v", "gta5", "minecraft", "javaw", "fortnite", 
-        "genshin impact", "genshinimpact", "genshin", 
-        "apex legends", "apexlegends", "r5apex", "hades"
-    ]
-    is_playing_game = any(gk in title_lower or gk in proc_lower for gk in game_keywords)
+    hwnd = None
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            hwnd = ctypes.windll.user32.GetForegroundWindow()
+        except Exception:
+            pass
+
+    is_playing_game = is_system_busy_or_fullscreen(hwnd)
     
     if is_playing_game:
         if not game_mode_active:
-            print(f"[Proactive] Game detected: '{title or proc_name}'. Automatically entering Game Mode.")
+            print(f"[Proactive] Game/Fullscreen detected: '{title or proc_name}' (PID: {pid}). Automatically entering Game Mode.")
             game_mode_active = True
             auto_game_mode_active = True
+            _auto_detected_game_pid = pid
+            _auto_detected_game_name = proc_name or title
             publish_nudge_sync(
                 nudge_type="game_mode_changed",
                 title="Game Mode Auto-Enabled",
@@ -578,13 +648,15 @@ def check_active_window():
         return
     elif game_mode_active and auto_game_mode_active:
         # Check if the game process is still running in the background before disabling Game Mode
-        if is_game_process_running(game_keywords):
+        if _auto_detected_game_pid and is_game_process_running(_auto_detected_game_pid, _auto_detected_game_name):
             # Game is still running in background, preserve Game Mode
             return
             
-        print(f"[Proactive] Game exited: '{title or proc_name}'. Automatically exiting Game Mode.")
+        print(f"[Proactive] Game/Fullscreen exited. Automatically exiting Game Mode.")
         game_mode_active = False
         auto_game_mode_active = False
+        _auto_detected_game_pid = None
+        _auto_detected_game_name = None
         publish_nudge_sync(
             nudge_type="game_mode_changed",
             title="Game Mode Auto-Disabled",
@@ -594,7 +666,14 @@ def check_active_window():
         )
     
     # Distraction check
-    distractions = ["youtube", "facebook", "twitter", "netflix", "reddit", "instagram", "gaming", "steam", "x.com"]
+    try:
+        from database import get_user_profile
+        distractions = get_user_profile("distraction_sites")
+        if not isinstance(distractions, list):
+            distractions = ["youtube", "facebook", "twitter", "netflix", "reddit", "instagram", "gaming", "steam", "x.com"]
+    except Exception:
+        distractions = ["youtube", "facebook", "twitter", "netflix", "reddit", "instagram", "gaming", "steam", "x.com"]
+
     is_distracted = any(d in title_lower for d in distractions)
     
     if is_distracted:

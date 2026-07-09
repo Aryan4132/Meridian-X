@@ -77,12 +77,20 @@ def split_text_for_tts(text: str, max_words_tier3: int = 15) -> List[str]:
             
     return [c for c in final_chunks if c]
 
-def speak_text(text: str, voice_name: str = "M1") -> str:
+def speak_text(text: str, voice_name: Optional[str] = None) -> str:
     """Synthesize text into speech using Supertonic ONNX and play it locally on host audio outputs.
     
     This uses a background thread to synthesize text chunks in parallel while the main thread
     plays back the synthesized audio, minimizing Time-to-First-Audio (TTFA).
     """
+    if voice_name is None:
+        try:
+            from database import get_user_profile
+            voice_name = get_user_profile("meridian_voice")
+        except Exception:
+            pass
+        if not voice_name:
+            voice_name = "M1"
     try:
         from supertonic import TTS
         import sounddevice as sd

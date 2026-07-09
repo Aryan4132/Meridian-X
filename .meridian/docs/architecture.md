@@ -119,6 +119,9 @@ graph TD
     N49 --> N8
     N55 --> N8
     N56 --> N8
+    N57 --> N8
+    N58 --> N8
+    N59 --> N8
     N61 --> N84
     N62 --> N63
     N62 --> N73
@@ -590,6 +593,7 @@ graph TD
   - Imports: `time`
   - Imports: `typing`
 - **meridian_backend/src/voice/stt.py**
+  - Imports: `database`
   - Imports: `faster_whisper`
   - Imports: `numpy`
   - Imports: `os`
@@ -601,6 +605,7 @@ graph TD
   - Imports: `torch`
   - Imports: `typing`
 - **meridian_backend/src/voice/tts.py**
+  - Imports: `database`
   - Imports: `os`
   - Imports: `queue`
   - Imports: `random`
@@ -610,8 +615,10 @@ graph TD
   - Imports: `supertonic`
   - Imports: `tempfile`
   - Imports: `threading`
+  - Imports: `time`
   - Imports: `typing`
 - **meridian_backend/src/voice/wakeword.py**
+  - Imports: `database`
   - Imports: `numpy`
   - Imports: `openwakeword`
   - Imports: `os`
@@ -734,6 +741,7 @@ graph TD
 - **meridian_frontend/src/views/Timeline.tsx**
   - Imports: `GlowCard`
   - Imports: `HoloButton`
+  - Imports: `core`
   - Imports: `dompurify`
   - Imports: `event`
   - Imports: `lucide-react`

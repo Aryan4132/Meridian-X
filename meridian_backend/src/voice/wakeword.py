@@ -41,14 +41,23 @@ def resume_wakeword():
 def _listen_loop():
     global WAKEWORD_ACTIVE, WAKEWORD_PAUSED
     
+    wakeword_filename = "hey_meridian.onnx"
+    try:
+        from database import get_user_profile
+        custom_filename = get_user_profile("wakeword_model_filename")
+        if custom_filename:
+            wakeword_filename = str(custom_filename)
+    except Exception:
+        pass
+
     import sys
     if getattr(sys, 'frozen', False):
         base_dir = sys._MEIPASS
-        onnx_path = os.path.join(base_dir, "hey_meridian.onnx")
+        onnx_path = os.path.join(base_dir, wakeword_filename)
     else:
         backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         root_dir = os.path.dirname(backend_dir)
-        onnx_path = os.path.join(root_dir, "hey_meridian.onnx")
+        onnx_path = os.path.join(root_dir, wakeword_filename)
     
     if not os.path.exists(onnx_path):
         print(f"[Wake Word] Custom model not found at {onnx_path}. Wake word monitoring disabled.")
@@ -83,14 +92,34 @@ def _listen_loop():
                     predictions = oww_model.predict(audio_data)
                     score = max(predictions.values()) if predictions else 0.0
                     
-                    if score > 0.6:
-                        print(f"[Wake Word] Wake word detected with score {score:.3f}! Pausing and triggering action.")
+                    try:
+                        from database import get_user_profile
+                        threshold = get_user_profile("wakeword_threshold")
+                        if threshold is None:
+                            threshold = 0.6
+                        else:
+                            threshold = float(threshold)
+                    except Exception:
+                        threshold = 0.6
+
+                    if score > threshold:
+                        # Load custom wake word phrase from database profile
+                        wakeword_phrase_val = "Hey Meridian"
+                        try:
+                            from database import get_user_profile
+                            custom_phrase = get_user_profile("wakeword_phrase")
+                            if custom_phrase:
+                                wakeword_phrase_val = str(custom_phrase)
+                        except Exception:
+                            pass
+
+                        print(f"[Wake Word] Wake word '{wakeword_phrase_val}' detected with score {score:.3f}! Pausing and triggering action.")
                         pause_wakeword()
                         
                         publish_nudge_sync(
                             nudge_type="wakeword",
                             title="🎙️ Wake Word Detected",
-                            message="Wake word 'Hey Meridian' detected. Listening...",
+                            message=f"Wake word '{wakeword_phrase_val}' detected. Listening...",
                             action_hint="Listening for voice command...",
                             icon="🎙️",
                             mascot_state="happy",
