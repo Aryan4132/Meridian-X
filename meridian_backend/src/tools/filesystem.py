@@ -2,6 +2,7 @@ import os
 import shutil
 import glob
 from typing import Dict, Any
+from src.core.audit_logger import log_sensitive_action
 
 def read_file(path: str) -> str:
     if not os.path.exists(path):
@@ -10,15 +11,30 @@ def read_file(path: str) -> str:
         return f.read()
 
 def write_file(path: str, content: str) -> str:
-    # BUG-53 fix: guard against empty parent when path is a bare filename (no directory component).
-    # os.makedirs("") raises FileNotFoundError; os.path.abspath("file.txt") returns CWD which
-    # os.makedirs would redundantly try to create.
-    parent = os.path.dirname(os.path.abspath(path))
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
-    return f"Successfully wrote {len(content)} characters to {path}"
+    try:
+        # BUG-53 fix: guard against empty parent when path is a bare filename (no directory component).
+        # os.makedirs("") raises FileNotFoundError; os.path.abspath("file.txt") returns CWD which
+        # os.makedirs would redundantly try to create.
+        parent = os.path.dirname(os.path.abspath(path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        log_sensitive_action(
+            category="FILE_WRITE",
+            action="write_file",
+            details={"path": path, "content_length": len(content)},
+            status="SUCCESS"
+        )
+        return f"Successfully wrote {len(content)} characters to {path}"
+    except Exception as e:
+        log_sensitive_action(
+            category="FILE_WRITE",
+            action="write_file",
+            details={"path": path, "error": str(e)},
+            status="FAILED"
+        )
+        raise e
 
 def list_directory(path: str) -> str:
     if not os.path.exists(path):
@@ -57,31 +73,79 @@ def search_files(query: str, directory: str) -> str:
     return "\n".join(matches) if matches else "No matches found"
 
 def move_file(src: str, dst: str) -> str:
-    shutil.move(src, dst)
-    return f"Moved from {src} to {dst}"
+    try:
+        shutil.move(src, dst)
+        log_sensitive_action(
+            category="FILE_WRITE",
+            action="move_file",
+            details={"src": src, "dst": dst},
+            status="SUCCESS"
+        )
+        return f"Moved from {src} to {dst}"
+    except Exception as e:
+        log_sensitive_action(
+            category="FILE_WRITE",
+            action="move_file",
+            details={"src": src, "dst": dst, "error": str(e)},
+            status="FAILED"
+        )
+        raise e
 
 def delete_file(path: str) -> str:
-    # Support wildcard glob patterns for bulk deletions
-    if "*" in path or "?" in path:
-        import glob
-        normalized_path = path.replace("\\", "/")
-        matched_files = glob.glob(normalized_path)
-        if not matched_files:
-            return "No files matched pattern."
-        deleted_count = 0
-        for f in matched_files:
-            if os.path.isdir(f):
-                shutil.rmtree(f)
-            elif os.path.exists(f):
-                os.remove(f)
-            deleted_count += 1
-        return f"Bulk deleted {deleted_count} files/directories matching pattern: {path}"
+    try:
+        # Support wildcard glob patterns for bulk deletions
+        if "*" in path or "?" in path:
+            import glob
+            normalized_path = path.replace("\\", "/")
+            matched_files = glob.glob(normalized_path)
+            if not matched_files:
+                log_sensitive_action(
+                    category="FILE_DELETE",
+                    action="delete_file",
+                    details={"path": path, "matched_files": []},
+                    status="SUCCESS"
+                )
+                return "No files matched pattern."
+            deleted_count = 0
+            for f in matched_files:
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                elif os.path.exists(f):
+                    os.remove(f)
+                deleted_count += 1
+            log_sensitive_action(
+                category="FILE_DELETE",
+                action="delete_file",
+                details={"path": path, "deleted_count": deleted_count, "matched_files": matched_files},
+                status="SUCCESS"
+            )
+            return f"Bulk deleted {deleted_count} files/directories matching pattern: {path}"
 
-    if os.path.isdir(path):
-        shutil.rmtree(path)
-        return f"Deleted directory: {path}"
-    elif os.path.exists(path):
-        os.remove(path)
-        return f"Deleted file: {path}"
-    else:
-        raise FileNotFoundError(f"Target not found: {path}")
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+            log_sensitive_action(
+                category="FILE_DELETE",
+                action="delete_file",
+                details={"path": path, "type": "directory"},
+                status="SUCCESS"
+            )
+            return f"Deleted directory: {path}"
+        elif os.path.exists(path):
+            os.remove(path)
+            log_sensitive_action(
+                category="FILE_DELETE",
+                action="delete_file",
+                details={"path": path, "type": "file"},
+                status="SUCCESS"
+            )
+            return f"Deleted file: {path}"
+        else:
+            raise FileNotFoundError(f"Target not found: {path}")
+    except Exception as e:
+        log_sensitive_action(
+            category="FILE_DELETE",
+            action="delete_file",
+            details={"path": path, "error": str(e)},
+            status="FAILED"
+        )
+        raise e

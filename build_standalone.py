@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import subprocess
+import platform
 
 def run_cmd(cmd, cwd=None):
     print(f"\n[Run] {cmd} (cwd: {cwd or '.'})")
@@ -15,9 +16,18 @@ def main():
     backend_dir = os.path.join(root_dir, "meridian_backend")
     frontend_dir = os.path.join(root_dir, "meridian_frontend")
     
+    sidecar_only = "--sidecar-only" in sys.argv or "--backend-only" in sys.argv
+    
     # 1. Check/Install PyInstaller in backend virtual environment
     print("=== Step 1: Checking and Installing PyInstaller in Virtualenv ===")
-    pip_exe = os.path.join(backend_dir, "venv", "Scripts", "pip.exe")
+    
+    if platform.system() == "Windows":
+        pip_exe = os.path.join(backend_dir, "venv", "Scripts", "pip.exe")
+        pyinstaller_exe = os.path.join(backend_dir, "venv", "Scripts", "pyinstaller.exe")
+    else:
+        pip_exe = os.path.join(backend_dir, "venv", "bin", "pip")
+        pyinstaller_exe = os.path.join(backend_dir, "venv", "bin", "pyinstaller")
+        
     if not os.path.exists(pip_exe):
         print(f"[Error] Python virtual environment pip not found at: {pip_exe}")
         print("Please setup virtual environment first by running start_desktop.bat.")
@@ -27,7 +37,6 @@ def main():
 
     # 2. Compile Backend with PyInstaller
     print("\n=== Step 2: Compiling Python Backend with PyInstaller ===")
-    pyinstaller_exe = os.path.join(backend_dir, "venv", "Scripts", "pyinstaller.exe")
     
     # Clear any old build/dist files in backend
     for folder in ["build", "dist"]:
@@ -38,10 +47,12 @@ def main():
             
     # Run PyInstaller to package into a single folder ('onedir')
     # Add wake word ONNX/TFLite model files as packaged data in the root of the api folder
+    # Use cross-platform path separator
+    sep = os.pathsep
     pyinstaller_cmd = (
         f'"{pyinstaller_exe}" --name api --onedir --clean --noconfirm '
-        f'--add-data "../hey_meridian.onnx;." '
-        f'--add-data "../hey_meridian.tflite;." '
+        f'--add-data "../hey_meridian.onnx{sep}." '
+        f'--add-data "../hey_meridian.tflite{sep}." '
         f'api.py'
     )
     run_cmd(pyinstaller_cmd, cwd=backend_dir)
@@ -57,13 +68,21 @@ def main():
     print(f"Copying '{compiled_backend}' -> '{frontend_api_dir}'...")
     shutil.copytree(compiled_backend, frontend_api_dir)
     
+    if sidecar_only:
+        print("\n[Success] Standalone sidecar backend build process complete!")
+        sys.exit(0)
+        
     # 4. Build Tauri Desktop Wrapper
     print("\n=== Step 4: Compiling Standalone Tauri Desktop Shell ===")
     
     # Terminate any running app.exe instances to prevent file locking
-    print("Terminating any running app.exe instances...")
-    subprocess.run("taskkill /f /im app.exe >nul 2>&1", shell=True)
-    subprocess.run("taskkill /f /im api.exe >nul 2>&1", shell=True)
+    print("Terminating any running instances...")
+    if platform.system() == "Windows":
+        subprocess.run("taskkill /f /im app.exe >nul 2>&1", shell=True)
+        subprocess.run("taskkill /f /im api.exe >nul 2>&1", shell=True)
+    else:
+        subprocess.run("killall app >/dev/null 2>&1", shell=True)
+        subprocess.run("killall api >/dev/null 2>&1", shell=True)
     
     run_cmd("npm run tauri build", cwd=frontend_dir)
     

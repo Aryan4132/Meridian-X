@@ -2,6 +2,7 @@ import os
 import mss
 import pyautogui
 from typing import Dict, Any, List
+from src.core.audit_logger import log_sensitive_action
 
 # Set fail-safe to prevent locked GUI
 pyautogui.FAILSAFE = True
@@ -53,34 +54,71 @@ def find_on_screen(image_path: str, target_desc: str) -> str:
     return vision_analyze(image_path, prompt)
 
 def gui_click(x: int, y: int) -> str:
-    pyautogui.click(x, y)
-    return f"Clicked at ({x}, {y})"
+    try:
+        pyautogui.click(x, y)
+        log_sensitive_action("GUI_INPUT", "click", {"x": x, "y": y}, "SUCCESS")
+        return f"Clicked at ({x}, {y})"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "click", {"x": x, "y": y, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_right_click(x: int, y: int) -> str:
-    pyautogui.rightClick(x, y)
-    return f"Right-clicked at ({x}, {y})"
+    try:
+        pyautogui.rightClick(x, y)
+        log_sensitive_action("GUI_INPUT", "right_click", {"x": x, "y": y}, "SUCCESS")
+        return f"Right-clicked at ({x}, {y})"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "right_click", {"x": x, "y": y, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_double_click(x: int, y: int) -> str:
-    pyautogui.doubleClick(x, y)
-    return f"Double-clicked at ({x}, {y})"
+    try:
+        pyautogui.doubleClick(x, y)
+        log_sensitive_action("GUI_INPUT", "double_click", {"x": x, "y": y}, "SUCCESS")
+        return f"Double-clicked at ({x}, {y})"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "double_click", {"x": x, "y": y, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
-    pyautogui.moveTo(x1, y1)
-    pyautogui.dragTo(x2, y2, duration=duration)
-    return f"Dragged mouse from ({x1}, {y1}) to ({x2}, {y2})"
+    try:
+        pyautogui.moveTo(x1, y1)
+        pyautogui.dragTo(x2, y2, duration=duration)
+        log_sensitive_action("GUI_INPUT", "drag", {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration": duration}, "SUCCESS")
+        return f"Dragged mouse from ({x1}, {y1}) to ({x2}, {y2})"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "drag", {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration": duration, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_type(text: str, interval: float = 0.05) -> str:
-    pyautogui.write(text, interval=interval)
-    return f"Typed: '{text}' (interval={interval}s)"
+    try:
+        pyautogui.write(text, interval=interval)
+        # Avoid logging the exact keystroke content for security/passwords unless requested, or mask it
+        masked_text = text if len(text) <= 3 else text[:2] + "..." + text[-1:]
+        log_sensitive_action("GUI_INPUT", "type", {"text_len": len(text), "preview": masked_text, "interval": interval}, "SUCCESS")
+        return f"Typed: '{text}' (interval={interval}s)"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "type", {"text_len": len(text), "interval": interval, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_hotkey(keys: List[str]) -> str:
-    pyautogui.hotkey(*keys)
-    return f"Pressed keys combination: {keys}"
+    try:
+        pyautogui.hotkey(*keys)
+        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": keys}, "SUCCESS")
+        return f"Pressed keys combination: {keys}"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": keys, "error": str(e)}, "FAILED")
+        raise e
 
 def gui_scroll(x: int, y: int, clicks: int) -> str:
-    pyautogui.moveTo(x, y)
-    pyautogui.scroll(clicks)
-    return f"Scrolled mouse wheel at ({x}, {y}) by {clicks} clicks"
+    try:
+        pyautogui.moveTo(x, y)
+        pyautogui.scroll(clicks)
+        log_sensitive_action("GUI_INPUT", "scroll", {"x": x, "y": y, "clicks": clicks}, "SUCCESS")
+        return f"Scrolled mouse wheel at ({x}, {y}) by {clicks} clicks"
+    except Exception as e:
+        log_sensitive_action("GUI_INPUT", "scroll", {"x": x, "y": y, "clicks": clicks, "error": str(e)}, "FAILED")
+        raise e
 
 def get_mouse_position() -> str:
     pos = pyautogui.position()

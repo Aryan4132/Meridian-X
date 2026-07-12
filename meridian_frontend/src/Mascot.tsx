@@ -948,15 +948,21 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                         {recentThoughts.length === 0 ? (
                           <div className="text-zinc-600 italic">Initializing agent...</div>
                         ) : (
-                          recentThoughts.map((thought, idx) => (
-                            <div key={thought.id || idx} className="flex gap-1.5 items-start leading-tight">
-                              <span className="text-amber-500 flex-shrink-0">❯</span>
-                              <div className="flex-1 truncate">
-                                {thought.tool && <span className="text-zinc-500 font-bold mr-1">[{thought.tool}]</span>}
-                                <span className="text-zinc-300">{thought.text}</span>
+                          recentThoughts.map((thought, idx) => {
+                            const isStr = typeof thought === 'string';
+                            const text = isStr ? thought : (thought?.text || '');
+                            const tool = isStr ? null : thought?.tool;
+                            const id = isStr ? idx : (thought?.id || idx);
+                            return (
+                              <div key={id} className="flex gap-1.5 items-start leading-tight">
+                                <span className="text-amber-500 flex-shrink-0">❯</span>
+                                <div className="flex-1 truncate">
+                                  {tool && <span className="text-zinc-500 font-bold mr-1">[{tool}]</span>}
+                                  <span className="text-zinc-300">{text}</span>
+                                </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                         )}
                       </div>
                     </div>

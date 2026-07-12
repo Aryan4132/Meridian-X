@@ -23,9 +23,9 @@ We will implement dynamic configurations across all core components of the Merid
 *   [x] **Task 6**: Dynamize browser viewport dimensions and vision model in `web_browser.py`.
 *   [x] **Task 8**: Dynamize Whisper model size, silence VAD timeout, energy threshold, and max duration in `stt.py`.
 *   [x] **Task 9**: Dynamize custom wake word model path and alert text details in `wakeword.py`.
-*   [ ] **Task 11**: Create centralized `get_brain_model()` and `get_vision_model()` in `database.py`.
-*   [ ] **Task 12**: Refactor all tool files (`web_browser.py`, `recording.py`, `desktop.py`, `shell.py`, `review.py`, `web.py`, `dynamic_manager.py`, `db_query.py`) to use the new getters.
-*   [ ] **Task 13**: Refactor `system.py` to dynamically resolve drive metrics path.
+*   [x] **Task 11**: Centralize model loading (`get_brain_model()`, `get_vision_model()`) in `database.py`.
+*   [x] **Task 12**: Refactor tool files to query database model settings.
+*   [x] **Task 13**: Refactor `system.py` to resolve system drive metrics dynamically.
 
 ### Phase 2: Verification
-*   [ ] **Task 14**: Perform manual verification and build/compile validation.
+*   [x] **Task 14**: Perform validation and test execution.

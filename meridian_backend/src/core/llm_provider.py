@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 import logging
+import asyncio
 from typing import AsyncGenerator, List, Dict, Any, Optional
 from database import get_mongo_db
 
@@ -61,9 +62,89 @@ async def generate_completion_stream(
 ) -> AsyncGenerator[str, None]:
   """
   Asynchronously streams completions from the chosen provider (Ollama, OpenAI, Anthropic, Gemini, DeepSeek).
+  Includes retry logic, timeouts, and fallback behavior.
   """
   provider = provider.lower()
-  
+  retries = 3
+  timeout_config = httpx.Timeout(30.0, connect=10.0)
+
+  async def stream_with_retries(url: str, method: str = "POST", headers: dict = None, json_payload: dict = None) -> AsyncGenerator[bytes, None]:
+    delay = 1.0
+    for attempt in range(retries):
+      try:
+        async with httpx.AsyncClient(timeout=timeout_config) as client:
+          async with client.stream(method, url, headers=headers, json=json_payload) as response:
+            if response.status_code != 200:
+              if response.status_code in [429] or response.status_code >= 500:
+                if attempt < retries - 1:
+                  logger.warning(f"[{provider}] Server returned status {response.status_code}. Retrying in {delay}s...")
+                  await asyncio.sleep(delay)
+                  delay *= 2
+                  continue
+              err_content = await response.aread()
+              # We yield the error message so the outer loop knows it failed
+              yield f"Error: status code {response.status_code} - {err_content.decode('utf-8', errors='ignore')}".encode('utf-8')
+              return
+            
+            async for line in response.iter_lines():
+              if line:
+                yield line.encode('utf-8') if isinstance(line, str) else line
+            return
+      except (httpx.RequestError, httpx.TimeoutException) as e:
+        if attempt < retries - 1:
+          logger.warning(f"[{provider}] Network error: {e}. Retrying in {delay}s...")
+          await asyncio.sleep(delay)
+          delay *= 2
+        else:
+          yield f"Error: connection failed - {e}".encode('utf-8')
+          return
+
+  async def run_ollama_fallback() -> AsyncGenerator[str, None]:
+    ollama_host = get_ollama_host()
+    url = f"{ollama_host}/api/chat"
+    
+    # Resolve fallback model
+    fallback_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+    try:
+      async with httpx.AsyncClient(timeout=3.0) as client:
+        res = await client.get(f"{ollama_host}/api/tags")
+        if res.status_code == 200:
+          models_data = res.json()
+          available = [m["name"] for m in models_data.get("models", [])]
+          if available:
+            for am in available:
+              if "qwen" in am or "llama" in am:
+                fallback_model = am
+                break
+            else:
+              fallback_model = available[0]
+    except Exception:
+      pass
+
+    yield f"\n[System Warning: Remote provider '{provider}' failed. Falling back to local Ollama '{fallback_model}'...]\n"
+    
+    payload = {
+      "model": fallback_model,
+      "messages": messages,
+      "options": {"temperature": temperature},
+      "stream": True
+    }
+    
+    async for line_bytes in stream_with_retries(url, json_payload=payload):
+      line = line_bytes.decode('utf-8', errors='ignore').strip()
+      if line.startswith("Error:"):
+        yield f"\n[System Error: Ollama fallback also failed: {line}]\n"
+        return
+      try:
+        data = json.loads(line)
+        chunk = data.get("message", {}).get("content", "")
+        if chunk:
+          yield chunk
+      except Exception:
+        pass
+
+  # --- Provider Specific Implementations ---
+
   if provider == "ollama":
     ollama_host = get_ollama_host()
     url = f"{ollama_host}/api/chat"
@@ -74,198 +155,172 @@ async def generate_completion_stream(
       "stream": True
     }
     
-    async with httpx.AsyncClient(timeout=30.0) as client:
-      async with client.stream("POST", url, json=payload) as response:
-        if response.status_code != 200:
-          yield f"Error: Ollama returned status code {response.status_code}"
+    generator = stream_with_retries(url, json_payload=payload)
+    try:
+      async for line_bytes in generator:
+        line = line_bytes.decode('utf-8', errors='ignore').strip()
+        if line.startswith("Error:"):
+          yield f"Error: Ollama stream failed. {line}"
           return
-          
-        async for line in response.iter_lines():
-          if not line:
-            continue
+        try:
+          data = json.loads(line)
+          chunk = data.get("message", {}).get("content", "")
+          if chunk:
+            yield chunk
+        except Exception:
+          pass
+    finally:
+      await generator.aclose()
+
+  else:
+    # Remote Providers (OpenAI, Anthropic, Gemini, DeepSeek)
+    url = ""
+    headers = {}
+    payload = {}
+    
+    if provider == "openai":
+      api_key = get_api_key("openai")
+      if not api_key:
+        err_msg = "Error: OpenAI API Key is missing."
+        logger.error(err_msg)
+        async for chunk in run_ollama_fallback():
+          yield chunk
+        return
+      url = "https://api.openai.com/v1/chat/completions"
+      headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+      }
+      payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True
+      }
+
+    elif provider in ["anthropic", "claude"]:
+      api_key = get_api_key("anthropic") or get_api_key("claude")
+      if not api_key:
+        err_msg = "Error: Anthropic API Key is missing."
+        logger.error(err_msg)
+        async for chunk in run_ollama_fallback():
+          yield chunk
+        return
+      url = "https://api.anthropic.com/v1/messages"
+      headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json"
+      }
+      system_prompt = ""
+      refined_messages = []
+      for msg in messages:
+        if msg.get("role") == "system":
+          system_prompt = msg.get("content", "")
+        elif msg.get("role") in ("user", "assistant"):
+          refined_messages.append({
+            "role": msg.get("role"),
+            "content": msg.get("content")
+          })
+      payload = {
+        "model": model,
+        "messages": refined_messages,
+        "max_tokens": 4096,
+        "temperature": temperature,
+        "stream": True
+      }
+      if system_prompt:
+        payload["system"] = system_prompt
+
+    elif provider == "gemini":
+      api_key = get_api_key("gemini")
+      if not api_key:
+        err_msg = "Error: Gemini API Key is missing."
+        logger.error(err_msg)
+        async for chunk in run_ollama_fallback():
+          yield chunk
+        return
+      url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+      headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+      }
+      payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True
+      }
+
+    elif provider == "deepseek":
+      api_key = get_api_key("deepseek")
+      if not api_key:
+        err_msg = "Error: DeepSeek API Key is missing."
+        logger.error(err_msg)
+        async for chunk in run_ollama_fallback():
+          yield chunk
+        return
+      url = "https://api.deepseek.com/chat/completions"
+      headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+      }
+      payload = {
+        "model": model,
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True
+      }
+    else:
+      yield f"Error: Unsupported provider '{provider}'"
+      return
+
+    # Execute remote call
+    success = False
+    err_msg = ""
+    
+    generator = stream_with_retries(url, headers=headers, json_payload=payload)
+    try:
+      async for line_bytes in generator:
+        line = line_bytes.decode('utf-8', errors='ignore').strip()
+        if line.startswith("Error:"):
+          err_msg = line
+          break
+        
+        # Process chunks based on provider format
+        if provider == "anthropic":
+          if line.startswith("data: "):
+            line = line[6:].strip()
           try:
             data = json.loads(line)
-            chunk = data.get("message", {}).get("content", "")
-            if chunk:
-              yield chunk
-          except Exception:
-            pass
-
-  elif provider == "openai":
-    api_key = get_api_key("openai")
-    if not api_key:
-      yield "Error: OpenAI API Key (OPENAI_API_KEY) is missing. Set it in settings."
-      return
-      
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {
-      "Authorization": f"Bearer {api_key}",
-      "Content-Type": "application/json"
-    }
-    payload = {
-      "model": model,
-      "messages": messages,
-      "temperature": temperature,
-      "stream": True
-    }
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-      async with client.stream("POST", url, headers=headers, json=payload) as response:
-        if response.status_code != 200:
-          err_text = await response.aread()
-          yield f"Error: OpenAI returned {response.status_code} - {err_text.decode('utf-8')}"
-          return
-          
-        async for line in response.iter_lines():
-          if not line or not line.startswith("data: "):
-            continue
-          line_content = line[6:].strip()
-          if line_content == "[DONE]":
-            break
-          try:
-            data = json.loads(line_content)
-            chunk = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
-            if chunk:
-              yield chunk
-          except Exception:
-            pass
-
-  elif provider in ["anthropic", "claude"]:
-    api_key = get_api_key("anthropic") or get_api_key("claude")
-    if not api_key:
-      yield "Error: Anthropic API Key (ANTHROPIC_API_KEY) is missing. Set it in settings."
-      return
-      
-    url = "https://api.anthropic.com/v1/messages"
-    headers = {
-      "x-api-key": api_key,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json"
-    }
-    # BUG-47 fix: use explicit elif for user/assistant roles.
-    # The original loop silently overwrote system_prompt for each role:system message
-    # (only the last would be sent). This defensive version keeps the last system message
-    # and explicitly filters to only user/assistant for refined_messages.
-    system_prompt = ""
-    refined_messages = []
-    for msg in messages:
-      if msg.get("role") == "system":
-        system_prompt = msg.get("content", "")  # keeps last system msg (Anthropic only uses one)
-      elif msg.get("role") in ("user", "assistant"):
-        refined_messages.append({
-          "role": msg.get("role"),
-          "content": msg.get("content")
-        })
-      # Other roles (e.g. tool/function) are intentionally dropped for Anthropic compatibility
-        
-    payload = {
-      "model": model,
-      "messages": refined_messages,
-      "max_tokens": 4096,
-      "temperature": temperature,
-      "stream": True
-    }
-    if system_prompt:
-      payload["system"] = system_prompt
-      
-    async with httpx.AsyncClient(timeout=30.0) as client:
-      async with client.stream("POST", url, headers=headers, json=payload) as response:
-        if response.status_code != 200:
-          err_text = await response.aread()
-          yield f"Error: Anthropic returned {response.status_code} - {err_text.decode('utf-8')}"
-          return
-          
-        async for line in response.iter_lines():
-          if not line or not line.startswith("data: "):
-            continue
-          line_content = line[6:].strip()
-          try:
-            data = json.loads(line_content)
-            event_type = data.get("type")
-            if event_type == "content_block_delta":
+            if data.get("type") == "content_block_delta":
               chunk = data.get("delta", {}).get("text", "")
               if chunk:
+                success = True
                 yield chunk
           except Exception:
             pass
-
-  elif provider == "gemini":
-    api_key = get_api_key("gemini")
-    if not api_key:
-      yield "Error: Gemini API Key (GEMINI_API_KEY) is missing. Set it in settings."
-      return
-      
-    # Use Gemini's OpenAI-compatible Endpoint
-    url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-    headers = {
-      "Authorization": f"Bearer {api_key}",
-      "Content-Type": "application/json"
-    }
-    payload = {
-      "model": model,
-      "messages": messages,
-      "temperature": temperature,
-      "stream": True
-    }
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-      async with client.stream("POST", url, headers=headers, json=payload) as response:
-        if response.status_code != 200:
-          err_text = await response.aread()
-          yield f"Error: Gemini returned {response.status_code} - {err_text.decode('utf-8')}"
-          return
-          
-        async for line in response.iter_lines():
-          if not line or not line.startswith("data: "):
-            continue
-          line_content = line[6:].strip()
-          if line_content == "[DONE]":
+        else: # OpenAI, Gemini, DeepSeek compatible formats
+          if line.startswith("data: "):
+            line = line[6:].strip()
+          if line == "[DONE]":
             break
           try:
-            data = json.loads(line_content)
+            data = json.loads(line)
             chunk = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
             if chunk:
+              success = True
               yield chunk
           except Exception:
             pass
+            
+    except Exception as exc:
+      err_msg = f"Error: Exception during stream: {exc}"
+    finally:
+      await generator.aclose()
 
-  elif provider == "deepseek":
-    api_key = get_api_key("deepseek")
-    if not api_key:
-      yield "Error: DeepSeek API Key (DEEPSEEK_API_KEY) is missing. Set it in settings."
-      return
-      
-    url = "https://api.deepseek.com/chat/completions"
-    headers = {
-      "Authorization": f"Bearer {api_key}",
-      "Content-Type": "application/json"
-    }
-    payload = {
-      "model": model,
-      "messages": messages,
-      "temperature": temperature,
-      "stream": True
-    }
-    
-    async with httpx.AsyncClient(timeout=30.0) as client:
-      async with client.stream("POST", url, headers=headers, json=payload) as response:
-        if response.status_code != 200:
-          err_text = await response.aread()
-          yield f"Error: DeepSeek returned {response.status_code} - {err_text.decode('utf-8')}"
-          return
-          
-        async for line in response.iter_lines():
-          if not line or not line.startswith("data: "):
-            continue
-          line_content = line[6:].strip()
-          if line_content == "[DONE]":
-            break
-          try:
-            data = json.loads(line_content)
-            chunk = data.get("choices", [{}])[0].get("delta", {}).get("content", "")
-            if chunk:
-              yield chunk
-          except Exception:
-            pass
-  else:
-    yield f"Error: Unsupported provider '{provider}'"
+    if not success:
+      # If we yielded nothing and encountered an error, trigger fallback
+      logger.warning(f"Remote provider {provider} stream call failed: {err_msg}. Triggering local Ollama fallback.")
+      async for chunk in run_ollama_fallback():
+        yield chunk

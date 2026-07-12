@@ -14,6 +14,8 @@ import time
 import random
 import psutil
 import logging
+import platform
+import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,6 +85,20 @@ def log_finetune_data(prompt: str, response_text: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize structured logger first
+    try:
+        from src.core.logging_config import setup_logger
+        log_file = setup_logger()
+        logging.info("=========================================")
+        logging.info("Starting Meridian-X Backend Service")
+        logging.info(f"Process PID: {os.getpid()}")
+        logging.info(f"System OS: {platform.system()} {platform.release()}")
+        logging.info(f"Python Version: {platform.python_version()}")
+        logging.info(f"Log File Location: {log_file}")
+        logging.info("=========================================")
+    except Exception as e:
+        print("Failed to initialize logging:", e)
+
     # Startup operations
     try:
         from src.core.clipboard import start_clipboard_monitoring
@@ -280,7 +296,126 @@ class ChatRequest(BaseModel):
 
 @app.get("/api/health")
 def api_health():
-    return {"status": "healthy"}
+    health_status = {
+        "status": "healthy",
+        "sqlite": "online",
+        "mongodb": "online",
+        "ollama": "online",
+        "details": {}
+    }
+    
+    # 1. SQLite check
+    conn = None
+    try:
+        from database import get_sqlite_conn
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+    except Exception as e:
+        health_status["sqlite"] = f"offline: {e}"
+        health_status["status"] = "degraded"
+    finally:
+        if conn:
+            conn.close()
+        
+    # 2. MongoDB check
+    try:
+        from database import get_mongo_db
+        db_conn = get_mongo_db()
+        if db_conn is None:
+            health_status["mongodb"] = "offline"
+        else:
+            health_status["mongodb"] = "online"
+    except Exception as e:
+        health_status["mongodb"] = f"offline: {e}"
+        
+    # 3. Ollama check
+    try:
+        import httpx
+        host = get_ollama_client_host()
+        res = httpx.get(f"{host}/api/tags", timeout=2.0)
+        if res.status_code == 200:
+            models = [m["name"] for m in res.json().get("models", [])]
+            health_status["ollama"] = "online"
+            health_status["details"]["ollama_models"] = models
+        else:
+            health_status["ollama"] = f"degraded (HTTP {res.status_code})"
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["ollama"] = f"offline: {e}"
+        health_status["status"] = "degraded"
+        
+    return health_status
+
+@app.get("/api/diagnostics")
+def api_diagnostics():
+    try:
+        import shutil
+        import psutil
+        
+        # 1. System Info
+        cpu = psutil.cpu_percent(interval=None)
+        ram = psutil.virtual_memory().percent
+        total_disk, used_disk, free_disk = shutil.disk_usage(os.getcwd())
+        
+        # 2. DB sizes
+        from database import SQLITE_DB_PATH
+        sqlite_size = os.path.getsize(SQLITE_DB_PATH) if os.path.exists(SQLITE_DB_PATH) else 0
+        
+        # 3. Read last 50 lines of log file
+        log_lines = []
+        from src.core.audit_logger import get_audit_log_path
+        audit_path = get_audit_log_path()
+        log_path = os.path.join(os.path.dirname(audit_path), "meridian.log")
+        if os.path.exists(log_path):
+            with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+                log_lines = f.readlines()[-50:]
+                
+        # 4. Read last 10 audit logs
+        audit_lines = []
+        if os.path.exists(audit_path):
+            with open(audit_path, "r", encoding="utf-8", errors="ignore") as f:
+                audit_lines = f.readlines()[-10:]
+                
+        # Parse audit lines to JSON dicts
+        parsed_audits = []
+        for line in audit_lines:
+            try:
+                parsed_audits.append(json.loads(line))
+            except Exception:
+                parsed_audits.append({"raw": line})
+                
+        # 5. Environment overview (keys masked)
+        env_keys = ["MONGODB_URI", "OLLAMA_HOST", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "DEEPSEEK_API_KEY"]
+        env_summary = {}
+        for k in env_keys:
+            val = os.environ.get(k)
+            if val:
+                env_summary[k] = f"configured (length={len(val)})" if "KEY" in k else val
+            else:
+                env_summary[k] = "not set"
+
+        return {
+            "status": "success",
+            "system": {
+                "os": platform.system(),
+                "os_release": platform.release(),
+                "cpu_percent": cpu,
+                "ram_percent": ram,
+                "disk_free_gb": round(free_disk / (1024**3), 2),
+                "disk_total_gb": round(total_disk / (1024**3), 2)
+            },
+            "databases": {
+                "sqlite_size_kb": round(sqlite_size / 1024, 2),
+                "sqlite_path": SQLITE_DB_PATH
+            },
+            "environment": env_summary,
+            "recent_logs": [line.strip() for line in log_lines],
+            "recent_audit_logs": parsed_audits
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch diagnostics: {e}")
 
 @app.get("/api/system-usage")
 def get_system_usage():

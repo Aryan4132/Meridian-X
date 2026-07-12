@@ -3,6 +3,7 @@ import subprocess
 import time
 import ollama
 from typing import List, Dict, Any
+from src.core.audit_logger import log_sensitive_action
 from database import get_ollama_client_host
 from database import get_mongo_db
 
@@ -47,6 +48,12 @@ def nl_run(natural_language: str) -> str:
     """Translate a natural language command and execute it on the host OS after verifying safety checks."""
     command = nl_to_shell(natural_language)
     if command.startswith("Error"):
+        log_sensitive_action(
+            category="SHELL_EXECUTION",
+            action=natural_language,
+            details={"error": command},
+            status="FAILED"
+        )
         return command
         
     # Check for destructive/critical commands in translated result
@@ -58,6 +65,12 @@ def nl_run(natural_language: str) -> str:
     ]
     blocked_patterns = [p for p in dangerous_patterns if p in cmd_lower]
     if blocked_patterns:
+        log_sensitive_action(
+            category="SHELL_EXECUTION",
+            action=command,
+            details={"natural_language": natural_language, "reason": f"Safety Gate blocked: {', '.join(blocked_patterns)}"},
+            status="BLOCKED"
+        )
         return (
             f"Blocked execution of translated command: '{command}'\n"
             f"Reason: Contains dangerous/destructive keywords: {', '.join(blocked_patterns)}.\n"
@@ -73,6 +86,18 @@ def nl_run(natural_language: str) -> str:
             stderr=subprocess.PIPE,
             text=True,
             shell=True
+        )
+        status = "SUCCESS" if res.returncode == 0 else "FAILED"
+        log_sensitive_action(
+            category="SHELL_EXECUTION",
+            action=command,
+            details={
+                "natural_language": natural_language,
+                "returncode": res.returncode,
+                "stdout_len": len(res.stdout),
+                "stderr_len": len(res.stderr)
+            },
+            status=status
         )
         
         # Self-healing logic for failed commands
@@ -126,6 +151,12 @@ def nl_run(natural_language: str) -> str:
         result = "\n".join(output) if output else "Command executed successfully with no console output."
         return f"Translated Command: {command}\n\nExecution Result:\n{result}"
     except Exception as e:
+        log_sensitive_action(
+            category="SHELL_EXECUTION",
+            action=command,
+            details={"natural_language": natural_language, "error": str(e)},
+            status="FAILED"
+        )
         return f"Failed to execute command '{command}': {e}"
 
 def shell_history(n: int = 10) -> str:
