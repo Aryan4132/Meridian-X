@@ -861,3 +861,48 @@ def consolidate_memory_sleep_cycle():
             print("[Sleep Cycle] Insufficient conversations to consolidate.")
     except Exception as e:
         print("[Sleep Cycle] Consolidation error:", e)
+
+def load_db_keys_to_env():
+    """Automatically loads all API keys and configuration settings from the database profile into environment variables."""
+    try:
+        ENV_KEY_MAP = {
+            "ollama_host": "OLLAMA_HOST",
+            "openai_key": "OPENAI_API_KEY",
+            "anthropic_key": "ANTHROPIC_API_KEY",
+            "gemini_key": "GEMINI_API_KEY",
+            "deepseek_key": "DEEPSEEK_API_KEY",
+            "tavily_key": "TAVILY_API_KEY",
+            "discord_token": "DISCORD_BOT_TOKEN",
+            "telegram_token": "TELEGRAM_BOT_TOKEN",
+            "telegram_chat_id": "TELEGRAM_CHAT_ID",
+            "whatsapp_phone": "WHATSAPP_PHONE",
+            "meridian_provider": "MERIDIAN_PROVIDER",
+            "meridian_model": "MERIDIAN_MODEL",
+            "meridian_vision_model": "MERIDIAN_VISION_MODEL",
+            "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
+            "meridian_voice": "MERIDIAN_VOICE",
+            "wakeword_threshold": "WAKEWORD_THRESHOLD",
+            "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
+            "wakeword_phrase": "WAKEWORD_PHRASE",
+            "stt_model_size": "STT_MODEL_SIZE",
+            "stt_silence_timeout": "STT_SILENCE_TIMEOUT",
+            "stt_vad_threshold": "STT_VAD_THRESHOLD",
+            "stt_max_duration": "STT_MAX_DURATION",
+            "browser_viewport_width": "BROWSER_VIEWPORT_WIDTH",
+            "browser_viewport_height": "BROWSER_VIEWPORT_HEIGHT",
+            "cpu_warn_threshold": "CPU_WARN_THRESHOLD",
+            "ram_warn_threshold": "RAM_WARN_THRESHOLD",
+            "disk_warn_threshold": "DISK_WARN_THRESHOLD",
+            "distraction_sites": "DISTRACTION_SITES",
+        }
+        for profile_key, env_key in ENV_KEY_MAP.items():
+            if not os.environ.get(env_key):
+                val = get_user_profile(profile_key)
+                if val is not None and val != "":
+                    os.environ[env_key] = str(val)
+    except Exception:
+        pass
+
+# Trigger automatic loading of profile keys on module import
+load_db_keys_to_env()
+

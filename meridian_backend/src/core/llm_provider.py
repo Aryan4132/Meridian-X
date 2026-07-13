@@ -34,25 +34,25 @@ def get_api_key(provider: str) -> Optional[str]:
   Retrieves the API key for a provider.
   Checks:
   1. Environment variables (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY).
-  2. MongoDB user_profile collection (saved via first-run onboarding / settings UI).
+  2. SQLite/MongoDB user_profile database (saved via first-run onboarding / settings UI).
   """
   env_name = f"{provider.upper()}_API_KEY"
   key = os.getenv(env_name)
   if key:
     return key
     
-  # Fallback to MongoDB profiles
+  # Fallback to database profiles (SQLite first, then MongoDB via get_user_profile)
   try:
-    db = get_mongo_db()
-    col = db["user_profile"] if db is not None else None
+    from database import get_user_profile
     profile_key = f"{provider.lower()}_key"
-    record = col.find_one({"key": profile_key}) if col is not None else None
-    if record and "value" in record:
-      return record["value"]
+    val = get_user_profile(profile_key)
+    if val is not None and val != "":
+      return val
   except Exception as e:
-    logger.debug(f"Failed to fetch {provider} key from MongoDB: {e}")
+    logger.debug(f"Failed to fetch {provider} key from database profile: {e}")
     
   return None
+
 
 async def generate_completion_stream(
   messages: List[Dict[str, str]],

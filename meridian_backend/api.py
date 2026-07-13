@@ -1,5 +1,5 @@
-from src.core.mcp_client import mcp_manager
 import os
+from src.core.mcp_client import mcp_manager
 # Load local .env file if present
 from src.core.config import ENV_FILE as env_path
 if os.path.exists(env_path):
@@ -85,6 +85,18 @@ def log_finetune_data(prompt: str, response_text: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load profile keys from database into os.environ on startup
+    try:
+        from database import get_user_profile
+        for profile_key, env_key in ENV_KEY_MAP.items():
+            if not os.environ.get(env_key):
+                val = get_user_profile(profile_key)
+                if val is not None and val != "":
+                    os.environ[env_key] = str(val)
+                    print(f"[Startup] Loaded {env_key} from database profile.")
+    except Exception as e:
+        print("[Startup] Failed to load database profile keys into env:", e)
+
     # Initialize structured logger first
     try:
         from src.core.logging_config import setup_logger
@@ -244,6 +256,11 @@ async def lifespan(app: FastAPI):
         print("Stopped all filesystem watchers.")
     except Exception as e:
         print("Failed to stop filesystem watchers:", e)
+    try:
+        from src.core.logging_config import shutdown_logger
+        shutdown_logger()
+    except Exception as e:
+        print("Failed to shut down logging:", e)
 
 app = FastAPI(title="Meridian-X API", version="1.0.0", lifespan=lifespan)
 
@@ -282,6 +299,17 @@ def post_debug_log(log: DebugLog):
     except Exception as e:
         print("Failed to write debug log to file:", e)
     return {"status": "ok"}
+
+@app.post("/api/system/shutdown")
+def post_system_shutdown():
+    import threading
+    import signal
+    def exit_func():
+        time.sleep(0.5)
+        os.kill(os.getpid(), signal.SIGINT)
+        
+    threading.Thread(target=exit_func, daemon=True).start()
+    return {"status": "success", "message": "Shutdown initiated."}
 
 class ModelSettings(BaseModel):
     modelSource: str
@@ -487,6 +515,106 @@ def get_ollama_models(host: Optional[str] = None):
     except Exception:
         pass
 
+    return {"models": []}
+
+@app.get("/api/provider-models")
+async def get_provider_models(provider: str, host: Optional[str] = None, api_key: Optional[str] = None):
+    provider = provider.lower()
+    models = []
+    
+    # 1. Ollama
+    if provider == "ollama":
+        res = get_ollama_models(host=host)
+        return res
+        
+    # 2. OpenAI
+    elif provider == "openai":
+        from src.core.llm_provider import get_api_key
+        key = api_key or get_api_key("openai")
+        if not key:
+            return {"models": ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']}
+        try:
+            import httpx
+            headers = {"Authorization": f"Bearer {key}"}
+            async with httpx.AsyncClient() as client:
+                res = await client.get("https://api.openai.com/v1/models", headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("data", []):
+                        m_id = m.get("id")
+                        if m_id.startswith(("gpt-", "o1-", "o3-")):
+                            models.append(m_id)
+                    if models:
+                        return {"models": sorted(list(set(models)))}
+        except Exception:
+            pass
+        return {"models": ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']}
+        
+    # 3. DeepSeek
+    elif provider == "deepseek":
+        from src.core.llm_provider import get_api_key
+        key = api_key or get_api_key("deepseek")
+        if not key:
+            return {"models": ['deepseek-chat', 'deepseek-coder']}
+        try:
+            import httpx
+            headers = {"Authorization": f"Bearer {key}"}
+            async with httpx.AsyncClient() as client:
+                res = await client.get("https://api.deepseek.com/v1/models", headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("data", []):
+                        models.append(m.get("id"))
+                    if models:
+                        return {"models": sorted(list(set(models)))}
+        except Exception:
+            pass
+        return {"models": ['deepseek-chat', 'deepseek-coder']}
+        
+    # 4. Gemini
+    elif provider == "gemini":
+        from src.core.llm_provider import get_api_key
+        key = api_key or get_api_key("gemini")
+        if not key:
+            return {"models": ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.0-pro']}
+        try:
+            import httpx
+            headers = {"Authorization": f"Bearer {key}"}
+            async with httpx.AsyncClient() as client:
+                res = await client.get("https://generativelanguage.googleapis.com/v1beta/openai/models", headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("data", []):
+                        models.append(m.get("id"))
+                    if models:
+                        return {"models": sorted(list(set(models)))}
+        except Exception:
+            pass
+        try:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={key}"
+                res = await client.get(url, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("models", []):
+                        name = m.get("name", "")
+                        if name.startswith("models/"):
+                            models.append(name.replace("models/", ""))
+                    if models:
+                        return {"models": sorted(list(set(models)))}
+        except Exception:
+            pass
+        return {"models": ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.0-pro']}
+        
+    # 5. Anthropic
+    elif provider in ("anthropic", "claude"):
+        return {"models": [
+            'claude-3-5-sonnet-20241022',
+            'claude-3-5-haiku-20241022',
+            'claude-3-opus-20240229'
+        ]}
+        
     return {"models": []}
 
 def get_react_thoughts(prompt: str, brain_model: str, ocr_model: str) -> Dict[str, Any]:

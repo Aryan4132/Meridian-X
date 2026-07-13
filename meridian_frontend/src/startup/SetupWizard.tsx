@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Bot, RefreshCw, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { ArrowRight, Bot, RefreshCw, CheckCircle } from 'lucide-react';
 import HoloButton from '../components/ui/HoloButton';
 
 interface SetupWizardProps { onComplete: () => void; }
@@ -50,7 +50,6 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
   const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
-  const [openSection, setOpenSection]       = useState<string | null>(null);
 
   // Step 3 — model
   const [selectedProvider, setSelectedProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
@@ -138,41 +137,6 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     return sets[selectedProvider];
   };
 
-  // Accordion for integrations
-  const AccordionSection = ({ id, title, icon, children }: { id: string; title: string; icon: string; children: React.ReactNode }) => {
-    const open = openSection === id;
-    return (
-      <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
-        <button
-          type="button"
-          onClick={() => setOpenSection(open ? null : id)}
-          style={{
-            width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '10px 14px', background: open ? 'var(--bg-surface)' : 'transparent',
-            border: 'none', cursor: 'pointer', color: 'var(--text-main)', transition: 'background 0.15s ease',
-          }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 500 }}>{icon} {title}</span>
-          {open ? <ChevronUp size={14} style={{ color: 'var(--text-dim)' }} /> : <ChevronDown size={14} style={{ color: 'var(--text-dim)' }} />}
-        </button>
-        <AnimatePresence initial={false}>
-          {open && (
-            <motion.div
-              initial={{ height: 0 }}
-              animate={{ height: 'auto' }}
-              exit={{ height: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: 'hidden' }}
-            >
-              <div style={{ padding: '12px 14px', borderTop: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {children}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    );
-  };
 
   return (
     <div style={{
@@ -261,29 +225,28 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                     <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>All optional. Configure later in Settings.</p>
                   </div>
 
-                  <AccordionSection id="search" title="Web Search" icon="🌐">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>TAVILY API KEY</label>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>TAVILY API KEY (WEB SEARCH)</label>
                       <input type="password" placeholder="tvly-..." value={tavilyKey} onChange={e => setTavilyKey(e.target.value)} className="input-base" />
                     </div>
-                  </AccordionSection>
 
-                  <AccordionSection id="notifs" title="Notifications" icon="💬">
                     <div>
                       <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>DISCORD BOT TOKEN</label>
                       <input type="password" placeholder="MT..." value={discordToken} onChange={e => setDiscordToken(e.target.value)} className="input-base" />
                     </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                       <div>
                         <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>TELEGRAM TOKEN</label>
                         <input type="password" placeholder="bot..." value={telegramToken} onChange={e => setTelegramToken(e.target.value)} className="input-base" />
                       </div>
                       <div>
-                        <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>CHAT ID</label>
+                        <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>TELEGRAM CHAT ID</label>
                         <input type="text" placeholder="123..." value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} className="input-base" />
                       </div>
                     </div>
-                  </AccordionSection>
+                  </div>
                 </div>
               )}
 

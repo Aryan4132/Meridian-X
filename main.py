@@ -5,6 +5,12 @@ import sys
 import json
 import time
 
+# Reconfigure stdout and stderr to use UTF-8 to prevent UnicodeEncodeError on Windows console
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
 # Insert backend folder into path for core imports
 backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meridian_backend")
 sys.path.insert(0, backend_dir)

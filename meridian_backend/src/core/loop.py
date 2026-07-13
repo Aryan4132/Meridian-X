@@ -1102,11 +1102,12 @@ async def run_react_agent_loop(
                     )
                 else:
                     # Cloud APIs Direct Integration (Option 3)
+                    from src.core.llm_provider import get_api_key
                     if api_provider == "gemini":
                         from openai import OpenAI
-                        gemini_key = os.environ.get("GEMINI_API_KEY")
+                        gemini_key = get_api_key("gemini")
                         if not gemini_key:
-                            raise ValueError("GEMINI_API_KEY environment variable is not configured.")
+                            raise ValueError("GEMINI_API_KEY is not configured in environment or database profile.")
                         openai_client = OpenAI(
                             api_key=gemini_key,
                             base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -1118,9 +1119,9 @@ async def run_react_agent_loop(
                         )
                     elif api_provider == "openai":
                         from openai import OpenAI
-                        openai_key = os.environ.get("OPENAI_API_KEY")
+                        openai_key = get_api_key("openai")
                         if not openai_key:
-                            raise ValueError("OPENAI_API_KEY environment variable is not configured.")
+                            raise ValueError("OPENAI_API_KEY is not configured in environment or database profile.")
                         openai_client = OpenAI(api_key=openai_key)
                         response_stream = openai_client.chat.completions.create(
                             model=active_model,
@@ -1129,9 +1130,9 @@ async def run_react_agent_loop(
                         )
                     elif api_provider == "deepseek":
                         from openai import OpenAI
-                        deepseek_key = os.environ.get("DEEPSEEK_API_KEY")
+                        deepseek_key = get_api_key("deepseek")
                         if not deepseek_key:
-                            raise ValueError("DEEPSEEK_API_KEY environment variable is not configured.")
+                            raise ValueError("DEEPSEEK_API_KEY is not configured in environment or database profile.")
                         openai_client = OpenAI(
                             api_key=deepseek_key,
                             base_url="https://api.deepseek.com/v1"
@@ -1141,11 +1142,11 @@ async def run_react_agent_loop(
                             messages=history,
                             stream=True
                         )
-                    elif api_provider == "anthropic":
+                    elif api_provider in ("anthropic", "claude"):
                         from anthropic import Anthropic
-                        anthropic_key = os.environ.get("ANTHROPIC_API_KEY")
+                        anthropic_key = get_api_key("anthropic") or get_api_key("claude")
                         if not anthropic_key:
-                            raise ValueError("ANTHROPIC_API_KEY environment variable is not configured.")
+                            raise ValueError("ANTHROPIC_API_KEY is not configured in environment or database profile.")
                         anthropic_client = Anthropic(api_key=anthropic_key)
                         system_msg = ""
                         claude_history = []

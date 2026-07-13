@@ -10,8 +10,8 @@ def setup_logger():
     
     # Resolve log file path inside the workspace's .meridian directory
     # or fallback to user home .meridian directory
-    cwd = os.getcwd()
-    meridian_dir = os.path.join(cwd, ".meridian")
+    from src.core.config import MERIDIAN_DATA_DIR
+    meridian_dir = os.path.join(MERIDIAN_DATA_DIR, ".meridian")
     try:
         os.makedirs(meridian_dir, exist_ok=True)
     except Exception:
@@ -27,7 +27,8 @@ def setup_logger():
     root_logger.setLevel(log_level)
     
     # Prevent duplicate handlers if re-initialized
-    if not root_logger.handlers:
+    has_file_handler = any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers)
+    if not has_file_handler:
         formatter = logging.Formatter(
             '[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
@@ -49,3 +50,18 @@ def setup_logger():
         
     logging.info(f"Structured logging initialized. Writing logs to: {log_file}")
     return log_file
+
+def shutdown_logger():
+    """Flushes and closes all root logging handlers to release file locks on shutdown."""
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        try:
+            handler.flush()
+            handler.close()
+            root_logger.removeHandler(handler)
+        except Exception:
+            pass
+    try:
+        logging.shutdown()
+    except Exception:
+        pass

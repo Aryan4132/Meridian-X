@@ -70,33 +70,34 @@ graph TD
     N64["test_config.py [meridian_backend/tests]"]
     N65["test_database.py [meridian_backend/tests]"]
     N66["test_llm_provider.py [meridian_backend/tests]"]
-    N67["test_tools.py [meridian_backend/tests]"]
-    N68["vite.config.ts [meridian_frontend]"]
-    N69["AppContext.tsx [meridian_frontend/src]"]
-    N70["main.tsx [meridian_frontend/src]"]
-    N71["Mascot.tsx [meridian_frontend/src]"]
-    N72["NavRail.tsx [meridian_frontend/src/components]"]
-    N73["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N74["Shell.tsx [meridian_frontend/src/components]"]
-    N75["StatusBar.tsx [meridian_frontend/src/components]"]
-    N76["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N77["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N78["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N79["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N80["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N81["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N82["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N83["Clipboard.tsx [meridian_frontend/src/views]"]
-    N84["Jobs.tsx [meridian_frontend/src/views]"]
-    N85["Productivity.tsx [meridian_frontend/src/views]"]
-    N86["Settings.tsx [meridian_frontend/src/views]"]
-    N87["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N88["Timeline.tsx [meridian_frontend/src/views]"]
-    N89["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N90["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N91["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N92["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N93["get_system_platform_info.py [plugins]"]
+    N67["test_logging.py [meridian_backend/tests]"]
+    N68["test_tools.py [meridian_backend/tests]"]
+    N69["vite.config.ts [meridian_frontend]"]
+    N70["AppContext.tsx [meridian_frontend/src]"]
+    N71["main.tsx [meridian_frontend/src]"]
+    N72["Mascot.tsx [meridian_frontend/src]"]
+    N73["NavRail.tsx [meridian_frontend/src/components]"]
+    N74["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N75["Shell.tsx [meridian_frontend/src/components]"]
+    N76["StatusBar.tsx [meridian_frontend/src/components]"]
+    N77["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N78["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N79["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N80["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N81["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N82["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N83["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N84["Clipboard.tsx [meridian_frontend/src/views]"]
+    N85["Jobs.tsx [meridian_frontend/src/views]"]
+    N86["Productivity.tsx [meridian_frontend/src/views]"]
+    N87["Settings.tsx [meridian_frontend/src/views]"]
+    N88["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N89["Timeline.tsx [meridian_frontend/src/views]"]
+    N90["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N91["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N92["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N93["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N94["get_system_platform_info.py [plugins]"]
 
     N4 --> N8
     N8 --> N9
@@ -131,50 +132,50 @@ graph TD
     N61 --> N9
     N62 --> N9
     N65 --> N9
-    N69 --> N92
-    N70 --> N71
-    N70 --> N81
-    N70 --> N82
-    N70 --> N74
-    N70 --> N69
-    N72 --> N69
-    N73 --> N69
-    N73 --> N79
-    N73 --> N76
-    N74 --> N69
-    N74 --> N72
-    N74 --> N75
-    N74 --> N73
-    N74 --> N88
-    N74 --> N84
-    N74 --> N83
-    N74 --> N85
-    N74 --> N87
-    N74 --> N86
-    N75 --> N69
+    N70 --> N93
+    N71 --> N72
+    N71 --> N82
+    N71 --> N83
+    N71 --> N75
+    N71 --> N70
+    N73 --> N70
+    N74 --> N70
+    N74 --> N80
+    N74 --> N77
+    N75 --> N70
+    N75 --> N73
     N75 --> N76
-    N82 --> N78
-    N83 --> N92
-    N83 --> N78
-    N84 --> N92
-    N84 --> N78
-    N84 --> N77
-    N85 --> N92
+    N75 --> N74
+    N75 --> N89
+    N75 --> N85
+    N75 --> N84
+    N75 --> N86
+    N75 --> N88
+    N75 --> N87
+    N76 --> N70
+    N76 --> N77
+    N83 --> N79
+    N84 --> N93
+    N84 --> N79
+    N85 --> N93
     N85 --> N79
     N85 --> N78
-    N85 --> N77
-    N86 --> N92
-    N86 --> N69
+    N86 --> N93
+    N86 --> N80
     N86 --> N79
     N86 --> N78
-    N86 --> N77
+    N87 --> N93
+    N87 --> N70
     N87 --> N80
+    N87 --> N79
     N87 --> N78
-    N88 --> N92
-    N88 --> N78
-    N88 --> N77
-    N91 --> N92
-    N92 --> N91
+    N88 --> N81
+    N88 --> N79
+    N89 --> N93
+    N89 --> N79
+    N89 --> N78
+    N92 --> N93
+    N93 --> N92
 ```
 
 ## Detailed File Index
@@ -219,6 +220,7 @@ graph TD
   - Imports: `random`
   - Imports: `re`
   - Imports: `shutil`
+  - Imports: `signal`
   - Imports: `src`
   - Imports: `subprocess`
   - Imports: `sys`
@@ -250,6 +252,7 @@ graph TD
   - Imports: `logging`
   - Imports: `os`
   - Imports: `platform`
+  - Imports: `src`
   - Imports: `time`
 - **meridian_backend/src/core/auth.py**
   - Imports: `fastapi`
@@ -317,6 +320,7 @@ graph TD
 - **meridian_backend/src/core/logging_config.py**
   - Imports: `logging`
   - Imports: `os`
+  - Imports: `src`
   - Imports: `sys`
 - **meridian_backend/src/core/loop.py**
   - Imports: `anthropic`
@@ -671,6 +675,14 @@ graph TD
   - Imports: `unittest`
 - **meridian_backend/tests/test_llm_provider.py**
   - Imports: `asyncio`
+  - Imports: `os`
+  - Imports: `shutil`
+  - Imports: `src`
+  - Imports: `sys`
+  - Imports: `unittest`
+- **meridian_backend/tests/test_logging.py**
+  - Imports: `json`
+  - Imports: `logging`
   - Imports: `os`
   - Imports: `shutil`
   - Imports: `src`

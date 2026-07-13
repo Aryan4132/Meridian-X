@@ -8,8 +8,8 @@ import logging
 logger = logging.getLogger("meridian_audit")
 
 def get_audit_log_path() -> str:
-    cwd = os.getcwd()
-    meridian_dir = os.path.join(cwd, ".meridian")
+    from src.core.config import MERIDIAN_DATA_DIR
+    meridian_dir = os.path.join(MERIDIAN_DATA_DIR, ".meridian")
     try:
         os.makedirs(meridian_dir, exist_ok=True)
     except Exception:

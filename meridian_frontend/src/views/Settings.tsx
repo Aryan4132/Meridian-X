@@ -68,7 +68,9 @@ export default function Settings() {
   const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
   const [visionModel, setVisionModel]       = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
-  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
+  const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
+  const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
   const [openaiKey, setOpenaiKey]           = useState(() => localStorage.getItem('OPENAI_API_KEY') || '');
   const [anthropicKey, setAnthropicKey]     = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
   const [geminiKey, setGeminiKey]           = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
@@ -266,17 +268,60 @@ export default function Settings() {
     localStorage.setItem('meridian_ui_volume', String(val));
   };
 
-  // Fetch models on provider change
+  // Fetch Ollama models for Vision and Auditor
   useEffect(() => {
-    if (provider === 'ollama') {
-      fetch(`http://localhost:4132/api/ollama-models?host=${encodeURIComponent(ollamaHost)}`).catch(() => null)
-        .then(r => r?.json())
-        .then(d => { if (d?.models) setAvailableModels(d.models.map((m: any) => m.name || m)); })
-        .catch(() => {});
-    } else {
-      setAvailableModels(PROVIDER_MODELS[provider] || []);
-    }
-  }, [provider, ollamaHost]);
+    fetch(`http://localhost:4132/api/provider-models?provider=ollama&host=${encodeURIComponent(ollamaHost)}`).catch(() => null)
+      .then(r => r?.json())
+      .then(d => {
+        if (d?.models) {
+          setAvailableOllamaModels(d.models.map((m: any) => m.name || m));
+        }
+      })
+      .catch(() => {});
+  }, [ollamaHost]);
+
+  // Fetch Brain models based on selected provider and key
+  useEffect(() => {
+    let key = '';
+    if (provider === 'openai') key = openaiKey;
+    else if (provider === 'anthropic') key = anthropicKey;
+    else if (provider === 'gemini') key = geminiKey;
+    else if (provider === 'deepseek') key = deepseekKey;
+
+    const url = `http://localhost:4132/api/provider-models?provider=${provider}&host=${encodeURIComponent(ollamaHost)}&api_key=${encodeURIComponent(key)}`;
+    fetch(url).catch(() => null)
+      .then(r => r?.json())
+      .then(d => {
+        if (d?.models) {
+          setAvailableBrainModels(d.models.map((m: any) => m.name || m));
+        }
+      })
+      .catch(() => {});
+  }, [provider, ollamaHost, openaiKey, anthropicKey, geminiKey, deepseekKey]);
+
+  const filterVisionModels = (models: string[]) => {
+    if (showAllVisionModels) return models;
+    const filtered = models.filter(m => {
+      const name = m.toLowerCase();
+      return (
+        name.includes('vision') ||
+        name.includes('ocr') ||
+        name.includes('moondream') ||
+        name.includes('llava') ||
+        name.includes('minicpm') ||
+        name.includes('paligemma') ||
+        name.includes('bakllava') ||
+        name.includes('vl') ||
+        name.endsWith('-v') ||
+        name.includes('-v-') ||
+        name.includes('-v1') ||
+        name.includes('-v2') ||
+        name.includes('-v3') ||
+        name.includes('-v4')
+      );
+    });
+    return filtered.length > 0 ? filtered : models;
+  };
 
   const handleGameMode = async (checked: boolean) => {
     setGameMode(checked);
@@ -425,9 +470,9 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Brain Model
                   </label>
-                  {availableModels.length > 0 ? (
+                  {availableBrainModels.length > 0 ? (
                     <select value={brainModel} onChange={e => setBrainModel(e.target.value)} className="select-base">
-                      {availableModels.map(m => <option key={m} value={m}>{m}</option>)}
+                      {availableBrainModels.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   ) : (
                     <input type="text" value={brainModel} onChange={e => setBrainModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
@@ -439,7 +484,26 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Vision Model (Ollama)
                   </label>
-                  <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                  {availableOllamaModels.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <select value={visionModel} onChange={e => setVisionModel(e.target.value)} className="select-base">
+                        {filterVisionModels(availableOllamaModels).map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-dim)', cursor: 'pointer', marginTop: 2 }}>
+                        <input
+                          type="checkbox"
+                          checked={showAllVisionModels}
+                          onChange={e => {
+                            setShowAllVisionModels(e.target.checked);
+                            localStorage.setItem('meridian_show_all_vision_models', String(e.target.checked));
+                          }}
+                        />
+                        Show all models (disable vision filtering)
+                      </label>
+                    </div>
+                  ) : (
+                    <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                  )}
                 </div>
 
                 {/* Auditor model */}
@@ -447,7 +511,13 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Security Auditor Model (Ollama)
                   </label>
-                  <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                  {availableOllamaModels.length > 0 ? (
+                    <select value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="select-base">
+                      {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  ) : (
+                    <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                  )}
                 </div>
               </div>
             </div>
