@@ -608,6 +608,24 @@ def is_game_process_running(pid: int, expected_name: str) -> bool:
         pass
     return False
 
+def get_app_pids():
+    pids = {os.getpid()}
+    try:
+        parent = psutil.Process().parent()
+        if parent:
+            pids.add(parent.pid)
+            gparent = parent.parent()
+            if gparent:
+                pids.add(gparent.pid)
+    except Exception:
+        pass
+    try:
+        for child in psutil.Process().children(recursive=True):
+            pids.add(child.pid)
+    except Exception:
+        pass
+    return pids
+
 def check_active_window():
     global _last_window_title, _distraction_start_time, _last_distraction_alert
     global game_mode_active, auto_game_mode_active, _auto_detected_game_pid, _auto_detected_game_name
@@ -629,7 +647,13 @@ def check_active_window():
         except Exception:
             pass
 
-    is_playing_game = is_system_busy_or_fullscreen(hwnd)
+    # Skip if active window belongs to our own app process tree
+    is_playing_game = False
+    try:
+        if pid not in get_app_pids():
+            is_playing_game = is_system_busy_or_fullscreen(hwnd)
+    except Exception:
+        is_playing_game = is_system_busy_or_fullscreen(hwnd)
     
     if is_playing_game:
         if not game_mode_active:

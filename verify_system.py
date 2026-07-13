@@ -46,7 +46,8 @@ def check_node():
         print_result("Node.js: Not found in path", False, "Required for Tauri and Frontend compilation")
         
     try:
-        npm_ver = subprocess.check_output(["npm", "--version"], text=True).strip()
+        npm_cmd = "npm.cmd" if platform.system() == "Windows" else "npm"
+        npm_ver = subprocess.check_output([npm_cmd, "--version"], text=True).strip()
         print_result(f"npm: {npm_ver}", True)
     except Exception:
         print_result("npm: Not found in path", False, "Required for frontend packaging")

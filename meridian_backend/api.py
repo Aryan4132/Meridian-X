@@ -1935,8 +1935,9 @@ class LobbyDebateRequest(BaseModel):
 @app.post("/api/lobby/debate")
 async def lobby_debate(request: LobbyDebateRequest):
     try:
-        provider = os.environ.get("MERIDIAN_PROVIDER", "ollama")
-        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+        from database import get_brain_model
+        provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER", "ollama")
+        model = get_brain_model()
 
         async def get_completion(prompt_text: str) -> str:
             from src.core.llm_provider import generate_completion_stream
@@ -1944,6 +1945,9 @@ async def lobby_debate(request: LobbyDebateRequest):
             async for chunk in generate_completion_stream([{"role": "user", "content": prompt_text}], provider, model):
                 if chunk.startswith("Error:"):
                     raise Exception(chunk)
+                stripped = chunk.strip()
+                if stripped.startswith("[System Warning:") or stripped.startswith("[System Error:"):
+                    continue
                 parts.append(chunk)
             return "".join(parts).strip()
         
