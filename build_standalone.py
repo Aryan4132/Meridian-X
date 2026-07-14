@@ -91,18 +91,24 @@ def main():
     executables_dir = os.path.join(root_dir, "executables")
     os.makedirs(executables_dir, exist_ok=True)
     
-    msi_src = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "msi", "meridian-x_0.1.0_x64_en-US.msi")
-    exe_src = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "nsis", "meridian-x_0.1.0_x64-setup.exe")
+    import glob
+    msi_pattern = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "msi", "meridian-x_*_x64_en-US.msi")
+    exe_pattern = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "nsis", "meridian-x_*_x64-setup.exe")
     
-    if os.path.exists(msi_src):
+    msi_files = glob.glob(msi_pattern)
+    exe_files = glob.glob(exe_pattern)
+    
+    if msi_files:
+        msi_src = sorted(msi_files)[-1]
         shutil.copy2(msi_src, executables_dir)
-        print(f"Copied MSI installer to: {os.path.join(executables_dir, 'meridian-x_0.1.0_x64_en-US.msi')}")
+        print(f"Copied MSI installer to: {os.path.join(executables_dir, os.path.basename(msi_src))}")
     else:
         print("[Warning] MSI installer output not found!")
         
-    if os.path.exists(exe_src):
+    if exe_files:
+        exe_src = sorted(exe_files)[-1]
         shutil.copy2(exe_src, executables_dir)
-        print(f"Copied NSIS setup EXE to: {os.path.join(executables_dir, 'meridian-x_0.1.0_x64-setup.exe')}")
+        print(f"Copied NSIS setup EXE to: {os.path.join(executables_dir, os.path.basename(exe_src))}")
     else:
         print("[Warning] NSIS setup EXE output not found!")
         
