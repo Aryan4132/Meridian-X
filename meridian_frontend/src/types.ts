@@ -29,6 +29,10 @@ export interface ModelSettings {
   selectedModel: string;
   brainModel: string;
   ocrModel: string;
+  openaiKey?: string;
+  anthropicKey?: string;
+  geminiKey?: string;
+  deepseekKey?: string;
 }
 
 export interface SystemResource {

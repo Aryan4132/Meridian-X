@@ -234,10 +234,31 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
+    const provider = localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama';
+    const brainModel = localStorage.getItem('MERIDIAN_MODEL') || '';
+    const modelSource = provider === 'ollama' ? 'local' : 'api';
+    const openaiKey = localStorage.getItem('OPENAI_API_KEY') || '';
+    const anthropicKey = localStorage.getItem('ANTHROPIC_API_KEY') || '';
+    const geminiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+    const deepseekKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
+
     try {
       const res = await fetch('http://localhost:4132/api/chat/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: text }),
+        body: JSON.stringify({
+          prompt: text,
+          modelSettings: {
+            modelSource,
+            apiProvider: provider,
+            selectedModel: brainModel,
+            brainModel,
+            ocrModel: brainModel,
+            openaiKey,
+            anthropicKey,
+            geminiKey,
+            deepseekKey
+          }
+        }),
         signal: controller.signal,
       });
       if (!res.ok || !res.body) throw new Error('Stream failed');

@@ -9,6 +9,70 @@ import threading
 from typing import Dict, Any, List, AsyncGenerator, Tuple
 import ollama
 
+def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
+    """
+    Checks Ollama's list of installed models and matches the requested model to the best available tagged variant if the exact name isn't found.
+    """
+    try:
+        res = client.list()
+        installed_models = []
+        if hasattr(res, 'models'):
+            installed_models = [m.model for m in res.models]
+        elif isinstance(res, dict) and 'models' in res:
+            installed_models = [m.get('model') for m in res['models'] if isinstance(m, dict)] or [m.model for m in res['models'] if hasattr(m, 'model')]
+        elif isinstance(res, list):
+            installed_models = [m.model for m in res if hasattr(m, 'model')]
+            
+        if not installed_models:
+            return model_name
+            
+        # 1. Exact match
+        if model_name in installed_models:
+            return model_name
+            
+        # 2. No tag requested (e.g. "qwen2.5-coder"). Try adding ":latest"
+        if ":" not in model_name:
+            if f"{model_name}:latest" in installed_models:
+                return f"{model_name}:latest"
+                
+        # 3. Match by prefix (e.g. "qwen2.5-coder" matches "qwen2.5-coder:7b-instruct-q4_K_M")
+        prefix = model_name if ":" in model_name else f"{model_name}:"
+        matches = [m for m in installed_models if m.startswith(prefix)]
+        if matches:
+            # Sort to prioritize "latest", then tags containing "instruct", then alphabetical
+            def match_key(m):
+                tag = m[len(prefix):].lower()
+                if tag == "latest":
+                    return (0, tag)
+                if "instruct" in tag:
+                    return (1, tag)
+                return (2, tag)
+            matches.sort(key=match_key)
+            print(f"[Ollama Resolver] Resolved model '{model_name}' to '{matches[0]}'")
+            return matches[0]
+            
+        # 4. Match base name if tagged model was requested but not found (e.g. "qwen2.5-coder:7b" not found, but we have "qwen2.5-coder:3b")
+        if ":" in model_name:
+            base_name = model_name.split(":")[0]
+            base_prefix = f"{base_name}:"
+            base_matches = [m for m in installed_models if m.startswith(base_prefix)]
+            if base_matches:
+                def match_key_base(m):
+                    tag = m[len(base_prefix):].lower()
+                    if "instruct" in tag:
+                        return (0, tag)
+                    if tag == "latest":
+                        return (1, tag)
+                    return (2, tag)
+                base_matches.sort(key=match_key_base)
+                print(f"[Ollama Resolver] Resolved model '{model_name}' to '{base_matches[0]}'")
+                return base_matches[0]
+    except Exception as e:
+        print(f"[Ollama Resolver] Error resolving model name: {e}")
+        
+    return model_name
+
+
 from src.tools.registry import call_tool, TOOL_REGISTRY
 from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model
 from src.core.bus import event_bus
@@ -848,7 +912,9 @@ def detect_complex_prompt(prompt: str) -> bool:
     complex_words = ["build", "setup", "implement", "deploy", "architecture", "design and create", "create a complete", "pipeline", "scaffold"]
     return len(prompt) > 200 or any(w in p for w in complex_words)
 
-async def decompose_goal_to_checklist(prompt: str, client: ollama.Client) -> List[Dict[str, Any]]:
+async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model: str = None) -> List[Dict[str, Any]]:
+    if model is None:
+        model = get_auditor_model()
     decomp_prompt = (
         "You are the Meridian Project Manager. Decompose the user's goal into a logical list of sub-tasks (maximum 4).\n"
         f"Goal: {prompt}\n\n"
@@ -856,7 +922,7 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client) -> Lis
         "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=decomp_prompt)
+        res = await asyncio.to_thread(client.generate, model=model, prompt=decomp_prompt)
         text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         if text.startswith("```"):
             text = text.strip("`").replace("json\n", "").strip()
@@ -867,7 +933,9 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client) -> Lis
         print("[HTP] Failed to decompose goal, falling back to single loop:", e)
     return []
 
-async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: ollama.Client) -> float:
+async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> float:
+    if model is None:
+        model = get_auditor_model()
     prompt = (
         f"You are the Monte Carlo Tree Search evaluator. Score the proposed action from 0.0 (fails/dangerous/unlikely to succeed) to 1.0 (highly successful/safe/optimal).\n"
         f"Goal/History context length: {len(history)} turns.\n"
@@ -875,14 +943,16 @@ async def score_candidate_branch(tool_name: str, args_str: str, history: List[Di
         f"Output ONLY the numeric score (e.g. 0.85). Do not include any text or commentary."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
+        res = await asyncio.to_thread(client.generate, model=model, prompt=prompt)
         val_str = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         score = float(re.findall(r"[-+]?\d*\.\d+|\d+", val_str)[0])
         return min(max(score, 0.0), 1.0)
     except Exception:
         return 0.5
 
-async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: ollama.Client) -> Tuple[bool, str]:
+async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> Tuple[bool, str]:
+    if model is None:
+        model = get_auditor_model()
     check_prompt = (
         f"Goal: {goal}\n"
         f"Recent History turns: {len(history)}.\n"
@@ -890,7 +960,7 @@ async def run_self_question_check(goal: str, history: List[Dict[str, str]], clie
         "Answer ONLY 'YES' if they are verified, or 'NO' if they are not verified."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=check_prompt)
+        res = await asyncio.to_thread(client.generate, model=model, prompt=check_prompt)
         ans = (res.response if hasattr(res, "response") else res.get("response", "")).strip().upper()
         if "NO" in ans:
             return False, "You do not have verified information. You MUST run search or observation commands first (e.g. read_file, dir_list, grep_search) to inspect paths and verify details before making assumptions."
@@ -941,6 +1011,15 @@ async def run_react_agent_loop(
     # Set up client and initial prompt context
     client = ollama.Client(host=ollama_host)
 
+    # Resolve local models to prevent 404 errors
+    resolved_auditor_model = get_auditor_model()
+    if model_source == "local":
+        brain_model = resolve_local_model_name(brain_model, client)
+    try:
+        resolved_auditor_model = resolve_local_model_name(resolved_auditor_model, client)
+    except Exception:
+        pass
+
     # 1. Hierarchical Task Planning (HTP) (Upgrade 10)
     if not is_worker and detect_complex_prompt(prompt):
         yield sse_event("thought", json.dumps({
@@ -949,7 +1028,7 @@ async def run_react_agent_loop(
             "text": "[Hierarchical Task Planning] Decomposing complex prompt into sub-tasks...",
             "status": "running"
         }))
-        checklist = await decompose_goal_to_checklist(prompt, client)
+        checklist = await decompose_goal_to_checklist(prompt, client, model=resolved_auditor_model)
         
         if checklist:
             yield sse_event("thought", json.dumps({
@@ -1024,7 +1103,7 @@ async def run_react_agent_loop(
         workspace_model = config.get("brain_model")
         if workspace_model:
             print(f"[Workspace Config] Overriding brain model from '{brain_model}' to '{workspace_model}'")
-            brain_model = workspace_model
+            brain_model = resolve_local_model_name(workspace_model, client)
     
     # Generate system prompt dynamically via cognitive modes classifier
     from src.core.mode import build_system_prompt, detect_user_language
@@ -1062,7 +1141,7 @@ async def run_react_agent_loop(
                 history = await prune_and_compress_history(history, client)
 
             # 2. Self-Questioning Check (Upgrade 11)
-            is_verified, warning_msg = await run_self_question_check(prompt, history, client)
+            is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
             temp_sys_idx = -1
             if not is_verified:
                 yield sse_event("thought", json.dumps({
@@ -1228,7 +1307,27 @@ async def run_react_agent_loop(
             await event_bus.publish("agent_thoughts", {"agent": "Coordinator", "thought": f"Initializing reasoning turn {turn}..."})
 
             # Feed the stream to the tag parser in real time
-            for chunk in response_stream:
+            def safe_stream(stream):
+                try:
+                    for item in stream:
+                        yield item
+                except Exception as stream_exc:
+                    yield {"error": str(stream_exc)}
+
+            for chunk in safe_stream(response_stream):
+                if isinstance(chunk, dict) and "error" in chunk:
+                    err_msg = f"Stream execution failed: {chunk['error']}"
+                    print(f"[Engine Error] {err_msg}")
+                    yield sse_event("thought", json.dumps({
+                        "id": f"stream-error-{turn}-{time.time()}",
+                        "type": "warning",
+                        "text": err_msg,
+                        "status": "failed"
+                    }))
+                    yield sse_event("text", f"\nError: {err_msg}\n")
+                    add_to_task_log("ollama_api", 2, "failed", err_msg)
+                    return
+
                 if _interrupt_event.is_set():
                     # BUG-32 fix: do NOT clear here — a second interrupt between is_set() and clear()
                     # would be silently lost. The turn-start clear at line 1049 is sufficient.

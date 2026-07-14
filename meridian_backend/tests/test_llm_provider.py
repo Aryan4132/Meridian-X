@@ -79,51 +79,34 @@ class TestLLMProvider(unittest.TestCase):
 
     @patch("src.core.llm_provider.get_api_key")
     @patch("src.core.llm_provider.httpx.AsyncClient")
-    def test_remote_fallback_to_ollama(self, mock_client_class, mock_get_api_key):
+    def test_remote_failure_raises_error(self, mock_client_class, mock_get_api_key):
         from src.core.llm_provider import generate_completion_stream
         
         # Set api keys so it doesn't fail onboarding checks
         mock_get_api_key.return_value = "dummy_key"
         
         # Setup Client to fail with connection error for openai url
-        # but succeed for local ollama
         mock_openai_response = MagicMock()
         mock_openai_response.status_code = 500
         mock_openai_response.aread = AsyncMock(return_value=b"Internal Server Error")
         
-        mock_ollama_response = MagicMock()
-        mock_ollama_response.status_code = 200
-        async def mock_ollama_lines():
-            yield b'{"message": {"content": "Ollama fallback content"}}'
-        mock_ollama_response.iter_lines = mock_ollama_lines
-
-        # Helper to simulate different streams
         class DynamicStreamContext:
             def __init__(self, method, url, **kwargs):
                 self.url = url
             async def __aenter__(self):
-                if "api.openai.com" in self.url:
-                    return mock_openai_response
-                else: # Ollama host
-                    return mock_ollama_response
+                return mock_openai_response
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 pass
 
         mock_client = MagicMock()
         mock_client.stream.side_effect = DynamicStreamContext
         
-        # Mock GET tags for models tags tag retrieval
-        mock_tags_response = MagicMock()
-        mock_tags_response.status_code = 200
-        mock_tags_response.json.return_value = {"models": [{"name": "qwen2.5-coder:1.5b"}]}
-        mock_client.get = AsyncMock(return_value=mock_tags_response)
-
         class MockClientContext:
             async def __aenter__(self):
                 return mock_client
             async def __aexit__(self, exc_type, exc_val, exc_tb):
                 pass
-                
+        
         mock_client_class.return_value = MockClientContext()
 
         # Run stream and collect
@@ -140,8 +123,7 @@ class TestLLMProvider(unittest.TestCase):
         results = self.run_async(run_stream())
         combined = "".join(results)
         
-        self.assertIn("Remote provider 'openai' failed", combined)
-        self.assertIn("Ollama fallback content", combined)
+        self.assertIn("Remote provider openai call failed", combined)
 
 if __name__ == "__main__":
     unittest.main()

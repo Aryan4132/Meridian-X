@@ -41,11 +41,32 @@ export default function Clipboard() {
 
   const analyze = async (text: string, idx: number) => {
     setAnalyzing(idx);
+    const provider = localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama';
+    const brainModel = localStorage.getItem('MERIDIAN_MODEL') || '';
+    const modelSource = provider === 'ollama' ? 'local' : 'api';
+    const openaiKey = localStorage.getItem('OPENAI_API_KEY') || '';
+    const anthropicKey = localStorage.getItem('ANTHROPIC_API_KEY') || '';
+    const geminiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+    const deepseekKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
+
     try {
       // Route through the SSE chat stream endpoint (not the non-existent /api/chat)
       const res = await fetch('http://localhost:4132/api/chat/stream', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: `Briefly analyze this clipboard content: "${text.slice(0, 500)}"` }),
+        body: JSON.stringify({
+          prompt: `Briefly analyze this clipboard content: "${text.slice(0, 500)}"`,
+          modelSettings: {
+            modelSource,
+            apiProvider: provider,
+            selectedModel: brainModel,
+            brainModel,
+            ocrModel: brainModel,
+            openaiKey,
+            anthropicKey,
+            geminiKey,
+            deepseekKey
+          }
+        }),
       });
       if (res.body) {
         // Drain the stream so it actually processes

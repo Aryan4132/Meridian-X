@@ -317,6 +317,11 @@ class ModelSettings(BaseModel):
     selectedModel: str
     brainModel: str
     ocrModel: str
+    openaiKey: Optional[str] = None
+    anthropicKey: Optional[str] = None
+    geminiKey: Optional[str] = None
+    deepseekKey: Optional[str] = None
+
 
 class ChatRequest(BaseModel):
     prompt: str
@@ -926,6 +931,37 @@ def check_shortcut_command(prompt: str) -> Optional[dict]:
         
     return None
 
+def sync_model_settings(modelSettings: ModelSettings):
+    # 1. Update Provider
+    if modelSettings.apiProvider and modelSettings.apiProvider.strip():
+        save_user_profile("meridian_provider", modelSettings.apiProvider.strip())
+        os.environ["MERIDIAN_PROVIDER"] = modelSettings.apiProvider.strip()
+        update_local_env_file("MERIDIAN_PROVIDER", modelSettings.apiProvider.strip())
+        
+    # 2. Update Model
+    if modelSettings.selectedModel and modelSettings.selectedModel.strip():
+        save_user_profile("meridian_model", modelSettings.selectedModel.strip())
+        os.environ["MERIDIAN_MODEL"] = modelSettings.selectedModel.strip()
+        update_local_env_file("MERIDIAN_MODEL", modelSettings.selectedModel.strip())
+        
+    # 3. Update API Keys
+    if modelSettings.openaiKey and modelSettings.openaiKey.strip():
+        save_user_profile("openai_key", modelSettings.openaiKey.strip())
+        os.environ["OPENAI_API_KEY"] = modelSettings.openaiKey.strip()
+        update_local_env_file("OPENAI_API_KEY", modelSettings.openaiKey.strip())
+    if modelSettings.anthropicKey and modelSettings.anthropicKey.strip():
+        save_user_profile("anthropic_key", modelSettings.anthropicKey.strip())
+        os.environ["ANTHROPIC_API_KEY"] = modelSettings.anthropicKey.strip()
+        update_local_env_file("ANTHROPIC_API_KEY", modelSettings.anthropicKey.strip())
+    if modelSettings.geminiKey and modelSettings.geminiKey.strip():
+        save_user_profile("gemini_key", modelSettings.geminiKey.strip())
+        os.environ["GEMINI_API_KEY"] = modelSettings.geminiKey.strip()
+        update_local_env_file("GEMINI_API_KEY", modelSettings.geminiKey.strip())
+    if modelSettings.deepseekKey and modelSettings.deepseekKey.strip():
+        save_user_profile("deepseek_key", modelSettings.deepseekKey.strip())
+        os.environ["DEEPSEEK_API_KEY"] = modelSettings.deepseekKey.strip()
+        update_local_env_file("DEEPSEEK_API_KEY", modelSettings.deepseekKey.strip())
+
 @app.post("/api/chat")
 def chat(request: ChatRequest):
     try:
@@ -970,8 +1006,8 @@ def chat(request: ChatRequest):
         # Resolve modelSettings if missing
         modelSettings = request.modelSettings
         if not modelSettings:
-            provider = get_user_profile("meridian_provider") or "ollama"
-            selected_model = get_user_profile("meridian_model") or "qwen2.5-coder"
+            provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
+            selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
             model_source = "local" if provider == "ollama" else "cloud"
             modelSettings = ModelSettings(
                 modelSource=model_source,
@@ -980,6 +1016,8 @@ def chat(request: ChatRequest):
                 brainModel=selected_model,
                 ocrModel=selected_model
             )
+        else:
+            sync_model_settings(modelSettings)
 
         brain_label = modelSettings.brainModel if modelSettings.modelSource == "local" else modelSettings.selectedModel
         result = get_react_thoughts(request.prompt, brain_label, modelSettings.ocrModel)
@@ -1028,8 +1066,8 @@ def chat_stream(request: ChatRequest):
     # Resolve modelSettings if missing
     modelSettings = request.modelSettings
     if not modelSettings:
-        provider = get_user_profile("meridian_provider") or "ollama"
-        selected_model = get_user_profile("meridian_model") or "qwen2.5-coder"
+        provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
+        selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
         model_source = "local" if provider == "ollama" else "cloud"
         modelSettings = ModelSettings(
             modelSource=model_source,
@@ -1038,6 +1076,8 @@ def chat_stream(request: ChatRequest):
             brainModel=selected_model,
             ocrModel=selected_model
         )
+    else:
+        sync_model_settings(modelSettings)
 
     model_source = modelSettings.modelSource
     api_provider = modelSettings.apiProvider or "gemini"  # BUG-4/8 fix: default to gemini if None
