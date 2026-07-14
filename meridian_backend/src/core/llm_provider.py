@@ -183,8 +183,7 @@ async def generate_completion_stream(
       if not api_key:
         err_msg = "Error: OpenAI API Key is missing."
         logger.error(err_msg)
-        async for chunk in run_ollama_fallback():
-          yield chunk
+        yield err_msg
         return
       url = "https://api.openai.com/v1/chat/completions"
       headers = {
@@ -203,8 +202,7 @@ async def generate_completion_stream(
       if not api_key:
         err_msg = "Error: Anthropic API Key is missing."
         logger.error(err_msg)
-        async for chunk in run_ollama_fallback():
-          yield chunk
+        yield err_msg
         return
       url = "https://api.anthropic.com/v1/messages"
       headers = {
@@ -237,8 +235,7 @@ async def generate_completion_stream(
       if not api_key:
         err_msg = "Error: Gemini API Key is missing."
         logger.error(err_msg)
-        async for chunk in run_ollama_fallback():
-          yield chunk
+        yield err_msg
         return
       url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
       headers = {
@@ -257,8 +254,7 @@ async def generate_completion_stream(
       if not api_key:
         err_msg = "Error: DeepSeek API Key is missing."
         logger.error(err_msg)
-        async for chunk in run_ollama_fallback():
-          yield chunk
+        yield err_msg
         return
       url = "https://api.deepseek.com/chat/completions"
       headers = {
@@ -320,7 +316,6 @@ async def generate_completion_stream(
       await generator.aclose()
 
     if not success:
-      # If we yielded nothing and encountered an error, trigger fallback
-      logger.warning(f"Remote provider {provider} stream call failed: {err_msg}. Triggering local Ollama fallback.")
-      async for chunk in run_ollama_fallback():
-        yield chunk
+      # If we yielded nothing and encountered an error, raise the error
+      logger.error(f"Remote provider {provider} stream call failed: {err_msg}")
+      yield f"Error: Remote provider {provider} call failed: {err_msg}"

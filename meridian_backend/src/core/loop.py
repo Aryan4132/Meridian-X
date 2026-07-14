@@ -1167,8 +1167,8 @@ async def run_react_agent_loop(
                     else:
                         raise ValueError(f"Unsupported API Provider: '{api_provider}'")
             except Exception as e:
-                # Self-healing fallback to 1.5B model if RAM/VRAM/API issues
-                if active_model != get_auditor_model():
+                # Self-healing fallback to 1.5B model if RAM/VRAM/API issues (only for local models)
+                if model_source == "local" and active_model != get_auditor_model():
                     fallback_brain = get_auditor_model()
                     print(f"[Fallback Engine] Switching to local model '{fallback_brain}' due to: {e}")
                     yield sse_event("thought", json.dumps({
@@ -1198,13 +1198,16 @@ async def run_react_agent_loop(
                         add_to_task_log("ollama_api", 2, "failed", err_msg)
                         return
                 else:
-                    err_msg = f"Execution error: {str(e)}"
+                    # Cloud/API failures are raised and reported immediately
+                    err_msg = f"API execution failed: {str(e)}"
+                    print(f"[Engine Error] Cloud API call failed: {e}")
                     yield sse_event("thought", json.dumps({
-                        "id": f"api-error-{turn}-{time.time()}",
+                        "id": f"api-failure-{turn}-{time.time()}",
                         "type": "warning",
                         "text": err_msg,
-                        "status": "failed"
+                        "status": "completed"
                     }))
+                    yield sse_event("text", f"\nError: {err_msg}\n")
                     add_to_task_log("ollama_api", 2, "failed", err_msg)
                     return
 
