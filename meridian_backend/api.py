@@ -555,7 +555,7 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
         from src.core.llm_provider import get_api_key
         key = api_key or get_api_key("deepseek")
         if not key:
-            return {"models": ['deepseek-chat', 'deepseek-coder']}
+            return {"models": ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder']}
         try:
             import httpx
             headers = {"Authorization": f"Bearer {key}"}
@@ -569,7 +569,7 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
                         return {"models": sorted(list(set(models)))}
         except Exception:
             pass
-        return {"models": ['deepseek-chat', 'deepseek-coder']}
+        return {"models": ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder']}
         
     # 4. Gemini
     elif provider == "gemini":

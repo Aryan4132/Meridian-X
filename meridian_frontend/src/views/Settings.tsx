@@ -20,7 +20,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   openai:    ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
   anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
   gemini:    ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
-  deepseek:  ['deepseek-chat', 'deepseek-coder'],
+  deepseek:  ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder'],
 };
 
 const THEMES = [
@@ -298,6 +298,26 @@ export default function Settings() {
       })
       .catch(() => {});
   }, [provider, ollamaHost, openaiKey, anthropicKey, geminiKey, deepseekKey]);
+
+  // Set default models when provider changes to prevent model mismatch
+  useEffect(() => {
+    if (provider !== 'ollama') {
+      const models = PROVIDER_MODELS[provider] || [];
+      if (models.length > 0 && !models.includes(brainModel)) {
+        setBrainModel(models[0]);
+      }
+    }
+  }, [provider]);
+
+  // Adjust selected brain model if availableBrainModels are loaded and current model is invalid
+  useEffect(() => {
+    if (availableBrainModels.length > 0 && !availableBrainModels.includes(brainModel)) {
+      const otherProviderModels = Object.values(PROVIDER_MODELS).flat();
+      if (otherProviderModels.includes(brainModel) || provider === 'ollama') {
+        setBrainModel(availableBrainModels[0]);
+      }
+    }
+  }, [availableBrainModels]);
 
   const filterVisionModels = (models: string[]) => {
     if (showAllVisionModels) return models;
