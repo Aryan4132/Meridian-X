@@ -529,7 +529,7 @@ export default function Settings() {
                 {/* Auditor model */}
                 <div>
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Security Auditor Model (Ollama)
+                    Auditor & Local Fallback Model (Ollama)
                   </label>
                   {availableOllamaModels.length > 0 ? (
                     <select value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="select-base">
