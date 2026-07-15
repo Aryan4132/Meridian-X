@@ -564,9 +564,12 @@ def is_system_busy_or_fullscreen(hwnd) -> bool:
         import ctypes
         state = ctypes.c_int()
         if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) == 0:
-            # QUNS_BUSY = 2, QUNS_RUNNING_DND = 3, QUNS_PRESENTATION_MODE = 4, QUNS_APP = 7
-            if state.value in [2, 3, 4, 7]:
+            # QUNS_RUNNING_DND (3) is specifically for fullscreen 3D/DirectX applications (games).
+            if state.value == 3:
                 return True
+            # Other states like QUNS_BUSY (2), QUNS_PRESENTATION_MODE (4), and QUNS_APP (7)
+            # are too broad and trigger on startup or system transitions, so they should
+            # fall through to the active window style/size check below to avoid false positives.
     except Exception:
         pass
 
@@ -647,13 +650,23 @@ def check_active_window():
         except Exception:
             pass
 
-    # Skip if active window belongs to our own app process tree
+    # Skip if active window belongs to our own app process tree or is a system shell process
+    SYSTEM_SHELL_PROCESSES = {
+        "explorer.exe",
+        "searchhost.exe",
+        "startmenuexperiencehost.exe",
+        "shellexperiencehost.exe",
+        "lockapp.exe",
+        "taskmgr.exe"
+    }
+
     is_playing_game = False
     try:
-        if pid not in get_app_pids():
+        if pid not in get_app_pids() and proc_lower not in SYSTEM_SHELL_PROCESSES:
             is_playing_game = is_system_busy_or_fullscreen(hwnd)
     except Exception:
-        is_playing_game = is_system_busy_or_fullscreen(hwnd)
+        if proc_lower not in SYSTEM_SHELL_PROCESSES:
+            is_playing_game = is_system_busy_or_fullscreen(hwnd)
     
     if is_playing_game:
         if not game_mode_active:
