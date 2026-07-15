@@ -230,16 +230,28 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       // Run API checks
       checkBootLines();
     }, 2000));
-    timers.push(setTimeout(() => setPhase(4), 4200));
-    timers.push(setTimeout(() => setShowOnline(true), 4800));
-    timers.push(setTimeout(() => doExit(), 5600));
 
     return () => timers.forEach(clearTimeout);
   }, []);
 
   const checkBootLines = async () => {
+    // 1. Poll the backend health endpoint until it is online
+    let backendOnline = false;
+    for (let retry = 0; retry < 60; retry++) {
+      try {
+        const res = await fetch('http://localhost:4132/api/health').catch(() => null);
+        if (res && res.ok) {
+          backendOnline = true;
+          break;
+        }
+      } catch (e) {
+        // Ignored
+      }
+      await new Promise(r => setTimeout(r, 250));
+    }
+
+    // 2. Proceed to run sequential checks for all boot lines with a nice visual delay
     for (let i = 0; i < BOOT_LINES.length; i++) {
-      await new Promise(r => setTimeout(r, 220 * i));
       const line = BOOT_LINES[i];
       let status: BootLine['status'] = 'ok';
       if (line.endpoint) {
@@ -251,7 +263,15 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
         }
       }
       setLines(prev => prev.map((l, j) => j === i ? { ...l, status } : l));
+      await new Promise(r => setTimeout(r, 250));
     }
+
+    // 3. Trigger final exit sequence
+    setPhase(4);
+    await new Promise(r => setTimeout(r, 600));
+    setShowOnline(true);
+    await new Promise(r => setTimeout(r, 800));
+    doExit();
   };
 
   // Skip on keypress after phase 2

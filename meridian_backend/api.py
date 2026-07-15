@@ -1511,7 +1511,6 @@ class ProfileSaveRequest(BaseModel):
     discord_token: Optional[str] = None
     telegram_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
-    whatsapp_phone: Optional[str] = None
     meridian_model: Optional[str] = None
     meridian_vision_model: Optional[str] = None
     openai_key: Optional[str] = None
@@ -1536,6 +1535,13 @@ class ProfileSaveRequest(BaseModel):
     ram_warn_threshold: Optional[float] = None
     disk_warn_threshold: Optional[float] = None
     distraction_sites: Optional[List[str]] = None
+    smtp_server: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_email: Optional[str] = None
+    smtp_password: Optional[str] = None
+    imap_server: Optional[str] = None
+    mongodb_uri: Optional[str] = None
+    meridian_log_level: Optional[str] = None
 
 ENV_KEY_MAP = {
     "ollama_host": "OLLAMA_HOST",
@@ -1547,7 +1553,6 @@ ENV_KEY_MAP = {
     "discord_token": "DISCORD_BOT_TOKEN",
     "telegram_token": "TELEGRAM_BOT_TOKEN",
     "telegram_chat_id": "TELEGRAM_CHAT_ID",
-    "whatsapp_phone": "WHATSAPP_PHONE",
     "meridian_provider": "MERIDIAN_PROVIDER",
     "meridian_model": "MERIDIAN_MODEL",
     "meridian_vision_model": "MERIDIAN_VISION_MODEL",
@@ -1565,7 +1570,14 @@ ENV_KEY_MAP = {
     "cpu_warn_threshold": "CPU_WARN_THRESHOLD",
     "ram_warn_threshold": "RAM_WARN_THRESHOLD",
     "disk_warn_threshold": "DISK_WARN_THRESHOLD",
-    "distraction_sites": "DISTRACTION_SITES"
+    "distraction_sites": "DISTRACTION_SITES",
+    "smtp_server": "SMTP_SERVER",
+    "smtp_port": "SMTP_PORT",
+    "smtp_email": "SMTP_EMAIL",
+    "smtp_password": "SMTP_PASSWORD",
+    "imap_server": "IMAP_SERVER",
+    "mongodb_uri": "MONGODB_URI",
+    "meridian_log_level": "MERIDIAN_LOG_LEVEL"
 }
 
 def update_local_env_file(key: str, val: str):
@@ -1618,7 +1630,7 @@ def profile_get_all():
     try:
         keys = [
             "tavily_key", "discord_token", "telegram_token", "telegram_chat_id",
-            "whatsapp_phone", "meridian_model", "meridian_vision_model",
+            "meridian_model", "meridian_vision_model",
             "openai_key", "anthropic_key", "gemini_key", "deepseek_key",
             "meridian_provider", "ollama_host", "first_run_completed",
             "meridian_auditor_model", "meridian_voice", "wakeword_threshold",
@@ -1626,7 +1638,8 @@ def profile_get_all():
             "stt_silence_timeout", "stt_vad_threshold", "stt_max_duration",
             "browser_viewport_width", "browser_viewport_height",
             "cpu_warn_threshold", "ram_warn_threshold", "disk_warn_threshold",
-            "distraction_sites"
+            "distraction_sites", "smtp_server", "smtp_port", "smtp_email",
+            "smtp_password", "imap_server", "mongodb_uri", "meridian_log_level"
         ]
         profile = {}
         for k in keys:

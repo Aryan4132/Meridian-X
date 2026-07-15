@@ -70,7 +70,8 @@ if not exist venv (
 )
 start "Meridian-X Daemon" /min cmd /c "call venv\Scripts\activate.bat && python api.py"
 cd ..
-timeout /t 2 /nobreak >nul
+echo Waiting for backend daemon to initialize...
+powershell -Command "$retry = 0; while ($retry -lt 120) { try { $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) { $c.Close(); break; } } catch {} Start-Sleep -Milliseconds 500; $retry++ }"
 
 echo Starting Tauri Desktop Shell...
 cd meridian_frontend

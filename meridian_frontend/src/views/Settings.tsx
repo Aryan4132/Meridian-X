@@ -81,7 +81,6 @@ export default function Settings() {
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
   const [saveStatus, setSaveStatus]         = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
 
-  const [mascotWardrobe, setMascotWardrobe] = useState(() => localStorage.getItem('meridian_mascot_wardrobe') || 'auto');
   const [audioFxEnabled, setAudioFxEnabled] = useState(() => localStorage.getItem('meridian_mascot_audio_fx') !== 'false');
   const [ttsVoice, setTtsVoice]             = useState(() => localStorage.getItem('meridian_tts_voice') || 'M1');
   const [ttsVolume, setTtsVolume]           = useState(() => parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5'));
@@ -109,6 +108,14 @@ export default function Settings() {
   const [ramWarn, setRamWarn] = useState(() => parseFloat(localStorage.getItem('ram_warn_threshold') || '88.0'));
   const [diskWarn, setDiskWarn] = useState(() => parseFloat(localStorage.getItem('disk_warn_threshold') || '90.0'));
   const [distractions, setDistractions] = useState(() => localStorage.getItem('distraction_sites') || 'facebook.com, instagram.com, youtube.com, twitter.com, reddit.com');
+
+  const [smtpServer, setSmtpServer] = useState(() => localStorage.getItem('SMTP_SERVER') || 'smtp.gmail.com');
+  const [smtpPort, setSmtpPort]     = useState(() => parseInt(localStorage.getItem('SMTP_PORT') || '587'));
+  const [smtpEmail, setSmtpEmail]   = useState(() => localStorage.getItem('SMTP_EMAIL') || '');
+  const [smtpPassword, setSmtpPassword] = useState(() => localStorage.getItem('SMTP_PASSWORD') || '');
+  const [imapServer, setImapServer] = useState(() => localStorage.getItem('IMAP_SERVER') || 'imap.gmail.com');
+  const [mongodbUri, setMongodbUri] = useState(() => localStorage.getItem('MONGODB_URI') || 'mongodb://localhost:27017/meridian_kg');
+  const [logLevel, setLogLevel]     = useState(() => localStorage.getItem('MERIDIAN_LOG_LEVEL') || 'INFO');
 
   // Fetch profile configurations on mount to hydrate local storage & states
   useEffect(() => {
@@ -143,15 +150,22 @@ export default function Settings() {
           if (data.cpu_warn_threshold) { setCpuWarn(data.cpu_warn_threshold); localStorage.setItem('cpu_warn_threshold', String(data.cpu_warn_threshold)); }
           if (data.ram_warn_threshold) { setRamWarn(data.ram_warn_threshold); localStorage.setItem('ram_warn_threshold', String(data.ram_warn_threshold)); }
           if (data.disk_warn_threshold) { setDiskWarn(data.disk_warn_threshold); localStorage.setItem('disk_warn_threshold', String(data.disk_warn_threshold)); }
-          if (data.distraction_sites) {
-            const listStr = Array.isArray(data.distraction_sites) ? data.distraction_sites.join(', ') : data.distraction_sites;
-            setDistractions(listStr);
-            localStorage.setItem('distraction_sites', listStr);
+            if (data.distraction_sites) {
+              const listStr = Array.isArray(data.distraction_sites) ? data.distraction_sites.join(', ') : data.distraction_sites;
+              setDistractions(listStr);
+              localStorage.setItem('distraction_sites', listStr);
+            }
+            if (data.smtp_server) { setSmtpServer(data.smtp_server); localStorage.setItem('SMTP_SERVER', data.smtp_server); }
+            if (data.smtp_port) { setSmtpPort(data.smtp_port); localStorage.setItem('SMTP_PORT', String(data.smtp_port)); }
+            if (data.smtp_email) { setSmtpEmail(data.smtp_email); localStorage.setItem('SMTP_EMAIL', data.smtp_email); }
+            if (data.smtp_password) { setSmtpPassword(data.smtp_password); localStorage.setItem('SMTP_PASSWORD', data.smtp_password); }
+            if (data.imap_server) { setImapServer(data.imap_server); localStorage.setItem('IMAP_SERVER', data.imap_server); }
+            if (data.mongodb_uri) { setMongodbUri(data.mongodb_uri); localStorage.setItem('MONGODB_URI', data.mongodb_uri); }
+            if (data.meridian_log_level) { setLogLevel(data.meridian_log_level); localStorage.setItem('MERIDIAN_LOG_LEVEL', data.meridian_log_level); }
           }
-        }
-      })
-      .catch(() => {});
-  }, []);
+        })
+        .catch(() => {});
+    }, []);
 
   // Fetch MCP config on mount
   useEffect(() => {
@@ -243,15 +257,6 @@ export default function Settings() {
     } catch { /* noop */ }
   };
 
-  const handleWardrobeChange = (val: string) => {
-    setMascotWardrobe(val);
-    localStorage.setItem('meridian_mascot_wardrobe', val);
-    try {
-      emit('mascot-wardrobe-changed', { item: val });
-    } catch (e) {
-      console.warn("Failed to emit wardrobe change:", e);
-    }
-  };
 
   const handleAudioFxChange = (enabled: boolean) => {
     setAudioFxEnabled(enabled);
@@ -373,6 +378,13 @@ export default function Settings() {
       ram_warn_threshold: String(ramWarn),
       disk_warn_threshold: String(diskWarn),
       distraction_sites: distractions,
+      SMTP_SERVER: smtpServer,
+      SMTP_PORT: String(smtpPort),
+      SMTP_EMAIL: smtpEmail,
+      SMTP_PASSWORD: smtpPassword,
+      IMAP_SERVER: imapServer,
+      MONGODB_URI: mongodbUri,
+      MERIDIAN_LOG_LEVEL: logLevel,
     };
     Object.entries(entries).forEach(([k, v]) => localStorage.setItem(k, v));
 
@@ -407,6 +419,13 @@ export default function Settings() {
           ram_warn_threshold: ramWarn,
           disk_warn_threshold: diskWarn,
           distraction_sites: parsedDistractions,
+          smtp_server: smtpServer,
+          smtp_port: smtpPort,
+          smtp_email: smtpEmail,
+          smtp_password: smtpPassword,
+          imap_server: imapServer,
+          mongodb_uri: mongodbUri,
+          meridian_log_level: logLevel,
         }),
       });
       if (res.ok) {
@@ -554,6 +573,34 @@ export default function Settings() {
                 <div>
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
                   <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
+                </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Email Configuration */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Email Configuration (SMTP & IMAP)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Email Address</label>
+                  <input type="email" value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)} placeholder="your_email@gmail.com" className="input-base" />
+                </div>
+                <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Server</label>
+                  <input type="text" value={smtpServer} onChange={e => setSmtpServer(e.target.value)} placeholder="smtp.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Port</label>
+                  <input type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value) || 587)} placeholder="587" className="input-base" />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>IMAP Server</label>
+                  <input type="text" value={imapServer} onChange={e => setImapServer(e.target.value)} placeholder="imap.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                 </div>
               </div>
             </div>
@@ -750,6 +797,24 @@ export default function Settings() {
                   />
                 </div>
               )}
+
+              {/* Log Level & MongoDB URI */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
+                  <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
+                  <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
+                </div>
+              </div>
             </div>
           </GlowCard>
 
@@ -797,24 +862,6 @@ export default function Settings() {
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Mascot & Audio Customize</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Wardrobe selection */}
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Accessories (Wardrobe)
-                </label>
-                <select 
-                  value={mascotWardrobe} 
-                  onChange={e => handleWardrobeChange(e.target.value)} 
-                  className="select-base"
-                >
-                  <option value="auto">Auto (Contextual)</option>
-                  <option value="none">None</option>
-                  <option value="glasses">Glasses</option>
-                  <option value="construction_hat">Helmet</option>
-                  <option value="detective_hat">Fedora</option>
-                  <option value="crown">Crown</option>
-                </select>
-              </div>
 
               {/* TTS Voice Selection */}
               <div>

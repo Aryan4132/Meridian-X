@@ -16,10 +16,16 @@ fn set_island_mode(window: tauri::WebviewWindow, enable: bool) {
             height,
         }));
         
-        if let Ok(Some(_monitor)) = window.current_monitor() {
-            // Position 10px from the top and left edges of the active monitor
-            let x = 10.0;
-            let y = 10.0;
+        if let Ok(Some(monitor)) = window.current_monitor() {
+            let scale_factor = monitor.scale_factor();
+            let monitor_size = monitor.size().to_logical::<f64>(scale_factor);
+            let monitor_pos = monitor.position().to_logical::<f64>(scale_factor);
+            
+            let margin_right = 16.0;
+            let margin_bottom = 60.0;
+            
+            let x = monitor_pos.x + monitor_size.width - width - margin_right;
+            let y = monitor_pos.y + monitor_size.height - height - margin_bottom;
 
             let _ = window.set_position(tauri::Position::Logical(tauri::LogicalPosition {
                 x,
@@ -312,14 +318,29 @@ pub fn run() {
             #[cfg(not(debug_assertions))]
             {
                 let app_handle = app.handle();
-                let resource_path = app_handle
-                    .path()
-                    .resolve("api/api.exe", tauri::path::BaseDirectory::Resource);
+                let mut api_exe_path = None;
 
-                if let Ok(api_exe_path) = resource_path {
-                    if api_exe_path.exists() {
-                        // Get OS app local data directory: %LOCALAPPDATA%/meridian-x
-                        if let Ok(app_local_data_dir) = app_handle.path().app_local_data_dir() {
+                // Try resolving via standard Resource directory first
+                if let Ok(res_path) = app_handle.path().resolve("api/api.exe", tauri::path::BaseDirectory::Resource) {
+                    if res_path.exists() {
+                        api_exe_path = Some(res_path);
+                    }
+                }
+
+                // Fallback: check sibling api directory relative to current executable (useful when running from target/release directly)
+                if api_exe_path.is_none() {
+                    if let Ok(mut exe_path) = std::env::current_exe() {
+                        exe_path.pop(); // Remove executable name
+                        let local_api = exe_path.join("api/api.exe");
+                        if local_api.exists() {
+                            api_exe_path = Some(local_api);
+                        }
+                    }
+                }
+
+                if let Some(api_exe_path) = api_exe_path {
+                    // Get OS app local data directory: %LOCALAPPDATA%/meridian-x
+                    if let Ok(app_local_data_dir) = app_handle.path().app_local_data_dir() {
                             let data_dir = app_local_data_dir.join("Meridian");
                             let _ = std::fs::create_dir_all(&data_dir);
                             
@@ -345,13 +366,24 @@ pub fn run() {
                             }
                             
                             match cmd.spawn() {
-                                Ok(_) => log::info!("Successfully spawned backend daemon!"),
+                                Ok(_) => {
+                                    log::info!("Successfully spawned backend daemon!");
+                                    // Wait for the backend to bind to port 4132 before showing the main window
+                                    let mut retry = 0;
+                                    while retry < 50 {
+                                        if std::net::TcpStream::connect("127.0.0.1:4132").is_ok() {
+                                            log::info!("Backend daemon is online and responsive.");
+                                            break;
+                                        }
+                                        std::thread::sleep(std::time::Duration::from_millis(100));
+                                        retry += 1;
+                                    }
+                                }
                                 Err(e) => log::error!("Failed to spawn backend daemon: {:?}", e),
                             }
                         }
                     }
                 }
-            }
 
             let window = app.get_webview_window("main").unwrap();
             let _ = window.maximize();

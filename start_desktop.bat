@@ -34,8 +34,9 @@ if not exist "venv\Scripts\python.exe" (
 start "Meridian-X Daemon" /min cmd /c "call venv\Scripts\activate.bat && python api.py"
 cd ..
 
-:: Wait 3 seconds to allow backend services and database connections to initialize
-timeout /t 3 /nobreak >nul
+:: Wait for FastAPI Backend to bind to port 4132
+echo Waiting for backend daemon to initialize...
+powershell -Command "$retry = 0; while ($retry -lt 120) { try { $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) { $c.Close(); break; } } catch {} Start-Sleep -Milliseconds 500; $retry++ }"
 
 :: 3. Launch Tauri desktop wrapper application
 echo [3/4] Launching Tauri Desktop Shell...
