@@ -46,6 +46,11 @@ from src.tools.dynamic_manager import generate_dynamic_tool
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
 from src.tools.task_scheduler import win_schedule_daily, win_schedule_once, win_list_tasks, win_delete_task
 from src.tools.security_auditor import run_security_audit
+from src.tools.documents import (
+    read_document_text, create_word_document, edit_word_document,
+    create_excel_document, edit_excel_document, create_powerpoint_presentation,
+    edit_powerpoint_presentation, create_pdf_document, edit_pdf_document
+)
 
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
@@ -87,6 +92,17 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "search_files": {"tier": 0, "func": search_files},
     "move_file": {"tier": 1, "func": move_file},
     "delete_file": {"tier": 3, "func": delete_file},
+    
+    # Document Processing
+    "read_document_text": {"tier": 0, "func": read_document_text},
+    "create_word_document": {"tier": 1, "func": create_word_document},
+    "edit_word_document": {"tier": 1, "func": edit_word_document},
+    "create_excel_document": {"tier": 1, "func": create_excel_document},
+    "edit_excel_document": {"tier": 1, "func": edit_excel_document},
+    "create_powerpoint_presentation": {"tier": 1, "func": create_powerpoint_presentation},
+    "edit_powerpoint_presentation": {"tier": 1, "func": edit_powerpoint_presentation},
+    "create_pdf_document": {"tier": 1, "func": create_pdf_document},
+    "edit_pdf_document": {"tier": 1, "func": edit_pdf_document},
     
     # Web & Network
     "search_web": {"tier": 0, "func": search_web},
@@ -340,8 +356,14 @@ async def call_tool(name: str, args: Dict[str, Any]) -> str:
     try:
         # Support both synchronous and asynchronous tool functions
         if inspect.iscoroutinefunction(func):
-            return str(await func(**args))
+            res = str(await func(**args))
         else:
-            return str(await asyncio.to_thread(func, **args))
+            res = str(await asyncio.to_thread(func, **args))
+            
+        # Global output truncation guard
+        MAX_TOOL_OUTPUT = 30000
+        if len(res) > MAX_TOOL_OUTPUT:
+            res = res[:MAX_TOOL_OUTPUT] + f"\n\n[Warning: Output truncated at {MAX_TOOL_OUTPUT} characters to prevent context window overflow]"
+        return res
     except Exception as e:
         return f"Error executing {name}: {str(e)}"

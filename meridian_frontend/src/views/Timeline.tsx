@@ -148,6 +148,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('meridian_dashboard_tts') === 'true');
+  const [taskQueue, setTaskQueue] = useState<{ id: number; text: string }[]>([]);
 
   const speakMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -211,23 +212,17 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     return raw;
   };
 
-  const handleSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!input.trim() || loading) return;
-    const text = input.trim();
-    setInput('');
+  const executeTask = async (text: string) => {
     setLoading(true);
     setStreaming('');
     setStreamThoughts([]);
 
-    const userMsg = { id: Date.now(), role: 'user', timestamp: Date.now(), content: text };
-    setMessages(prev => [...prev, userMsg]);
-
     if ((window as any).__TAURI_INTERNALS__) {
-      emit('agent-status-update', {
+      await emit('agent-status-update', {
         isRunning: true,
         latestThought: { text: 'Initializing agent...', type: 'planning' },
-        thoughts: []
+        thoughts: [],
+        timestamp: Date.now()
       }).catch(console.error);
     }
 
@@ -311,10 +306,11 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               const updatedThoughts = finalThoughts.map(t => t.text);
               setStreamThoughts(updatedThoughts);
               if ((window as any).__TAURI_INTERNALS__) {
-                emit('agent-status-update', {
+                await emit('agent-status-update', {
                   isRunning: true,
                   latestThought: thoughtData,
-                  thoughts: updatedThoughts
+                  thoughts: updatedThoughts,
+                  timestamp: Date.now()
                 }).catch(console.error);
               }
             } catch { /* non-JSON thought, skip */ }
@@ -345,10 +341,11 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       setStreaming('');
       setStreamThoughts([]);
       if ((window as any).__TAURI_INTERNALS__) {
-        emit('agent-status-update', {
+        await emit('agent-status-update', {
           isRunning: false,
           latestThought: { text: 'Task completed', type: 'status' },
-          thoughts: []
+          thoughts: [],
+          timestamp: Date.now()
         }).catch(console.error);
       }
 
@@ -365,10 +362,11 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       setStreaming('');
       setStreamThoughts([]);
       if ((window as any).__TAURI_INTERNALS__) {
-        emit('agent-status-update', {
+        await emit('agent-status-update', {
           isRunning: false,
           latestThought: { text: err.name === 'AbortError' ? 'Task interrupted' : 'Task failed', type: 'error' },
-          thoughts: []
+          thoughts: [],
+          timestamp: Date.now()
         }).catch(console.error);
       }
     } finally {
@@ -377,7 +375,35 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     }
   };
 
+  useEffect(() => {
+    if (!loading && taskQueue.length > 0) {
+      const nextTask = taskQueue[0];
+      setTaskQueue(prev => prev.slice(1));
+      
+      const userMsg = { id: nextTask.id, role: 'user', timestamp: Date.now(), content: nextTask.text };
+      setMessages(prev => [...prev, userMsg]);
+      
+      executeTask(nextTask.text);
+    }
+  }, [loading, taskQueue]);
+
+  const onSubmitPrompt = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!input.trim()) return;
+    const text = input.trim();
+    setInput('');
+
+    if (loading) {
+      setTaskQueue(prev => [...prev, { id: Date.now(), text }]);
+    } else {
+      const userMsg = { id: Date.now(), role: 'user', timestamp: Date.now(), content: text };
+      setMessages(prev => [...prev, userMsg]);
+      executeTask(text);
+    }
+  };
+
   const handleInterrupt = async () => {
+    setTaskQueue([]);
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -581,8 +607,39 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         <div ref={chatEndRef} />
       </div>
 
+      {taskQueue.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          padding: '8px 12px',
+          background: 'color-mix(in srgb, var(--warning) 8%, var(--bg-panel))',
+          border: '1px dashed color-mix(in srgb, var(--warning) 30%, transparent)',
+          borderRadius: 'var(--radius-sm)',
+          marginBottom: 8,
+          fontSize: 11,
+          color: 'var(--text-dim)',
+          fontFamily: 'Space Grotesk, sans-serif'
+        }}>
+          <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Queued Tasks ({taskQueue.length}):</span>
+          <div style={{ display: 'flex', gap: 6, overflowX: 'auto', flex: 1 }}>
+            {taskQueue.map((task, idx) => (
+              <span key={task.id} style={{
+                background: 'rgba(0,0,0,0.2)',
+                padding: '2px 6px',
+                borderRadius: 'var(--radius-xs)',
+                whiteSpace: 'nowrap',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                #{idx + 1}: "{task.text.slice(0, 30)}..."
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Input */}
-      <form onSubmit={handleSend} style={{
+      <form onSubmit={onSubmitPrompt} style={{
         display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
         background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
         borderRadius: 'var(--radius-md)', padding: '8px 8px 8px 14px',
@@ -613,7 +670,6 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           type="text"
           value={input}
           onChange={e => setInput(e.target.value)}
-          disabled={loading}
           placeholder="Ask Meridian-X to perform actions or analyze targets..."
           style={{
             flex: 1, background: 'transparent', border: 'none', outline: 'none',
@@ -637,15 +693,14 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         >
           {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
         </button>
-        {loading ? (
-          <HoloButton type="button" variant="danger" size="sm" onClick={handleInterrupt}>
+        {loading && (
+          <HoloButton type="button" variant="danger" size="sm" onClick={handleInterrupt} title="Interrupt Current Task">
             <Square size={14} fill="currentColor" />
           </HoloButton>
-        ) : (
-          <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim()}>
-            <Send size={14} />
-          </HoloButton>
         )}
+        <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim()} title="Send Task">
+          <Send size={14} />
+        </HoloButton>
       </form>
     </div>
   );

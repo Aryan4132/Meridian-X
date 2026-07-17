@@ -327,6 +327,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const abortControllerRef = useRef<AbortController | null>(null);
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastEventTimestampRef = useRef<number>(0);
   const appWindow = getCurrentWindow();
   const colors = THEME_COLORS[theme] || THEME_COLORS.void;
 
@@ -493,6 +494,15 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     if (isTauri) {
       unlistenStatus = listen('agent-status-update', (event: any) => {
         const payload = event.payload;
+        const eventTimestamp = payload.timestamp || 0;
+        if (eventTimestamp && eventTimestamp < lastEventTimestampRef.current) {
+          console.warn("[Mascot] Ignored out-of-order agent-status-update event");
+          return;
+        }
+        if (eventTimestamp) {
+          lastEventTimestampRef.current = eventTimestamp;
+        }
+
         setIsRunning(payload.isRunning);
         if (payload.latestThought) setLatestThought(payload.latestThought);
         if (payload.thoughts) setRecentThoughts(payload.thoughts);
