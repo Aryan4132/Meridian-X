@@ -149,6 +149,16 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('meridian_dashboard_tts') === 'true');
   const [taskQueue, setTaskQueue] = useState<{ id: number; text: string }[]>([]);
+  const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  }, [input]);
 
   const speakMessage = async (text: string) => {
     if (!text.trim()) return;
@@ -295,7 +305,9 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           if (eventType === 'thought') {
             try {
               const thoughtData = JSON.parse(payload);
-              const thoughtText = thoughtData.text || thoughtData.thought || String(thoughtData);
+              const thoughtText = thoughtData.text !== undefined ? String(thoughtData.text) :
+                                  thoughtData.thought !== undefined ? String(thoughtData.thought) :
+                                  String(thoughtData);
               const id = thoughtData.id || `thought-fallback-${Date.now()}-${Math.random()}`;
               const existingIdx = finalThoughts.findIndex(t => t.id === id);
               if (existingIdx !== -1) {
@@ -380,25 +392,88 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       const nextTask = taskQueue[0];
       setTaskQueue(prev => prev.slice(1));
       
-      const userMsg = { id: nextTask.id, role: 'user', timestamp: Date.now(), content: nextTask.text };
-      setMessages(prev => [...prev, userMsg]);
-      
       executeTask(nextTask.text);
     }
   }, [loading, taskQueue]);
 
   const onSubmitPrompt = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!input.trim()) return;
     const text = input.trim();
-    setInput('');
+    if (!text && !stagedFile) return;
 
-    if (loading) {
-      setTaskQueue(prev => [...prev, { id: Date.now(), text }]);
+    setInput('');
+    const fileToUpload = stagedFile;
+    if (fileToUpload) {
+      setStagedFile(null);
+    }
+
+    // Prepare prompt text
+    let promptWithAttachment = text;
+    if (fileToUpload) {
+      promptWithAttachment = `[Attached File: ${fileToUpload.name}] ${text}`.trim();
+    }
+
+    // Add user message to UI
+    const msgId = Date.now();
+    const userMsg = { 
+      id: msgId, 
+      role: 'user' as const, 
+      timestamp: msgId, 
+      content: text,
+      fileAttachment: fileToUpload ? {
+        name: fileToUpload.name,
+        status: 'ingesting' as const
+      } : undefined
+    };
+    setMessages(prev => [...prev, userMsg]);
+
+    if (fileToUpload) {
+      setLoading(true);
+      const fd = new FormData();
+      fd.append('file', fileToUpload);
+      try {
+        const res = await fetch('http://localhost:4132/api/rag/ingest-file-upload', { 
+          method: 'POST', 
+          body: fd 
+        });
+        if (res.ok) {
+          // Update the user message file attachment status to 'success'
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, fileAttachment: { name: fileToUpload.name, status: 'success' as const } } : m));
+          // Proceed to execute the task with the agent
+          await executeTask(promptWithAttachment);
+        } else {
+          let errMsg = `Failed to ingest ${fileToUpload.name}.`;
+          try {
+            const errJson = await res.json();
+            if (errJson.detail) errMsg = errJson.detail;
+          } catch {}
+          // Update the user message file attachment status to 'failed'
+          setMessages(prev => prev.map(m => m.id === msgId ? { ...m, fileAttachment: { name: fileToUpload.name, status: 'failed' as const } } : m));
+          // Add system feedback message
+          setMessages(prev => [...prev, {
+            id: Date.now(),
+            role: 'assistant' as const,
+            timestamp: Date.now(),
+            content: `✕ **${fileToUpload.name}** ingestion failed: ${errMsg}`
+          }]);
+          setLoading(false);
+        }
+      } catch (err: any) {
+        setMessages(prev => prev.map(m => m.id === msgId ? { ...m, fileAttachment: { name: fileToUpload.name, status: 'failed' as const } } : m));
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: 'assistant' as const,
+          timestamp: Date.now(),
+          content: `✕ Error reaching RAG backend for **${fileToUpload.name}**: ${err.message || err}`
+        }]);
+        setLoading(false);
+      }
     } else {
-      const userMsg = { id: Date.now(), role: 'user', timestamp: Date.now(), content: text };
-      setMessages(prev => [...prev, userMsg]);
-      executeTask(text);
+      if (loading) {
+        setTaskQueue(prev => [...prev, { id: Date.now(), text }]);
+      } else {
+        executeTask(text);
+      }
     }
   };
 
@@ -445,17 +520,8 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     e.preventDefault();
     setDragActive(false);
     const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    setMessages(prev => [...prev, { id: Date.now(), role: 'user', timestamp: Date.now(), content: `Ingesting: ${file.name}` }]);
-    const fd = new FormData();
-    fd.append('file', file);
-    try {
-      const res = await fetch('http://localhost:4132/api/rag/ingest-file', { method: 'POST', body: fd });
-      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(),
-        content: res.ok ? `✓ ${file.name} indexed into SQLite/Turbovec.` : `✕ Failed to ingest ${file.name}.`,
-      }]);
-    } catch {
-      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'RAG backend unreachable.' }]);
+    if (file) {
+      setStagedFile(file);
     }
   };
 
@@ -558,6 +624,51 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
                     </span>
                   </div>
 
+                  {msg.fileAttachment && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '8px 12px',
+                      background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-panel))',
+                      border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
+                      borderRadius: 'var(--radius-sm)',
+                      marginBottom: msg.content ? 8 : 0,
+                    }}>
+                      <Paperclip size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-main)', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
+                          {msg.fileAttachment.name}
+                        </span>
+                        <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
+                          {msg.fileAttachment.status === 'ingesting' ? 'Ingesting into Turbovec RAG...' :
+                           msg.fileAttachment.status === 'success' ? 'Ready in knowledge base' :
+                           'Ingestion failed'}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                        {msg.fileAttachment.status === 'ingesting' && (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+                            style={{
+                              width: 12, height: 12,
+                              border: '2px solid var(--accent)',
+                              borderTopColor: 'transparent',
+                              borderRadius: '50%'
+                            }}
+                          />
+                        )}
+                        {msg.fileAttachment.status === 'success' && (
+                          <Check size={13} style={{ color: 'var(--success)' }} />
+                        )}
+                        {msg.fileAttachment.status === 'failed' && (
+                          <X size={13} style={{ color: 'var(--danger)' }} />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {msg.thoughts?.length > 0 && <ThoughtsBlock thoughts={msg.thoughts} />}
                   <div
                     className="markdown-content"
@@ -640,67 +751,107 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
 
       {/* Input */}
       <form onSubmit={onSubmitPrompt} style={{
-        display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
+        display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0,
         background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)', padding: '8px 8px 8px 14px',
+        borderRadius: 'var(--radius-md)', padding: '8px 12px',
       }}>
-        <input
-          ref={fileInputRef as any}
-          type="file"
-          style={{ display: 'none' }}
-          onChange={async e => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const fd = new FormData();
-            fd.append('file', file);
-            setMessages(prev => [...prev, { id: Date.now(), role: 'user', timestamp: Date.now(), content: `Ingesting: ${file.name}` }]);
-            try {
-              const res = await fetch('http://localhost:4132/api/rag/ingest-file', { method: 'POST', body: fd });
-              setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: res.ok ? `✓ ${file.name} indexed.` : `✕ Failed to ingest.` }]);
-            } catch { /* noop */ }
-          }}
-        />
-        <button type="button" onClick={() => (fileInputRef.current as any)?.click()}
-          title="Attach file for RAG ingestion"
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 4, display: 'flex', flexShrink: 0 }}
-        >
-          <Paperclip size={16} />
-        </button>
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          placeholder="Ask Meridian-X to perform actions or analyze targets..."
-          style={{
-            flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: 'var(--text-main)', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif",
-          }}
-        />
-        {/* Speak Toggle Button */}
-        <button
-          type="button"
-          onClick={() => {
-            const nextVal = !ttsEnabled;
-            setTtsEnabled(nextVal);
-            localStorage.setItem('meridian_dashboard_tts', String(nextVal));
-          }}
-          title={ttsEnabled ? "Mute Speech Output" : "Enable Speech Output"}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: ttsEnabled ? 'var(--accent)' : 'var(--text-dim)',
-            padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.15s ease'
-          }}
-        >
-          {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
-        </button>
-        {loading && (
-          <HoloButton type="button" variant="danger" size="sm" onClick={handleInterrupt} title="Interrupt Current Task">
-            <Square size={14} fill="currentColor" />
-          </HoloButton>
+        {stagedFile && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid var(--border-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '4px 8px',
+            alignSelf: 'flex-start',
+            fontSize: 11,
+            color: 'var(--text-main)',
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>
+            <Paperclip size={12} style={{ color: 'var(--accent)' }} />
+            <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {stagedFile.name}
+            </span>
+            <button
+              type="button"
+              onClick={() => setStagedFile(null)}
+              title="Remove file"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dim)', padding: 2, display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+                transition: 'color 0.15s ease'
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--danger)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-dim)'}
+            >
+              <X size={12} />
+            </button>
+          </div>
         )}
-        <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim()} title="Send Task">
-          <Send size={14} />
-        </HoloButton>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', width: '100%' }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            style={{ display: 'none' }}
+            onChange={e => {
+              const file = e.target.files?.[0];
+              if (file) {
+                setStagedFile(file);
+              }
+              e.target.value = '';
+            }}
+          />
+          <button type="button" onClick={() => fileInputRef.current?.click()}
+            title="Attach file for RAG ingestion"
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 4, display: 'flex', flexShrink: 0 }}
+          >
+            <Paperclip size={16} />
+          </button>
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                onSubmitPrompt();
+              }
+            }}
+            placeholder="Ask Meridian-X to perform actions or analyze targets..."
+            rows={1}
+            style={{
+              flex: 1, background: 'transparent', border: 'none', outline: 'none',
+              color: 'var(--text-main)', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif",
+              resize: 'none', maxHeight: 120, minHeight: 20, paddingTop: 4, paddingBottom: 4,
+              lineHeight: '1.4', overflowY: 'auto'
+            }}
+          />
+          {/* Speak Toggle Button */}
+          <button
+            type="button"
+            onClick={() => {
+              const nextVal = !ttsEnabled;
+              setTtsEnabled(nextVal);
+              localStorage.setItem('meridian_dashboard_tts', String(nextVal));
+            }}
+            title={ttsEnabled ? "Mute Speech Output" : "Enable Speech Output"}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: ttsEnabled ? 'var(--accent)' : 'var(--text-dim)',
+              padding: 4, display: 'flex', flexShrink: 0, transition: 'color 0.15s ease'
+            }}
+          >
+            {ttsEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
+          </button>
+          {loading && (
+            <HoloButton type="button" variant="danger" size="sm" onClick={handleInterrupt} title="Interrupt Current Task">
+              <Square size={14} fill="currentColor" />
+            </HoloButton>
+          )}
+          <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim() && !stagedFile} title="Send Task">
+            <Send size={14} />
+          </HoloButton>
+        </div>
       </form>
     </div>
   );

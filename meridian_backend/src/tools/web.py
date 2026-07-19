@@ -158,3 +158,45 @@ def autonomous_research(topic: str, max_depth: int = 3) -> str:
             
     return "\n".join(report_lines)
 
+
+def search_news(query: str) -> str:
+    """Perform a real-time news search using DuckDuckGo (or fallback to Tavily)."""
+    # 1. Primary: Use the standard DDGS news search wrapper
+    try:
+        from ddgs import DDGS
+        with DDGS() as ddgs:
+            results = ddgs.news(query, max_results=5)
+            if results:
+                lines = []
+                for r in results:
+                    title = r.get("title", "")
+                    link = r.get("url") or r.get("link") or r.get("href", "")
+                    body = r.get("body") or r.get("snippet", "")
+                    date = r.get("date", "")
+                    source = r.get("source", "")
+                    lines.append(f"Title: {title}\nSource: {source} ({date})\nURL: {link}\nSnippet: {body}\n")
+                return "\n".join(lines)
+    except Exception as e:
+        print("DuckDuckGo news search failed, attempting Tavily fallback:", e)
+
+    # 2. Tavily Fallback if DDG returns empty or fails
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    if tavily_key:
+        try:
+            print("[Search] DuckDuckGo news search failed/returned no output. Falling back to Tavily...")
+            headers = {"Content-Type": "application/json"}
+            payload = {"api_key": tavily_key, "query": query, "topic": "news"}
+            res = httpx.post("https://api.tavily.com/search", json=payload, headers=headers, timeout=10.0)
+            if res.status_code == 200:
+                results = res.json().get("results", [])
+                lines = []
+                for r in results:
+                    lines.append(f"Title: {r.get('title')}\nURL: {r.get('url')}\nContent: {r.get('content')}\n")
+                if lines:
+                    return "\n".join(lines)
+        except Exception as e:
+            return f"News search failed (DuckDuckGo empty/failed, Tavily fallback failed): {e}"
+            
+    return "News search returned no results (DuckDuckGo yielded nothing and Tavily is unconfigured or failed)."
+
+

@@ -5,6 +5,14 @@ use tauri::{
     tray::TrayIconBuilder,
 };
 
+#[cfg(not(debug_assertions))]
+use std::sync::Mutex;
+#[cfg(not(debug_assertions))]
+use std::process::Child;
+
+#[cfg(not(debug_assertions))]
+static BACKEND_CHILD: Mutex<Option<Child>> = Mutex::new(None);
+
 #[tauri::command]
 fn set_island_mode(window: tauri::WebviewWindow, enable: bool) {
     if enable {
@@ -112,16 +120,43 @@ fn toggle_game_mode(app: tauri::AppHandle, enabled: bool) -> Result<bool, String
     Ok(enabled)
 }
 
+fn send_http_shutdown() {
+    use std::io::Write;
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    if let Ok(mut stream) = TcpStream::connect_timeout(
+        &"127.0.0.1:4132".parse().unwrap(),
+        Duration::from_millis(100),
+    ) {
+        let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
+        let _ = stream.write_all(b"POST /api/system/shutdown HTTP/1.1\r\nHost: 127.0.0.1:4132\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
+    }
+}
+
 fn kill_backend_process() {
-    #[cfg(target_os = "windows")]
+    // 1. Try graceful shutdown via local HTTP POST /api/system/shutdown first
+    send_http_shutdown();
+
+    // 2. If we have a child process spawned in production, wait up to 1 second for it to exit,
+    // otherwise kill it natively without spawning any shell.
+    #[cfg(not(debug_assertions))]
     {
-        use std::process::Command;
-        let _ = Command::new("powershell")
-            .args(&[
-                "-Command",
-                "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'pythonw.exe' or Name = 'api.exe'\" | Where-Object {$_.CommandLine -like '*api.py*' or $_.Name -eq 'api.exe'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"
-            ])
-            .status();
+        if let Ok(mut guard) = BACKEND_CHILD.lock() {
+            if let Some(mut child) = guard.take() {
+                let mut exited = false;
+                for _ in 0..10 {
+                    if let Ok(Some(_)) = child.try_wait() {
+                        exited = true;
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+                if !exited {
+                    let _ = child.kill();
+                }
+            }
+        }
     }
 }
 
@@ -366,8 +401,11 @@ pub fn run() {
                             }
                             
                             match cmd.spawn() {
-                                Ok(_) => {
+                                Ok(child) => {
                                     log::info!("Successfully spawned backend daemon!");
+                                    if let Ok(mut guard) = BACKEND_CHILD.lock() {
+                                        *guard = Some(child);
+                                    }
                                     // Wait for the backend to bind to port 4132 before showing the main window
                                     let mut retry = 0;
                                     while retry < 50 {

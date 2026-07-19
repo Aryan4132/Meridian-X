@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 # Import existing core tool functions
 from src.tools.filesystem import read_file, write_file, list_directory, search_files, move_file, delete_file
-from src.tools.web import search_web, fetch_page, parse_page, download_file, autonomous_research
+from src.tools.web import search_web, search_news, fetch_page, parse_page, download_file, autonomous_research
 from src.tools.desktop import (
     screenshot, screenshot_region, ocr_screen, vision_analyze, find_on_screen,
     gui_click, gui_right_click, gui_double_click, gui_drag, gui_type, gui_hotkey, gui_scroll, get_mouse_position,
@@ -54,12 +54,11 @@ from src.tools.documents import (
 
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
-    from database import ingest_into_knowledge_base
+    from database import extract_text_from_file, ingest_into_knowledge_base
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        content = f.read()
-    ingest_into_knowledge_base(path, content)
+    content = extract_text_from_file(path)
+    ingest_into_knowledge_base(os.path.basename(path), content)
     return f"Successfully ingested {path} into Turbovec."
 
 def _search_knowledge(query: str) -> str:
@@ -106,6 +105,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     
     # Web & Network
     "search_web": {"tier": 0, "func": search_web},
+    "search_news": {"tier": 0, "func": search_news},
     "fetch_page": {"tier": 0, "func": fetch_page},
     "parse_page": {"tier": 0, "func": parse_page},
     "download_file": {"tier": 1, "func": download_file},

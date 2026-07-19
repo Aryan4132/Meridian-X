@@ -17,7 +17,7 @@ import logging
 import platform
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -303,10 +303,10 @@ def post_debug_log(log: DebugLog):
 @app.post("/api/system/shutdown")
 def post_system_shutdown():
     import threading
-    import signal
+    import _thread
     def exit_func():
-        time.sleep(0.5)
-        os.kill(os.getpid(), signal.SIGINT)
+        time.sleep(0.2)
+        _thread.interrupt_main()
         
     threading.Thread(target=exit_func, daemon=True).start()
     return {"status": "success", "message": "Shutdown initiated."}
@@ -1479,9 +1479,40 @@ def rag_ingest_file(request: IngestFileRequest):
             raise HTTPException(status_code=404, detail=f"File not found: {request.file_path}")
             
         text = extract_text_from_file(abs_path)
+        if not text or not text.strip():
+            raise ValueError("No extractable text content found. The file may be empty, scanned, or password-protected.")
         ingest_into_knowledge_base(os.path.basename(abs_path), text)
         add_to_task_log("ingest_file", 1, "success")
         return {"status": "success", "message": f"Successfully parsed and ingested '{os.path.basename(abs_path)}' into Turbovec RAG."}
+    except Exception as e:
+        add_to_task_log("ingest_file", 1, "failed", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rag/ingest-file-upload")
+async def rag_ingest_file_upload(file: UploadFile = File(...)):
+    try:
+        from database import extract_text_from_file, ingest_into_knowledge_base
+        import shutil
+        import tempfile
+        
+        # Save uploaded file to a temporary file
+        await file.seek(0)
+        suffix = os.path.splitext(file.filename)[1]
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            shutil.copyfileobj(file.file, tmp)
+            tmp_path = tmp.name
+            
+        try:
+            text = extract_text_from_file(tmp_path)
+            if not text or not text.strip():
+                raise ValueError("No extractable text content found. The file may be empty, scanned, or password-protected.")
+            ingest_into_knowledge_base(file.filename, text)
+            add_to_task_log("ingest_file", 1, "success")
+            return {"status": "success", "message": f"Successfully parsed and ingested '{file.filename}' into Turbovec RAG."}
+        finally:
+            # Always clean up the temp file
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
     except Exception as e:
         add_to_task_log("ingest_file", 1, "failed", str(e))
         raise HTTPException(status_code=500, detail=str(e))

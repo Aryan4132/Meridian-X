@@ -258,7 +258,7 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
                             (int(id_val),)
                         )
                         res = cursor.fetchone()
-                        if res and res["expires_at"] > time.time():
+                        if res and res["response_text"] and res["response_text"].strip() and res["expires_at"] > time.time():
                             print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
                             # Store back to Tier-1
                             _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])

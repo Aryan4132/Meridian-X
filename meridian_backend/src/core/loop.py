@@ -1482,12 +1482,13 @@ async def run_react_agent_loop(
                         continue
                     
                     if is_corrected:
-                        yield sse_event("thought", json.dumps({
-                            "id": f"critique-{time.time()}",
-                            "type": "warning",
-                            "text": f"[Critique Engine] Auto-healed tool call '{tool_name}' parameters: {critique_err}",
-                            "status": "completed"
-                        }))
+                        if critique_err:
+                            yield sse_event("thought", json.dumps({
+                                "id": f"critique-{time.time()}",
+                                "type": "warning",
+                                "text": f"[Critique Engine] Auto-healed tool call '{tool_name}' parameters: {critique_err}",
+                                "status": "completed"
+                            }))
                         args_str = corrected_args
                     
                     try:
@@ -1858,7 +1859,7 @@ async def run_react_agent_loop(
         # BUG-5 fix: only persist to DB when this is a user-facing (non-worker) call.
         # HTP worker sub-loops should not write their internal results to conversation
         # history or semantic cache since they are planning artifacts, not user interactions.
-        if not is_worker:
+        if not is_worker and final_text.strip():
             add_to_conversations("assistant", final_text)
             add_to_semantic_cache(prompt, final_text)
         add_to_task_log("ollama_api", 2, "success")
