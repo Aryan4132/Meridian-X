@@ -49,12 +49,31 @@ export default function Productivity() {
     } catch { /* noop */ }
   };
 
-  useEffect(() => { fetchStats(); }, []);
+  const syncPomodoro = async () => {
+    try {
+      const res = await fetch('http://localhost:4132/api/pomodoro/status').catch(() => null);
+      if (res?.ok) {
+        const data = await res.json();
+        setActive(data.active);
+        if (data.active) {
+          const limit = data.state === "work" ? data.work_duration : data.break_duration;
+          setSecsLeft(Math.max(0, limit - data.elapsed));
+        }
+      }
+    } catch { /* noop */ }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    syncPomodoro();
+    const pollId = setInterval(syncPomodoro, 3000);
+    return () => clearInterval(pollId);
+  }, [durationMins]);
 
   useEffect(() => {
     if (active && secsLeft > 0) {
       intervalRef.current = setInterval(() => setSecsLeft(s => s - 1), 1000);
-    } else if (secsLeft === 0) {
+    } else if (secsLeft === 0 && active) {
       setActive(false);
       setSecsLeft(durationMins * 60);
       fetch('http://localhost:4132/api/profile/pomodoro/increment', { method: 'POST' }).then(() => fetchStats()).catch(() => {});
@@ -104,7 +123,23 @@ export default function Productivity() {
             />
             <div style={{ display: 'flex', gap: 10 }}>
               <button
-                onClick={() => setActive(v => !v)}
+                onClick={async () => {
+                  try {
+                    if (active) {
+                      await fetch('http://localhost:4132/api/pomodoro/stop', { method: 'POST' });
+                      setActive(false);
+                      setSecsLeft(durationMins * 60);
+                    } else {
+                      await fetch('http://localhost:4132/api/pomodoro/start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ work_duration: durationMins * 60, break_duration: 5 * 60 })
+                      });
+                      setActive(true);
+                      setSecsLeft(durationMins * 60);
+                    }
+                  } catch { /* noop */ }
+                }}
                 style={{
                   width: 40, height: 40, borderRadius: '50%', border: 'none', cursor: 'pointer',
                   background: active ? 'var(--warning)' : 'var(--accent)',
@@ -116,7 +151,13 @@ export default function Productivity() {
                 {active ? <Pause size={18} /> : <Play size={18} />}
               </button>
               <button
-                onClick={() => { setActive(false); setSecsLeft(durationMins * 60); }}
+                onClick={async () => {
+                  try {
+                    await fetch('http://localhost:4132/api/pomodoro/stop', { method: 'POST' });
+                    setActive(false);
+                    setSecsLeft(durationMins * 60);
+                  } catch { /* noop */ }
+                }}
                 style={{
                   width: 40, height: 40, borderRadius: '50%', border: '1px solid var(--border-subtle)',
                   background: 'var(--bg-surface)', cursor: 'pointer', color: 'var(--text-dim)',

@@ -19,11 +19,32 @@ def is_resource_throttled() -> bool:
     """Checks system indicators to determine if resource-heavy tasks should be throttled."""
     try:
         import psutil
-        # Get immediate CPU percent check
+        # Configurable CPU load threshold
+        throttle_pct = float(os.environ.get("MERIDIAN_CPU_THROTTLE_PCT", "85.0"))
         cpu_load = psutil.cpu_percent(interval=None)
-        if cpu_load > 85.0:
-            print(f"[Resource Governor] High CPU load detected: {cpu_load}%")
+        if cpu_load > throttle_pct:
+            print(f"[Resource Governor] High CPU load detected: {cpu_load}% (threshold: {throttle_pct}%)")
             return True
+            
+        # GPU utilization check using pynvml
+        try:
+            import pynvml
+            pynvml.nvmlInit()
+            device_count = pynvml.nvmlDeviceGetCount()
+            gpu_throttle_pct = float(os.environ.get("MERIDIAN_GPU_THROTTLE_PCT", "85.0"))
+            for i in range(device_count):
+                handle = pynvml.nvmlDeviceGetHandleByIndex(i)
+                util = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                gpu_load = util.gpu
+                if gpu_load > gpu_throttle_pct:
+                    print(f"[Resource Governor] High GPU load detected on GPU {i}: {gpu_load}% (threshold: {gpu_throttle_pct}%)")
+                    pynvml.nvmlShutdown()
+                    return True
+            pynvml.nvmlShutdown()
+        except ImportError:
+            pass
+        except Exception as gpue:
+            print(f"[Resource Governor] GPU status check skipped: {gpue}")
             
         from src.core.proactive import get_active_process_and_title
         proc_name, window_title = get_active_process_and_title()
@@ -37,12 +58,12 @@ def is_resource_throttled() -> bool:
         print(f"[Resource Governor] Check failed: {e}")
     return False
 
-def execute_scheduled_goal(goal: str):
+def execute_scheduled_goal(goal: str, priority: str = "normal"):
     """Bridge background job to async ReAct agent loop execution."""
-    print(f"[Scheduler] Triggered background execution for goal: '{goal}'")
+    print(f"[Scheduler] Triggered background execution for goal: '{goal}' (priority: {priority})")
     
-    # Check resource limits before execution
-    if is_resource_throttled():
+    # Check resource limits before execution (high priority tasks bypass throttling)
+    if priority.lower() != "high" and is_resource_throttled():
         print(f"[Scheduler] Skipping background execution for goal '{goal}' (governor throttling active).")
         try:
             from database import add_background_run
@@ -170,7 +191,7 @@ def start_scheduler():
             from src.core.proactive import (
                 check_system_health, check_idle_time, check_followups,
                 check_active_window, check_battery_status, check_git_status,
-                check_circadian_reminders, check_network_status
+                check_circadian_reminders, check_network_status, check_pomodoro_timer
             )
             if not scheduler.get_job("proactive_health_job"):
                 scheduler.add_job(
@@ -244,6 +265,15 @@ def start_scheduler():
                     replace_existing=True
                 )
                 print("[Scheduler] Registered proactive network connectivity monitor (every 5 min).")
+            if not scheduler.get_job("proactive_pomodoro_job"):
+                scheduler.add_job(
+                    check_pomodoro_timer,
+                    trigger='interval',
+                    seconds=10,
+                    id='proactive_pomodoro_job',
+                    replace_existing=True
+                )
+                print("[Scheduler] Registered proactive Pomodoro timer monitor (every 10 sec).")
         except Exception as e:
             print(f"[Scheduler] Failed to register proactive jobs: {e}")
 

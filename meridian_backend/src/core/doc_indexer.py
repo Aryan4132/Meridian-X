@@ -37,9 +37,14 @@ def init_docs_index():
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS indexed_files (
                 file_path TEXT PRIMARY KEY,
-                last_modified REAL
+                last_modified REAL,
+                sha256 TEXT
             )
         """)
+        try:
+            cursor.execute("ALTER TABLE indexed_files ADD COLUMN sha256 TEXT")
+        except Exception:
+            pass # already exists
         conn.commit()
         conn.close()
     except Exception as e:
@@ -65,13 +70,24 @@ def index_docs_directory(docs_dir: str):
         print(f"[Docs Indexer] Directory not found: {docs_dir}")
         return
         
+    import hashlib
+    def get_file_sha256(filepath: str) -> str:
+        h = hashlib.sha256()
+        try:
+            with open(filepath, "rb") as f:
+                while chunk := f.read(8192):
+                    h.update(chunk)
+            return h.hexdigest()
+        except Exception:
+            return ""
+        
     conn = get_sqlite_conn()
     try:
         cursor = conn.cursor()
         
-        # Load last modified times of already indexed files
-        cursor.execute("SELECT file_path, last_modified FROM indexed_files")
-        indexed_times = {row["file_path"]: row["last_modified"] for row in cursor.fetchall()}
+        # Load last modified times and SHA-256 of already indexed files
+        cursor.execute("SELECT file_path, last_modified, sha256 FROM indexed_files")
+        indexed_info = {row["file_path"]: (row["last_modified"], row["sha256"]) for row in cursor.fetchall()}
         
         any_changed = False
         
@@ -82,9 +98,12 @@ def index_docs_directory(docs_dir: str):
                     rel_path = os.path.relpath(file_path, docs_dir).replace("\\", "/")
                     
                     mtime = os.path.getmtime(file_path)
-                    # Skip indexing if the file has not been modified since the last run
-                    if rel_path in indexed_times and indexed_times[rel_path] >= mtime:
-                        continue
+                    sha256 = get_file_sha256(file_path)
+                    # Skip indexing if the file has not been modified since the last run OR sha256 matches
+                    if rel_path in indexed_info:
+                        db_mtime, db_sha = indexed_info[rel_path]
+                        if db_mtime >= mtime or (db_sha and db_sha == sha256):
+                            continue
                         
                     any_changed = True
                     print(f"[Docs Indexer] Re-indexing modified file: {rel_path}")
@@ -131,8 +150,8 @@ def index_docs_directory(docs_dir: str):
                             
                         # Update modification log table
                         cursor.execute(
-                            "INSERT OR REPLACE INTO indexed_files (file_path, last_modified) VALUES (?, ?)",
-                            (rel_path, mtime)
+                            "INSERT OR REPLACE INTO indexed_files (file_path, last_modified, sha256) VALUES (?, ?, ?)",
+                            (rel_path, mtime, sha256)
                         )
                             
                     except Exception as fe:

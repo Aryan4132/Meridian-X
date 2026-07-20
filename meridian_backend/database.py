@@ -7,7 +7,16 @@ import pymongo
 import threading
 import numpy as np
 from turbovec import IdMapIndex
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TypedDict
+
+class UserProfile(TypedDict, total=False):
+    meridian_model: str
+    meridian_auditor_model: str
+    meridian_vision_model: str
+    ollama_host: str
+    wakeword_model_filename: str
+    custom_directives: str
+
 
 def extract_text_from_file(file_path: str) -> str:
     """Extracts text content from various file formats (.txt, .md, .json, .csv, .pdf, .docx)."""
@@ -108,8 +117,42 @@ def get_sqlite_conn():
     conn.row_factory = sqlite3.Row
     return conn
 
+def run_vector_health_check() -> bool:
+    """Verify integrity of all Turbovec vector index files on startup."""
+    print("[Turbovec Health Check] Starting validation...")
+    healthy = True
+    for name, path in [("Knowledge Base", KB_INDEX_PATH), ("Semantic Cache", CACHE_INDEX_PATH), ("Conversations", CONV_INDEX_PATH)]:
+        if os.path.exists(path):
+            if os.path.getsize(path) == 0:
+                print(f"[Turbovec Health Check] Warning: {name} index file is empty (0 bytes). Recreating.")
+                healthy = False
+                try:
+                    os.remove(path)
+                except Exception:
+                    pass
+            else:
+                try:
+                    # Test load
+                    test_idx = IdMapIndex.load(path)
+                    # Verify dim size
+                    if getattr(test_idx, "dim", 0) != 768:
+                        raise ValueError(f"Invalid dimension: {getattr(test_idx, 'dim', 0)}")
+                except Exception as e:
+                    print(f"[Turbovec Health Check] Error: {name} index is CORRUPTED ({e}). Removing.")
+                    healthy = False
+                    try:
+                        os.remove(path)
+                    except Exception:
+                        pass
+        else:
+            print(f"[Turbovec Health Check] {name} index file does not exist yet.")
+    return healthy
+
 def init_turbovec_indexes():
     global kb_index, cache_index, conv_index
+    
+    # Run checksum / validation checks before loading
+    run_vector_health_check()
     
     # 1. Knowledge Base Index
     if os.path.exists(KB_INDEX_PATH):
@@ -156,9 +199,14 @@ def init_tables():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             query_text TEXT UNIQUE,
             response_text TEXT,
-            expires_at REAL
+            expires_at REAL,
+            ttl_hours INTEGER DEFAULT 24
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE semantic_cache ADD COLUMN ttl_hours INTEGER DEFAULT 24")
+    except Exception:
+        pass # already exists
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS conversations (
@@ -207,6 +255,14 @@ def init_tables():
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS prompt_templates (
+            name TEXT PRIMARY KEY,
+            prompt_text TEXT,
+            description TEXT
+        )
+    """)
+    
     conn.commit()
     conn.close()
     
@@ -239,6 +295,11 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
+        
+        # Auto-expiry: Delete expired items from database first
+        cursor.execute("DELETE FROM semantic_cache WHERE expires_at < ?", (time.time(),))
+        conn.commit()
+        
         cursor.execute("SELECT COUNT(*) FROM semantic_cache")
         count = cursor.fetchone()[0]
         
@@ -270,7 +331,8 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
             conn.close()
     return None
 
-def add_to_semantic_cache(query_text: str, response_text: str, ttl_seconds: int = 86400):
+def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 24):
+    ttl_seconds = ttl_hours * 3600
     expires_at = time.time() + ttl_seconds
     _exact_match_cache[query_text] = (response_text, expires_at)
     
@@ -285,8 +347,8 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_seconds: int 
         
         # Insert new metadata
         cursor.execute(
-            "INSERT INTO semantic_cache (query_text, response_text, expires_at) VALUES (?, ?, ?)",
-            (query_text, response_text, expires_at)
+            "INSERT INTO semantic_cache (query_text, response_text, expires_at, ttl_hours) VALUES (?, ?, ?, ?)",
+            (query_text, response_text, expires_at, ttl_hours)
         )
         inserted_id = cursor.lastrowid
         conn.commit()

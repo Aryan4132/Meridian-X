@@ -3,8 +3,8 @@ import socket
 import threading
 import json
 import time
-from typing import List, Dict, Any
-from database import get_mongo_db, db
+from typing import List, Dict, Any, Set, Tuple
+from database import get_mongo_db, db, get_sqlite_conn
 
 P2P_PORT = 8009
 UDP_DISCOVERY_PORT = 8010
@@ -36,25 +36,120 @@ class P2PSyncNode:
     def __init__(self, host="0.0.0.0", port=P2P_PORT):
         self.host = host
         self.port = port
-        self.peers = set()
+        self.peers: Set[Tuple[str, int]] = set()
         self.lock = threading.Lock()
         self.tcp_socket = None
         self.udp_socket = None
+        # Health ping failure counts: {(ip, port): fail_count}
+        self._fail_counts: Dict[Tuple[str, int], int] = {}
+        self._init_peers_table()
+
+    def _init_peers_table(self) -> None:
+        """Ensure the peers table exists in SQLite for persistent peer storage."""
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS p2p_peers (
+                    ip TEXT NOT NULL,
+                    port INTEGER NOT NULL,
+                    last_seen REAL,
+                    PRIMARY KEY (ip, port)
+                )
+            """)
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[P2P Sync] Failed to initialize peers table: {e}")
+
+    def _load_peers_from_db(self) -> None:
+        """Load previously discovered peers from SQLite on startup."""
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT ip, port FROM p2p_peers")
+            rows = cursor.fetchall()
+            conn.close()
+            with self.lock:
+                for row in rows:
+                    self.peers.add((row["ip"], row["port"]))
+            if rows:
+                print(f"[P2P Sync] Loaded {len(rows)} persisted peer(s) from database.")
+        except Exception as e:
+            print(f"[P2P Sync] Failed to load peers from database: {e}")
+
+    def _save_peer_to_db(self, ip: str, port: int) -> None:
+        """Persist a newly discovered peer to SQLite."""
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT OR REPLACE INTO p2p_peers (ip, port, last_seen) VALUES (?, ?, ?)",
+                (ip, port, time.time())
+            )
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[P2P Sync] Failed to persist peer {ip}:{port}: {e}")
+
+    def _remove_peer_from_db(self, ip: str, port: int) -> None:
+        """Remove a stale peer from SQLite."""
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM p2p_peers WHERE ip = ? AND port = ?", (ip, port))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(f"[P2P Sync] Failed to remove peer {ip}:{port} from db: {e}")
+
+    def _run_health_ping_loop(self) -> None:
+        """Ping all known peers every 30 seconds. Remove peers after 3 consecutive failures."""
+        while _server_running:
+            time.sleep(30)
+            if not _server_running:
+                break
+            stale = []
+            with self.lock:
+                peers_snapshot = list(self.peers)
+            for peer_ip, peer_port in peers_snapshot:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(2.0)
+                    s.connect((peer_ip, peer_port))
+                    s.close()
+                    self._fail_counts[(peer_ip, peer_port)] = 0
+                except Exception:
+                    count = self._fail_counts.get((peer_ip, peer_port), 0) + 1
+                    self._fail_counts[(peer_ip, peer_port)] = count
+                    if count >= 3:
+                        stale.append((peer_ip, peer_port))
+                        print(f"[P2P Sync] Pruning stale peer {peer_ip}:{peer_port} (3 consecutive failures).")
+            if stale:
+                with self.lock:
+                    for peer in stale:
+                        self.peers.discard(peer)
+                        self._fail_counts.pop(peer, None)
+                        self._remove_peer_from_db(peer[0], peer[1])
 
     def start(self):
         global _server_running
         if _server_running:
             return "P2P Sync server is already active."
         _server_running = True
-        
+
+        # Load persisted peers before starting sync threads
+        self._load_peers_from_db()
         # Start TCP listener for database sync
         threading.Thread(target=self._run_tcp_server, daemon=True).start()
         # Start UDP listener for peer discovery
         threading.Thread(target=self._run_udp_discovery_listener, daemon=True).start()
         # Start UDP broadcast thread
         threading.Thread(target=self._run_udp_broadcast, daemon=True).start()
-        
-        return f"P2P Sync daemon started on {self.host}:{self.port}."
+        # Start health ping loop
+        threading.Thread(target=self._run_health_ping_loop, daemon=True).start()
+
+        return f"P2P Sync daemon started on {self.host}:{self.port} (loaded {len(self.peers)} persisted peer(s))."
 
     def stop(self) -> str:
         global _server_running
@@ -161,6 +256,12 @@ class P2PSyncNode:
                             if (peer_ip, peer_port) not in self.peers:
                                 self.peers.add((peer_ip, peer_port))
                                 print(f"[P2P Sync] Discovered new peer: {peer_ip}:{peer_port}")
+                                # Persist to SQLite for restart recovery
+                                threading.Thread(
+                                    target=self._save_peer_to_db,
+                                    args=(peer_ip, peer_port),
+                                    daemon=True
+                                ).start()
         except Exception as e:
             if _server_running:
                 print(f"[P2P Sync] UDP Discovery listener error: {e}")

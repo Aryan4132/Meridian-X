@@ -907,3 +907,40 @@ def check_network_status():
             icon="🌐",
             mascot_state="happy"
         )
+
+
+# Pomodoro tracking global state
+pomodoro_active = False
+pomodoro_work_duration = 25 * 60  # default 25 min
+pomodoro_break_duration = 5 * 60  # default 5 min
+pomodoro_start_time = 0.0
+pomodoro_state = "idle"  # "work", "break", "idle"
+
+def check_pomodoro_timer():
+    """Checks the active Pomodoro focus timer and publishes break/work transition nudges."""
+    global pomodoro_active, pomodoro_state, pomodoro_start_time, pomodoro_work_duration, pomodoro_break_duration
+    if not pomodoro_active:
+        return
+        
+    elapsed = time.time() - pomodoro_start_time
+    if pomodoro_state == "work" and elapsed >= pomodoro_work_duration:
+        pomodoro_state = "break"
+        pomodoro_start_time = time.time()
+        publish_nudge_sync(
+            nudge_type="pomodoro",
+            title="🍅 Time for a Break!",
+            message="You've finished your focus block. Take a 5-minute break!",
+            mascot_state="relaxed",
+            icon="☕"
+        )
+    elif pomodoro_state == "break" and elapsed >= pomodoro_break_duration:
+        pomodoro_state = "work"
+        pomodoro_start_time = time.time()
+        publish_nudge_sync(
+            nudge_type="pomodoro",
+            title="🍅 Focus Session Started",
+            message="Time to get back to work! Let's stay focused for 25 minutes.",
+            mascot_state="focused",
+            icon="💻"
+        )
+

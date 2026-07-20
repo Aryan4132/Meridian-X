@@ -6,11 +6,11 @@ from typing import Dict, Any
 
 # Import existing core tool functions
 from src.tools.filesystem import read_file, write_file, list_directory, search_files, move_file, delete_file
-from src.tools.web import search_web, search_news, fetch_page, parse_page, download_file, autonomous_research
+from src.tools.web import search_web, search_news, fetch_page, parse_page, download_file, autonomous_research, ingest_url
 from src.tools.desktop import (
     screenshot, screenshot_region, ocr_screen, vision_analyze, find_on_screen,
     gui_click, gui_right_click, gui_double_click, gui_drag, gui_type, gui_hotkey, gui_scroll, get_mouse_position,
-    segment_screen, gui_click_badge
+    segment_screen, gui_click_badge, screenshot_to_code
 )
 from src.tools.system import (
     list_windows, focus_window, resize_window, move_window, minimize_window, maximize_window, close_window,
@@ -25,7 +25,7 @@ from src.tools.developer import (
     scaffold_project, run_tests, install_package, lint_file, format_file,
     lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
 )
-from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message
+from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails
 
 # Import newly implemented advanced capability tools
 from src.tools.vault import vault_set, vault_get, vault_list, vault_delete
@@ -33,7 +33,7 @@ from src.tools.knowledge import kg_add_entity, kg_add_relation, kg_query, kg_sea
 from src.tools.scheduler import schedule_task, schedule_once, list_scheduled, cancel_task
 from src.tools.watcher import watch_log, unwatch_log, list_log_watchers, tail_log, search_log, log_stats, watch_folder, unwatch_folder, list_watchers
 from src.tools.review import review_file, review_diff, review_directory, export_review
-from src.tools.shell import nl_to_shell, nl_run, shell_history
+from src.tools.shell import nl_to_shell, nl_run, shell_history, monitor_process
 from src.tools.db_query import db_connect, db_query, db_execute, db_schema, db_nl_query, db_disconnect
 from src.tools.exporter import export_session, export_goal, list_sessions, export_finetune_data, finetune_stats, mark_correction
 from src.tools.web_browser import browser_open, browser_screenshot, browser_find_and_click, browser_type_in, browser_get_text, browser_close, scrape_urls, scrape_table, schedule_scrape
@@ -110,6 +110,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "parse_page": {"tier": 0, "func": parse_page},
     "download_file": {"tier": 1, "func": download_file},
     "autonomous_research": {"tier": 1, "func": autonomous_research},
+    "ingest_url": {"tier": 0, "func": ingest_url},
     
     # Desktop Automation
     "screenshot": {"tier": 0, "func": screenshot},
@@ -125,6 +126,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "gui_hotkey": {"tier": 1, "func": gui_hotkey},
     "gui_scroll": {"tier": 1, "func": gui_scroll},
     "get_mouse_position": {"tier": 0, "func": get_mouse_position},
+    "screenshot_to_code": {"tier": 1, "func": screenshot_to_code},
     
     # Window management
     "list_windows": {"tier": 0, "func": list_windows},
@@ -189,6 +191,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "send_email": {"tier": 2, "func": send_email},
     "read_emails": {"tier": 0, "func": read_emails},
     "send_whatsapp_message": {"tier": 2, "func": send_whatsapp_message},
+    "triage_and_read_emails": {"tier": 1, "func": triage_and_read_emails},
+
 
     # --- ADVANCED CAPABILITY REGISTRATIONS ---
     # Secrets Vault
@@ -234,6 +238,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "nl_to_shell": {"tier": 0, "func": nl_to_shell},
     "nl_run": {"tier": 2, "func": nl_run},
     "shell_history": {"tier": 0, "func": shell_history},
+    "monitor_process": {"tier": 1, "func": monitor_process},
+
 
     # Local DB query
     "db_connect": {"tier": 1, "func": db_connect},

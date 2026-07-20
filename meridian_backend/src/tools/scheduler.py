@@ -3,8 +3,8 @@ from src.core.scheduler import scheduler, execute_scheduled_goal
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 
-def schedule_task(goal: str, cron_expr: str) -> str:
-    """Schedule a recurring natural language goal using standard cron syntax (e.g. '0 8 * * *')."""
+def schedule_task(goal: str, cron_expr: str, priority: str = "normal") -> str:
+    """Schedule a recurring natural language goal using standard cron syntax (e.g. '0 8 * * *') with priority ('high', 'normal', 'low')."""
     try:
         # cron_expr format: "minute hour day month day_of_week"
         # APScheduler CronTrigger fields: minute, hour, day, month, day_of_week
@@ -23,8 +23,8 @@ def schedule_task(goal: str, cron_expr: str) -> str:
         job = scheduler.add_job(
             execute_scheduled_goal,
             trigger=trigger,
-            args=[goal],
-            name=goal[:50]
+            args=[goal, priority],
+            name=f"{goal[:40]} ({priority})"
         )
         return f"Successfully scheduled recurring job. Job ID: {job.id}"
     except Exception as e:

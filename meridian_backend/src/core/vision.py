@@ -63,13 +63,20 @@ async def capture_and_analyze_screen():
     
     vision_model = "moondream:1.8b"
     try:
-      db = get_mongo_db()
-      col = db["user_profile"] if db is not None else None
-      pref_model = col.find_one({"key": "meridian_vision_model"}) if col is not None else None
-      if pref_model and "value" in pref_model:
-        vision_model = pref_model["value"]
+        # Improvement: read from SQLite user_profile first (where Settings UI writes)
+        # then fall back to MongoDB for backward compatibility.
+        from database import get_user_profile
+        sqlite_model = get_user_profile("meridian_vision_model")
+        if sqlite_model:
+            vision_model = str(sqlite_model)
+        else:
+            db = get_mongo_db()
+            col = db["user_profile"] if db is not None else None
+            pref_model = col.find_one({"key": "meridian_vision_model"}) if col is not None else None
+            if pref_model and "value" in pref_model:
+                vision_model = pref_model["value"]
     except Exception as e:
-      logger.debug(f"Failed to read vision model preference: {e}")
+        logger.debug(f"Failed to read vision model preference: {e}")
 
     prompt = (
       "Identify any active code windows, open tutorials, error traces, or terminal logs visible in this screen capture. "

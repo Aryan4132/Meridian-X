@@ -108,6 +108,9 @@ export default function Settings() {
   const [ramWarn, setRamWarn] = useState(() => parseFloat(localStorage.getItem('ram_warn_threshold') || '88.0'));
   const [diskWarn, setDiskWarn] = useState(() => parseFloat(localStorage.getItem('disk_warn_threshold') || '90.0'));
   const [distractions, setDistractions] = useState(() => localStorage.getItem('distraction_sites') || 'facebook.com, instagram.com, youtube.com, twitter.com, reddit.com');
+  const [workspaceConfig, setWorkspaceConfig] = useState<any>({});
+  const [workspaceModel, setWorkspaceModel] = useState('');
+  const [workspaceDirectives, setWorkspaceDirectives] = useState('');
 
   const [smtpServer, setSmtpServer] = useState(() => localStorage.getItem('SMTP_SERVER') || 'smtp.gmail.com');
   const [smtpPort, setSmtpPort]     = useState(() => parseInt(localStorage.getItem('SMTP_PORT') || '587'));
@@ -238,11 +241,22 @@ export default function Settings() {
     await saveMcpConfig(updated);
   };
 
-  // Query startup status on mount
+  // Query startup status and workspace config on mount
   useEffect(() => {
     fetch('http://localhost:4132/api/system/startup')
       .then(r => r.json())
       .then(data => { if (typeof data.enabled === 'boolean') setStartupEnabled(data.enabled); })
+      .catch(() => {});
+      
+    fetch('http://localhost:4132/api/workspace/config')
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'success' && data.config) {
+          setWorkspaceConfig(data.config);
+          setWorkspaceModel(data.config.brain_model || '');
+          setWorkspaceDirectives(data.config.custom_directives || '');
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -429,6 +443,19 @@ export default function Settings() {
         }),
       });
       if (res.ok) {
+        try {
+          await fetch('http://localhost:4132/api/workspace/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              config: {
+                ...workspaceConfig,
+                brain_model: workspaceModel || undefined,
+                custom_directives: workspaceDirectives || undefined
+              }
+            })
+          });
+        } catch { /* noop */ }
         setModelName(brainModel);
         setSaveStatus('saved');
       } else {
@@ -558,6 +585,39 @@ export default function Settings() {
                     <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                   )}
                 </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Workspace Configuration override (.meridian.json) */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Workspace Override Configuration (.meridian.json)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Workspace Brain Model Override
+                </label>
+                <input
+                  type="text"
+                  value={workspaceModel}
+                  onChange={e => setWorkspaceModel(e.target.value)}
+                  placeholder="e.g. qwen2.5-coder:7b (empty to use global default)"
+                  className="input-base"
+                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Workspace Custom Directives
+                </label>
+                <textarea
+                  value={workspaceDirectives}
+                  onChange={e => setWorkspaceDirectives(e.target.value)}
+                  placeholder="Enter system prompt instructions, custom agent constraints or rules specific to this workspace..."
+                  className="input-base"
+                  rows={4}
+                  style={{ resize: 'vertical', minHeight: 80 }}
+                />
               </div>
             </div>
           </GlowCard>

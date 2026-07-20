@@ -3,7 +3,22 @@ import sys
 import logging
 from logging.handlers import RotatingFileHandler
 
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_entry = {
+            "timestamp": self.formatTime(record, self.datefmt),
+            "level": record.levelname,
+            "name": record.name,
+            "filename": record.filename,
+            "lineno": record.lineno,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            log_entry["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_entry)
+
 def setup_logger():
+    import json
     # Retrieve logging level from environment
     log_level_str = os.environ.get("MERIDIAN_LOG_LEVEL", "INFO").upper()
     log_level = getattr(logging, log_level_str, logging.INFO)
@@ -29,10 +44,14 @@ def setup_logger():
     # Prevent duplicate handlers if re-initialized
     has_file_handler = any(isinstance(h, RotatingFileHandler) for h in root_logger.handlers)
     if not has_file_handler:
-        formatter = logging.Formatter(
-            '[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
+        # Check if structured JSON formatting is requested
+        if os.environ.get("MERIDIAN_LOG_JSON", "false").lower() == "true":
+            formatter = JSONFormatter(datefmt='%Y-%m-%d %H:%M:%S')
+        else:
+            formatter = logging.Formatter(
+                '[%(asctime)s] %(levelname)s [%(name)s:%(lineno)d] %(message)s',
+                datefmt='%Y-%m-%d %H:%M:%S'
+            )
         
         # Rotating File Handler (Max 10MB, keep 5 backups)
         file_handler = RotatingFileHandler(

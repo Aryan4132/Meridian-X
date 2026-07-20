@@ -55,8 +55,13 @@ export default function SwarmDebate() {
           addLine(line, type);
         });
         if (decision) addLine(`Decision: ${decision}`, 'consensus');
+        
+        setDebating(false);
+        clearInterval(elapsedRef.current);
       } else {
         addLine('Debate processing failed.', 'error');
+        setDebating(false);
+        clearInterval(elapsedRef.current);
       }
     } catch {
       // Offline fallback mock
@@ -64,8 +69,6 @@ export default function SwarmDebate() {
       setTimeout(() => addLine('Salt parameters verified. No credential leak detected.', 'auditor'), 800);
       setTimeout(() => addLine('Code parsed cleanly. Exit code 0.', 'qa'), 1200);
       setTimeout(() => addLine('Approved. Proceed with AES-256-GCM implementation.', 'consensus'), 1700);
-    } finally {
-      // Wait long enough for all setTimeout mock lines to be added before clearing state
       setTimeout(() => {
         setDebating(false);
         clearInterval(elapsedRef.current);

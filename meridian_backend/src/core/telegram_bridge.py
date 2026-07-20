@@ -2,11 +2,129 @@ import os
 import time
 import threading
 import httpx
-from typing import Optional
+from typing import Optional, Dict
 
 TELEGRAM_ACTIVE = False
 _thread = None
 
+# ---------------------------------------------------------------------------
+# Per-user token bucket rate limiter: max 5 messages per 60 seconds per user
+# ---------------------------------------------------------------------------
+_rate_lock = threading.Lock()
+_rate_buckets: Dict[int, Dict] = {}  # {chat_id: {tokens, last_refill}}
+_RATE_LIMIT = 5        # max messages per window
+_RATE_WINDOW = 60.0    # seconds
+
+
+def _is_rate_limited(chat_id: int) -> bool:
+    """Return True if chat_id has exceeded the rate limit."""
+    with _rate_lock:
+        now = time.time()
+        bucket = _rate_buckets.get(chat_id)
+        if bucket is None:
+            _rate_buckets[chat_id] = {"tokens": _RATE_LIMIT - 1, "last_refill": now}
+            return False
+        # Refill tokens if window elapsed
+        elapsed = now - bucket["last_refill"]
+        if elapsed >= _RATE_WINDOW:
+            bucket["tokens"] = _RATE_LIMIT - 1
+            bucket["last_refill"] = now
+            return False
+        if bucket["tokens"] > 0:
+            bucket["tokens"] -= 1
+            return False
+        return True
+
+
+# ---------------------------------------------------------------------------
+# Message chunker: Telegram's max message length is 4096 chars
+# ---------------------------------------------------------------------------
+_TG_MAX_LEN = 4096
+
+
+def _send_telegram_message(client: httpx.Client, token: str, chat_id: int, text: str) -> None:
+    """Send text to Telegram, splitting into chunks if > 4096 chars."""
+    if not text:
+        return
+    # Chunk on paragraph boundary when possible
+    chunks = []
+    while len(text) > _TG_MAX_LEN:
+        split_at = text.rfind("\n\n", 0, _TG_MAX_LEN)
+        if split_at == -1:
+            split_at = text.rfind("\n", 0, _TG_MAX_LEN)
+        if split_at == -1:
+            split_at = _TG_MAX_LEN
+        chunks.append(text[:split_at].strip())
+        text = text[split_at:].strip()
+    if text:
+        chunks.append(text)
+
+    for i, chunk in enumerate(chunks):
+        suffix = f"\n_(Part {i+1}/{len(chunks)})_" if len(chunks) > 1 else ""
+        try:
+            client.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": chunk + suffix, "parse_mode": "Markdown"},
+            )
+        except Exception:
+            # Fall back without Markdown parsing if it fails
+            try:
+                client.post(
+                    f"https://api.telegram.org/bot{token}/sendMessage",
+                    json={"chat_id": chat_id, "text": chunk + suffix},
+                )
+            except Exception:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Bot command handlers
+# ---------------------------------------------------------------------------
+def _handle_slash_command(client: httpx.Client, token: str, chat_id: int, command: str) -> bool:
+    """Handle /status, /cancel, /help bot commands. Returns True if handled."""
+    cmd = command.strip().lower().split()[0] if command.strip() else ""
+    if cmd == "/help":
+        help_text = (
+            "🤖 *Meridian-X Bot Commands*\n\n"
+            "/help — Show this help message\n"
+            "/status — Check Meridian-X backend health\n"
+            "/cancel — Interrupt the current agent loop\n\n"
+            "_Send any other message to invoke the agent._"
+        )
+        _send_telegram_message(client, token, chat_id, help_text)
+        return True
+    elif cmd == "/status":
+        try:
+            res = httpx.get("http://localhost:4132/api/health", timeout=5.0)
+            if res.status_code == 200:
+                data = res.json()
+                status_text = (
+                    f"✅ *Meridian-X Status*\n"
+                    f"• Backend: {data.get('status', 'unknown')}\n"
+                    f"• SQLite: {data.get('sqlite', 'unknown')}\n"
+                    f"• MongoDB: {data.get('mongodb', 'unknown')}\n"
+                    f"• Ollama: {data.get('ollama', 'unknown')}"
+                )
+            else:
+                status_text = f"⚠️ Backend returned HTTP {res.status_code}."
+        except Exception as e:
+            status_text = f"❌ Backend unreachable: {e}"
+        _send_telegram_message(client, token, chat_id, status_text)
+        return True
+    elif cmd == "/cancel":
+        try:
+            from src.core.loop import interrupt_agent_loop
+            interrupt_agent_loop()
+            _send_telegram_message(client, token, chat_id, "⛔ Agent loop interrupted.")
+        except Exception as e:
+            _send_telegram_message(client, token, chat_id, f"⚠️ Could not interrupt: {e}")
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Bridge lifecycle
+# ---------------------------------------------------------------------------
 def start_telegram_bridge():
     global TELEGRAM_ACTIVE, _thread
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -71,11 +189,22 @@ def _poll_loop():
                 # Security Check
                 if auth_chat_id and chat_id != auth_chat_id:
                     print(f"[Telegram Bridge] Blocked unauthorized access from Chat ID: {chat_id}")
-                    # Send warning back to unauthorized user
                     try:
                         client.post(
                             f"https://api.telegram.org/bot{token}/sendMessage",
                             json={"chat_id": chat_id, "text": "⚠️ Access Denied: You are not authorized to control this Meridian-X instance."}
+                        )
+                    except Exception:
+                        pass
+                    continue
+
+                # Rate Limit Check
+                if _is_rate_limited(chat_id):
+                    print(f"[Telegram Bridge] Rate limit hit for chat_id {chat_id}. Dropping message.")
+                    try:
+                        client.post(
+                            f"https://api.telegram.org/bot{token}/sendMessage",
+                            json={"chat_id": chat_id, "text": "⏳ Rate limit reached. Please wait a moment before sending more messages."}
                         )
                     except Exception:
                         pass
@@ -120,6 +249,10 @@ def _poll_loop():
                             except Exception:
                                 pass
                 elif text_content:
+                    # Handle bot slash commands before routing to agent
+                    if text_content.strip().startswith("/"):
+                        if _handle_slash_command(client, token, chat_id, text_content.strip()):
+                            continue
                     prompt_text = text_content
                     print(f"[Telegram Bridge] Received message: '{prompt_text}'")
                     
@@ -142,8 +275,6 @@ def _poll_loop():
                     ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
                     
                     # BUG-56 fix: use isolated new_event_loop without asyncio.set_event_loop().
-                    # Per-message event loops with set_event_loop in non-main threads is
-                    # deprecated in Python 3.10+ and can cause resource leaks.
                     loop = asyncio.new_event_loop()
                     reply_parts = []
                     
@@ -165,11 +296,8 @@ def _poll_loop():
                     add_to_conversations("user", prompt_text)
                     add_to_conversations("assistant", reply_text)
                     
-                    # 1. Send Text Reply
-                    client.post(
-                        f"https://api.telegram.org/bot{token}/sendMessage",
-                        json={"chat_id": chat_id, "text": reply_text}
-                    )
+                    # 1. Send Text Reply (chunked if > 4096 chars)
+                    _send_telegram_message(client, token, chat_id, reply_text)
                     
                     # 2. Synthesize TTS and send as Voice if original input was a voice note
                     if voice:

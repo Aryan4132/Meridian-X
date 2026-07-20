@@ -1,6 +1,7 @@
 import os
 import asyncio
 import threading
+import time
 import discord
 from discord.ext import commands
 
@@ -8,6 +9,29 @@ DISCORD_ACTIVE = False
 _bot = None
 _thread = None
 _loop = None
+
+# Discord rate limiter configuration
+_discord_rate_lock = threading.Lock()
+_discord_rate_buckets = {}
+_DISCORD_RATE_LIMIT = 5
+_DISCORD_RATE_WINDOW = 60.0
+
+def _is_rate_limited_discord(user_id: int) -> bool:
+    with _discord_rate_lock:
+        now = time.time()
+        bucket = _discord_rate_buckets.get(user_id)
+        if bucket is None:
+            _discord_rate_buckets[user_id] = {"tokens": _DISCORD_RATE_LIMIT - 1, "last_refill": now}
+            return False
+        elapsed = now - bucket["last_refill"]
+        if elapsed >= _DISCORD_RATE_WINDOW:
+            bucket["tokens"] = _DISCORD_RATE_LIMIT - 1
+            bucket["last_refill"] = now
+            return False
+        if bucket["tokens"] > 0:
+            bucket["tokens"] -= 1
+            return False
+        return True
 
 def start_discord_bridge():
     global DISCORD_ACTIVE, _thread
@@ -48,8 +72,6 @@ def _run_bot(token):
     global _bot, _loop
     _loop = asyncio.new_event_loop()
     # N-1 fix: do NOT call asyncio.set_event_loop(_loop) in a non-main thread.
-    # Setting the thread-local event loop is deprecated in Python 3.10+ and unnecessary
-    # here because the bot runs directly inside _loop.run_until_complete() below.
 
     intents = discord.Intents.default()
     intents.message_content = True
@@ -75,12 +97,64 @@ def _run_bot(token):
 
             print(f"[Discord Bridge] Received command from {message.author}: '{prompt_text}'")
 
+            # Check rate limiting
+            if _is_rate_limited_discord(message.author.id):
+                print(f"[Discord Bridge] Rate limit hit for user {message.author.id}. Dropping message.")
+                try:
+                    await message.reply("⏳ Rate limit reached. Please wait a moment before sending more commands.")
+                except Exception:
+                    pass
+                return
+
+            # Check for bot commands
+            cmd = prompt_text.strip().lower()
+            if cmd in ["/help", "!help", "help"]:
+                help_text = (
+                    "🤖 **Meridian-X Discord Bridge**\n\n"
+                    "• `/help` or `!help` — Show this help message\n"
+                    "• `/status` or `!status` — Check Meridian-X backend health\n"
+                    "• `/cancel` or `!cancel` — Interrupt the active agent loop\n\n"
+                    "_Or just mention me with a goal to run the agent._"
+                )
+                try:
+                    await message.reply(help_text)
+                except Exception:
+                    pass
+                return
+            elif cmd in ["/status", "!status", "status"]:
+                import httpx
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        res = await client.get("http://localhost:4132/api/health")
+                        if res.status_code == 200:
+                            data = res.json()
+                            status_text = (
+                                f"✅ **Meridian-X Status**\n"
+                                f"• Backend: {data.get('status', 'unknown')}\n"
+                                f"• SQLite: {data.get('sqlite', 'unknown')}\n"
+                                f"• MongoDB: {data.get('mongodb', 'unknown')}\n"
+                                f"• Ollama: {data.get('ollama', 'unknown')}"
+                            )
+                        else:
+                            status_text = f"⚠️ Backend returned HTTP {res.status_code}."
+                except Exception as e:
+                    status_text = f"❌ Backend unreachable: {e}"
+                try:
+                    await message.reply(status_text)
+                except Exception:
+                    pass
+                return
+            elif cmd in ["/cancel", "!cancel", "cancel"]:
+                try:
+                    from src.core.loop import interrupt_agent_loop
+                    interrupt_agent_loop()
+                    await message.reply("⛔ Agent loop interrupted.")
+                except Exception as e:
+                    await message.reply(f"⚠️ Could not interrupt: {e}")
+                return
+
             async with message.channel.typing():
                 try:
-                    # BUG-1 fix: use run_react_agent_loop directly as an async generator.
-                    # This avoids the circular import (api imports discord_bridge at startup,
-                    # so discord_bridge cannot import api). It also avoids blocking the bot's
-                    # event loop with a synchronous LLM call.
                     from src.core.loop import run_react_agent_loop
                     model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
                     ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")

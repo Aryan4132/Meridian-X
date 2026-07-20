@@ -200,3 +200,22 @@ def search_news(query: str) -> str:
     return "News search returned no results (DuckDuckGo yielded nothing and Tavily is unconfigured or failed)."
 
 
+def ingest_url(url: str) -> str:
+    """Fetches a webpage, cleans its HTML content, and indexes it into the Turbovec knowledge base."""
+    from database import ingest_into_knowledge_base
+    import time
+    try:
+        html = fetch_page(url)
+        if not html or html.strip().startswith("Error"):
+            return f"Failed to fetch page: {html}"
+        text = parse_page(html)
+        if not text.strip():
+            return "Parsed page contains no readable text content."
+            
+        ingest_into_knowledge_base(url, text, {"url": url, "timestamp": time.time()})
+        return f"Successfully ingested and indexed content from {url} into RAG knowledge base."
+    except Exception as e:
+        return f"Error ingesting URL {url}: {e}"
+
+
+

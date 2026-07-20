@@ -91,7 +91,7 @@ Knowledge Graph Facts:
 """
 
 def classify_mode(prompt: str) -> str:
-    """Classify prompt into a cognitive mode based on keyword detection."""
+    """Classify prompt into a cognitive mode based on keyword detection with LLM fallback."""
     p = prompt.lower()
 
     # Engineer triggers
@@ -127,6 +127,42 @@ def classify_mode(prompt: str) -> str:
         "look up", "wikipedia", "explain what", "what is", "who is", "tell me about"
     ]):
         return "RESEARCHER"
+
+    # LLM Fallback for ambiguous/mixed prompts
+    try:
+        import os
+        import ollama
+        from src.core.llm_provider import get_ollama_host
+        host = get_ollama_host()
+        client = ollama.Client(host=host)
+        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+        
+        system_instructions = (
+            "You are a cognitive mode classifier. Classify the user prompt into exactly ONE of the following modes:\n"
+            "ENGINEER (for writing, fixing, refactoring, building, compiling, or updating code)\n"
+            "REVIEWER (for code reviews, audits, linting, security audits, diffs)\n"
+            "ANALYST (for checking system metrics, CPU/RAM, logs, databases, performance, process monitoring)\n"
+            "OPERATOR (for GUI automation, mouse clicks, screenshots, keyboard typing, macros)\n"
+            "RESEARCHER (for web search, lookup, general knowledge/explaining questions)\n"
+            "AUTO (if it is mixed or does not fit any category clearly)\n\n"
+            "Output ONLY the uppercase mode word and nothing else."
+        )
+        
+        res = client.generate(
+            model=model,
+            prompt=f"Prompt: {prompt}\nMode:",
+            system=system_instructions,
+            options={"temperature": 0.0, "num_predict": 10}
+        )
+        decision = (res.response if hasattr(res, "response") else res.get("response", "")).strip().upper()
+        
+        # Parse decision
+        for mode in ["ENGINEER", "REVIEWER", "ANALYST", "OPERATOR", "RESEARCHER", "AUTO"]:
+            if mode in decision:
+                print(f"[Mode Classifier] LLM resolved ambiguous prompt to: {mode}")
+                return mode
+    except Exception as e:
+        print(f"[Mode Classifier] LLM classification fallback failed: {e}")
 
     return "AUTO"
 

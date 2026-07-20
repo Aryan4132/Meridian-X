@@ -177,3 +177,65 @@ def shell_history(n: int = 10) -> str:
         return "\n".join(lines)
     except Exception as e:
         return f"Error reading history: {e}"
+
+
+def monitor_process(command: str, duration_seconds: float = 5.0) -> str:
+    """Executes a command and monitors its stdout/stderr in real-time for a specific duration, returning the output."""
+    import subprocess
+    import time
+    
+    print(f"[Process Monitor] Running command: {command} for {duration_seconds}s...")
+    try:
+        proc = subprocess.Popen(
+            ["powershell", "-Command", command],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            shell=True
+        )
+        
+        start_time = time.time()
+        stdout_lines = []
+        stderr_lines = []
+        
+        while time.time() - start_time < duration_seconds:
+            ret = proc.poll()
+            try:
+                stdout, stderr = proc.communicate(timeout=0.5)
+                if stdout:
+                    stdout_lines.append(stdout)
+                if stderr:
+                    stderr_lines.append(stderr)
+            except subprocess.TimeoutExpired:
+                pass
+            
+            if ret is not None:
+                break
+                
+        if proc.poll() is None:
+            print(f"[Process Monitor] Process still active after {duration_seconds}s. Terminating.")
+            proc.terminate()
+            try:
+                proc.wait(timeout=1.0)
+            except Exception:
+                proc.kill()
+                
+        stdout, stderr = proc.communicate()
+        if stdout:
+            stdout_lines.append(stdout)
+        if stderr:
+            stderr_lines.append(stderr)
+            
+        full_out = "".join(stdout_lines).strip()
+        full_err = "".join(stderr_lines).strip()
+        
+        report = [f"--- Process Monitor Report for: '{command}' ---"]
+        report.append(f"Exit Code: {proc.returncode if proc.returncode is not None else 'Killed/Timed Out'}")
+        if full_out:
+            report.append(f"\n[STDOUT]\n{full_out}")
+        if full_err:
+            report.append(f"\n[STDERR]\n{full_err}")
+        return "\n".join(report)
+    except Exception as e:
+        return f"Process monitoring failed: {e}"
+

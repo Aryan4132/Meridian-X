@@ -968,6 +968,40 @@ async def run_self_question_check(goal: str, history: List[Dict[str, str]], clie
     except Exception:
         return True, ""
 
+def route_model_by_complexity(prompt: str, brain_model: str) -> str:
+    """Assess task complexity and route to a lightweight model for simple requests, or standard brain model for complex reasoning."""
+    p = prompt.lower()
+    
+    # Complex task indicators: code refactoring, full application building, advanced debugging, data exports
+    complex_keywords = [
+        "refactor", "architect", "design a", "write a full", "complex", "optimize", 
+        "security audit", "vulnerability", "performance analysis", "benchmark"
+    ]
+    if any(k in p for k in complex_keywords) or len(p) > 300:
+        print(f"[Model Router] Complex task detected. Routing to brain model: '{brain_model}'")
+        return brain_model
+        
+    # Simple task indicators: simple lookups, system metrics check, basic file writes
+    simple_keywords = [
+        "what is", "current time", "date", "cpu", "ram", "disk", "battery", 
+        "temperature", "process", "kill", "ping", "say", "hello", "hi", "clear"
+    ]
+    if any(k in p for k in simple_keywords):
+        # Retrieve fast model from SQLite settings (e.g. meridian_auditor_model) or env
+        try:
+            from database import get_user_profile
+            sqlite_model = get_user_profile("meridian_auditor_model")
+            if sqlite_model:
+                print(f"[Model Router] Simple task detected. Routing to fast model: '{sqlite_model}'")
+                return str(sqlite_model)
+        except Exception:
+            pass
+        fallback_fast = os.environ.get("MERIDIAN_FAST_MODEL", "qwen2.5-coder:1.5b-instruct-q8_0")
+        print(f"[Model Router] Simple task detected. Routing to fast fallback model: '{fallback_fast}'")
+        return fallback_fast
+        
+    return brain_model
+
 async def run_react_agent_loop(
     prompt: str,
     brain_model: str,
@@ -1118,11 +1152,12 @@ async def run_react_agent_loop(
     max_turns = 10
     turn = 0
     final_text = ""
-    active_model = brain_model
+    active_model = route_model_by_complexity(prompt, brain_model)
     
     # Repetition detector tracking variables
     last_tool_call = None
     consecutive_repeat_count = 0
+    tool_retry_counts = {}  # Per-tool retry counter
     
     # Session-scoped manifest to track temporary screenshots for automated cleanup
     created_temp_files = []
@@ -1136,8 +1171,18 @@ async def run_react_agent_loop(
                 return
             turn += 1
             
-            # Prune and compress history if too long (local only — cloud APIs have large context windows)
-            if model_source == "local":
+            # Token budget estimation (char heuristic, warn at 80% context window of 8192 tokens)
+            total_chars = sum(len(m["content"]) for m in history)
+            estimated_tokens = int(total_chars / 4)
+            if estimated_tokens > 6553:
+                yield sse_event("thought", json.dumps({
+                    "id": f"token-budget-{turn}-{time.time()}",
+                    "type": "warning",
+                    "text": f"⚠️ Context window budget warning: Estimated token count ({estimated_tokens}) is at {estimated_tokens / 8192:.1%} of context limit. Compressing history.",
+                    "status": "completed"
+                }))
+                history = await prune_and_compress_history(history, client)
+            elif model_source == "local":
                 history = await prune_and_compress_history(history, client)
 
             # 2. Self-Questioning Check (Upgrade 11)
@@ -1571,6 +1616,20 @@ async def run_react_agent_loop(
                                 if c_name == name:
                                     failed_args = c_args
                                     break
+                            # Increment per-tool retry counter
+                            r_count = tool_retry_counts.get(name, 0) + 1
+                            tool_retry_counts[name] = r_count
+                            if r_count >= 3:
+                                yield sse_event("thought", json.dumps({
+                                    "id": f"retry-warn-{time.time()}-{name}",
+                                    "type": "warning",
+                                    "text": f"⚠️ Tool '{name}' has failed {r_count} times. Injecting recovery system guidelines.",
+                                    "status": "completed"
+                                }))
+                                history.append({
+                                    "role": "user",
+                                    "content": f"[SYSTEM ALERT]: Tool '{name}' has failed {r_count} times in this session. Do NOT attempt to run it again. Try alternative methods."
+                                })
                         yield sse_event("thought", json.dumps({
                             "id": f"spec-complete-{time.time()}-{name}",
                             "type": "status",
@@ -1766,6 +1825,22 @@ async def run_react_agent_loop(
                         failed_tool = tool_name
                         failed_args = args
                         observations.append(f"<observation:{tool_name}>Error: {err_txt}</observation:{tool_name}>")
+                        
+                        # Increment per-tool retry counter
+                        r_count = tool_retry_counts.get(tool_name, 0) + 1
+                        tool_retry_counts[tool_name] = r_count
+                        if r_count >= 3:
+                            yield sse_event("thought", json.dumps({
+                                "id": f"retry-warn-{time.time()}-{tool_name}",
+                                "type": "warning",
+                                "text": f"⚠️ Tool '{tool_name}' has failed {r_count} times. Injecting recovery system guidelines.",
+                                "status": "completed"
+                            }))
+                            history.append({
+                                "role": "user",
+                                "content": f"[SYSTEM ALERT]: Tool '{tool_name}' has failed {r_count} times in this session. Do NOT attempt to run it again. Try alternative methods."
+                            })
+                            
                         yield sse_event("thought", json.dumps({
                             "id": tool_run_id,
                             "type": "warning",

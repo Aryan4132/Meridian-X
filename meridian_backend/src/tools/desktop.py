@@ -216,3 +216,15 @@ def gui_click_badge(badge_id: str) -> str:
     x, y = coords["x"], coords["y"]
     return gui_click(x, y)
 
+
+def screenshot_to_code(image_path: str, tech_stack: str = "html/css/vanilla js") -> str:
+    """Analyze a screenshot of a UI design and generate clean, responsive frontend code (HTML/CSS/JS) to match it."""
+    prompt = (
+        f"Analyze this UI screenshot and write a single, complete, fully-functional, responsive file containing all code "
+        f"(HTML, CSS in a <style> block, and JS in a <script> block) to clone it using the '{tech_stack}' stack.\n"
+        f"Ensure there are no external dependencies, use beautiful modern colors/layout/typography, and output ONLY the raw code. "
+        f"Do not include explanations or markdown code fences."
+    )
+    return vision_analyze(image_path, prompt)
+
+

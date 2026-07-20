@@ -49,10 +49,17 @@ def main():
     # Add wake word ONNX/TFLite model files as packaged data in the root of the api folder
     # Use cross-platform path separator
     sep = os.pathsep
+    import glob
+    model_files = glob.glob(os.path.join(root_dir, "*.onnx")) + glob.glob(os.path.join(root_dir, "*.tflite"))
+    add_data_args = []
+    for f in model_files:
+        filename = os.path.basename(f)
+        add_data_args.append(f'--add-data "../{filename}{sep}."')
+    
+    add_data_str = " ".join(add_data_args)
     pyinstaller_cmd = (
         f'"{pyinstaller_exe}" --name api --onedir --clean --noconfirm '
-        f'--add-data "../hey_meridian.onnx{sep}." '
-        f'--add-data "../hey_meridian.tflite{sep}." '
+        f'{add_data_str} '
         f'api.py'
     )
     run_cmd(pyinstaller_cmd, cwd=backend_dir)

@@ -213,6 +213,7 @@ graph TD
   - Imports: `time`
   - Imports: `uvicorn`
 - **meridian_backend/api.py**
+  - Imports: `_thread`
   - Imports: `ast`
   - Imports: `base64`
   - Imports: `contextlib`
@@ -229,7 +230,6 @@ graph TD
   - Imports: `random`
   - Imports: `re`
   - Imports: `shutil`
-  - Imports: `signal`
   - Imports: `src`
   - Imports: `subprocess`
   - Imports: `sys`
