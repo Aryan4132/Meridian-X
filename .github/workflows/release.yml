@@ -41,7 +41,7 @@ jobs:
         cd meridian_backend
         python -m venv venv
         ./venv/Scripts/pip.exe install --upgrade pip
-        ./venv/Scripts/pip.exe install -r requirements.txt
+        ./venv/Scripts/pip.exe install -r requirements.txt > pip_install.log 2>&1 || { cat pip_install.log; exit 1; }
         ./venv/Scripts/pip.exe install pyinstaller
       shell: bash
 
