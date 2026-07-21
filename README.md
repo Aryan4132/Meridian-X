@@ -186,13 +186,19 @@ powershell -ExecutionPolicy Bypass -Command "git clone https://github.com/Aryan4
 
 ### Option A — Pre-compiled Installers *(Recommended)*
 
-#### ⚡ One-Line App Installer (PowerShell)
+#### ⚡ One-Line App Installer
 
-To automatically download and launch the latest Windows setup installer directly from GitHub Releases, run this command in PowerShell:
+Run one of the following commands in your terminal to automatically download and launch the latest Windows setup installer:
 
-```powershell
-powershell -ExecutionPolicy Bypass -Command "$a = (irm 'https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest').assets | ? name -like *setup.exe | select -first 1; iwr $a.browser_download_url -OutFile $env:TEMP\m.exe; Start $env:TEMP\m.exe"
-```
+*   **PowerShell**:
+    ```powershell
+    powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.ps1 | iex"
+    ```
+
+*   **Command Prompt (CMD)**:
+    ```cmd
+    curl -sLO https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.bat && install.bat
+    ```
 
 #### Manual Download & Run
 
