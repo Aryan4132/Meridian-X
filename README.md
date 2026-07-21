@@ -165,7 +165,8 @@ graph TD
 | OS | Status |
 |:---|:---|
 | **Windows 11** (64-bit AMD64) | ✅ Fully Supported |
-| **Linux / macOS** | ⚠️ Core sidecar compiles, but desktop shell is optimized for Windows |
+| **macOS** | ⚠️ Under Active Development (Core sidecar compiles; desktop shell integration is work-in-progress) |
+| **Linux** | ⚠️ Under Active Development (Core sidecar compiles; desktop shell integration is work-in-progress) |
 
 ---
 
