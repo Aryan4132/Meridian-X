@@ -50,16 +50,50 @@ jobs:
         python build_standalone.py --sidecar-only
       shell: bash
 
-    # --- Build Tauri App and Publish to Draft GitHub Release ---
-    - name: Build & Publish Tauri Desktop Installer
-      uses: tauri-apps/tauri-action@v0
+    # --- Build Tauri App ---
+    - name: Build Tauri Desktop Installer
+      run: |
+        cd meridian_frontend
+        npm run tauri build
+      shell: bash
+
+    # --- Create GitHub Release and Upload Artifacts ---
+    - name: Create Draft Release & Upload Installers
+      shell: pwsh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tagName: ${{ github.ref_name }}
-        tagMessage: "Meridian-X Desktop Windows Release ${{ github.ref_name }}"
-        releaseName: "Meridian-X Windows Release ${{ github.ref_name }}"
-        releaseBody: "Automated Windows compilation bundle for version ${{ github.ref_name }}. Includes precompiled binaries for Windows (.msi, .exe)."
-        releaseDraft: true
-        prerelease: false
-        projectPath: './meridian_frontend'
+      run: |
+        $tag = "${{ github.ref_name }}"
+        $releaseBody = "Automated Windows compilation bundle for version $tag. Includes precompiled binaries for Windows (.msi, .exe)."
+
+        # Create a draft release via the GitHub API
+        $releasePayload = @{
+          tag_name = $tag
+          name = "Meridian-X Windows Release $tag"
+          body = $releaseBody
+          draft = $true
+          prerelease = $false
+        } | ConvertTo-Json
+
+        $release = Invoke-RestMethod `
+          -Uri "https://api.github.com/repos/${{ github.repository }}/releases" `
+          -Method POST `
+          -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "Content-Type" = "application/json" } `
+          -Body $releasePayload
+
+        $uploadUrl = $release.upload_url -replace '\{\?name,label\}', ''
+
+        # Find and upload all installer assets
+        $bundlePath = "meridian_frontend/src-tauri/target/release/bundle"
+        $files = Get-ChildItem -Recurse $bundlePath -Include "*.exe","*.msi" | Where-Object { $_.Name -notmatch "\.exe$" -or $_.Name -match "setup" }
+
+        foreach ($file in $files) {
+          Write-Host "Uploading $($file.Name)..."
+          Invoke-RestMethod `
+            -Uri "${uploadUrl}?name=$($file.Name)" `
+            -Method POST `
+            -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "Content-Type" = "application/octet-stream" } `
+            -InFile $file.FullName
+        }
+
+        Write-Host "Draft release created: $($release.html_url)"
