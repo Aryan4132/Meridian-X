@@ -13,7 +13,7 @@
 
 **Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **local LLMs via Ollama**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships a live mascot companion that reacts to your cognitive context — all without sending a single byte to the cloud by default.
 
-[⬇ Download Installer](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
+[⬇ Download Installer](https://github.com/Aryan4132/Meridian-X/tree/main/executables) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
 
 </div>
 
@@ -188,16 +188,16 @@ powershell -ExecutionPolicy Bypass -Command "git clone https://github.com/Aryan4
 
 #### ⚡ One-Line App Installer (PowerShell)
 
-To automatically download, extract, and launch the latest Windows installer executable directly from GitHub Releases, run this command in PowerShell:
+To automatically download and launch the Windows setup installer directly from the `executables` folder in the repository, run this command in PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "$r = Invoke-RestMethod 'https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest'; $a = $r.assets | Where { $_.name -like '*setup.exe' -or $_.name -like '*.msi' } | Select -First 1; $p = Join-Path $env:TEMP $a.name; Write-Host 'Downloading Meridian-X...'; Invoke-WebRequest $a.browser_download_url -OutFile $p; Start-Process $p -Wait"
+powershell -ExecutionPolicy Bypass -Command "$url = 'https://github.com/Aryan4132/Meridian-X/raw/main/executables/meridian-x_0.2.0_x64-setup.exe'; $p = Join-Path $env:TEMP 'meridian-x_0.2.0_x64-setup.exe'; Write-Host 'Downloading Meridian-X...'; Invoke-WebRequest -Uri $url -OutFile $p; Start-Process $p -Wait"
 ```
 
 #### Manual Download & Run
 
-1. **Download** the compiled installer from GitHub Releases:
-   [📦 Download Meridian-X Installers (GitHub Releases)](https://github.com/Aryan4132/Meridian-X/releases)
+1. **Download** the compiled installer from the `executables` directory:
+   [📦 Download Meridian-X Installers (GitHub Directory)](https://github.com/Aryan4132/Meridian-X/tree/main/executables)
 
 2. **Run** your preferred installer from the `executables/` directory:
    - **NSIS Setup EXE** — `meridian-x_0.2.0_x64-setup.exe` — wizard-based setup
