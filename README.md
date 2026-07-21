@@ -168,6 +168,16 @@ graph TD
 
 ## 🛠️ Getting Started & Installation
 
+### ⚡ Quick Developer Installer (One-Line Setup)
+
+For a fully automated developer installation on Windows (which installs Python packages, sets up `.env`, compiles front-end modules, and pulls Ollama models), open PowerShell and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "git clone https://github.com/Aryan4132/Meridian-X.git; cd Meridian-X; .\setup.ps1"
+```
+
+---
+
 ### Option A — Pre-compiled Installers *(Recommended)*
 
 1. **Download** from the release folder:
@@ -375,6 +385,19 @@ Switch to a smaller quantized model in **Settings** or `.env`:
 - [ ] **Enhanced GUI Automation** — deeper Accessibility API integration
 - [ ] **Dynamic Plugin Market** — hot-load third-party toolsets at runtime
 - [ ] **Temporal Memory Graph** — time-aware knowledge graphs tracking project evolution
+
+---
+
+## 🎗️ Credits & Acknowledgements
+
+Special thanks to the open-source projects and libraries that make **Meridian-X** possible:
+
+- **[Turbovec](https://github.com/RyanCodrai/turbovec)** - An open-source, high-performance local vector database utilizing the TurboQuant quantization algorithm for data-oblivious vector quantization.
+- **[Supertonic](https://github.com/supertone-inc/supertonic)** - An ultra-fast, on-device local text-to-speech (TTS) engine built on ONNX Runtime.
+- **[Ollama](https://github.com/ollama/ollama)** - The framework driving offline local model deployments, embeddings, and reasoning.
+- **[Tauri](https://github.com/tauri-apps/tauri)** - The multi-window frontend desktop wrapper, keeping Meridian-X secure and lightweight.
+- **[Faster-Whisper](https://github.com/SYSTRAN/faster-whisper)** - Re-implemented Whisper model utilizing CTranslate2 for lightning-fast voice transcription.
+- **[FastAPI](https://github.com/fastapi/fastapi)** - The asynchronous Python backend powering our orchestration API, scheduler, and SSE-based telemetry stream.
 
 ---
 

@@ -75,6 +75,10 @@ powershell -Command "$retry = 0; while ($retry -lt 120) { try { $c = New-Object 
 
 echo Starting Tauri Desktop Shell...
 cd meridian_frontend
+if not exist node_modules (
+    echo [System] node_modules not found. Installing frontend dependencies...
+    call npm install
+)
 call npx tauri dev
 cd ..
 goto menu
