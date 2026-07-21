@@ -180,12 +180,22 @@ powershell -ExecutionPolicy Bypass -Command "git clone https://github.com/Aryan4
 
 ### Option A — Pre-compiled Installers *(Recommended)*
 
-1. **Download** from the release folder:
-   [📦 Download Meridian-X Installers](https://drive.google.com/drive/folders/1DWsJWrMqpqPnQLPXalazm60jVw1QsI65)
+#### ⚡ One-Line App Installer (PowerShell)
+
+To automatically download, extract, and launch the latest Windows installer executable directly from GitHub Releases, run this command in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "$r = Invoke-RestMethod 'https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest'; $a = $r.assets | Where { $_.name -like '*setup.exe' -or $_.name -like '*.msi' } | Select -First 1; $p = Join-Path $env:TEMP $a.name; Write-Host 'Downloading Meridian-X...'; Invoke-WebRequest $a.browser_download_url -OutFile $p; Start-Process $p -Wait"
+```
+
+#### Manual Download & Run
+
+1. **Download** the compiled installer from the release folder:
+   [📦 Download Meridian-X Installers (Google Drive)](https://drive.google.com/drive/folders/1DWsJWrMqpqPnQLPXalazm60jVw1QsI65)
 
 2. **Run** your preferred installer from the `executables/` directory:
-   - **NSIS Setup EXE** — `meridian-x_0.2.0_x64-setup.exe` — wizard-based installer
-   - **MSI Package** — `meridian-x_0.2.0_x64_en-US.msi` — recommended for enterprise
+   - **NSIS Setup EXE** — `meridian-x_0.2.0_x64-setup.exe` — wizard-based setup
+   - **MSI Package** — `meridian-x_0.2.0_x64_en-US.msi` — standard Windows installer package
 
 3. **Launch** via the **Meridian-X** desktop shortcut.
 
