@@ -159,7 +159,8 @@ graph TD
 > **CPU vs. GPU Inference:** CPU-only inference runs at ~2–5 tokens/sec. An NVIDIA GPU with CUDA acceleration targets 30–60 tokens/sec.
 
 > [!TIP]
-> **Hybrid Cloud Mode:** Provide API keys for **OpenAI**, **Gemini**, **DeepSeek**, or **Anthropic** to offload inference to the cloud. In this mode, only audio preprocessing, local DB lookups, and orchestration run on your machine — minimum hardware is sufficient.
+> **API Key Alternative (Low-Spec Hardware Support):**
+> If your system does not meet the local GPU or RAM requirements, you can configure cloud API keys (**Gemini, OpenAI, Anthropic, or DeepSeek**) in the settings panel or `.env` file to offload inference. In this Hybrid Cloud Mode, only light audio preprocessing, local DB indexing, and orchestration run on your machine, making even low-spec or CPU-only hardware completely sufficient.
 
 ### Supported OS
 
