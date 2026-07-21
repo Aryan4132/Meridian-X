@@ -40,14 +40,15 @@ Divides tool execution into two parallel pathways for maximum throughput while m
 | **Tier ≥ 1** (State-Modifying) | `write_file`, `run_python`, `gui_click` | Sequential — transaction integrity enforced |
 
 ### 🦊 3. Interactive Mascot Companion & Island Mode
-A dedicated visual companion window anchored to the **bottom-right corner** of your active display. It reflects the agent's cognitive state in real-time through contextual accessories:
+A dedicated visual companion window anchored to the **bottom-right corner** of your active display. It reflects the agent's cognitive state in real-time through color shifts, kinetic animations, and audio effects:
 
-| State | Trigger |
+| State / Indicator | Trigger & Behavior |
 |:---|:---|
-| 🕵️ **Detective Hat** | Security Auditor checks active |
-| 👷 **Construction Hat** | Codebase diagnostics / self-healing |
-| 🥱 **Tired** | Offline fallback or Pomodoro break |
-| ✍️ **Typing** | Real-time keystroke reaction |
+| 🟢 **Default / Idle** | Cyan glow, calm floating animation; waiting for input or commands. |
+| 🟡 **Diagnostic / Working** | Amber glow, spinning outer hexagon rings, pulsing core, and synth ticks; triggered during security audits, codebase diagnostics, self-healing, or tool execution. |
+| 🔴 **Disapproving** | Rose/Red glow, rapid horizontal vibration, and lower buzz tones; triggered when a security check fails, or when a tool encounters an execution error. |
+| 🟢 **Typing** | Emerald glow and kinetic typewriter vibration; real-time reaction to active keyboard inputs and keystroke processing. |
+| 🔵 **Tired / Sleeping** | Indigo glow, slow deep breathing, floating "z" particles, and soft low-frequency oscillator hums; active during Pomodoro breaks or long periods of inactivity. |
 
 Closing the main dashboard **does not shut down the app** — it seamlessly compresses into a floating Island Mode window.
 
@@ -295,6 +296,29 @@ Navigate to the **Settings** gear icon on first launch:
 3. **Model Selection** — choose **Brain**, **Vision**, and **Auditor** models. Toggle *"Show all models"* to use custom or experimental variants.
 4. **Email & DB** *(optional)* — configure SMTP/IMAP credentials and MongoDB URI.
 5. **Logging** — set log level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, or `CRITICAL`.
+
+### 🔑 API Keys & Integration Guide
+
+To unlock the full potential of Meridian-X, you can configure the following API keys and credentials in the **Settings** panel or directly in your `.env` file:
+
+#### 🧠 LLM Providers (Hybrid Cloud Mode)
+If your local hardware runs slowly on CPU-only inference, you can enter API keys for cloud providers to offload LLM tasks:
+*   **Gemini API Key** (`GEMINI_API_KEY`): Connects to Google's Gemini models (e.g., `gemini-2.5-flash`). Recommended for extremely fast and high-quality responses.
+*   **OpenAI API Key** (`OPENAI_API_KEY`): Connects to OpenAI models (e.g., `gpt-4o`, `gpt-4o-mini`).
+*   **Anthropic API Key** (`ANTHROPIC_API_KEY`): Connects to Claude models (e.g., `claude-3-5-sonnet`), excellent for complex coding and refactoring.
+*   **DeepSeek API Key** (`DEEPSEEK_API_KEY`): Connects to DeepSeek models (e.g., `deepseek-chat`, `deepseek-coder`).
+
+#### 🔍 Tools & Services
+*   **Tavily API Key** (`TAVILY_API_KEY`): Enables high-quality search engine queries, letting the agent search the web autonomously to fetch up-to-date documentation or real-time info.
+*   **Vault Key** (`MERIDIAN_VAULT_KEY`): A master passphrase used to encrypt and decrypt sensitive data stored in your local secure vault tool.
+
+#### 📧 Communication & Integrations
+*   **SMTP & IMAP Credentials** (`SMTP_EMAIL`, `SMTP_PASSWORD`): Allows the agent to log into your email account to read incoming mail, draft replies, or send notifications.
+*   **Discord Bot Token** (`DISCORD_BOT_TOKEN`): Connects the agent to a Discord bot, enabling you to message the agent and run commands from any Discord client.
+*   **Telegram Bot Token** (`TELEGRAM_BOT_TOKEN`): Connects the agent to a Telegram bot for remote mobile chat controls.
+
+#### 🗄️ Database Storage
+*   **MongoDB URI** (`MONGODB_URI`): Configures a local or remote MongoDB instance to store the agent's long-term factual memories in a structured Knowledge Graph. Core features will gracefully degrade to SQLite if this is omitted.
 
 ### Testing Voice Wake Word
 1. Enable the **Mascot Voice** toggle in Settings.
