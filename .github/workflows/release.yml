@@ -50,6 +50,11 @@ jobs:
         python build_standalone.py --sidecar-only
       shell: bash
 
+    # --- Install NSIS (required for Tauri nsis bundle target) ---
+    - name: Install NSIS
+      run: choco install nsis -y
+      shell: pwsh
+
     # --- Build Tauri App ---
     - name: Build Tauri Desktop Installer
       run: |
