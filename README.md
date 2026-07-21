@@ -13,7 +13,7 @@
 
 **Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **local LLMs via Ollama**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships a live mascot companion that reacts to your cognitive context — all without sending a single byte to the cloud by default.
 
-[⬇ Download Installer](https://drive.google.com/drive/folders/1DWsJWrMqpqPnQLPXalazm60jVw1QsI65) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
+[⬇ Download Installer](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
 
 </div>
 
@@ -190,8 +190,8 @@ powershell -ExecutionPolicy Bypass -Command "$r = Invoke-RestMethod 'https://api
 
 #### Manual Download & Run
 
-1. **Download** the compiled installer from the release folder:
-   [📦 Download Meridian-X Installers (Google Drive)](https://drive.google.com/drive/folders/1DWsJWrMqpqPnQLPXalazm60jVw1QsI65)
+1. **Download** the compiled installer from GitHub Releases:
+   [📦 Download Meridian-X Installers (GitHub Releases)](https://github.com/Aryan4132/Meridian-X/releases)
 
 2. **Run** your preferred installer from the `executables/` directory:
    - **NSIS Setup EXE** — `meridian-x_0.2.0_x64-setup.exe` — wizard-based setup
