@@ -54,7 +54,12 @@ jobs:
     - name: Build Tauri Desktop Installer
       run: |
         cd meridian_frontend
-        npm run tauri build
+        npm run tauri build -- --verbose 2>&1 | tee tauri_build.log
+        if [ ${PIPESTATUS[0]} -ne 0 ]; then
+          echo "=== TAURI BUILD FAILED - Last 100 lines ==="
+          tail -100 tauri_build.log
+          exit 1
+        fi
       shell: bash
 
     # --- Create GitHub Release and Upload Artifacts ---
