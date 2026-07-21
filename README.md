@@ -17,6 +17,9 @@
 
 </div>
 
+> [!WARNING]
+> **Active Development:** Meridian-X is currently under active development. Features, APIs, and schemas are subject to change.
+
 ---
 
 ## ✨ Key Features
