@@ -57,15 +57,25 @@ jobs:
 
     # --- Build Tauri App ---
     - name: Build Tauri Desktop Installer
+      shell: pwsh
       run: |
-        cd meridian_frontend
-        npm run tauri build -- --verbose 2>&1 | tee tauri_build.log
-        if [ ${PIPESTATUS[0]} -ne 0 ]; then
-          echo "=== TAURI BUILD FAILED - Last 100 lines ==="
-          tail -100 tauri_build.log
-          exit 1
-        fi
-      shell: bash
+        Set-Location meridian_frontend
+        $output = & npm run tauri build -- --bundles nsis,msi --verbose 2>&1
+        $output | Out-File -FilePath tauri_build.log -Encoding utf8
+        $output | ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "`n=== TAURI BUILD FAILED ==="
+          Write-Host "Exit code: $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
+
+    - name: Upload Build Log on Failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-log
+        path: meridian_frontend/tauri_build.log
+        retention-days: 3
 
     # --- Create GitHub Release and Upload Artifacts ---
     - name: Create Draft Release & Upload Installers
