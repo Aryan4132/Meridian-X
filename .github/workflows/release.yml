@@ -7,11 +7,7 @@ on:
 
 jobs:
   build-and-release:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [macos-latest, ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.platform }}
+    runs-on: windows-latest
 
     steps:
     - name: Checkout Repository
@@ -44,25 +40,15 @@ jobs:
       run: |
         cd meridian_backend
         python -m venv venv
-        # Check platform to invoke correct pip binary path
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./venv/Scripts/pip.exe install pyinstaller fastapi pymongo psutil httpx numpy turbovec pydantic sounddevice pytest
-        else
-          ./venv/bin/pip install pyinstaller fastapi pymongo psutil httpx numpy turbovec pydantic sounddevice pytest
-        fi
+        ./venv/Scripts/pip.exe install --upgrade pip
+        ./venv/Scripts/pip.exe install -r requirements.txt
+        ./venv/Scripts/pip.exe install pyinstaller
       shell: bash
 
     - name: Compile Standalone Backend Sidecar
       run: |
         python build_standalone.py --sidecar-only
       shell: bash
-
-    # --- Linux Specific System Dependencies ---
-    - name: Install Linux System Dependencies
-      if: matrix.platform == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.0-dev build-essential curl wget libssl-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
 
     # --- Build Tauri App and Publish to Draft GitHub Release ---
     - name: Build & Publish Tauri Desktop Installer
@@ -71,9 +57,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tagName: ${{ github.ref_name }}
-        tagMessage: "Meridian-X Desktop Release ${{ github.ref_name }}"
-        releaseName: "Meridian-X Desktop Release ${{ github.ref_name }}"
-        releaseBody: "Automated multi-platform compilation bundle for version ${{ github.ref_name }}. Includes precompiled binaries for Windows (.msi, .exe), macOS (.dmg, .app), and Linux (.deb, AppImage)."
+        tagMessage: "Meridian-X Desktop Windows Release ${{ github.ref_name }}"
+        releaseName: "Meridian-X Windows Release ${{ github.ref_name }}"
+        releaseBody: "Automated Windows compilation bundle for version ${{ github.ref_name }}. Includes precompiled binaries for Windows (.msi, .exe)."
         releaseDraft: true
         prerelease: false
         projectPath: './meridian_frontend'
