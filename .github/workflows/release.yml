@@ -8,6 +8,8 @@ on:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout Repository
@@ -84,9 +86,36 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         $tag = "${{ github.ref_name }}"
+        $repo = "${{ github.repository }}"
+        $headers = @{
+          Authorization = "Bearer $env:GITHUB_TOKEN"
+          "Accept" = "application/vnd.github+json"
+          "X-GitHub-Api-Version" = "2022-11-28"
+        }
+
+        # Check and delete existing release for tag if present
+        try {
+          $existing = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/tags/$tag" -Headers $headers -ErrorAction SilentlyContinue
+          if ($existing) {
+            Write-Host "Deleting existing release for $tag (ID: $($existing.id))..."
+            Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($existing.id)" -Method DELETE -Headers $headers
+          }
+        } catch {}
+
+        # Also delete draft releases with matching tag
+        try {
+          $allReleases = Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases" -Headers $headers -ErrorAction SilentlyContinue
+          foreach ($r in $allReleases) {
+            if ($r.tag_name -eq $tag) {
+              Write-Host "Deleting existing draft release ID $($r.id)..."
+              Invoke-RestMethod -Uri "https://api.github.com/repos/$repo/releases/$($r.id)" -Method DELETE -Headers $headers
+            }
+          }
+        } catch {}
+
         $releaseBody = "Automated Windows compilation bundle for version $tag. Includes precompiled binaries for Windows (.msi, .exe)."
 
-        # Create a draft release via the GitHub API
+        # Create a new draft release via GitHub API
         $releasePayload = @{
           tag_name = $tag
           name = "Meridian-X Windows Release $tag"
@@ -96,24 +125,27 @@ jobs:
         } | ConvertTo-Json
 
         $release = Invoke-RestMethod `
-          -Uri "https://api.github.com/repos/${{ github.repository }}/releases" `
+          -Uri "https://api.github.com/repos/$repo/releases" `
           -Method POST `
-          -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "Content-Type" = "application/json" } `
+          -Headers $headers `
+          -ContentType "application/json" `
           -Body $releasePayload
 
         $uploadUrl = $release.upload_url -replace '\{\?name,label\}', ''
 
         # Find and upload all installer assets
         $bundlePath = "meridian_frontend/src-tauri/target/release/bundle"
-        $files = Get-ChildItem -Recurse $bundlePath -Include "*.exe","*.msi" | Where-Object { $_.Name -notmatch "\.exe$" -or $_.Name -match "setup" }
+        $files = Get-ChildItem -Path $bundlePath -Recurse -Include "*.exe","*.msi" | Where-Object { $_.Name -like "*setup*.exe" -or $_.Name -like "*.msi" }
 
         foreach ($file in $files) {
-          Write-Host "Uploading $($file.Name)..."
+          Write-Host "Uploading $($file.Name) ($($file.Length) bytes)..."
+          $contentType = if ($file.Extension -eq ".msi") { "application/x-msi" } else { "application/x-msdos-program" }
           Invoke-RestMethod `
             -Uri "${uploadUrl}?name=$($file.Name)" `
             -Method POST `
-            -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "Content-Type" = "application/octet-stream" } `
+            -Headers @{ Authorization = "Bearer $env:GITHUB_TOKEN"; "Content-Type" = $contentType } `
             -InFile $file.FullName
         }
 
-        Write-Host "Draft release created: $($release.html_url)"
+        Write-Host "Draft release successfully created: $($release.html_url)"
+
