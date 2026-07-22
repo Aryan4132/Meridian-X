@@ -24,7 +24,7 @@ jobs:
     - name: Install Frontend Dependencies
       run: |
         cd meridian_frontend
-        npm install
+        npm install --include=optional
 
     # --- Setup Rust Compiler ---
     - name: Setup Rust
