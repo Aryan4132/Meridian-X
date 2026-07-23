@@ -1,15 +1,10 @@
-# Tasks - Clipboard Chatbot Integration
+# Tasks - Top-Left Mascot Logo Integration
 
-- [ ] Task 1: Add custom event listener in `Timeline.tsx` for `meridian:send-chat`
-  - Acceptance: Receiving `meridian:send-chat` event appends prompt to chat messages and triggers `executeTask(prompt)`.
-  - Verify: Build check & event test.
-  - Files: `meridian_frontend/src/views/Timeline.tsx`
+- [ ] Task 1: Update `NavRail.tsx` to render `MascotCharacter` in the logo section
+  - Acceptance: `HexLogo` replaced by `<MascotCharacter state="default" accentColor="var(--accent)" />` with click handler to summon mascot window.
+  - Verify: Build check & visual inspection.
+  - Files: `meridian_frontend/src/components/NavRail.tsx`
 
-- [ ] Task 2: Update `Clipboard.tsx` to route analysis to Chatbot and add Copy button
-  - Acceptance: Clicking `Zap` calls `setActiveTab('timeline')` and dispatches `meridian:send-chat`. Hovering shows `title="Analyze in Chatbot"`. Copy button copies text with visual checkmark feedback.
-  - Verify: Build check & manual interaction test.
-  - Files: `meridian_frontend/src/views/Clipboard.tsx`
-
-- [ ] Task 3: Verify frontend build with `npm run build`
-  - Acceptance: Build finishes with 0 errors.
-  - Verify: Run `npm run build` in `meridian_frontend`.
+- [ ] Task 2: Verify build and push to GitHub
+  - Acceptance: `npm run build` succeeds cleanly; commit and push to `origin/main`.
+  - Verify: Run `npm run build` and `git push`.

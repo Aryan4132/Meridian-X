@@ -5,6 +5,7 @@ import {
   Eye, Minus, Square, X
 } from 'lucide-react';
 import { useApp, TabId } from '../AppContext';
+import { MascotCharacter } from '../Mascot';
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
@@ -17,16 +18,6 @@ const NAV_ITEMS: { id: TabId; icon: React.ElementType; label: string }[] = [
   { id: 'lobby',       icon: Bot,           label: 'Swarm Debate' },
   { id: 'settings',    icon: Settings2,     label: 'Settings & Hardware' },
 ];
-
-function HexLogo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" style={{ filter: 'drop-shadow(0 0 8px var(--accent))' }}>
-      <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-      <polygon points="16,8 22,11.5 22,20.5 16,24 10,20.5 10,11.5" fill="color-mix(in srgb, var(--accent) 12%, transparent)" stroke="var(--accent)" strokeWidth="1" strokeOpacity="0.5" />
-      <circle cx="16" cy="16" r="3" fill="var(--accent)" opacity="0.9" />
-    </svg>
-  );
-}
 
 export default function NavRail() {
   const { activeTab, setActiveTab } = useApp();
@@ -60,9 +51,13 @@ export default function NavRail() {
         position: 'relative',
       }}
     >
-      {/* Logo */}
-      <div data-tauri-drag-region style={{ marginBottom: 16, padding: 8, cursor: 'move' }} title="Meridian-X">
-        <HexLogo />
+      {/* Mascot Logo */}
+      <div 
+        onClick={handleMascot}
+        style={{ marginBottom: 16, padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+        title="Meridian-X Mascot (Click to summon companion)"
+      >
+        <MascotCharacter state="default" accentColor="var(--accent)" />
       </div>
 
       {/* Nav items */}

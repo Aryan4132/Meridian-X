@@ -1,22 +1,21 @@
-# Spec: Clipboard AI Analysis Chatbot Integration
+# Spec: Top-Left Mascot Logo Integration
 
 ## Objective
-Route clipboard item AI analysis directly into the main Chatbot interface (`Timeline` view) when clicking the `Zap` button, while adding explicit tooltips and copy controls to clipboard cards.
+Replace the static top-left hexagon SVG logo in `NavRail.tsx` with the animated, glowing `MascotCharacter` orb companion.
 
 ## Tech Stack
-React, TypeScript, Lucide Icons, Vite, Custom Events, AppContext (`useApp`).
+React, TypeScript, Motion, Lucide Icons, Vite.
 
 ## Commands
 - Build: `npm run build`
 - Dev: `npm run dev`
 
 ## Boundaries
-- Always: Ensure smooth tab switching to `timeline`, preserve full clipboard content, provide visual copy feedback.
-- Ask first: Major layout refactors to `Timeline.tsx`.
-- Never: Discard AI streaming responses.
+- Always: Preserve layout alignment, maintain click capability to toggle mascot window.
+- Ask first: Major sidebar layout changes.
+- Never: Cause visual misalignment in `NavRail.tsx`.
 
 ## Success Criteria
-1. Clicking `Zap` on a clipboard item switches active tab to `timeline`.
-2. The clipboard content is dispatched as a prompt and streamed in the main Chatbot.
-3. Tooltips (`title="Analyze in Chatbot"`, `title="Copy to clipboard"`) are visible on hover.
-4. Clicking Copy copies item text to system clipboard with a temporary checkmark indicator.
+1. The static hexagon logo in `NavRail.tsx` is replaced by `<MascotCharacter />`.
+2. The mascot animates smoothly in the top-left logo spot.
+3. `npm run build` succeeds with 0 errors.
