@@ -388,6 +388,19 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   };
 
   useEffect(() => {
+    const handleCustomPrompt = (e: Event) => {
+      const customEvt = e as CustomEvent<{ prompt: string }>;
+      if (customEvt.detail?.prompt) {
+        const text = customEvt.detail.prompt;
+        setMessages(prev => [...prev, { id: String(Date.now()), role: 'user', content: text, timestamp: Date.now() }]);
+        executeTask(text);
+      }
+    };
+    window.addEventListener('meridian:send-chat', handleCustomPrompt);
+    return () => window.removeEventListener('meridian:send-chat', handleCustomPrompt);
+  }, []);
+
+  useEffect(() => {
     if (!loading && taskQueue.length > 0) {
       const nextTask = taskQueue[0];
       setTaskQueue(prev => prev.slice(1));

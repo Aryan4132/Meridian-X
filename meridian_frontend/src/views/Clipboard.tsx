@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Zap } from 'lucide-react';
+import { Search, Zap, Copy, Check } from 'lucide-react';
 import { ClipboardRecord } from '../types';
+import { useApp } from '../AppContext';
 import HoloButton from '../components/ui/HoloButton';
 
 function reltime(ts: number) {
@@ -18,10 +19,11 @@ function detectType(text: string): string | null {
 }
 
 export default function Clipboard() {
+  const { setActiveTab } = useApp();
   const [items, setItems] = useState<ClipboardRecord[]>([]);
   const [query, setQuery] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [analyzing, setAnalyzing] = useState<number | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
 
   const fetch_ = async () => {
     try {
@@ -39,42 +41,16 @@ export default function Clipboard() {
     return () => clearInterval(t);
   }, []);
 
-  const analyze = async (text: string, idx: number) => {
-    setAnalyzing(idx);
-    const provider = localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama';
-    const brainModel = localStorage.getItem('MERIDIAN_MODEL') || '';
-    const modelSource = provider === 'ollama' ? 'local' : 'api';
-    const openaiKey = localStorage.getItem('OPENAI_API_KEY') || '';
-    const anthropicKey = localStorage.getItem('ANTHROPIC_API_KEY') || '';
-    const geminiKey = localStorage.getItem('GEMINI_API_KEY') || '';
-    const deepseekKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
+  const analyze = (text: string) => {
+    setActiveTab('timeline');
+    const prompt = `Analyze this clipboard content:\n\n"${text}"`;
+    window.dispatchEvent(new CustomEvent('meridian:send-chat', { detail: { prompt } }));
+  };
 
-    try {
-      // Route through the SSE chat stream endpoint (not the non-existent /api/chat)
-      const res = await fetch('http://localhost:4132/api/chat/stream', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: `Briefly analyze this clipboard content: "${text.slice(0, 500)}"`,
-          modelSettings: {
-            modelSource,
-            apiProvider: provider,
-            selectedModel: brainModel,
-            brainModel,
-            ocrModel: brainModel,
-            openaiKey,
-            anthropicKey,
-            geminiKey,
-            deepseekKey
-          }
-        }),
-      });
-      if (res.body) {
-        // Drain the stream so it actually processes
-        const reader = res.body.getReader();
-        while (true) { const { done } = await reader.read(); if (done) break; }
-      }
-    } catch { /* noop */ }
-    finally { setAnalyzing(null); }
+  const copyToClipboard = (text: string, idx: number) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedIdx(idx);
+    setTimeout(() => setCopiedIdx(null), 2000);
   };
 
   const filtered = items.filter(it => it.text.toLowerCase().includes(query.toLowerCase()));
@@ -110,7 +86,7 @@ export default function Clipboard() {
             {filtered.map((item, idx) => {
               const tag = detectType(item.text);
               const isExp = expanded === idx;
-              // Use timestamp as key for stability; fall back to idx if timestamps collide
+              const isCopied = copiedIdx === idx;
               return (
                 <motion.div
                   key={`${item.timestamp}-${idx}`}
@@ -149,14 +125,22 @@ export default function Clipboard() {
                         )}
                       </div>
                     </div>
-                    <HoloButton
-                      variant="ghost" size="sm"
-                      loading={analyzing === idx}
-                      onClick={e => { e.stopPropagation(); analyze(item.text, idx); }}
-                      title="Analyze with ReAct agent"
-                    >
-                      <Zap size={11} />
-                    </HoloButton>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <HoloButton
+                        variant="ghost" size="sm"
+                        onClick={e => { e.stopPropagation(); copyToClipboard(item.text, idx); }}
+                        title="Copy to clipboard"
+                      >
+                        {isCopied ? <Check size={11} style={{ color: '#10b981' }} /> : <Copy size={11} />}
+                      </HoloButton>
+                      <HoloButton
+                        variant="ghost" size="sm"
+                        onClick={e => { e.stopPropagation(); analyze(item.text); }}
+                        title="Analyze in Chatbot"
+                      >
+                        <Zap size={11} />
+                      </HoloButton>
+                    </div>
                   </div>
                 </motion.div>
               );
@@ -167,3 +151,4 @@ export default function Clipboard() {
     </div>
   );
 }
+
