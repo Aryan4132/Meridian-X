@@ -57,6 +57,16 @@ logs/
 # CodeGraph files
 .codegraph/
 
+# Internal tracking & planning documents
+KANBAN.md
+IMPROVEMENTS.md
+UI_UX_IMPROVEMENTS.md
+BUG_REGISTRY.md
+SPEC.md
+tasks.md
+tasks/
+
 # Compiled Installers
 # executables/ is tracked via git lfs
+
 
