@@ -149,6 +149,7 @@ graph TD
     N79 --> N83
     N79 --> N78
     N81 --> N78
+    N81 --> N80
     N82 --> N78
     N82 --> N88
     N82 --> N85
@@ -166,6 +167,7 @@ graph TD
     N84 --> N85
     N91 --> N87
     N92 --> N101
+    N92 --> N78
     N92 --> N87
     N93 --> N101
     N93 --> N87
@@ -794,6 +796,7 @@ graph TD
   - Imports: `window`
 - **meridian_frontend/src/components/NavRail.tsx**
   - Imports: `AppContext`
+  - Imports: `Mascot`
   - Imports: `core`
   - Imports: `react`
   - Imports: `window`
@@ -846,6 +849,7 @@ graph TD
   - Imports: `lucide-react`
   - Imports: `react`
 - **meridian_frontend/src/views/Clipboard.tsx**
+  - Imports: `AppContext`
   - Imports: `HoloButton`
   - Imports: `lucide-react`
   - Imports: `react`

@@ -4,12 +4,15 @@ import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'settings';
+export type IslandPosition = 'top-center' | 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'bottom-center';
 
 interface AppContextValue {
   activeTab: TabId;
   setActiveTab: (tab: TabId) => void;
   theme: string;
   setTheme: (theme: string) => void;
+  islandPosition: IslandPosition;
+  setIslandPosition: (pos: IslandPosition) => void;
   backendAlive: boolean;
   modelName: string;
   setModelName: (model: string) => void;
@@ -25,6 +28,9 @@ const AppCtx = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
   const [theme, _setTheme] = useState(() => localStorage.getItem('theme') || 'frost');
+  const [islandPosition, _setIslandPosition] = useState<IslandPosition>(
+    () => (localStorage.getItem('ISLAND_POSITION') as IslandPosition) || 'bottom-right'
+  );
   const [backendAlive, setBackendAlive] = useState(false);
   const [modelName, setModelName] = useState(() => {
     const m = localStorage.getItem('MERIDIAN_MODEL') || '';
@@ -176,10 +182,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, [backendAlive, reconnectKey]);
 
+  const setIslandPosition = (pos: IslandPosition) => {
+    _setIslandPosition(pos);
+    localStorage.setItem('ISLAND_POSITION', pos);
+    window.dispatchEvent(new Event('meridian-island-position-changed'));
+  };
+
   return (
     <AppCtx.Provider value={{
       activeTab, setActiveTab,
       theme, setTheme,
+      islandPosition, setIslandPosition,
       backendAlive,
       modelName,
       setModelName,

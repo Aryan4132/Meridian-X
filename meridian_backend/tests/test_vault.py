@@ -71,3 +71,34 @@ def test_vault_passphrase_cache():
     # The cached access should be at least 2x faster than derivation
     # (PBKDF2 with 100k rounds takes ~50ms+, cache lookups take <1ms)
     assert duration_second < duration_first
+
+
+def test_custom_api_key_vault():
+    from src.core.vault import save_custom_key, list_custom_keys, delete_custom_key
+    
+    # 1. Save custom keys
+    save_custom_key("Groq Cloud", "GROQ_API_KEY", "gsk_secret123456", "https://api.groq.com/openai/v1", "LLM Provider")
+    save_custom_key("SerpAPI", "SERPAPI_KEY", "serp_secret987654", "", "Search & Web")
+    
+    # 2. List custom keys masked
+    keys_masked = list_custom_keys(include_secrets=False)
+    assert len(keys_masked) == 2
+    groq_entry = next(k for k in keys_masked if k["env_var"] == "GROQ_API_KEY")
+    assert groq_entry["name"] == "Groq Cloud"
+    assert groq_entry["api_key"] != "gsk_secret123456"
+    assert "••••" in groq_entry["api_key"]
+    
+    # 3. List custom keys unmasked
+    keys_full = list_custom_keys(include_secrets=True)
+    groq_full = next(k for k in keys_full if k["env_var"] == "GROQ_API_KEY")
+    assert groq_full["api_key"] == "gsk_secret123456"
+    assert groq_full["base_url"] == "https://api.groq.com/openai/v1"
+    
+    # 4. Check os.environ injection
+    assert os.environ.get("GROQ_API_KEY") == "gsk_secret123456"
+    assert os.environ.get("GROQ_API_KEY_BASE_URL") == "https://api.groq.com/openai/v1"
+    
+    # 5. Delete custom key
+    assert delete_custom_key("GROQ_API_KEY") is True
+    assert len(list_custom_keys()) == 1
+    assert "GROQ_API_KEY" not in os.environ

@@ -268,8 +268,38 @@ async def generate_completion_stream(
         "stream": True
       }
     else:
-      yield f"Error: Unsupported provider '{provider}'"
-      return
+      # Universal Dynamic Vault Provider (Groq, OpenRouter, Mistral, Together, Perplexity, etc.)
+      api_key = get_api_key(provider)
+      if api_key:
+        custom_base = os.getenv(f"{provider.upper()}_API_KEY_BASE_URL") or os.getenv(f"{provider.upper()}_BASE_URL")
+        if custom_base:
+          url = custom_base if custom_base.endswith("/chat/completions") else f"{custom_base.rstrip('/')}/chat/completions"
+        elif provider == "groq":
+          url = "https://api.groq.com/openai/v1/chat/completions"
+        elif provider == "openrouter":
+          url = "https://openrouter.ai/api/v1/chat/completions"
+        elif provider == "mistral":
+          url = "https://api.mistral.ai/v1/chat/completions"
+        elif provider == "together":
+          url = "https://api.together.xyz/v1/chat/completions"
+        elif provider == "perplexity":
+          url = "https://api.perplexity.ai/chat/completions"
+        else:
+          url = f"https://api.{provider}.com/v1/chat/completions"
+
+        headers = {
+          "Authorization": f"Bearer {api_key}",
+          "Content-Type": "application/json"
+        }
+        payload = {
+          "model": model,
+          "messages": messages,
+          "temperature": temperature,
+          "stream": True
+        }
+      else:
+        yield f"Error: Unsupported provider '{provider}'. Please add API key in Settings -> Integrations."
+        return
 
     # Execute remote call
     success = False

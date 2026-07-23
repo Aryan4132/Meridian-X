@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2 } from 'lucide-react';
+import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
 import ProgressArc from '../components/ui/ProgressArc';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
+
+const SETTINGS_TABS = [
+  { id: 'models',       label: 'AI Models',       icon: Cpu },
+  { id: 'mascot',       label: 'Mascot & Style',  icon: Sparkles },
+  { id: 'voice',        label: 'Voice & Audio',   icon: Mic },
+  { id: 'guard',        label: 'System Guard',    icon: ShieldCheck },
+  { id: 'integrations', label: 'Integrations',    icon: Plug },
+] as const;
 
 const PROVIDERS = [
   { id: 'ollama',    label: 'Ollama',    sub: 'Offline · Free',  color: '#00D97E' },
@@ -63,7 +71,8 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
 }
 
 export default function Settings() {
-  const { theme, setTheme, systemUsage, setModelName, gameMode, setGameMode } = useApp();
+  const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
+  const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'integrations'>('models');
   const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
@@ -119,6 +128,66 @@ export default function Settings() {
   const [imapServer, setImapServer] = useState(() => localStorage.getItem('IMAP_SERVER') || 'imap.gmail.com');
   const [mongodbUri, setMongodbUri] = useState(() => localStorage.getItem('MONGODB_URI') || 'mongodb://localhost:27017/meridian_kg');
   const [logLevel, setLogLevel]     = useState(() => localStorage.getItem('MERIDIAN_LOG_LEVEL') || 'INFO');
+
+  // Dynamic Secret Vault Keys state
+  const [vaultKeys, setVaultKeys] = useState<Array<{ name: string; env_var: string; api_key: string; base_url: string; category: string }>>([]);
+  const [showVaultSecrets, setShowVaultSecrets] = useState(false);
+  const [vkName, setVkName] = useState('');
+  const [vkEnvVar, setVkEnvVar] = useState('');
+  const [vkSecret, setVkSecret] = useState('');
+  const [vkBaseUrl, setVkBaseUrl] = useState('');
+  const [vkCategory, setVkCategory] = useState('LLM Provider');
+
+  const fetchVaultKeys = async (showFull = showVaultSecrets) => {
+    try {
+      const res = await fetch(`http://localhost:4132/api/vault/keys?include_secrets=${showFull}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.keys) setVaultKeys(data.keys);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch vault keys:", e);
+    }
+  };
+
+  const handleAddVaultKey = async () => {
+    if (!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()) return;
+    try {
+      const res = await fetch('http://localhost:4132/api/vault/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: vkName,
+          env_var: vkEnvVar.toUpperCase(),
+          api_key: vkSecret,
+          base_url: vkBaseUrl,
+          category: vkCategory
+        })
+      });
+      if (res.ok) {
+        setVkName('');
+        setVkEnvVar('');
+        setVkSecret('');
+        setVkBaseUrl('');
+        fetchVaultKeys();
+      }
+    } catch (e) {
+      console.error("Failed to save vault key:", e);
+    }
+  };
+
+  const handleDeleteVaultKey = async (env_var: string) => {
+    try {
+      const res = await fetch(`http://localhost:4132/api/vault/keys/${env_var}`, { method: 'DELETE' });
+      if (res.ok) fetchVaultKeys();
+    } catch (e) {
+      console.error("Failed to delete vault key:", e);
+    }
+  };
+
+  useEffect(() => {
+    fetchVaultKeys();
+  }, [showVaultSecrets]);
 
   // Fetch profile configurations on mount to hydrate local storage & states
   useEffect(() => {
@@ -479,17 +548,48 @@ export default function Settings() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px', overflow: 'hidden' }}>
-      <div style={{ marginBottom: 20, flexShrink: 0 }}>
+      <div style={{ marginBottom: 16, flexShrink: 0 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Settings</h1>
-        <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Configuration · Model · Hardware</p>
+        <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 8px', fontFamily: "'JetBrains Mono', monospace" }}>Configuration · Models · Appearance · Guard</p>
+        
+        {/* Category Navigation Bar */}
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8, marginTop: 12 }}>
+          {SETTINGS_TABS.map(t => {
+            const Icon = t.icon;
+            const active = activeCategory === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveCategory(t.id as any)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+                  border: active ? '1px solid var(--accent)' : '1px solid transparent',
+                  background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-surface)',
+                  color: active ? 'var(--accent)' : 'var(--text-dim)',
+                  cursor: 'pointer', fontSize: 11, fontWeight: active ? 600 : 400,
+                  transition: 'all 0.15s ease',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Icon size={13} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <form onSubmit={handleSave} style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16 }}>
         {/* Left: config */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* AI Config */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
+          {/* Category 1: AI Models */}
+          {activeCategory === 'models' && (
+            <>
+              {/* AI Config */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">AI Configuration</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Provider grid */}
@@ -621,7 +721,12 @@ export default function Settings() {
               </div>
             </div>
           </GlowCard>
+        </>
+      )}
 
+      {/* Category: Integrations */}
+      {activeCategory === 'integrations' && (
+        <>
           {/* Integrations */}
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Integrations & Tokens</div>
@@ -634,6 +739,99 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
                   <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
                 </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Universal Encrypted Secret Vault */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Secret Vault</div>
+              <button
+                type="button"
+                onClick={() => setShowVaultSecrets(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+              >
+                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+              </button>
+            </div>
+
+            {/* List of active custom keys */}
+            {vaultKeys.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {vaultKeys.map(k => (
+                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                          {k.category || 'LLM Provider'}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                          ${k.env_var}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                      </div>
+                    </div>
+                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
+                      <Trash2 size={12} />
+                    </HoloButton>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
+              </div>
+            )}
+
+            {/* Add New Key Form */}
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                + Add Dynamic API Key or Cloud Secret
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                    <option value="LLM Provider">LLM Provider</option>
+                    <option value="Search & Web">Search & Web</option>
+                    <option value="Audio & Voice">Audio & Voice</option>
+                    <option value="Vision & Media">Vision & Media</option>
+                    <option value="Vector DB">Vector DB</option>
+                    <option value="Custom Tool">Custom Tool</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                  <Plus size={12} /> Save Secret to Vault
+                </HoloButton>
               </div>
             </div>
           </GlowCard>
@@ -665,9 +863,14 @@ export default function Settings() {
               </div>
             </div>
           </GlowCard>
+        </>
+      )}
 
-          {/* Voice & Wake Word Advanced Config */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
+      {/* Category: Voice */}
+      {activeCategory === 'voice' && (
+        <>
+              {/* Voice & Wake Word Advanced Config */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Voice & Wake Word Settings</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
@@ -706,7 +909,12 @@ export default function Settings() {
               </div>
             </div>
           </GlowCard>
+        </>
+      )}
 
+      {/* Category: Guard */}
+      {activeCategory === 'guard' && (
+        <>
           {/* Proactive Guard Config */}
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Proactive Monitoring & System Guard</div>
@@ -823,105 +1031,34 @@ export default function Settings() {
 
             </div>
           </GlowCard>
+        </>
+      )}
 
-          {/* System */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">System</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Startup Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Launch on Startup</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically start Meridian-X when Windows boots.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={startupEnabled}
-                  onChange={e => handleToggleStartup(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                />
-              </div>
-
-              {/* Game Mode */}
-              {((window as any).__TAURI_INTERNALS__) && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Desktop Game Mode</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Suspends Alt+M / Alt+V hotkeys during full-screen games.</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={gameMode}
-                    onChange={e => handleGameMode(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                  />
-                </div>
-              )}
-
-              {/* Log Level & MongoDB URI */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
-                  <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                    <option value="DEBUG">DEBUG</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARNING">WARNING</option>
-                    <option value="ERROR">ERROR</option>
-                    <option value="CRITICAL">CRITICAL</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
-                  <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
-                </div>
-              </div>
-            </div>
-          </GlowCard>
-
-          {/* Save */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <HoloButton type="submit" variant="primary" size="md" loading={saveStatus === 'saving'}>
-              {saveStatus === 'saved' ? <><Check size={14} /> Saved!</> : saveStatus === 'fail' ? 'Save Failed' : <><Save size={14} /> Save Settings</>}
-            </HoloButton>
-          </div>
-        </div>
-
-        {/* Right: hardware + theme */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Hardware Vitals</div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 8 }}>
-              <div style={{ textAlign: 'center' }}>
-                <ProgressArc value={systemUsage.cpu} size={96} strokeWidth={7} label="CPU" color={systemUsage.cpu > 80 ? 'var(--danger)' : 'var(--accent)'} />
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <ProgressArc value={systemUsage.ram} size={96} strokeWidth={7} label="RAM" color={systemUsage.ram > 85 ? 'var(--danger)' : 'var(--accent-2)'} />
-              </div>
-            </div>
-          </GlowCard>
-
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Theme</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {THEMES.map(t => (
-                <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 2px' }}>
-                  <input
-                    type="radio"
-                    name="theme"
-                    checked={theme === t.id}
-                    onChange={() => setTheme(t.id)}
-                    style={{ accentColor: t.color }}
-                  />
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.color, flexShrink: 0, boxShadow: theme === t.id ? `0 0 8px ${t.color}` : 'none' }} />
-                  <span style={{ fontSize: 12, color: theme === t.id ? 'var(--text-bright)' : 'var(--text-main)', fontWeight: theme === t.id ? 600 : 400 }}>{t.label}</span>
-                </label>
-              ))}
-            </div>
-          </GlowCard>
-
+      {/* Category: Mascot & Style */}
+      {activeCategory === 'mascot' && (
+        <>
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Mascot & Audio Customize</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+              {/* Dynamic Island Position */}
+              <div>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Dynamic Island Screen Position
+                </label>
+                <select
+                  value={islandPosition}
+                  onChange={e => setIslandPosition(e.target.value as any)}
+                  className="select-base"
+                >
+                  <option value="top-center">🍏 Top-Center (Apple Notch / Header)</option>
+                  <option value="bottom-center">📱 Bottom-Center (Dock Style)</option>
+                  <option value="top-right">↗️ Top-Right HUD</option>
+                  <option value="bottom-right">📍 Bottom-Right Tray (Default)</option>
+                  <option value="top-left">↖️ Top-Left Corner</option>
+                  <option value="bottom-left">↙️ Bottom-Left Corner</option>
+                </select>
+              </div>
 
               {/* TTS Voice Selection */}
               <div>
@@ -980,6 +1117,108 @@ export default function Settings() {
                   style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
                 />
               </div>
+            </div>
+          </GlowCard>
+        </>
+      )}
+
+      {/* System Card inside Guard */}
+      {activeCategory === 'guard' && (
+        <>
+          {/* System */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">System</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {/* Startup Toggle */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Launch on Startup</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically start Meridian-X when Windows boots.</div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={startupEnabled}
+                  onChange={e => handleToggleStartup(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                />
+              </div>
+
+              {/* Game Mode */}
+              {((window as any).__TAURI_INTERNALS__) && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Desktop Game Mode</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Suspends Alt+M / Alt+V hotkeys during full-screen games.</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={gameMode}
+                    onChange={e => handleGameMode(e.target.checked)}
+                    style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                  />
+                </div>
+              )}
+
+              {/* Log Level & MongoDB URI */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
+                  <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                    <option value="DEBUG">DEBUG</option>
+                    <option value="INFO">INFO</option>
+                    <option value="WARNING">WARNING</option>
+                    <option value="ERROR">ERROR</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
+                  <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
+                </div>
+              </div>
+            </div>
+          </GlowCard>
+        </>
+      )}
+
+          {/* Save Button */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <HoloButton type="submit" variant="primary" size="md" loading={saveStatus === 'saving'}>
+              {saveStatus === 'saved' ? <><Check size={14} /> Saved!</> : saveStatus === 'fail' ? 'Save Failed' : <><Save size={14} /> Save Settings</>}
+            </HoloButton>
+          </div>
+        </div>
+
+        {/* Right: hardware + theme */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Hardware Vitals</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, paddingTop: 8 }}>
+              <div style={{ textAlign: 'center' }}>
+                <ProgressArc value={systemUsage.cpu} size={96} strokeWidth={7} label="CPU" color={systemUsage.cpu > 80 ? 'var(--danger)' : 'var(--accent)'} />
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <ProgressArc value={systemUsage.ram} size={96} strokeWidth={7} label="RAM" color={systemUsage.ram > 85 ? 'var(--danger)' : 'var(--accent-2)'} />
+              </div>
+            </div>
+          </GlowCard>
+
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Theme</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {THEMES.map(t => (
+                <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 2px' }}>
+                  <input
+                    type="radio"
+                    name="theme"
+                    checked={theme === t.id}
+                    onChange={() => setTheme(t.id)}
+                    style={{ accentColor: t.color }}
+                  />
+                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.color, flexShrink: 0, boxShadow: theme === t.id ? `0 0 8px ${t.color}` : 'none' }} />
+                  <span style={{ fontSize: 12, color: theme === t.id ? 'var(--text-bright)' : 'var(--text-main)', fontWeight: theme === t.id ? 600 : 400 }}>{t.label}</span>
+                </label>
+              ))}
             </div>
           </GlowCard>
         </div>

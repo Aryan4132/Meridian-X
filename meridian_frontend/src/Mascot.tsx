@@ -448,13 +448,29 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
           const monitorHeight = monitor.size.height / scaleFactor;
           const monitorX = monitor.position.x / scaleFactor;
           const monitorY = monitor.position.y / scaleFactor;
-          
-          const marginRight = 16;
-          const marginBottom = 60;
-          
-          const x = monitorX + monitorWidth - width - marginRight;
-          const y = monitorY + monitorHeight - height - marginBottom;
-          
+
+          const positionSetting = localStorage.getItem('ISLAND_POSITION') || 'bottom-right';
+
+          let x = monitorX + monitorWidth - width - 16;
+          let y = monitorY + monitorHeight - height - 60;
+
+          if (positionSetting === 'top-center') {
+            x = monitorX + (monitorWidth - width) / 2;
+            y = monitorY + 16;
+          } else if (positionSetting === 'bottom-center') {
+            x = monitorX + (monitorWidth - width) / 2;
+            y = monitorY + monitorHeight - height - 60;
+          } else if (positionSetting === 'top-right') {
+            x = monitorX + monitorWidth - width - 16;
+            y = monitorY + 16;
+          } else if (positionSetting === 'top-left') {
+            x = monitorX + 16;
+            y = monitorY + 16;
+          } else if (positionSetting === 'bottom-left') {
+            x = monitorX + 16;
+            y = monitorY + monitorHeight - height - 60;
+          }
+
           await appWindow.setSize(new LogicalSize(width, height));
           await appWindow.setPosition(new LogicalPosition(x, y));
         } else {
@@ -469,6 +485,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
   useEffect(() => {
     resizeAndCenter(targetWidth, targetHeight);
+  }, [targetWidth, targetHeight]);
+
+  useEffect(() => {
+    const handlePosChange = () => resizeAndCenter(targetWidth, targetHeight);
+    window.addEventListener('meridian-island-position-changed', handlePosChange);
+    return () => window.removeEventListener('meridian-island-position-changed', handlePosChange);
   }, [targetWidth, targetHeight]);
 
   // Sync theme

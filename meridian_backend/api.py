@@ -97,6 +97,14 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("[Startup] Failed to load database profile keys into env:", e)
 
+    # Load custom encrypted Vault API keys into environment
+    try:
+        from src.core.vault import inject_vault_keys_to_env
+        inject_vault_keys_to_env()
+        print("[Startup] Loaded encrypted Vault custom API keys into environment.")
+    except Exception as e:
+        print("[Startup] Failed to inject Vault keys:", e)
+
     # Initialize structured logger first
     try:
         from src.core.logging_config import setup_logger
@@ -2697,6 +2705,49 @@ def api_workspace_config_post(request: WriteWorkspaceConfigRequest):
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(request.config, f, indent=2)
         return {"status": "success", "message": "Workspace configuration saved successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CustomVaultKeyRequest(BaseModel):
+    name: str
+    env_var: str
+    api_key: str
+    base_url: Optional[str] = ""
+    category: Optional[str] = "LLM Provider"
+    passphrase: Optional[str] = "DEFAULT_VAULT_PASS"
+
+@app.get("/api/vault/keys")
+def api_list_vault_keys(include_secrets: bool = False, passphrase: str = "DEFAULT_VAULT_PASS"):
+    try:
+        from src.core.vault import list_custom_keys
+        return {"status": "success", "keys": list_custom_keys(passphrase=passphrase, include_secrets=include_secrets)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vault/keys")
+def api_save_vault_key(req: CustomVaultKeyRequest):
+    try:
+        from src.core.vault import save_custom_key
+        res = save_custom_key(
+            name=req.name,
+            env_var=req.env_var,
+            api_key=req.api_key,
+            base_url=req.base_url or "",
+            category=req.category or "LLM Provider",
+            passphrase=req.passphrase or "DEFAULT_VAULT_PASS"
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/vault/keys/{env_var}")
+def api_delete_vault_key(env_var: str, passphrase: str = "DEFAULT_VAULT_PASS"):
+    try:
+        from src.core.vault import delete_custom_key
+        success = delete_custom_key(env_var=env_var, passphrase=passphrase)
+        if success:
+            return {"status": "success", "message": f"Deleted key {env_var}"}
+        raise HTTPException(status_code=404, detail="Key not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

@@ -6,7 +6,10 @@ import sqlite3
 import pymongo
 import threading
 import numpy as np
-from turbovec import IdMapIndex
+try:
+    from turbovec import IdMapIndex
+except ImportError:
+    IdMapIndex = None
 from typing import Optional, List, Dict, Any, TypedDict
 
 class UserProfile(TypedDict, total=False):
@@ -118,6 +121,8 @@ def get_sqlite_conn():
     return conn
 
 def run_vector_health_check() -> bool:
+    if IdMapIndex is None:
+        return False
     """Verify integrity of all Turbovec vector index files on startup."""
     print("[Turbovec Health Check] Starting validation...")
     healthy = True
@@ -150,6 +155,9 @@ def run_vector_health_check() -> bool:
 
 def init_turbovec_indexes():
     global kb_index, cache_index, conv_index
+    if IdMapIndex is None:
+        kb_index, cache_index, conv_index = None, None, None
+        return
     
     # Run checksum / validation checks before loading
     run_vector_health_check()
