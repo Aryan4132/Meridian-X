@@ -2777,6 +2777,45 @@ def api_install_mcp_server(req: MCPInstallRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class AddMCPServerRequest(BaseModel):
+    name: str
+    command: str
+    args: Optional[List[str]] = []
+    env: Optional[Dict[str, str]] = {}
+
+@app.get("/api/mcp/custom")
+def api_list_custom_mcp_servers():
+    try:
+        from src.tools.mcp_marketplace import mcp_marketplace_instance
+        return {"status": "success", "servers": mcp_marketplace_instance.list_custom_servers()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/mcp/custom")
+def api_add_custom_mcp_server(req: AddMCPServerRequest):
+    try:
+        from src.tools.mcp_marketplace import mcp_marketplace_instance
+        res = mcp_marketplace_instance.add_custom_server(
+            name=req.name,
+            command=req.command,
+            args=req.args or [],
+            env=req.env or {}
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/mcp/custom/{server_name}")
+def api_delete_custom_mcp_server(server_name: str):
+    try:
+        from src.tools.mcp_marketplace import mcp_marketplace_instance
+        success = mcp_marketplace_instance.delete_custom_server(server_name)
+        if success:
+            return {"status": "success", "message": f"Deleted custom server '{server_name}'."}
+        raise HTTPException(status_code=404, detail="Server not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4132)

@@ -119,6 +119,16 @@ export default function Settings() {
   const [newServerArgs, setNewServerArgs] = useState('');
   const [newServerEnv, setNewServerEnv] = useState('');
 
+  const fetchCustomMcpServers = async () => {
+    try {
+      const res = await fetch('http://localhost:4132/api/mcp/custom');
+      const data = await res.json();
+      if (data.servers) {
+        setMcpServers(data.servers);
+      }
+    } catch {}
+  };
+
   useEffect(() => {
     fetch('http://localhost:4132/api/mcp/servers')
       .then(res => res.json())
@@ -126,6 +136,7 @@ export default function Settings() {
         if (data.servers && data.servers.length > 0) setMcpCatalog(data.servers);
       })
       .catch(() => {});
+    fetchCustomMcpServers();
   }, []);
 
   const handleInstallMcp = async (serverId: string) => {
@@ -137,6 +148,52 @@ export default function Settings() {
       });
       if (res.ok) {
         setMcpCatalog(prev => prev.map(s => s.id === serverId ? { ...s, installed: true } : s));
+        fetchCustomMcpServers();
+      }
+    } catch {}
+  };
+
+  const handleAddCustomMcpServer = async () => {
+    if (!newServerName.trim() || !newServerCommand.trim()) return;
+    try {
+      const argsArray = newServerArgs
+        .split(' ')
+        .map(a => a.trim())
+        .filter(a => a.length > 0);
+      
+      const envObj: Record<string, string> = {};
+      newServerEnv.split(',').forEach(pair => {
+        const [k, v] = pair.split('=');
+        if (k && v) envObj[k.trim()] = v.trim();
+      });
+
+      const res = await fetch('http://localhost:4132/api/mcp/custom', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newServerName.trim(),
+          command: newServerCommand.trim(),
+          args: argsArray,
+          env: envObj
+        })
+      });
+      if (res.ok) {
+        setNewServerName('');
+        setNewServerCommand('');
+        setNewServerArgs('');
+        setNewServerEnv('');
+        fetchCustomMcpServers();
+      }
+    } catch {}
+  };
+
+  const handleDeleteCustomMcpServer = async (serverName: string) => {
+    try {
+      const res = await fetch(`http://localhost:4132/api/mcp/custom/${encodeURIComponent(serverName)}`, {
+        method: 'DELETE'
+      });
+      if (res.ok) {
+        fetchCustomMcpServers();
       }
     } catch {}
   };
@@ -1005,36 +1062,107 @@ export default function Settings() {
           {/* Model Context Protocol (MCP) Server Marketplace */}
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label" style={{ marginBottom: 10 }}>🔌 Model Context Protocol (MCP) Server Registry</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                1-Click dynamic installation and tool registration for Model Context Protocol servers. Connected servers inject tools directly into the ReAct reasoning loop.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: '1.5' }}>
+                Manage connected Model Context Protocol (MCP) servers. Registered servers dynamically expose tools directly into the ReAct reasoning loop.
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {mcpCatalog.map(s => (
-                  <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
-                        <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                          {s.installed ? 'Installed' : s.category}
-                        </span>
+
+              {/* Registered Custom Servers */}
+              {Object.keys(mcpServers).length > 0 ? (
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                    Active Connected MCP Servers ({Object.keys(mcpServers).length})
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {Object.entries(mcpServers).map(([srvName, srvConfig]: [string, any]) => (
+                      <div key={srvName} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{srvName}</span>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(0, 217, 126, 0.15)', color: '#00D97E', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                              Active
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
+                            {srvConfig.command} {srvConfig.args?.join(' ')}
+                          </div>
+                        </div>
+                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteCustomMcpServer(srvName)}>
+                          <Trash2 size={12} />
+                        </HoloButton>
                       </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
-                      <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <HoloButton
-                        type="button"
-                        variant={s.installed ? "secondary" : "primary"}
-                        size="sm"
-                        disabled={s.installed}
-                        onClick={() => handleInstallMcp(s.id)}
-                      >
-                        {s.installed ? "Active" : "Install Server"}
-                      </HoloButton>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              ) : null}
+
+              {/* Add Custom MCP Server Form */}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                  + Enter / Register Custom MCP Server
+                </label>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server Name</label>
+                    <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. Filesystem MCP / Git MCP" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Command Executable</label>
+                    <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx / uvx / node / python" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (Space Separated)</label>
+                    <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-filesystem C:/Projects" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Vars (KEY=VAL, ...)</label>
+                    <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="API_KEY=xxx, TOKEN=yyy" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                  <HoloButton type="button" variant="primary" size="sm" onClick={handleAddCustomMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
+                    <Plus size={12} /> Register MCP Server
+                  </HoloButton>
+                </div>
+              </div>
+
+              {/* Catalog Servers */}
+              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  1-Click Featured MCP Marketplace Catalog
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {mcpCatalog.map(s => (
+                    <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
+                          <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                            {s.installed ? 'Installed' : s.category}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
+                        <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <HoloButton
+                          type="button"
+                          variant={s.installed ? "secondary" : "primary"}
+                          size="sm"
+                          disabled={s.installed}
+                          onClick={() => handleInstallMcp(s.id)}
+                        >
+                          {s.installed ? "Active" : "Install Server"}
+                        </HoloButton>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </GlowCard>
