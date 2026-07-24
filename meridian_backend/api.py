@@ -2757,6 +2757,26 @@ def api_delete_vault_key(env_var: str, passphrase: str = "DEFAULT_VAULT_PASS"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class MCPInstallRequest(BaseModel):
+    server_id: str
+
+@app.get("/api/mcp/servers")
+def api_list_mcp_servers():
+    try:
+        from src.tools.mcp_marketplace import mcp_marketplace_instance
+        return {"status": "success", "servers": mcp_marketplace_instance.list_available_servers()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/mcp/install")
+def api_install_mcp_server(req: MCPInstallRequest):
+    try:
+        from src.tools.mcp_marketplace import mcp_marketplace_instance
+        res = mcp_marketplace_instance.install_mcp_server(req.server_id)
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4132)

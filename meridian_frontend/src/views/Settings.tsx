@@ -108,10 +108,38 @@ export default function Settings() {
 
   // MCP state variables
   const [mcpServers, setMcpServers] = useState<Record<string, any>>({});
+  const [mcpCatalog, setMcpCatalog] = useState<any[]>([
+    { id: 'github-mcp', name: 'GitHub Integration', category: 'Developer Tools', description: 'Manage repositories, issues, PRs, and workflow runs via GitHub API.', command: 'npx -y @modelcontextprotocol/server-github', installed: false },
+    { id: 'postgres-mcp', name: 'PostgreSQL Database Engine', category: 'Database', description: 'Inspect schemas, execute queries, and generate migrations for Postgres.', command: 'npx -y @modelcontextprotocol/server-postgres', installed: false },
+    { id: 'slack-mcp', name: 'Slack Messenger', category: 'Communication', description: 'Send notifications, read channels, and manage Slack workspace communications.', command: 'npx -y @modelcontextprotocol/server-slack', installed: false },
+    { id: 'linear-mcp', name: 'Linear Issue Tracker', category: 'Productivity', description: 'Sync issues, sprint backlogs, and project milestones with Linear.', command: 'npx -y @modelcontextprotocol/server-linear', installed: false },
+  ]);
   const [newServerName, setNewServerName] = useState('');
   const [newServerCommand, setNewServerCommand] = useState('');
   const [newServerArgs, setNewServerArgs] = useState('');
   const [newServerEnv, setNewServerEnv] = useState('');
+
+  useEffect(() => {
+    fetch('http://localhost:4132/api/mcp/servers')
+      .then(res => res.json())
+      .then(data => {
+        if (data.servers && data.servers.length > 0) setMcpCatalog(data.servers);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleInstallMcp = async (serverId: string) => {
+    try {
+      const res = await fetch('http://localhost:4132/api/mcp/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ server_id: serverId })
+      });
+      if (res.ok) {
+        setMcpCatalog(prev => prev.map(s => s.id === serverId ? { ...s, installed: true } : s));
+      }
+    } catch {}
+  };
 
   // Additional dynamic settings state variables
   const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
@@ -970,6 +998,43 @@ export default function Settings() {
                   <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>IMAP Server</label>
                   <input type="text" value={imapServer} onChange={e => setImapServer(e.target.value)} placeholder="imap.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                 </div>
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Model Context Protocol (MCP) Server Marketplace */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label" style={{ marginBottom: 10 }}>🔌 Model Context Protocol (MCP) Server Registry</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                1-Click dynamic installation and tool registration for Model Context Protocol servers. Connected servers inject tools directly into the ReAct reasoning loop.
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {mcpCatalog.map(s => (
+                  <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
+                        <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                          {s.installed ? 'Installed' : s.category}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
+                      <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <HoloButton
+                        type="button"
+                        variant={s.installed ? "secondary" : "primary"}
+                        size="sm"
+                        disabled={s.installed}
+                        onClick={() => handleInstallMcp(s.id)}
+                      >
+                        {s.installed ? "Active" : "Install Server"}
+                      </HoloButton>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </GlowCard>

@@ -66,7 +66,10 @@ SPEC.md
 tasks.md
 tasks/
 
-# Compiled Installers
-# executables/ is tracked via git lfs
+# Compiled Installers & Encrypted Vaults
+executables/
+vault.enc
+*.exe
+*.msi
 
 
