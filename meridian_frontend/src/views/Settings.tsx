@@ -93,6 +93,8 @@ export default function Settings() {
   const [anthropicKey, setAnthropicKey]     = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
   const [geminiKey, setGeminiKey]           = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
   const [deepseekKey, setDeepseekKey]       = useState(() => localStorage.getItem('DEEPSEEK_API_KEY') || '');
+  const [elevenlabsKey, setElevenlabsKey]   = useState(() => localStorage.getItem('ELEVENLABS_API_KEY') || '');
+  const [deepgramKey, setDeepgramKey]       = useState(() => localStorage.getItem('DEEPGRAM_API_KEY') || '');
   const [tavilyKey, setTavilyKey]           = useState(() => localStorage.getItem('TAVILY_API_KEY') || '');
   const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
   const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
@@ -453,6 +455,7 @@ export default function Settings() {
       GROQ_API_KEY: groqKey, OPENROUTER_API_KEY: openrouterKey, MISTRAL_API_KEY: mistralKey,
       OPENAI_API_KEY: openaiKey, ANTHROPIC_API_KEY: anthropicKey,
       GEMINI_API_KEY: geminiKey, DEEPSEEK_API_KEY: deepseekKey,
+      ELEVENLABS_API_KEY: elevenlabsKey, DEEPGRAM_API_KEY: deepgramKey,
       TAVILY_API_KEY: tavilyKey, DISCORD_BOT_TOKEN: discordToken,
       TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
       GAME_MODE: gameMode ? 'true' : 'false',
@@ -1013,6 +1016,108 @@ export default function Settings() {
               <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max STT Recording Duration (sec)</label>
                 <input type="number" min="2.0" max="60.0" step="1.0" value={sttMaxDuration} onChange={e => setSttMaxDuration(parseFloat(e.target.value))} className="input-base" />
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Voice & Audio Provider API Credentials */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">Cloud Voice & Speech Provider API Keys</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." />
+              <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." />
+            </div>
+          </GlowCard>
+
+          {/* Universal Encrypted Secret Vault inside Voice tab */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
+              <button
+                type="button"
+                onClick={() => setShowVaultSecrets(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+              >
+                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+              </button>
+            </div>
+
+            {/* List of active custom keys */}
+            {vaultKeys.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {vaultKeys.map(k => (
+                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                          {k.category || 'Audio & Voice'}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                          ${k.env_var}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                      </div>
+                    </div>
+                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
+                      <Trash2 size={12} />
+                    </HoloButton>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                No custom API keys registered in encrypted vault yet. Add ElevenLabs, Deepgram, Whisper Cloud or any custom tool key below.
+              </div>
+            )}
+
+            {/* Add New Key Form */}
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                + Add Dynamic API Key or Cloud Secret
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. ElevenLabs / Deepgram" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. ELEVENLABS_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="xi-... / dg-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                    <option value="Audio & Voice">Audio & Voice</option>
+                    <option value="LLM Provider">LLM Provider</option>
+                    <option value="Search & Web">Search & Web</option>
+                    <option value="Vision & Media">Vision & Media</option>
+                    <option value="Vector DB">Vector DB</option>
+                    <option value="Custom Tool">Custom Tool</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.elevenlabs.io/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                  <Plus size={12} /> Save Secret to Vault
+                </HoloButton>
               </div>
             </div>
           </GlowCard>
