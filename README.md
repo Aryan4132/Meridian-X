@@ -4,6 +4,7 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
+[![Version](https://img.shields.io/badge/version-0.2.2-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%2011-blue?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -11,9 +12,9 @@
 [![Ollama](https://img.shields.io/badge/Ollama-local%20LLMs-black?logo=ollama&logoColor=white)](https://ollama.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **local LLMs via Ollama**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships a live mascot companion that reacts to your cognitive context — all without sending a single byte to the cloud by default.
+**Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **local LLMs via Ollama**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, ships an interactive mascot companion that reacts to your cognitive context, and supports universal cloud API vault integration and Model Context Protocol (MCP) servers.
 
-[⬇ Download Installer](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
+[⬇ Download Releases](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Documentation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
 
 </div>
 
@@ -25,120 +26,75 @@
 ## ✨ Key Features
 
 ### 🧠 1. ReAct Reasoning Agent Loop & Advanced Critique
-Runs an asynchronous **Reasoning → Acting → Observing** loop powered by local models (e.g. `qwen2.5-coder`), streaming live reasoning timelines to the frontend via Server-Sent Events (SSE).
+Runs an asynchronous **Reasoning → Acting → Observing** loop powered by local models (e.g. `qwen2.5-coder`) or cloud LLMs, streaming live reasoning timelines to the frontend via Server-Sent Events (SSE).
 
 - **Self-Correction Engine**: Intercepts tool calls and heals parameter mismatches using `inspect.signature` against the `TOOL_REGISTRY`.
 - **Syntax Validation**: Validates Python via `ast.parse` and JSON via `json.loads` before any file write or execution.
 - **Logic Bug Detection**: A fast secondary LLM (`qwen2.5-coder:1.5b`) evaluates scripts for compiler warnings and logic errors, feeding issues back to the loop for self-correction *before* execution.
 
-### ⚡ 2. Speculative Concurrency Filtering
-Divides tool execution into two parallel pathways for maximum throughput while maintaining safety.
+### 🔐 2. Universal Encrypted Secret Vault & Dynamic API Key System
+Save and encrypt any third-party API key or cloud secret with AES-GCM encryption in Settings:
+- **LLM Providers**: Groq, OpenRouter, Mistral, OpenAI, Anthropic, Gemini, DeepSeek, Together AI, Perplexity.
+- **Voice & Speech**: ElevenLabs, Deepgram, Whisper Cloud.
+- **Search & Tools**: Tavily, SerpAPI, Replicate, HuggingFace.
+- Features mask/unmask key toggles, category badges, and dynamic custom base URL configuration.
 
-| Tier | Tools | Execution |
-|:---|:---|:---|
-| **Tier 0** (Read-Only) | `read_file`, `list_directory`, `search_web`, `search_codebase` | Concurrent via `asyncio.gather()` |
-| **Tier ≥ 1** (State-Modifying) | `write_file`, `run_python`, `gui_click` | Sequential — transaction integrity enforced |
+### 🔌 3. Model Context Protocol (MCP) Server Registry & Marketplace
+- **1-Click MCP Marketplace**: Dynamic installation and registration for featured MCP servers (**GitHub Integration**, **PostgreSQL Engine**, **Slack Messenger**, **Linear Issue Tracker**).
+- **Direct Tool Injection**: Connected MCP servers dynamically inject structured tools directly into the agent's reasoning loop.
 
-### 🦊 3. Interactive Mascot Companion & Island Mode
-A dedicated visual companion window anchored to the **bottom-right corner** of your active display. It reflects the agent's cognitive state in real-time through color shifts, kinetic animations, and audio effects:
+### 🦊 4. Interactive Mascot Companion & Island Mode
+A dedicated visual companion window reflecting cognitive states in real-time (Cyan Idle, Amber Diagnostic, Rose Disapproving, Emerald Typing, Indigo Sleeping).
+- **Configurable Island Positioning**: Choose between 6 anchor screen locations (`Top-Center`, `Bottom-Center`, `Top-Right`, `Bottom-Right`, `Top-Left`, `Bottom-Left`).
+- **Seamless Compression**: Closing the dashboard compresses Meridian-X into a sleek floating Dynamic Island.
 
-| State / Indicator | Trigger & Behavior |
-|:---|:---|
-| 🟢 **Default / Idle** | Cyan glow, calm floating animation; waiting for input or commands. |
-| 🟡 **Diagnostic / Working** | Amber glow, spinning outer hexagon rings, pulsing core, and synth ticks; triggered during security audits, codebase diagnostics, self-healing, or tool execution. |
-| 🔴 **Disapproving** | Rose/Red glow, rapid horizontal vibration, and lower buzz tones; triggered when a security check fails, or when a tool encounters an execution error. |
-| 🟢 **Typing** | Emerald glow and kinetic typewriter vibration; real-time reaction to active keyboard inputs and keystroke processing. |
-| 🔵 **Tired / Sleeping** | Indigo glow, slow deep breathing, floating "z" particles, and soft low-frequency oscillator hums; active during Pomodoro breaks or long periods of inactivity. |
+### 🎮 5. Sub-10ms Frameless Game Overlay (`Alt+Space`)
+A frameless, semi-transparent HUD overlay triggered via global hotkey (`Alt+Space`), allowing gamers and developers to query AI assistance without leaving full-screen apps or games.
 
-Closing the main dashboard **does not shut down the app** — it seamlessly compresses into a floating Island Mode window.
+### ⚡ 6. Speculative Concurrency Filtering
+Divides tool execution into two parallel pathways for maximum throughput while maintaining safety:
+- **Tier 0 (Read-Only)**: `read_file`, `list_directory`, `search_web`, `search_codebase` (Concurrent via `asyncio.gather()`).
+- **Tier ≥ 1 (State-Modifying)**: `write_file`, `run_python`, `gui_click` (Sequential transaction enforcement).
 
-### 🛡️ 4. Security Auditor Consensus & Safety Gates
-- **Consensus Checks**: Runs isolated local security audits via `qwen2.5-coder:1.5b` for any Tier 2+ tool invocation.
-- **Authorization Gate**: Halts execution for Tier 3+ write/run operations and awaits explicit confirmation from the user in the chat pane.
+### 🛡️ 7. Security Auditor Consensus & Safety Gates
+- **Consensus Checks**: Runs isolated local security audits via `qwen2.5-coder:1.5b` for Tier 2+ tool invocations.
+- **Authorization Gate**: Halts execution for Tier 3+ write/run operations until approved by the user.
 
-### 📡 5. P2P Swarm Dashboard & API Control
-- Discovers LAN peer nodes via a mesh network daemon.
-- View live telemetry — ports, handshake status, connection latency — from a dedicated **P2P Swarm** UI tab.
-- Toggle the daemon or trigger manual peer synchronization on-demand.
-
-### 🔋 6. Context-Aware Resource Governor
-Automatically suspends background intelligence tasks when:
-- System CPU utilization exceeds **85%**
-- A heavy foreground process is active: *Valorant, Cyberpunk, Blender, Unity, Unreal Engine, Visual Studio*
-
-### 📄 7. Native Offline RAG Document Parser
-Deep-ingests `.txt`, `.md`, `.json`, `.csv`, `.pdf` (via `pypdf`), and `.docx` (via `python-docx`) — chunking, embedding via `nomic-embed-text`, and indexing into **Turbovec** (vector search) and **SQLite** (metadata).
-
-### ✏️ 8. Rich Inline Code Merge Editor
-- Interactive diff panel with character/line count metadata.
-- **"Revert to Proposal"** button for instant rollback of manual edits to the original AI suggestion.
+### ⚙️ 8. Uncluttered 5-Category Tabbed Settings UI
+Reorganized configuration interface divided into 5 clean categories:
+- `AI Models` · `Mascot & Style` · `Voice & Audio` · `System Guard` · `Integrations`
 
 ---
 
 ## 🏗️ Architecture
 
 ```mermaid
-graph TD
-    subgraph Inputs["🎙️ System Inputs"]
-        Audio["Wake Word / STT / Microphone"]
-        Keyboard["Keyboard / Clipboard Events"]
+graph LR
+    subgraph UI["💻 Client Interface (Tauri v2 + React)"]
+        Dash["Main Dashboard & Mascot Island"]
+        Hotkeys["Global Hotkeys & Game Overlay"]
     end
 
-    subgraph Client["💻 Client Layer  (Tauri v2 + React)"]
-        Shell["Tauri Desktop Shell (Rust)"]
-        Dashboard["Main Dashboard Window"]
-        Mascot["Mascot Companion Window"]
+    subgraph Engine["⚙️ Backend Engine (FastAPI Python)"]
+        Agent["🧠 ReAct Reasoning Loop"]
+        Voice["🎤 Voice STT / TTS & VAD"]
+        Vault["🔐 Encrypted Vault & MCP Registry"]
+        P2P["📡 P2P Mesh Daemon & Triggers"]
     end
 
-    subgraph Backend["⚙️ Backend Engine  (FastAPI Python Sidecar)"]
-        API["FastAPI REST & SSE Server"]
-        Agent["🧠 ReAct Reasoning Agent"]
-        Voice["🎤 Voice Engine (STT / TTS / ONNX)"]
-        P2P["📡 P2P Mesh Daemon"]
-        Proactive["🔍 Proactive Resource Governor"]
+    subgraph Storage["💾 Storage & RAG"]
+        Turbovec[("Turbovec Vector DB")]
+        SQLite[("SQLite Memory & State")]
     end
 
-    subgraph Storage["💾 Data & Memory Layer"]
-        Turbovec[("Turbovec\nVector DB (.tq)")]
-        SQLite[("SQLite\nmetadata.db / scheduler.db")]
-        MongoDB[("MongoDB\nKnowledge Graph (optional)")]
+    subgraph Inference["🤖 Hybrid AI Models"]
+        Ollama["Local LLMs (Ollama)"]
+        Cloud["Cloud APIs (Groq · OpenRouter · OpenAI · Anthropic)"]
     end
 
-    subgraph AI["🤖 AI Inference Layer"]
-        Ollama["Local Ollama Engine\nInference & Embeddings"]
-        Cloud["Cloud APIs\nOpenAI · Gemini · Anthropic · DeepSeek"]
-    end
-
-    %% Input flows
-    Audio -->|wake word / transcription| Voice
-    Keyboard -->|keystrokes / clipboard| Proactive
-
-    %% Client ↔ Shell
-    Shell <-->|IPC / global hotkeys| Dashboard
-    Shell <-->|IPC / island mode| Mascot
-    Shell -->|spawns & monitors| API
-
-    %% Client ↔ Backend
-    Dashboard <-->|HTTP / SSE / WebSocket| API
-    Mascot <-->|HTTP / event stream| API
-
-    %% Backend internals
-    API <--> Agent
-    API <--> Voice
-    API <--> P2P
-    API --> Proactive
-
-    %% Agent ↔ Storage
-    Agent -->|embeddings & RAG| Turbovec
-    Agent -->|profiles, tasks & history| SQLite
-    Agent -->|knowledge graph sync| MongoDB
-
-    %% Agent ↔ Inference
-    Agent <-->|local model generation| Ollama
-    Agent <-->|hybrid cloud execution| Cloud
-
-    %% Voice ↔ Inference
-    Voice <-->|STT transcription| Ollama
+    UI <-->|HTTP / SSE Events| Engine
+    Engine <-->|RAG & Vector Search| Storage
+    Engine <-->|Local & Cloud Prompts| Inference
 ```
 
 ---
