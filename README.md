@@ -161,9 +161,9 @@ Run one of the following commands in your terminal to automatically download and
 1. **Download** the compiled installer from GitHub Releases:
    [📦 Download Meridian-X Installers (GitHub Releases)](https://github.com/Aryan4132/Meridian-X/releases)
 
-2. **Run** your preferred installer from the `executables/` directory:
-   - **NSIS Setup EXE** — `meridian-x_0.2.0_x64-setup.exe` — wizard-based setup
-   - **MSI Package** — `meridian-x_0.2.0_x64_en-US.msi` — standard Windows installer package
+2. **Run** your preferred installer from the release builds:
+   - **NSIS Setup EXE** — `meridian-x_0.2.2_x64-setup.exe` — wizard-based setup
+   - **MSI Package** — `meridian-x_0.2.2_x64_en-US.msi` — standard Windows installer package
 
 3. **Launch** via the **Meridian-X** desktop shortcut.
 
@@ -265,23 +265,30 @@ Navigate to the **Settings** gear icon on first launch:
 To unlock the full potential of Meridian-X, you can configure the following API keys and credentials in the **Settings** panel or directly in your `.env` file:
 
 #### 🧠 LLM Providers (Hybrid Cloud Mode)
-If your local hardware runs slowly on CPU-only inference, you can enter API keys for cloud providers to offload LLM tasks:
-*   **Gemini API Key** (`GEMINI_API_KEY`): Connects to Google's Gemini models (e.g., `gemini-2.5-flash`). Recommended for extremely fast and high-quality responses.
-*   **OpenAI API Key** (`OPENAI_API_KEY`): Connects to OpenAI models (e.g., `gpt-4o`, `gpt-4o-mini`).
-*   **Anthropic API Key** (`ANTHROPIC_API_KEY`): Connects to Claude models (e.g., `claude-3-5-sonnet`), excellent for complex coding and refactoring.
-*   **DeepSeek API Key** (`DEEPSEEK_API_KEY`): Connects to DeepSeek models (e.g., `deepseek-chat`, `deepseek-coder`).
+If your local hardware runs slowly on CPU-only inference, you can enter API keys in **Settings → AI Models** to offload LLM tasks:
+*   **Groq API Key** (`GROQ_API_KEY`): Connects to Llama 3.3 70B & Mixtral models running at 300+ tokens/sec.
+*   **OpenRouter API Key** (`OPENROUTER_API_KEY`): Access 100+ cloud models (Claude 3.5, GPT-4o, DeepSeek R1).
+*   **Mistral API Key** (`MISTRAL_API_KEY`): Connects to Mistral Large, Codestral, and Pixtral vision models.
+*   **Gemini API Key** (`GEMINI_API_KEY`): Connects to Google's Gemini models (e.g., `gemini-1.5-pro`, `gemini-2.0-flash`).
+*   **OpenAI API Key** (`OPENAI_API_KEY`): Connects to OpenAI models (e.g., `gpt-4o`, `gpt-4o-mini`, `o3-mini`).
+*   **Anthropic API Key** (`ANTHROPIC_API_KEY`): Connects to Claude models (e.g., `claude-3-5-sonnet-20241022`).
+*   **DeepSeek API Key** (`DEEPSEEK_API_KEY`): Connects to DeepSeek models (e.g., `deepseek-chat`, `deepseek-reasoner`).
 
-#### 🔍 Tools & Services
-*   **Tavily API Key** (`TAVILY_API_KEY`): Enables high-quality search engine queries, letting the agent search the web autonomously to fetch up-to-date documentation or real-time info.
-*   **Vault Key** (`MERIDIAN_VAULT_KEY`): A master passphrase used to encrypt and decrypt sensitive data stored in your local secure vault tool.
+#### 🎙️ Voice & Audio Providers
+Configure voice keys in **Settings → Voice & Audio**:
+*   **ElevenLabs API Key** (`ELEVENLABS_API_KEY`): High-fidelity neural voice synthesis for mascot responses.
+*   **Deepgram API Key** (`DEEPGRAM_API_KEY`): Ultra-low latency cloud speech-to-text transcription.
 
-#### 📧 Communication & Integrations
-*   **SMTP & IMAP Credentials** (`SMTP_EMAIL`, `SMTP_PASSWORD`): Allows the agent to log into your email account to read incoming mail, draft replies, or send notifications.
-*   **Discord Bot Token** (`DISCORD_BOT_TOKEN`): Connects the agent to a Discord bot, enabling you to message the agent and run commands from any Discord client.
-*   **Telegram Bot Token** (`TELEGRAM_BOT_TOKEN`): Connects the agent to a Telegram bot for remote mobile chat controls.
+#### 🔌 Model Context Protocol (MCP) & Tools
+Configure tools in **Settings → Integrations**:
+*   **MCP Server Marketplace**: 1-click dynamic installation for GitHub, PostgreSQL, Linear, and Slack MCP servers.
+*   **Tavily API Key** (`TAVILY_API_KEY`): Enables real-time web search results.
+*   **Universal Secret Vault**: AES-GCM encrypted local vault manager for custom secrets.
 
-#### 🗄️ Database Storage
-*   **MongoDB URI** (`MONGODB_URI`): Configures a local or remote MongoDB instance to store the agent's long-term factual memories in a structured Knowledge Graph. Core features will gracefully degrade to SQLite if this is omitted.
+#### 📧 Communication & Storage
+*   **SMTP & IMAP Credentials**: Email notifications, drafting, and inbox reading.
+*   **Discord & Telegram Tokens**: Remote command & control bot integration.
+*   **MongoDB URI**: Stores long-term factual memories in a Knowledge Graph. Core functions fallback to SQLite if offline.
 
 ### Testing Voice Wake Word
 1. Enable the **Mascot Voice** toggle in Settings.
@@ -382,10 +389,12 @@ Switch to a smaller quantized model in **Settings** or `.env`:
 
 ## 🗺️ Roadmap
 
-- [ ] **Multi-Agent Orchestration** — specialized sub-agents per programming language
-- [ ] **Enhanced GUI Automation** — deeper Accessibility API integration
-- [ ] **Dynamic Plugin Market** — hot-load third-party toolsets at runtime
-- [ ] **Temporal Memory Graph** — time-aware knowledge graphs tracking project evolution
+- [x] **Universal Encrypted Secret Vault & Dynamic API Gateway** — AES-GCM credential vault for Groq, OpenRouter, Mistral, ElevenLabs, Deepgram.
+- [x] **Model Context Protocol (MCP) Server Marketplace** — 1-click dynamic installation & tool registration.
+- [x] **Multi-Agent Swarm Orchestration** — concurrent sub-agents via `asyncio.gather()` with synthesized reporting.
+- [x] **Sub-10ms Frameless Game Overlay (`Alt+Space`)** — global hotkey HUD for full-screen games & productivity windows.
+- [ ] **Proactive Vision & Ambient Multimodal Engine** — real-time facial presence recognition & background audio monitoring.
+- [ ] **Temporal Memory Graph** — time-aware knowledge graphs tracking project evolution.
 
 ---
 
