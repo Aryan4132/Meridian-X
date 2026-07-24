@@ -17,18 +17,24 @@ const SETTINGS_TABS = [
 ] as const;
 
 const PROVIDERS = [
-  { id: 'ollama',    label: 'Ollama',    sub: 'Offline · Free',  color: '#00D97E' },
-  { id: 'openai',   label: 'OpenAI',    sub: 'Cloud · API Key', color: '#74AA9C' },
-  { id: 'anthropic',label: 'Anthropic', sub: 'Cloud · API Key', color: '#CC785C' },
-  { id: 'gemini',   label: 'Gemini',    sub: 'Cloud · API Key', color: '#4285F4' },
-  { id: 'deepseek', label: 'DeepSeek',  sub: 'Cloud · API Key', color: '#7C3AED' },
+  { id: 'ollama',    label: 'Ollama',     sub: 'Local · Offline',    color: '#00D97E' },
+  { id: 'groq',      label: 'Groq',       sub: 'Ultra-Fast Cloud',   color: '#F55036' },
+  { id: 'openrouter',label: 'OpenRouter', sub: '100+ Cloud Models',  color: '#6366F1' },
+  { id: 'mistral',   label: 'Mistral',    sub: 'Cloud · API Key',    color: '#FF7000' },
+  { id: 'openai',    label: 'OpenAI',     sub: 'Cloud · API Key',    color: '#74AA9C' },
+  { id: 'anthropic', label: 'Anthropic',  sub: 'Cloud · API Key',    color: '#CC785C' },
+  { id: 'gemini',    label: 'Gemini',     sub: 'Cloud · API Key',    color: '#4285F4' },
+  { id: 'deepseek',  label: 'DeepSeek',   sub: 'Cloud · API Key',    color: '#7C3AED' },
 ];
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  openai:    ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  gemini:    ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
-  deepseek:  ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder'],
+  groq:       ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+  openrouter: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1'],
+  mistral:    ['mistral-large-latest', 'codestral-latest', 'pixtral-12b-2409', 'mistral-small-latest'],
+  openai:     ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
+  anthropic:  ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+  gemini:     ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
+  deepseek:   ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
 };
 
 const THEMES = [
@@ -80,6 +86,9 @@ export default function Settings() {
   const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
   const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
   const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
+  const [groqKey, setGroqKey]               = useState(() => localStorage.getItem('GROQ_API_KEY') || '');
+  const [openrouterKey, setOpenrouterKey]   = useState(() => localStorage.getItem('OPENROUTER_API_KEY') || '');
+  const [mistralKey, setMistralKey]         = useState(() => localStorage.getItem('MISTRAL_API_KEY') || '');
   const [openaiKey, setOpenaiKey]           = useState(() => localStorage.getItem('OPENAI_API_KEY') || '');
   const [anthropicKey, setAnthropicKey]     = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
   const [geminiKey, setGeminiKey]           = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
@@ -441,6 +450,7 @@ export default function Settings() {
     const entries: Record<string, string> = {
       MERIDIAN_PROVIDER: provider, OLLAMA_HOST: ollamaHost,
       MERIDIAN_MODEL: brainModel, MERIDIAN_VISION_MODEL: visionModel,
+      GROQ_API_KEY: groqKey, OPENROUTER_API_KEY: openrouterKey, MISTRAL_API_KEY: mistralKey,
       OPENAI_API_KEY: openaiKey, ANTHROPIC_API_KEY: anthropicKey,
       GEMINI_API_KEY: geminiKey, DEEPSEEK_API_KEY: deepseekKey,
       TAVILY_API_KEY: tavilyKey, DISCORD_BOT_TOKEN: discordToken,
@@ -483,6 +493,7 @@ export default function Settings() {
         body: JSON.stringify({
           meridian_provider: provider, ollama_host: ollamaHost,
           meridian_model: brainModel, meridian_vision_model: visionModel,
+          groq_key: groqKey, openrouter_key: openrouterKey, mistral_key: mistralKey,
           openai_key: openaiKey, anthropic_key: anthropicKey,
           gemini_key: geminiKey, deepseek_key: deepseekKey,
           tavily_key: tavilyKey, discord_token: discordToken,
@@ -538,10 +549,13 @@ export default function Settings() {
 
   const apiKeyForProvider = (): [string, (v: string) => void, string] | null => {
     const map: Record<string, [string, (v: string) => void, string]> = {
-      openai:    [openaiKey,    setOpenaiKey,    'sk-proj-...'],
-      anthropic: [anthropicKey, setAnthropicKey, 'sk-ant-...'],
-      gemini:    [geminiKey,    setGeminiKey,    'AIzaSy...'],
-      deepseek:  [deepseekKey,  setDeepseekKey,  'sk-...'],
+      groq:       [groqKey,       setGroqKey,       'gsk_...'],
+      openrouter: [openrouterKey, setOpenrouterKey, 'sk-or-v1-...'],
+      mistral:    [mistralKey,    setMistralKey,    'sk-...'],
+      openai:     [openaiKey,     setOpenaiKey,     'sk-proj-...'],
+      anthropic:  [anthropicKey,  setAnthropicKey,  'sk-ant-...'],
+      gemini:     [geminiKey,     setGeminiKey,     'AIzaSy...'],
+      deepseek:   [deepseekKey,   setDeepseekKey,   'sk-...'],
     };
     return map[provider] ?? null;
   };
@@ -718,6 +732,99 @@ export default function Settings() {
                   rows={4}
                   style={{ resize: 'vertical', minHeight: 80 }}
                 />
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* Universal Encrypted Secret Vault inside AI Models tab */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
+              <button
+                type="button"
+                onClick={() => setShowVaultSecrets(v => !v)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+              >
+                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+              </button>
+            </div>
+
+            {/* List of active custom keys */}
+            {vaultKeys.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                {vaultKeys.map(k => (
+                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                          {k.category || 'LLM Provider'}
+                        </span>
+                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                          ${k.env_var}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                      </div>
+                    </div>
+                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
+                      <Trash2 size={12} />
+                    </HoloButton>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
+              </div>
+            )}
+
+            {/* Add New Key Form */}
+            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                + Add Dynamic API Key or Cloud Secret
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                    <option value="LLM Provider">LLM Provider</option>
+                    <option value="Search & Web">Search & Web</option>
+                    <option value="Audio & Voice">Audio & Voice</option>
+                    <option value="Vision & Media">Vision & Media</option>
+                    <option value="Vector DB">Vector DB</option>
+                    <option value="Custom Tool">Custom Tool</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                  <Plus size={12} /> Save Secret to Vault
+                </HoloButton>
               </div>
             </div>
           </GlowCard>

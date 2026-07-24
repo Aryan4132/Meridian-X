@@ -1552,6 +1552,9 @@ class ProfileSaveRequest(BaseModel):
     telegram_chat_id: Optional[str] = None
     meridian_model: Optional[str] = None
     meridian_vision_model: Optional[str] = None
+    groq_key: Optional[str] = None
+    openrouter_key: Optional[str] = None
+    mistral_key: Optional[str] = None
     openai_key: Optional[str] = None
     anthropic_key: Optional[str] = None
     gemini_key: Optional[str] = None
@@ -1584,6 +1587,9 @@ class ProfileSaveRequest(BaseModel):
 
 ENV_KEY_MAP = {
     "ollama_host": "OLLAMA_HOST",
+    "groq_key": "GROQ_API_KEY",
+    "openrouter_key": "OPENROUTER_API_KEY",
+    "mistral_key": "MISTRAL_API_KEY",
     "openai_key": "OPENAI_API_KEY",
     "anthropic_key": "ANTHROPIC_API_KEY",
     "gemini_key": "GEMINI_API_KEY",

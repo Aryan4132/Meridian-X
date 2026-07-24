@@ -306,8 +306,41 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "segment_screen": {"tier": 0, "func": segment_screen},
     "gui_click_badge": {"tier": 2, "func": gui_click_badge},
     "p2p_sync": {"tier": 1, "func": lambda: p2p_sync_wrapper()},
-    "create_dynamic_tool": {"tier": 3, "func": lambda name, code: create_dynamic_tool_wrapper(name, code)}
+    "create_dynamic_tool": {"tier": 3, "func": lambda name, code: create_dynamic_tool_wrapper(name, code)},
+    "run_agent_swarm": {"tier": 2, "func": lambda goal, roles="researcher,auditor": run_agent_swarm_wrapper(goal, roles)},
+    "browser_navigate": {"tier": 1, "func": lambda url: browser_navigate_wrapper(url)},
+    "browser_interact": {"tier": 2, "func": lambda action, selector, text="": browser_interact_wrapper(action, selector, text)},
+    "mcp_list_servers": {"tier": 0, "func": lambda: mcp_list_servers_wrapper()},
+    "mcp_install_server": {"tier": 2, "func": lambda server_id: mcp_install_server_wrapper(server_id)}
 }
+
+def browser_navigate_wrapper(url: str) -> str:
+    from src.tools.browser_agent import browser_navigate_tool
+    return browser_navigate_tool(url)
+
+def browser_interact_wrapper(action: str, selector: str, text: str = "") -> str:
+    from src.tools.browser_agent import browser_interact_tool
+    return browser_interact_tool(action, selector, text)
+
+def mcp_list_servers_wrapper() -> str:
+    from src.tools.mcp_marketplace import mcp_list_servers_tool
+    return mcp_list_servers_tool()
+
+def mcp_install_server_wrapper(server_id: str) -> str:
+    from src.tools.mcp_marketplace import mcp_install_server_tool
+    return mcp_install_server_tool(server_id)
+
+
+def run_agent_swarm_wrapper(goal: str, roles: str = "researcher,auditor") -> str:
+    """BK-10: Spawns parallel specialized subagents to work on a goal concurrently."""
+    try:
+        from src.core.swarm import SwarmOrchestrator
+        role_list = [r.strip() for r in roles.split(",") if r.strip()]
+        res = asyncio.run(SwarmOrchestrator().run_swarm(goal, role_list))
+        return res.get("synthesis", "Swarm execution complete.")
+    except Exception as e:
+        return f"Swarm execution failed: {e}"
+
 
 def p2p_sync_wrapper() -> str:
     from src.core.p2p import p2p_node

@@ -257,7 +257,19 @@ def init_tables():
     """)
     
     cursor.execute("""
+        CREATE TABLE IF NOT EXISTS thought_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL,
+            session_id TEXT,
+            step_index INTEGER,
+            thought_text TEXT,
+            tool_name TEXT
+        )
+    """)
+    
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_profile (
+
             key TEXT PRIMARY KEY,
             value TEXT
         )
@@ -452,7 +464,48 @@ def get_background_runs(limit: int = 20) -> List[Dict[str, Any]]:
         if conn:
             conn.close()
 
+def add_thought_log(thought_text: str, session_id: str = "default", step_index: int = 0, tool_name: str = "") -> bool:
+    """BK-08: Persist intermediate ReAct step reasoning thoughts to SQLite database."""
+    if not thought_text:
+        return False
+    conn = None
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO thought_logs (timestamp, session_id, step_index, thought_text, tool_name) VALUES (?, ?, ?, ?, ?)",
+            (time.time(), session_id, step_index, thought_text, tool_name)
+        )
+        conn.commit()
+        return True
+    except Exception as e:
+        print("[Database] Failed to add thought log:", e)
+        return False
+    finally:
+        if conn:
+            conn.close()
+
+def get_thought_logs(session_id: str = "default", limit: int = 50) -> List[Dict[str, Any]]:
+    """BK-08: Fetch persisted thought introspection logs for replay and debugging."""
+    conn = None
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, timestamp, session_id, step_index, thought_text, tool_name FROM thought_logs WHERE session_id = ? ORDER BY id DESC LIMIT ?",
+            (session_id, limit)
+        )
+        rows = cursor.fetchall()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        print("[Database] Failed to get thought logs:", e)
+        return []
+    finally:
+        if conn:
+            conn.close()
+
 # ----------------- CONVERSATIONS HELPERS -----------------
+
 
 def add_to_conversations(role: str, content: str, summary: str = ""):
     conn = None

@@ -33,6 +33,17 @@ def format_sse_event(event_type: str, data: Any) -> str:
     return f"data: {payload}\n\n"
 
 
+def format_thought_event(thought_text: str, session_id: str = "default", step_index: int = 0, tool_name: str = "") -> str:
+    """BK-08: Formats SSE event for thought introspection and persists to database."""
+    try:
+        from database import add_thought_log
+        add_thought_log(thought_text, session_id=session_id, step_index=step_index, tool_name=tool_name)
+    except Exception as e:
+        print("[Loop Stream] Failed to persist thought log:", e)
+    return format_sse_event("thought", {"text": thought_text, "session_id": session_id, "step": step_index, "tool": tool_name})
+
+
+
 def estimate_token_count(text: str) -> int:
     """Fast token heuristic (1 token ~ 4 characters)."""
     if not text:

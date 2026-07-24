@@ -10,6 +10,40 @@ P2P_PORT = 8009
 UDP_DISCOVERY_PORT = 8010
 _server_running = False
 
+try:
+    from zeroconf import Zeroconf, ServiceInfo, ServiceBrowser
+    ZEROCONF_AVAILABLE = True
+except ImportError:
+    ZEROCONF_AVAILABLE = False
+
+
+class MeridianZeroconfListener:
+    """BK-07: Listener for mDNS zeroconf P2P service discovery."""
+    def __init__(self, node: 'P2PSyncNode'):
+        self.node = node
+
+    def add_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        try:
+            info = zc.get_service_info(type_, name)
+            if info and info.addresses:
+                peer_ip = socket.inet_ntoa(info.addresses[0])
+                peer_port = info.port
+                # Avoid adding self
+                if peer_ip not in ("127.0.0.1", self.node.host) or peer_port != self.node.port:
+                    with self.node.lock:
+                        if (peer_ip, peer_port) not in self.node.peers:
+                            self.node.peers.add((peer_ip, peer_port))
+                            self.node._save_peer_to_db(peer_ip, peer_port)
+                            print(f"[P2P Zeroconf] Discovered mDNS peer: {peer_ip}:{peer_port}")
+        except Exception as e:
+            print(f"[P2P Zeroconf] Error parsing service info: {e}")
+
+    def remove_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        pass
+
+    def update_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
+        pass
+
 def _encrypt_payload(data_str: str, token: str) -> bytes:
     if not token:
         return data_str.encode('utf-8')
@@ -40,9 +74,12 @@ class P2PSyncNode:
         self.lock = threading.Lock()
         self.tcp_socket = None
         self.udp_socket = None
+        self.zeroconf = None
+        self.service_info = None
         # Health ping failure counts: {(ip, port): fail_count}
         self._fail_counts: Dict[Tuple[str, int], int] = {}
         self._init_peers_table()
+
 
     def _init_peers_table(self) -> None:
         """Ensure the peers table exists in SQLite for persistent peer storage."""
@@ -149,6 +186,25 @@ class P2PSyncNode:
         # Start health ping loop
         threading.Thread(target=self._run_health_ping_loop, daemon=True).start()
 
+        # BK-07: Register mDNS service via Zeroconf if available
+        if ZEROCONF_AVAILABLE:
+            try:
+                self.zeroconf = Zeroconf()
+                hostname = socket.gethostname()
+                host_ip = socket.gethostbyname(hostname)
+                self.service_info = ServiceInfo(
+                    "_meridian-p2p._tcp.local.",
+                    f"MeridianP2P-{self.port}._meridian-p2p._tcp.local.",
+                    addresses=[socket.inet_aton(host_ip)],
+                    port=self.port,
+                    properties={"node_id": f"{hostname}:{self.port}"}
+                )
+                self.zeroconf.register_service(self.service_info)
+                ServiceBrowser(self.zeroconf, "_meridian-p2p._tcp.local.", MeridianZeroconfListener(self))
+                print(f"[P2P Zeroconf] Registered mDNS service MeridianP2P on {host_ip}:{self.port}")
+            except Exception as e:
+                print(f"[P2P Zeroconf] Failed to start zeroconf discovery: {e}")
+
         return f"P2P Sync daemon started on {self.host}:{self.port} (loaded {len(self.peers)} persisted peer(s))."
 
     def stop(self) -> str:
@@ -157,6 +213,16 @@ class P2PSyncNode:
             return "P2P Sync server is not active."
         _server_running = False
         
+        # BK-07: Unregister Zeroconf service on shutdown
+        if self.zeroconf and self.service_info:
+            try:
+                self.zeroconf.unregister_service(self.service_info)
+                self.zeroconf.close()
+            except Exception:
+                pass
+            self.zeroconf = None
+            self.service_info = None
+
         # Close sockets to unblock accept() and recvfrom()
         if self.tcp_socket:
             try:
@@ -170,6 +236,7 @@ class P2PSyncNode:
                 pass
                 
         return "P2P Sync daemon stopped."
+
 
     def _run_tcp_server(self):
         self.tcp_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
