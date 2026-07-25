@@ -15,13 +15,13 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: "-b nsis,msi"
+            tauri-args: "--bundles nsis,msi"
           - os: macos-latest
             platform: macos
-            tauri-args: "-b app,dmg"
+            tauri-args: "--bundles dmg"
           - os: ubuntu-latest
             platform: linux
-            tauri-args: "-b deb"
+            tauri-args: "--bundles deb"
 
     runs-on: ${{ matrix.os }}
 
@@ -34,54 +34,66 @@ jobs:
       if: matrix.platform == 'linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf squashfs-tools
+        sudo apt-get install -y \
+          libwebkit2gtk-4.1-dev \
+          build-essential \
+          curl wget file \
+          libssl-dev \
+          libayatana-appindicator3-dev \
+          librsvg2-dev \
+          patchelf \
+          squashfs-tools
 
-    # --- Setup Node.js & NPM dependencies ---
+    # --- Setup Node.js ---
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: 18
+        node-version: 20
 
+    # --- Install Frontend Dependencies (clean, no --force, so native addons install correctly) ---
     - name: Install Frontend Dependencies
+      shell: bash
       run: |
         cd meridian_frontend
-        npm install --force
+        # Remove stale lock file so npm resolves fresh platform-specific optional deps
+        rm -f package-lock.json
+        npm install
 
     # --- Setup Rust Compiler ---
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
-    # --- Setup Python Environment & Package Backend ---
+    # --- Setup Python Environment (3.11 — tflite-runtime has no 3.12 Linux wheels) ---
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.11'
 
     - name: Create Backend Virtualenv & Install Requirements
+      shell: bash
       run: |
         cd meridian_backend
         python -m venv venv
         if [ "$RUNNER_OS" == "Windows" ]; then
           ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
-          ./venv/Scripts/pip.exe install pyinstaller fastapi uvicorn pydantic psutil httpx requests pillow numpy onnxruntime || true
+          ./venv/Scripts/pip.exe install pyinstaller || true
           ./venv/Scripts/pip.exe install -r requirements.txt || true
         else
           ./venv/bin/python -m pip install --upgrade pip setuptools wheel
-          ./venv/bin/pip install pyinstaller fastapi uvicorn pydantic psutil httpx requests pillow numpy onnxruntime || true
+          ./venv/bin/pip install pyinstaller || true
           ./venv/bin/pip install -r requirements.txt || true
         fi
-      shell: bash
 
     - name: Compile Standalone Backend Sidecar
+      shell: bash
       run: |
         python build_standalone.py --sidecar-only
-      shell: bash
 
     # --- Install NSIS (Windows only) ---
     - name: Install NSIS
       if: matrix.platform == 'windows'
-      run: choco install nsis -y
       shell: pwsh
+      run: choco install nsis -y
 
     # --- Build Tauri App & Publish Release ---
     - name: Build Tauri App & Upload Release
@@ -91,7 +103,7 @@ jobs:
       with:
         tagName: ${{ github.ref_name }}
         releaseName: 'Meridian-X ${{ github.ref_name }}'
-        releaseBody: 'Automated multi-platform compilation release for ${{ github.ref_name }}'
+        releaseBody: 'Automated multi-platform release for ${{ github.ref_name }}'
         releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'
