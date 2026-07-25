@@ -16,12 +16,20 @@ jobs:
           - os: windows-latest
             platform: windows
             tauri-args: --bundles nsis,msi
+            artifacts: |
+              meridian_frontend/src-tauri/target/release/bundle/nsis/*-setup.exe
+              meridian_frontend/src-tauri/target/release/bundle/msi/*.msi
           - os: macos-latest
             platform: macos
             tauri-args: --bundles dmg
+            artifacts: |
+              meridian_frontend/src-tauri/target/release/bundle/dmg/*.dmg
           - os: ubuntu-latest
             platform: linux
             tauri-args: --bundles deb,appimage
+            artifacts: |
+              meridian_frontend/src-tauri/target/release/bundle/deb/*.deb
+              meridian_frontend/src-tauri/target/release/bundle/appimage/*.AppImage
 
     runs-on: ${{ matrix.os }}
 
@@ -73,7 +81,7 @@ jobs:
       if: matrix.platform != 'windows'
       run: |
         cd meridian_backend
-        python3 -m venv venv
+        python -m venv venv
         ./venv/bin/pip install --upgrade pip
         ./venv/bin/pip install -r requirements.txt
         ./venv/bin/pip install pyinstaller
@@ -100,11 +108,7 @@ jobs:
     - name: Upload Release Assets to GitHub
       uses: softprops/action-gh-release@v1
       with:
-        files: |
-          meridian_frontend/src-tauri/target/release/bundle/nsis/*-setup.exe
-          meridian_frontend/src-tauri/target/release/bundle/msi/*.msi
-          meridian_frontend/src-tauri/target/release/bundle/dmg/*.dmg
-          meridian_frontend/src-tauri/target/release/bundle/deb/*.deb
-          meridian_frontend/src-tauri/target/release/bundle/appimage/*.AppImage
+        files: ${{ matrix.artifacts }}
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -75,6 +75,12 @@ def main():
     print(f"Copying '{compiled_backend}' -> '{frontend_api_dir}'...")
     shutil.copytree(compiled_backend, frontend_api_dir)
     
+    if platform.system() != "Windows":
+        api_bin = os.path.join(frontend_api_dir, "api")
+        if os.path.exists(api_bin):
+            print(f"Granting executable permissions (chmod +x) to '{api_bin}'...")
+            os.chmod(api_bin, 0o755)
+    
     if sidecar_only:
         print("\n[Success] Standalone sidecar backend build process complete!")
         sys.exit(0)
