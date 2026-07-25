@@ -82,9 +82,17 @@ jobs:
 
     # --- Build Tauri App ---
     - name: Build Tauri Desktop Bundle
+      shell: bash
       run: |
         cd meridian_frontend
-        npm run tauri build
+        npx tauri build 2>&1 | tee tauri_build.log
+
+    - name: Upload Build Log on Failure
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: tauri-build-log-${{ matrix.platform }}
+        path: meridian_frontend/tauri_build.log
 
     # --- Upload Compiled Artifacts to GitHub Release ---
     - name: Upload Release Assets to GitHub
