@@ -15,10 +15,13 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
+            tauri-args: "-b nsis,msi"
           - os: macos-latest
             platform: macos
+            tauri-args: "-b app,dmg"
           - os: ubuntu-latest
             platform: linux
+            tauri-args: "-b deb"
 
     runs-on: ${{ matrix.os }}
 
@@ -84,7 +87,7 @@ jobs:
     - name: Build Tauri Desktop Bundle
       run: |
         cd meridian_frontend
-        npm run tauri build
+        npx tauri build ${{ matrix.tauri-args }}
 
     # --- Upload Compiled Artifacts to GitHub Release ---
     - name: Upload Release Assets to GitHub
@@ -98,7 +101,6 @@ jobs:
           meridian_frontend/src-tauri/target/release/bundle/msi/*.msi
           meridian_frontend/src-tauri/target/release/bundle/dmg/*.dmg
           meridian_frontend/src-tauri/target/release/bundle/deb/*.deb
-          meridian_frontend/src-tauri/target/release/bundle/appimage/*.AppImage
         fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
