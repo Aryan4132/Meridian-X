@@ -2888,9 +2888,16 @@ async def _async_bg_git_pull():
         import asyncio
         import subprocess
         root_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(root_dir, ".."))
+        # Only attempt git pull if running within a git repository
+        if not os.path.exists(os.path.join(repo_root, ".git")) and not os.path.exists(os.path.join(root_dir, ".git")):
+            print("[Auto-Update] Standalone binary release detected (no .git repo found).")
+            _auto_download_in_progress = False
+            return
+        
         proc = await asyncio.create_subprocess_exec(
             "git", "pull", "origin", "main",
-            cwd=root_dir,
+            cwd=repo_root if os.path.exists(os.path.join(repo_root, ".git")) else root_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
@@ -2909,12 +2916,12 @@ async def api_check_update():
         url = "https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest"
         headers = {"User-Agent": "Meridian-X-Agent"}
         
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=6.0) as client:
             resp = await client.get(url, headers=headers)
             
         if resp.status_code == 200:
             data = resp.json()
-            remote_tag = data.get("tag_name", "0.2.3")
+            remote_tag = data.get("tag_name", CURRENT_VERSION)
             version_on_github = remote_tag.lstrip("v")
             update_type = _determine_update_type(CURRENT_VERSION, version_on_github)
             update_available = update_type != "none"
@@ -2942,21 +2949,21 @@ async def api_check_update():
             }
         else:
             return {
-                "status": "warning",
+                "status": "offline",
                 "current_version": CURRENT_VERSION,
                 "version_on_github": CURRENT_VERSION,
                 "update_available": False,
                 "update_type": "none",
-                "message": f"GitHub API returned HTTP {resp.status_code}"
+                "message": f"Offline mode / Standalone package (GitHub API returned HTTP {resp.status_code})"
             }
     except Exception as e:
         return {
-            "status": "error",
+            "status": "offline",
             "current_version": CURRENT_VERSION,
             "version_on_github": CURRENT_VERSION,
             "update_available": False,
             "update_type": "none",
-            "message": f"Failed to inspect GitHub release: {e}"
+            "message": f"Offline mode / Standalone package — running local release v{CURRENT_VERSION}"
         }
 
 @app.post("/api/system/trigger-update")
@@ -2964,7 +2971,17 @@ def api_trigger_update():
     try:
         import subprocess
         root_dir = os.path.dirname(os.path.abspath(__file__))
-        res = subprocess.run("git pull origin main", shell=True, cwd=root_dir, capture_output=True, text=True)
+        repo_root = os.path.abspath(os.path.join(root_dir, ".."))
+        target_dir = repo_root if os.path.exists(os.path.join(repo_root, ".git")) else root_dir
+        
+        if not os.path.exists(os.path.join(target_dir, ".git")):
+            return {
+                "status": "standalone",
+                "message": f"Running standalone offline package (v{CURRENT_VERSION}). To update, download the latest installer package from GitHub Releases.",
+                "output": "No .git repo present in standalone binary installation."
+            }
+
+        res = subprocess.run("git pull origin main", shell=True, cwd=target_dir, capture_output=True, text=True)
         return {
             "status": "success",
             "message": "Update pulled successfully from GitHub. Restarting backend recommended.",
