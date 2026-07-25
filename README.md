@@ -4,8 +4,8 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.2.2-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%2011-blue?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![Version](https://img.shields.io/badge/version-0.2.3-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
@@ -123,8 +123,8 @@ graph LR
 | OS | Status |
 |:---|:---|
 | **Windows 11** (64-bit AMD64) | ✅ Fully Supported |
-| **macOS** | ⚠️ Under Active Development (Core sidecar compiles; desktop shell integration is work-in-progress) |
-| **Linux** | ⚠️ Under Active Development (Core sidecar compiles; desktop shell integration is work-in-progress) |
+| **macOS** (12+ Apple Silicon / Intel) | ✅ Fully Supported |
+| **Linux** (Ubuntu / Debian / Arch / Fedora) | ✅ Fully Supported |
 
 ---
 

@@ -157,7 +157,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Mascot window — transparent bg */
+/* Mascot window — transparent bg with fallback for uncomposited Linux WMs */
 html.mascot-html,
 html:has(body.mascot-body),
 body.mascot-body,
@@ -168,6 +168,14 @@ body.mascot-body #root {
   border: none !important;
   outline: none !important;
   box-shadow: none !important;
+}
+
+/* Solid background fallback styling for uncomposited window managers (XFCE/i3 without Picom) */
+@supports not (backdrop-filter: blur(1px)) {
+  body.mascot-body {
+    background-color: var(--bg-panel, #0E1220) !important;
+    border-radius: var(--radius-md);
+  }
 }
 
 /* ============================================================

@@ -165,12 +165,18 @@ fn trigger_backend_restart() -> Result<String, String> {
     use std::process::Command;
     use std::path::PathBuf;
 
+    let target_script = if cfg!(target_os = "windows") {
+        "restart_backend.bat"
+    } else {
+        "restart_backend.sh"
+    };
+
     let mut current_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let mut script_path = None;
 
-    // Check CWD and walk up to 5 parent directories to find restart_backend.bat
+    // Check CWD and walk up to 5 parent directories to find restart script
     for _ in 0..6 {
-        let test_path = current_dir.join("restart_backend.bat");
+        let test_path = current_dir.join(target_script);
         if test_path.exists() {
             script_path = Some(test_path);
             break;
@@ -187,7 +193,7 @@ fn trigger_backend_restart() -> Result<String, String> {
         if let Ok(exe_path) = std::env::current_exe() {
             let mut exe_dir = exe_path.parent().map(|p| p.to_path_buf()).unwrap_or_else(|| PathBuf::from("."));
             for _ in 0..6 {
-                let test_path = exe_dir.join("restart_backend.bat");
+                let test_path = exe_dir.join(target_script);
                 if test_path.exists() {
                     script_path = Some(test_path);
                     break;
@@ -203,13 +209,20 @@ fn trigger_backend_restart() -> Result<String, String> {
 
     let resolved_path = match script_path {
         Some(path) => path,
-        None => return Err("Could not find restart_backend.bat script".into()),
+        None => return Err(format!("Could not find {} script", target_script)),
     };
 
-    Command::new("cmd")
-        .args(&["/C", resolved_path.to_str().unwrap()])
-        .spawn()
-        .map_err(|e| format!("Failed to spawn restart script: {}", e))?;
+    if cfg!(target_os = "windows") {
+        Command::new("cmd")
+            .args(&["/C", resolved_path.to_str().unwrap()])
+            .spawn()
+            .map_err(|e| format!("Failed to spawn restart script: {}", e))?;
+    } else {
+        Command::new("sh")
+            .arg(resolved_path.to_str().unwrap())
+            .spawn()
+            .map_err(|e| format!("Failed to spawn restart script: {}", e))?;
+    }
 
     Ok("Restart initiated".into())
 }
@@ -355,8 +368,14 @@ pub fn run() {
                 let app_handle = app.handle();
                 let mut api_exe_path = None;
 
+                let api_rel_path = if cfg!(target_os = "windows") {
+                    "api/api.exe"
+                } else {
+                    "api/api"
+                };
+
                 // Try resolving via standard Resource directory first
-                if let Ok(res_path) = app_handle.path().resolve("api/api.exe", tauri::path::BaseDirectory::Resource) {
+                if let Ok(res_path) = app_handle.path().resolve(api_rel_path, tauri::path::BaseDirectory::Resource) {
                     if res_path.exists() {
                         api_exe_path = Some(res_path);
                     }
@@ -366,7 +385,7 @@ pub fn run() {
                 if api_exe_path.is_none() {
                     if let Ok(mut exe_path) = std::env::current_exe() {
                         exe_path.pop(); // Remove executable name
-                        let local_api = exe_path.join("api/api.exe");
+                        let local_api = exe_path.join(api_rel_path);
                         if local_api.exists() {
                             api_exe_path = Some(local_api);
                         }

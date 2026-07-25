@@ -99,26 +99,33 @@ def main():
     os.makedirs(executables_dir, exist_ok=True)
     
     import glob
-    msi_pattern = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "msi", "meridian-x_*_x64_en-US.msi")
-    exe_pattern = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "nsis", "meridian-x_*_x64-setup.exe")
+    patterns = {
+        "MSI Installer": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "msi", "meridian-x_*_x64_en-US.msi"),
+        "NSIS Setup EXE": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "nsis", "meridian-x_*_x64-setup.exe"),
+        "macOS DMG": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "dmg", "*.dmg"),
+        "macOS App Bundle": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "macos", "*.app"),
+        "Linux DEB Package": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "deb", "*.deb"),
+        "Linux AppImage": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "appimage", "*.AppImage"),
+    }
     
-    msi_files = glob.glob(msi_pattern)
-    exe_files = glob.glob(exe_pattern)
-    
-    if msi_files:
-        msi_src = sorted(msi_files)[-1]
-        shutil.copy2(msi_src, executables_dir)
-        print(f"Copied MSI installer to: {os.path.join(executables_dir, os.path.basename(msi_src))}")
-    else:
-        print("[Warning] MSI installer output not found!")
-        
-    if exe_files:
-        exe_src = sorted(exe_files)[-1]
-        shutil.copy2(exe_src, executables_dir)
-        print(f"Copied NSIS setup EXE to: {os.path.join(executables_dir, os.path.basename(exe_src))}")
-    else:
-        print("[Warning] NSIS setup EXE output not found!")
-        
+    found_any = False
+    for label, pattern in patterns.items():
+        files = glob.glob(pattern)
+        if files:
+            for f in files:
+                dest = os.path.join(executables_dir, os.path.basename(f))
+                if os.path.isdir(f):
+                    if os.path.exists(dest):
+                        shutil.rmtree(dest)
+                    shutil.copytree(f, dest)
+                else:
+                    shutil.copy2(f, dest)
+                print(f"Copied {label} to: {dest}")
+                found_any = True
+
+    if not found_any:
+        print("[Warning] No compiled installer packages were found in bundle output!")
+
     print("\n[Success] Standalone build process complete!")
 
 if __name__ == "__main__":

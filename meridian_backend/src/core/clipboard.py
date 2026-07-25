@@ -33,8 +33,8 @@ class ClipboardWatcher(threading.Thread):
                         on_clipboard_proactive(current_text)
                     except Exception:
                         pass
-            except Exception as e:
-                # Ignore failures if clipboard is temporarily locked by other applications
+            except Exception:
+                # Ignore failures if clipboard is temporarily locked or if xclip/xsel missing on Linux
                 pass
             time.sleep(self.interval)
 

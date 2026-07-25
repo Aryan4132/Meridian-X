@@ -1247,7 +1247,7 @@ export default function Settings() {
                       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                         <HoloButton
                           type="button"
-                          variant={s.installed ? "secondary" : "primary"}
+                          variant={s.installed ? "ghost" : "primary"}
                           size="sm"
                           disabled={s.installed}
                           onClick={() => handleInstallMcp(s.id)}

@@ -1,9 +1,11 @@
 import os
 import sys
+import platform
 import subprocess
 
-def enable_startup():
-    startup_dir = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
+def enable_startup_windows():
+    appdata = os.environ.get("APPDATA", os.path.expanduser("~"))
+    startup_dir = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
     
     # 1. Clean up old VBScript if it exists
     vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
@@ -14,9 +16,9 @@ def enable_startup():
         except Exception:
             pass
             
-    # 2. Create the start_silent.bat file in AppData (to avoid cluttering the project directory)
+    # 2. Create the start_silent.bat file in AppData
     project_dir = os.path.dirname(os.path.abspath(__file__))
-    appdata_dir = os.path.join(os.environ["APPDATA"], "Meridian")
+    appdata_dir = os.path.join(appdata, "Meridian")
     os.makedirs(appdata_dir, exist_ok=True)
     bat_path = os.path.join(appdata_dir, "start_silent.bat")
     
@@ -92,39 +94,114 @@ if exist "{release_exe_relative}" (
     except Exception as e:
         print(f"[Error] Failed to create startup VBScript: {e}")
 
-def disable_startup():
-    startup_dir = os.path.join(os.environ["APPDATA"], r"Microsoft\Windows\Start Menu\Programs\Startup")
-    vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
-    shortcut_path = os.path.join(startup_dir, "Meridian.lnk")
-    
+def enable_startup_macos():
     project_dir = os.path.dirname(os.path.abspath(__file__))
-    legacy_bat_path = os.path.join(project_dir, "start_silent.bat")
+    start_script = os.path.join(project_dir, "start_desktop.sh")
+    launch_agents_dir = os.path.expanduser("~/Library/LaunchAgents")
+    os.makedirs(launch_agents_dir, exist_ok=True)
     
-    appdata_dir = os.path.join(os.environ["APPDATA"], "Meridian")
-    bat_path = os.path.join(appdata_dir, "start_silent.bat")
+    plist_path = os.path.join(launch_agents_dir, "com.meridian.x.plist")
+    plist_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.meridian.x</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>{start_script}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>WorkingDirectory</key>
+    <string>{project_dir}</string>
+</dict>
+</plist>
+"""
+    try:
+        with open(plist_path, "w", encoding="utf-8") as f:
+            f.write(plist_content)
+        print(f"[Success] macOS launchd plist created at: {plist_path}")
+    except Exception as e:
+        print(f"[Error] Failed to create macOS launchd plist: {e}")
+
+def enable_startup_linux():
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    start_script = os.path.join(project_dir, "start_desktop.sh")
+    autostart_dir = os.path.expanduser("~/.config/autostart")
+    os.makedirs(autostart_dir, exist_ok=True)
     
-    removed_any = False
-    
-    for path in [vbs_path, shortcut_path, bat_path, legacy_bat_path]:
-        if os.path.exists(path):
+    desktop_path = os.path.join(autostart_dir, "meridian-x.desktop")
+    desktop_content = f"""[Desktop Entry]
+Type=Application
+Name=Meridian-X Desktop Companion
+Exec=/bin/bash "{start_script}"
+Path={project_dir}
+Terminal=false
+X-GNOME-Autostart-enabled=true
+Comment=Meridian-X Autonomous AI Desktop Companion
+"""
+    try:
+        with open(desktop_path, "w", encoding="utf-8") as f:
+            f.write(desktop_content)
+        os.chmod(desktop_path, 0o755)
+        print(f"[Success] Linux autostart entry created at: {desktop_path}")
+    except Exception as e:
+        print(f"[Error] Failed to create Linux autostart entry: {e}")
+
+def enable_startup():
+    system = platform.system()
+    if system == "Windows":
+        enable_startup_windows()
+    elif system == "Darwin":
+        enable_startup_macos()
+    elif system == "Linux":
+        enable_startup_linux()
+    else:
+        print(f"[Warning] Autostart is not supported on platform: {system}")
+
+def disable_startup():
+    system = platform.system()
+    if system == "Windows":
+        appdata = os.environ.get("APPDATA", os.path.expanduser("~"))
+        startup_dir = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
+        vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
+        shortcut_path = os.path.join(startup_dir, "Meridian.lnk")
+        project_dir = os.path.dirname(os.path.abspath(__file__))
+        legacy_bat_path = os.path.join(project_dir, "start_silent.bat")
+        appdata_dir = os.path.join(appdata, "Meridian")
+        bat_path = os.path.join(appdata_dir, "start_silent.bat")
+        
+        for path in [vbs_path, shortcut_path, bat_path, legacy_bat_path]:
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                    print(f"[Success] Removed startup file: {os.path.basename(path)}")
+                except Exception as e:
+                    print(f"[Error] Failed to remove {os.path.basename(path)}: {e}")
+    elif system == "Darwin":
+        plist_path = os.path.expanduser("~/Library/LaunchAgents/com.meridian.x.plist")
+        if os.path.exists(plist_path):
             try:
-                os.remove(path)
-                print(f"[Success] Removed startup file: {os.path.basename(path)}")
-                removed_any = True
+                os.remove(plist_path)
+                print(f"[Success] Removed macOS launchd plist: {plist_path}")
             except Exception as e:
-                print(f"[Error] Failed to remove {os.path.basename(path)}: {e}")
-                
-    if os.path.exists(appdata_dir) and not os.listdir(appdata_dir):
-        try:
-            os.rmdir(appdata_dir)
-        except Exception:
-            pass
-            
-    if not removed_any:
-        print("[Info] Autostart was not enabled.")
+                print(f"[Error] Failed to remove launchd plist: {e}")
+    elif system == "Linux":
+        desktop_path = os.path.expanduser("~/.config/autostart/meridian-x.desktop")
+        if os.path.exists(desktop_path):
+            try:
+                os.remove(desktop_path)
+                print(f"[Success] Removed Linux autostart file: {desktop_path}")
+            except Exception as e:
+                print(f"[Error] Failed to remove autostart entry: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--disable":
         disable_startup()
     else:
         enable_startup()
+

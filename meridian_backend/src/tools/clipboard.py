@@ -1,8 +1,17 @@
 import time
+import shutil
+import platform
 import pyperclip
 from bson.objectid import ObjectId
 from typing import List, Dict, Any
 from database import get_mongo_db
+
+def _check_linux_clipboard_support() -> bool:
+    if platform.system() == "Linux":
+        if shutil.which("xclip") or shutil.which("xsel") or shutil.which("wl-copy"):
+            return True
+        return False
+    return True
 
 def clipboard_history(n: int = 10) -> str:
     """Retrieve the last N entries copied to the clipboard."""
@@ -66,6 +75,9 @@ def clipboard_pin(entry_id: str) -> str:
 
 def clipboard_restore(entry_id: str) -> str:
     """Restore a historical clipboard entry back to the active operating system clipboard."""
+    if not _check_linux_clipboard_support():
+        return "Error: System clipboard utility ('xclip', 'xsel', or 'wl-clipboard') is not installed on Linux. Please install via: sudo apt install xclip"
+
     db = get_mongo_db()
     if db is None:
         return "MongoDB is offline."
@@ -76,7 +88,11 @@ def clipboard_restore(entry_id: str) -> str:
         if not record:
             return f"Error: Clipboard entry '{entry_id}' not found."
             
-        pyperclip.copy(record["text"])
+        try:
+            pyperclip.copy(record["text"])
+        except Exception as clip_err:
+            return f"Failed to copy text to system clipboard: {clip_err}. Ensure xclip/xsel is installed."
+
         return f"Successfully restored text to system clipboard: '{record['text'][:50]}...'"
     except Exception as e:
         return f"Failed to restore clipboard entry: {e}"
