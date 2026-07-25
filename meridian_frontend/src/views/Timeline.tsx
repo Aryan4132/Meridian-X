@@ -8,6 +8,7 @@ import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
+import { API_BASE_URL } from '../config';
 
 // Helper function to render Markdown safely
 const renderMarkdown = (text: string) => {
@@ -165,7 +166,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     try {
       const voice = localStorage.getItem('meridian_tts_voice') || 'M1';
       const volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
-      const res = await fetch('http://localhost:4132/api/tts', {
+      const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text, voice, lang: 'na' }),
@@ -248,7 +249,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     const deepseekKey = localStorage.getItem('DEEPSEEK_API_KEY') || '';
 
     try {
-      const res = await fetch('http://localhost:4132/api/chat/stream', {
+      const res = await fetch(`${API_BASE_URL}/api/chat/stream`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: text,

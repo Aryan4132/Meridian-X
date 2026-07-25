@@ -41,7 +41,6 @@ def bump_version(new_version):
         try:
             with open(cargo_toml_path, "r", encoding="utf-8") as f:
                 content = f.read()
-            # Replace version = "x.y.z" only inside the [package] section (which is at the beginning)
             new_content = re.sub(
                 r'(^\[package\].*?\bversion\s*=\s*")[^"]+(")',
                 r'\g<1>' + new_version + r'\g<2>',
@@ -54,7 +53,58 @@ def bump_version(new_version):
             print(f"  [OK] Updated {os.path.relpath(cargo_toml_path, root_dir)}")
         except Exception as e:
             print(f"  [Error] Failed to update Cargo.toml: {e}")
-            
+
+    # 4. Update api.py (CURRENT_VERSION = "x.y.z")
+    api_py_path = os.path.join(root_dir, "meridian_backend", "api.py")
+    if os.path.exists(api_py_path):
+        try:
+            with open(api_py_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            new_content = re.sub(
+                r'CURRENT_VERSION\s*=\s*"[^"]+"',
+                f'CURRENT_VERSION = "{new_version}"',
+                content
+            )
+            with open(api_py_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"  [OK] Updated {os.path.relpath(api_py_path, root_dir)}")
+        except Exception as e:
+            print(f"  [Error] Failed to update api.py: {e}")
+
+    # 5. Update README.md version badge
+    readme_path = os.path.join(root_dir, "README.md")
+    if os.path.exists(readme_path):
+        try:
+            with open(readme_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            new_content = re.sub(
+                r'version-[0-9]+\.[0-9]+\.[0-9]+',
+                f'version-{new_version}',
+                content
+            )
+            with open(readme_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"  [OK] Updated {os.path.relpath(readme_path, root_dir)}")
+        except Exception as e:
+            print(f"  [Error] Failed to update README.md: {e}")
+
+    # 6. Update BootSequence.tsx SUBTITLE version string
+    boot_seq_path = os.path.join(root_dir, "meridian_frontend", "src", "startup", "BootSequence.tsx")
+    if os.path.exists(boot_seq_path):
+        try:
+            with open(boot_seq_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            new_content = re.sub(
+                r"const SUBTITLE = 'v[0-9]+\.[0-9]+\.[0-9]+([^']*)'",
+                f"const SUBTITLE = 'v{new_version}\\1'",
+                content
+            )
+            with open(boot_seq_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"  [OK] Updated {os.path.relpath(boot_seq_path, root_dir)}")
+        except Exception as e:
+            print(f"  [Error] Failed to update BootSequence.tsx: {e}")
+
     print("Version bump complete.")
 
 if __name__ == "__main__":

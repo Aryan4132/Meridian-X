@@ -5,6 +5,7 @@ import { DeveloperStats } from '../types';
 import ProgressArc from '../components/ui/ProgressArc';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
+import { API_BASE_URL } from '../config';
 
 const POMODORO_SECS = 25 * 60;
 
@@ -31,7 +32,7 @@ export default function Productivity() {
 
   const fetchStats = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/developer/stats').catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/api/developer/stats`).catch(() => null);
       if (res?.ok) {
         const data = await res.json();
         // Safe-merge with defaults so partial responses never produce NaN in UI

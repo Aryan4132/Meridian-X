@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
+import { API_BASE_URL } from '../config';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
 import ProgressArc from '../components/ui/ProgressArc';
@@ -75,8 +76,6 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
     </div>
   );
 }
-
-const API_BASE_URL = 'http://127.0.0.1:4132';
 
 export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
@@ -191,7 +190,7 @@ export default function Settings() {
 
   const handleDeleteCustomMcpServer = async (serverName: string) => {
     try {
-      const res = await fetch(`http://localhost:4132/api/mcp/custom/${encodeURIComponent(serverName)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/mcp/custom/${encodeURIComponent(serverName)}`, {
         method: 'DELETE'
       });
       if (res.ok) {

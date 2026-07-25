@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { API_BASE_URL } from '../config';
 
 interface BootSequenceProps {
   onComplete: () => void;
@@ -14,15 +15,15 @@ interface BootLine {
 }
 
 const BOOT_LINES: BootLine[] = [
-  { label: 'Initializing ReAct inference engine', endpoint: 'http://localhost:4132/api/health', status: 'pending' },
-  { label: 'Mounting SQLite + Turbovec vectors',  endpoint: 'http://localhost:4132/api/health', status: 'pending' },
+  { label: 'Initializing ReAct inference engine', endpoint: `${API_BASE_URL}/api/health`, status: 'pending' },
+  { label: 'Mounting SQLite + Turbovec vectors',  endpoint: `${API_BASE_URL}/api/health`, status: 'pending' },
   { label: 'Binding P2P swarm daemon',            status: 'pending' },
-  { label: 'Checking Ollama inference endpoint',  endpoint: 'http://localhost:4132/api/ollama-models', status: 'pending' },
+  { label: 'Checking Ollama inference endpoint',  endpoint: `${API_BASE_URL}/api/ollama-models`, status: 'pending' },
   { label: 'Loading Mascot companion core',       status: 'pending' },
 ];
 
 const TITLE = 'MERIDIAN-X';
-const SUBTITLE = 'v0.1.0-alpha  ·  agentic core';
+const SUBTITLE = 'v0.2.3  ·  agentic core';
 
 function HexCore({ phase }: { phase: BootPhase }) {
   const visible = phase >= 2;
@@ -239,7 +240,7 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
     let backendOnline = false;
     for (let retry = 0; retry < 60; retry++) {
       try {
-        const res = await fetch('http://localhost:4132/api/health').catch(() => null);
+        const res = await fetch(`${API_BASE_URL}/api/health`).catch(() => null);
         if (res && res.ok) {
           backendOnline = true;
           break;

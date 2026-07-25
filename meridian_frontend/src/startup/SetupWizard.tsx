@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Bot, RefreshCw, CheckCircle } from 'lucide-react';
 import HoloButton from '../components/ui/HoloButton';
+import { API_BASE_URL } from '../config';
 
 interface SetupWizardProps { onComplete: () => void; }
 
@@ -106,7 +107,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     localStorage.setItem('DEEPSEEK_API_KEY', deepseekKey);
     localStorage.setItem('firstRunCompleted', 'true');
     try {
-      await fetch('http://localhost:4132/api/profile/save', {
+      await fetch(`${API_BASE_URL}/api/profile/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

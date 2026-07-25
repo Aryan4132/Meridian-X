@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { SystemUsage } from './types';
+import { API_BASE_URL } from './config';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
@@ -55,7 +56,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     // Sync to Python Backend
     try {
-      await fetch('http://localhost:4132/api/game-mode', {
+      await fetch(`${API_BASE_URL}/api/game-mode`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled }),
@@ -91,7 +92,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch('http://localhost:4132/api/system-usage').catch(() => null);
+        const res = await fetch(`${API_BASE_URL}/api/system-usage`).catch(() => null);
         if (res?.ok) {
           const data = await res.json();
           setBackendAlive(true);
@@ -118,7 +119,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Sync to Python Backend
-    fetch('http://localhost:4132/api/game-mode', {
+    fetch(`${API_BASE_URL}/api/game-mode`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: initialMode }),

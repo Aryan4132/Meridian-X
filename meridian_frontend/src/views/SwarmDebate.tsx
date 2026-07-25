@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Send, RefreshCw } from 'lucide-react';
 import TerminalLine from '../components/ui/TerminalLine';
 import HoloButton from '../components/ui/HoloButton';
+import { API_BASE_URL } from '../config';
 
 type LineType = 'system' | 'coder' | 'auditor' | 'qa' | 'consensus' | 'error';
 
@@ -38,7 +39,7 @@ export default function SwarmDebate() {
     addLine('Invoking sandboxed agents: Coder, Auditor, QA...', 'system');
 
     try {
-      const res = await fetch('http://localhost:4132/api/lobby/debate', {
+      const res = await fetch(`${API_BASE_URL}/api/lobby/debate`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt }),
       });

@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './config';
+
 // Global error reporting to backend daemon for WebView2 debugging
 if (typeof window !== 'undefined') {
   // Disable right-click context menu for standard native desktop feel
@@ -16,7 +18,7 @@ if (typeof window !== 'undefined') {
 
   const sendDebugLog = (message: string, level = 'error') => {
     const cleanMessage = sanitizeMessage(message);
-    fetch('http://localhost:4132/api/debug/log', {
+    fetch(`${API_BASE_URL}/api/debug/log`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: cleanMessage, level }),

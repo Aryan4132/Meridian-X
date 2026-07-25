@@ -4,6 +4,7 @@ import { Zap, ChevronDown, ChevronUp } from 'lucide-react';
 import { JobRun } from '../types';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
+import { API_BASE_URL } from '../config';
 
 interface JobsProps {
   onRunsUpdate: (runs: { id: string | number; status: string; goal: string }[]) => void;
@@ -89,7 +90,7 @@ export default function Jobs({ onRunsUpdate }: JobsProps) {
 
   const fetchRuns = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/scheduler/runs').catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/runs`).catch(() => null);
       if (res?.ok) {
         const data = await res.json();
         const runsArray = data.runs || [];
@@ -110,7 +111,7 @@ export default function Jobs({ onRunsUpdate }: JobsProps) {
     if (!goal.trim() || !interval.trim() || loading) return;
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:4132/api/scheduler/create', {
+      const res = await fetch(`${API_BASE_URL}/api/scheduler/create`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal, interval_seconds: parseInt(interval) || 60 }),
       });

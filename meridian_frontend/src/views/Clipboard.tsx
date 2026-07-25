@@ -4,6 +4,7 @@ import { Search, Zap, Copy, Check } from 'lucide-react';
 import { ClipboardRecord } from '../types';
 import { useApp } from '../AppContext';
 import HoloButton from '../components/ui/HoloButton';
+import { API_BASE_URL } from '../config';
 
 function reltime(ts: number) {
   const d = Math.floor((Date.now() - ts) / 1000);
@@ -27,7 +28,7 @@ export default function Clipboard() {
 
   const fetch_ = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/clipboard/history').catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/api/clipboard/history`).catch(() => null);
       if (res?.ok) {
         const data = await res.json();
         setItems(data.history || []);
