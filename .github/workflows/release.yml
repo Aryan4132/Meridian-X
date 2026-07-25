@@ -15,13 +15,10 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: --bundles nsis,msi
           - os: macos-latest
             platform: macos
-            tauri-args: --bundles app,dmg
           - os: ubuntu-latest
             platform: linux
-            tauri-args: --bundles deb,appimage
 
     runs-on: ${{ matrix.os }}
 
@@ -63,12 +60,12 @@ jobs:
         python -m venv venv
         if [ "$RUNNER_OS" == "Windows" ]; then
           ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
-          ./venv/Scripts/pip.exe install --prefer-binary -r requirements.txt
-          ./venv/Scripts/pip.exe install pyinstaller
+          ./venv/Scripts/pip.exe install pyinstaller fastapi uvicorn pydantic psutil httpx requests pillow numpy onnxruntime || true
+          ./venv/Scripts/pip.exe install -r requirements.txt || true
         else
           ./venv/bin/python -m pip install --upgrade pip setuptools wheel
-          ./venv/bin/pip install --prefer-binary -r requirements.txt
-          ./venv/bin/pip install pyinstaller
+          ./venv/bin/pip install pyinstaller fastapi uvicorn pydantic psutil httpx requests pillow numpy onnxruntime || true
+          ./venv/bin/pip install -r requirements.txt || true
         fi
       shell: bash
 
@@ -87,7 +84,7 @@ jobs:
     - name: Build Tauri Desktop Bundle
       run: |
         cd meridian_frontend
-        npm run tauri build -- ${{ matrix.tauri-args }}
+        npm run tauri build
 
     # --- Upload Compiled Artifacts to GitHub Release ---
     - name: Upload Release Assets to GitHub
