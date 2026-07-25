@@ -1175,14 +1175,23 @@ async def run_react_agent_loop(
                 return
             turn += 1
             
-            # Token budget estimation (char heuristic, warn at 80% context window of 8192 tokens)
+            # Token budget estimation (char heuristic, warn at 80% of user-configured context limit)
             total_chars = sum(len(m["content"]) for m in history)
             estimated_tokens = int(total_chars / 4)
-            if estimated_tokens > 6553:
+            
+            raw_user_limit = get_user_profile("context_token_limit")
+            try:
+                user_context_limit = int(raw_user_limit) if raw_user_limit else 8192
+            except Exception:
+                user_context_limit = 8192
+                
+            warn_limit = int(user_context_limit * 0.8)
+            if estimated_tokens > warn_limit:
+                pct = (estimated_tokens / user_context_limit) * 100
                 yield sse_event("thought", json.dumps({
                     "id": f"token-budget-{turn}-{time.time()}",
                     "type": "warning",
-                    "text": f"⚠️ Context window budget warning: Estimated token count ({estimated_tokens}) is at {estimated_tokens / 8192:.1%} of context limit. Compressing history.",
+                    "text": f"⚠️ Context window budget warning: Estimated token count ({estimated_tokens}) is at {pct:.1f}% of context limit ({user_context_limit:,} tokens). Compressing history.",
                     "status": "completed"
                 }))
                 history = await prune_and_compress_history(history, client)

@@ -200,6 +200,7 @@ export default function Settings() {
 
   // Additional dynamic settings state variables
   const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
+  const [contextTokenLimit, setContextTokenLimit] = useState(() => parseInt(localStorage.getItem('context_token_limit') || '8192'));
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
   const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
   const [scannedOnnxModels, setScannedOnnxModels] = useState<Array<{ name: string; path: string; folder: string }>>([]);
@@ -612,6 +613,7 @@ export default function Settings() {
       IMAP_SERVER: imapServer,
       MONGODB_URI: mongodbUri,
       MERIDIAN_LOG_LEVEL: logLevel,
+      context_token_limit: String(contextTokenLimit),
     };
     Object.entries(entries).forEach(([k, v]) => localStorage.setItem(k, v));
 
@@ -633,6 +635,7 @@ export default function Settings() {
           tavily_key: tavilyKey, discord_token: discordToken,
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
           meridian_auditor_model: auditorModel,
+          context_token_limit: contextTokenLimit,
           meridian_voice: ttsVoice,
           wakeword_threshold: wakewordThreshold,
           wakeword_model_filename: wakewordModel,
@@ -832,6 +835,52 @@ export default function Settings() {
                   ) : (
                     <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                   )}
+                </div>
+
+                {/* Token Context Limit */}
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Max Token Context Limit
+                  </label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <select
+                      value={[4096, 8192, 16384, 32768, 65536, 131072].includes(contextTokenLimit) ? contextTokenLimit : 'custom'}
+                      onChange={e => {
+                        if (e.target.value !== 'custom') {
+                          const val = parseInt(e.target.value);
+                          setContextTokenLimit(val);
+                          localStorage.setItem('context_token_limit', String(val));
+                        }
+                      }}
+                      className="select-base"
+                      style={{ flex: 1 }}
+                    >
+                      <option value="4096">4,096 tokens (4k)</option>
+                      <option value="8192">8,192 tokens (8k - Default)</option>
+                      <option value="16384">16,384 tokens (16k)</option>
+                      <option value="32768">32,768 tokens (32k)</option>
+                      <option value="65536">65,536 tokens (64k)</option>
+                      <option value="131072">131,072 tokens (128k)</option>
+                      <option value="custom">Custom Limit...</option>
+                    </select>
+                    <input
+                      type="number"
+                      min="1024"
+                      max="1048576"
+                      step="1024"
+                      value={contextTokenLimit}
+                      onChange={e => {
+                        const val = parseInt(e.target.value) || 8192;
+                        setContextTokenLimit(val);
+                        localStorage.setItem('context_token_limit', String(val));
+                      }}
+                      className="input-base"
+                      style={{ width: 110, fontFamily: "'JetBrains Mono', monospace" }}
+                    />
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                    Warning threshold triggers compression at 80% ({Math.round(contextTokenLimit * 0.8).toLocaleString()} tokens).
+                  </div>
                 </div>
               </div>
             </div>
