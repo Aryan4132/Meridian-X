@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug } from 'lucide-react';
+import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
@@ -202,6 +202,52 @@ export default function Settings() {
   const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
   const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
+  const [scannedOnnxModels, setScannedOnnxModels] = useState<Array<{ name: string; path: string; folder: string }>>([]);
+  const [isScanningOnnx, setIsScanningOnnx] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleBrowseOnnxFile = async () => {
+    try {
+      const w = window as any;
+      if (w.__TAURI_INTERNALS__ || w.__TAURI__) {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const selected = await invoke<string | null>('plugin:dialog|open', {
+          multiple: false,
+          filters: [{ name: 'ONNX Wake Word Model', extensions: ['onnx'] }]
+        });
+        if (selected && typeof selected === 'string') {
+          setWakewordModel(selected);
+          return;
+        }
+      }
+    } catch (e) {
+      // Fall back to HTML file input
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fullPath = (file as any).path || file.name;
+      setWakewordModel(fullPath);
+    }
+  };
+
+  const fetchScannedOnnxModels = async () => {
+    setIsScanningOnnx(true);
+    try {
+      const res = await fetch('http://localhost:4132/api/voice/onnx-models');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models) setScannedOnnxModels(data.models);
+      }
+    } catch (e) {
+      console.warn("Failed to scan ONNX models:", e);
+    } finally {
+      setIsScanningOnnx(false);
+    }
+  };
   const [wakewordPhrase, setWakewordPhrase] = useState(() => localStorage.getItem('wakeword_phrase') || 'Hey Meridian');
   const [sttModelSize, setSttModelSize] = useState(() => localStorage.getItem('stt_model_size') || 'base');
   const [sttSilenceTimeout, setSttSilenceTimeout] = useState(() => parseFloat(localStorage.getItem('stt_silence_timeout') || '1.0'));
@@ -1190,9 +1236,73 @@ export default function Settings() {
                 <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Score Threshold</label>
                 <input type="number" min="0.1" max="1.0" step="0.05" value={wakewordThreshold} onChange={e => setWakewordThreshold(parseFloat(e.target.value))} className="input-base" />
               </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Filename</label>
-                <input type="text" value={wakewordModel} onChange={e => setWakewordModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+              <div style={{ gridColumn: 'span 2' }}>
+                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Model (Path / Filename)</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={wakewordModel}
+                    onChange={e => setWakewordModel(e.target.value)}
+                    className="input-base"
+                    placeholder="hey_meridian.onnx or C:/path/to/model.onnx"
+                    style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1 }}
+                  />
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept=".onnx"
+                    style={{ display: 'none' }}
+                    onChange={handleFileInputChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleBrowseOnnxFile}
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    title="Browse folders for .onnx model"
+                  >
+                    <FolderOpen size={14} />
+                    Browse...
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fetchScannedOnnxModels}
+                    disabled={isScanningOnnx}
+                    className="btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    title="Scan system folders for .onnx models"
+                  >
+                    <Search size={14} />
+                    {isScanningOnnx ? 'Scanning...' : 'Scan'}
+                  </button>
+                </div>
+                {scannedOnnxModels.length > 0 && (
+                  <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, fontFamily: 'JetBrains Mono' }}>DETECTED ONNX MODELS:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {scannedOnnxModels.map((m, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setWakewordModel(m.path || m.name)}
+                          style={{
+                            fontSize: 11,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            background: wakewordModel === m.path || wakewordModel === m.name ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255,255,255,0.05)',
+                            border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent-primary, #60A5FA)' : '1px solid rgba(255,255,255,0.1)',
+                            color: 'var(--text-main, #E2E8F0)',
+                            borderRadius: 4,
+                            padding: '4px 8px',
+                            cursor: 'pointer'
+                          }}
+                          title={m.path}
+                        >
+                          {m.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
               <div>
                 <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Phrase Text</label>

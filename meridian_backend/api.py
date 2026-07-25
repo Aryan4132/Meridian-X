@@ -319,6 +319,46 @@ def post_system_shutdown():
     threading.Thread(target=exit_func, daemon=True).start()
     return {"status": "success", "message": "Shutdown initiated."}
 
+@app.get("/api/voice/onnx-models")
+def get_onnx_models():
+    """Scans project directory and user folders for available ONNX wake word model files."""
+    scanned_models = []
+    seen_paths = set()
+
+    search_dirs = []
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(backend_dir)
+    search_dirs.extend([backend_dir, root_dir])
+
+    home_dir = os.path.expanduser("~")
+    if home_dir:
+        search_dirs.extend([
+            home_dir,
+            os.path.join(home_dir, "Downloads"),
+            os.path.join(home_dir, "Documents"),
+            os.path.join(home_dir, ".meridian"),
+            os.path.join(home_dir, ".openwakeword")
+        ])
+
+    for sdir in search_dirs:
+        if not sdir or not os.path.exists(sdir):
+            continue
+        try:
+            for item in os.listdir(sdir):
+                if item.lower().endswith(".onnx"):
+                    full_path = os.path.abspath(os.path.join(sdir, item))
+                    if full_path not in seen_paths:
+                        seen_paths.add(full_path)
+                        scanned_models.append({
+                            "name": item,
+                            "path": full_path,
+                            "folder": os.path.dirname(full_path)
+                        })
+        except Exception:
+            continue
+
+    return {"status": "success", "models": scanned_models}
+
 class ModelSettings(BaseModel):
     modelSource: str
     apiProvider: Optional[str] = None

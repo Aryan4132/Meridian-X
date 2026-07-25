@@ -3,7 +3,6 @@ import time
 import os
 import numpy as np
 import sounddevice as sd
-from openwakeword.model import Model
 from src.core.proactive import publish_nudge_sync
 
 WAKEWORD_ACTIVE = False
@@ -50,14 +49,17 @@ def _listen_loop():
     except Exception:
         pass
 
-    import sys
-    if getattr(sys, 'frozen', False):
-        base_dir = sys._MEIPASS
-        onnx_path = os.path.join(base_dir, wakeword_filename)
+    if os.path.isabs(wakeword_filename) and os.path.exists(wakeword_filename):
+        onnx_path = wakeword_filename
     else:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        root_dir = os.path.dirname(backend_dir)
-        onnx_path = os.path.join(root_dir, wakeword_filename)
+        import sys
+        if getattr(sys, 'frozen', False):
+            base_dir = sys._MEIPASS
+            onnx_path = os.path.join(base_dir, wakeword_filename)
+        else:
+            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            root_dir = os.path.dirname(backend_dir)
+            onnx_path = os.path.join(root_dir, wakeword_filename)
     
     if not os.path.exists(onnx_path):
         print(f"[Wake Word] Custom model not found at {onnx_path}. Wake word monitoring disabled.")
@@ -65,6 +67,7 @@ def _listen_loop():
         return
         
     try:
+        from openwakeword.model import Model
         oww_model = Model(wakeword_models=[onnx_path])
     except Exception as e:
         print(f"[Wake Word] Failed to load openwakeword model: {e}")
