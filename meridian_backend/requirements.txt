@@ -13,7 +13,7 @@ faster-whisper==1.2.1
 playwright==1.60.0
 psycopg2-binary==2.9.12
 pymysql==1.2.0
-scipy==1.18.0
+scipy>=1.11.0
 sounddevice==0.5.5
 watchdog==6.0.0
 pyautogui==0.9.54
