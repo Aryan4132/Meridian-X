@@ -18,7 +18,7 @@ jobs:
             tauri-args: --bundles nsis,msi
           - os: macos-latest
             platform: macos
-            tauri-args: --bundles dmg
+            tauri-args: --bundles app,dmg
           - os: ubuntu-latest
             platform: linux
             tauri-args: --bundles deb,appimage
@@ -62,12 +62,12 @@ jobs:
         cd meridian_backend
         python -m venv venv
         if [ "$RUNNER_OS" == "Windows" ]; then
-          ./venv/Scripts/python.exe -m pip install --upgrade pip
-          ./venv/Scripts/pip.exe install -r requirements.txt
+          ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
+          ./venv/Scripts/pip.exe install --prefer-binary -r requirements.txt
           ./venv/Scripts/pip.exe install pyinstaller
         else
-          ./venv/bin/python -m pip install --upgrade pip
-          ./venv/bin/pip install -r requirements.txt
+          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+          ./venv/bin/pip install --prefer-binary -r requirements.txt
           ./venv/bin/pip install pyinstaller
         fi
       shell: bash
