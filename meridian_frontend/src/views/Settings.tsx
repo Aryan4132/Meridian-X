@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search } from 'lucide-react';
+import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
@@ -75,6 +75,8 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
     </div>
   );
 }
+
+const API_BASE_URL = 'http://127.0.0.1:4132';
 
 export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
@@ -198,7 +200,6 @@ export default function Settings() {
     } catch {}
   };
 
-  // Additional dynamic settings state variables
   const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
   const [contextTokenLimit, setContextTokenLimit] = useState(() => parseInt(localStorage.getItem('context_token_limit') || '8192'));
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
@@ -206,6 +207,47 @@ export default function Settings() {
   const [scannedOnnxModels, setScannedOnnxModels] = useState<Array<{ name: string; path: string; folder: string }>>([]);
   const [isScanningOnnx, setIsScanningOnnx] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const [updateInfo, setUpdateInfo] = useState<any>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isTriggeringUpdate, setIsTriggeringUpdate] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState('');
+
+  const checkSystemUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateMsg('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/system/check-update`);
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateInfo(data);
+      }
+    } catch (e) {
+      console.error("Check update error:", e);
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleTriggerUpdate = async () => {
+    setIsTriggeringUpdate(true);
+    setUpdateMsg('');
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/system/trigger-update`, { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setUpdateMsg(data.message || 'Update triggered successfully.');
+      }
+    } catch (e) {
+      setUpdateMsg(`Update failed: ${e}`);
+    } finally {
+      setIsTriggeringUpdate(false);
+    }
+  };
+
+  useEffect(() => {
+    checkSystemUpdate();
+  }, []);
 
   const handleBrowseOnnxFile = async () => {
     try {
@@ -1479,6 +1521,68 @@ export default function Settings() {
       {/* Category: Guard */}
       {activeCategory === 'guard' && (
         <>
+          {/* System Version & Auto-Update Engine */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <div className="section-label" style={{ margin: 0 }}>🪐 System Version & Auto-Update Engine</div>
+              <HoloButton type="button" variant="ghost" size="sm" onClick={checkSystemUpdate} disabled={isCheckingUpdate}>
+                {isCheckingUpdate ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                {isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}
+              </HoloButton>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>Installed Version</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
+                  v{updateInfo?.current_version || '0.2.3'}
+                </div>
+              </div>
+              <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>GitHub Latest Version</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: updateInfo?.update_available ? '#34D399' : 'var(--text-bright)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
+                  v{updateInfo?.version_on_github || '0.2.3'}
+                </div>
+              </div>
+            </div>
+
+            {updateInfo?.update_available ? (
+              <div style={{ background: updateInfo.update_type === 'major' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', border: updateInfo.update_type === 'major' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: updateInfo.update_type === 'major' ? '#F87171' : '#34D399', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>✨ {updateInfo.update_type === 'major' ? 'Major Version Upgrade Available!' : updateInfo.auto_downloaded ? 'Patch Update Ready to Apply!' : 'Minor Update Ready!'}</span>
+                  <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-main)', marginTop: 6, lineHeight: 1.4 }}>
+                  {updateInfo.update_type === 'major'
+                    ? 'A major release has breaking architectural changes. Click below to upgrade.'
+                    : updateInfo.auto_downloaded
+                    ? 'Patch assets were auto-downloaded in the background. Click below to pull final code and apply update.'
+                    : 'A minor update is available. Click below to apply.'}
+                </div>
+                <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                  <HoloButton type="button" variant="primary" size="sm" onClick={handleTriggerUpdate} disabled={isTriggeringUpdate}>
+                    {isTriggeringUpdate ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                    {isTriggeringUpdate ? 'Updating...' : updateInfo.update_type === 'major' ? 'Upgrade to Major Version' : 'Apply Update & Pull Code'}
+                  </HoloButton>
+                  {updateInfo.release_url && (
+                    <a href={updateInfo.release_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'JetBrains Mono' }}>
+                      View Release Notes ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                ✅ Meridian-X is running the latest version.
+              </div>
+            )}
+            {updateMsg && (
+              <div style={{ marginTop: 8, fontSize: 11, color: '#34D399', fontFamily: 'JetBrains Mono' }}>
+                {updateMsg}
+              </div>
+            )}
+          </GlowCard>
+
           {/* Proactive Guard Config */}
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Proactive Monitoring & System Guard</div>

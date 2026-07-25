@@ -2856,6 +2856,123 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+CURRENT_VERSION = "0.2.3"
+_auto_download_in_progress = False
+_auto_download_ready = False
+
+def _parse_version(v_str: str) -> tuple:
+    try:
+        clean = v_str.lstrip("v").strip()
+        parts = [int(p) for p in clean.split(".") if p.isdigit()]
+        while len(parts) < 3:
+            parts.append(0)
+        return tuple(parts[:3])
+    except Exception:
+        return (0, 0, 0)
+
+def _determine_update_type(current_str: str, remote_str: str) -> str:
+    c_maj, c_min, c_pat = _parse_version(current_str)
+    r_maj, r_min, r_pat = _parse_version(remote_str)
+    
+    if (r_maj, r_min, r_pat) <= (c_maj, c_min, c_pat):
+        return "none"
+    if r_maj > c_maj:
+        return "major"
+    if r_min > c_min:
+        return "minor"
+    return "patch"
+
+async def _async_bg_git_pull():
+    global _auto_download_in_progress, _auto_download_ready
+    try:
+        import asyncio
+        import subprocess
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        proc = await asyncio.create_subprocess_exec(
+            "git", "pull", "origin", "main",
+            cwd=root_dir,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        await proc.communicate()
+        _auto_download_ready = True
+    except Exception as e:
+        print("[Auto-Update] Background git pull failed:", e)
+    finally:
+        _auto_download_in_progress = False
+
+@app.get("/api/system/check-update")
+async def api_check_update():
+    global _auto_download_in_progress, _auto_download_ready
+    try:
+        import httpx
+        url = "https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest"
+        headers = {"User-Agent": "Meridian-X-Agent"}
+        
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(url, headers=headers)
+            
+        if resp.status_code == 200:
+            data = resp.json()
+            remote_tag = data.get("tag_name", "0.2.3")
+            version_on_github = remote_tag.lstrip("v")
+            update_type = _determine_update_type(CURRENT_VERSION, version_on_github)
+            update_available = update_type != "none"
+            release_url = data.get("html_url", "https://github.com/Aryan4132/Meridian-X/releases")
+            release_notes = data.get("body", "")
+            published_at = data.get("published_at", "")
+
+            # If patch or minor update, auto-download in background if not already done
+            if update_type in ["patch", "minor"] and not _auto_download_ready and not _auto_download_in_progress:
+                import asyncio
+                _auto_download_in_progress = True
+                asyncio.create_task(_async_bg_git_pull())
+
+            return {
+                "status": "success",
+                "current_version": CURRENT_VERSION,
+                "version_on_github": version_on_github,
+                "update_available": update_available,
+                "update_type": update_type,
+                "auto_downloaded": _auto_download_ready,
+                "auto_downloading": _auto_download_in_progress,
+                "release_url": release_url,
+                "release_notes": release_notes,
+                "published_at": published_at
+            }
+        else:
+            return {
+                "status": "warning",
+                "current_version": CURRENT_VERSION,
+                "version_on_github": CURRENT_VERSION,
+                "update_available": False,
+                "update_type": "none",
+                "message": f"GitHub API returned HTTP {resp.status_code}"
+            }
+    except Exception as e:
+        return {
+            "status": "error",
+            "current_version": CURRENT_VERSION,
+            "version_on_github": CURRENT_VERSION,
+            "update_available": False,
+            "update_type": "none",
+            "message": f"Failed to inspect GitHub release: {e}"
+        }
+
+@app.post("/api/system/trigger-update")
+def api_trigger_update():
+    try:
+        import subprocess
+        root_dir = os.path.dirname(os.path.abspath(__file__))
+        res = subprocess.run("git pull origin main", shell=True, cwd=root_dir, capture_output=True, text=True)
+        return {
+            "status": "success",
+            "message": "Update pulled successfully from GitHub. Restarting backend recommended.",
+            "output": res.stdout or res.stderr
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to trigger update: {e}")
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4132)
