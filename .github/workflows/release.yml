@@ -83,24 +83,16 @@ jobs:
       run: choco install nsis -y
       shell: pwsh
 
-    # --- Build Tauri App ---
-    - name: Build Tauri Desktop Bundle
-      run: |
-        cd meridian_frontend
-        npx tauri build ${{ matrix.tauri-args }}
-
-    # --- Upload Compiled Artifacts to GitHub Release ---
-    - name: Upload Release Assets to GitHub
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.ref_name }}
-        name: 'Meridian-X ${{ github.ref_name }}'
-        body: 'Automated multi-platform compilation release for ${{ github.ref_name }}'
-        files: |
-          meridian_frontend/src-tauri/target/release/bundle/nsis/*-setup.exe
-          meridian_frontend/src-tauri/target/release/bundle/msi/*.msi
-          meridian_frontend/src-tauri/target/release/bundle/dmg/*.dmg
-          meridian_frontend/src-tauri/target/release/bundle/deb/*.deb
-        fail_on_unmatched_files: false
+    # --- Build Tauri App & Publish Release ---
+    - name: Build Tauri App & Upload Release
+      uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tagName: ${{ github.ref_name }}
+        releaseName: 'Meridian-X ${{ github.ref_name }}'
+        releaseBody: 'Automated multi-platform compilation release for ${{ github.ref_name }}'
+        releaseDraft: false
+        prerelease: false
+        projectPath: './meridian_frontend'
+        args: ${{ matrix.tauri-args }}
