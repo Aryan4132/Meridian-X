@@ -31,7 +31,7 @@ jobs:
       if: matrix.platform == 'linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev
+        sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf squashfs-tools
 
     # --- Setup Node.js & NPM dependencies ---
     - name: Setup Node.js
@@ -82,17 +82,9 @@ jobs:
 
     # --- Build Tauri App ---
     - name: Build Tauri Desktop Bundle
-      shell: bash
       run: |
         cd meridian_frontend
-        npx tauri build 2>&1 | tee tauri_build.log
-
-    - name: Upload Build Log on Failure
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: tauri-build-log-${{ matrix.platform }}
-        path: meridian_frontend/tauri_build.log
+        npm run tauri build
 
     # --- Upload Compiled Artifacts to GitHub Release ---
     - name: Upload Release Assets to GitHub
