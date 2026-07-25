@@ -41,13 +41,11 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 18
-        cache: 'npm'
-        cache-dependency-path: './meridian_frontend/package-lock.json'
 
     - name: Install Frontend Dependencies
       run: |
         cd meridian_frontend
-        npm install --include=optional
+        npm install --force
 
     # --- Setup Rust Compiler ---
     - name: Setup Rust
@@ -59,24 +57,19 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Create Backend Virtualenv & Install Requirements (Windows)
-      if: matrix.platform == 'windows'
+    - name: Create Backend Virtualenv & Install Requirements
       run: |
         cd meridian_backend
         python -m venv venv
-        ./venv/Scripts/pip.exe install --upgrade pip
-        ./venv/Scripts/pip.exe install -r requirements.txt
-        ./venv/Scripts/pip.exe install pyinstaller
-      shell: bash
-
-    - name: Create Backend Virtualenv & Install Requirements (POSIX)
-      if: matrix.platform != 'windows'
-      run: |
-        cd meridian_backend
-        python -m venv venv
-        ./venv/bin/pip install --upgrade pip
-        ./venv/bin/pip install -r requirements.txt
-        ./venv/bin/pip install pyinstaller
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./venv/Scripts/python.exe -m pip install --upgrade pip
+          ./venv/Scripts/pip.exe install -r requirements.txt
+          ./venv/Scripts/pip.exe install pyinstaller
+        else
+          ./venv/bin/python -m pip install --upgrade pip
+          ./venv/bin/pip install -r requirements.txt
+          ./venv/bin/pip install pyinstaller
+        fi
       shell: bash
 
     - name: Compile Standalone Backend Sidecar
