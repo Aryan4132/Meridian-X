@@ -74,7 +74,7 @@ def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
 
 
 from src.tools.registry import call_tool, TOOL_REGISTRY
-from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model
+from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model, get_user_profile
 from src.core.bus import event_bus
 from src.core.speculative import preheat_tool
 
