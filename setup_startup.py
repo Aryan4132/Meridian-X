@@ -43,29 +43,32 @@ if exist ".env" (
 )
 
 :: 3. Launch compiled release or fallback to development mode
-if exist "{release_exe_relative}" if exist "{release_sidecar_relative}" (
-    echo [System] Starting compiled production release...
-    cd meridian_frontend\\src-tauri\\target\\release
-    start "" "app.exe"
-) else (
-    echo [System] Production binary or sidecar missing/incomplete. Falling back to development mode...
-    echo [System] Starting FastAPI Backend...
-    cd meridian_backend
-    if not exist venv (
-        echo [System] Creating Python virtual environment...
-        python -m venv venv
-        call venv\\Scripts\\activate.bat
-        echo [System] Checking dependencies...
-        pip install -r requirements.txt
+if exist "{release_exe_relative}" (
+    if exist "{release_sidecar_relative}" (
+        echo [System] Starting compiled production release...
+        cd /d "{project_dir}\\meridian_frontend\\src-tauri\\target\\release"
+        start "" "{project_dir}\\meridian_frontend\\src-tauri\\target\\release\\app.exe"
+        goto :EOF
     )
-    start "" "venv\\Scripts\\pythonw.exe" api.py
-    echo [System] Waiting for FastAPI Backend to bind to port 4132...
-    powershell -Command "$retry = 0; while ($retry -lt 120) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500; $retry++ }}"
-    echo [System] FastAPI Backend online! Starting Tauri Desktop App...
-    cd /d "{project_dir}"
-    cd meridian_frontend
-    start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
 )
+
+echo [System] Production binary or sidecar missing/incomplete. Falling back to development mode...
+echo [System] Starting FastAPI Backend...
+cd meridian_backend
+if not exist venv (
+    echo [System] Creating Python virtual environment...
+    python -m venv venv
+    call venv\\Scripts\\activate.bat
+    echo [System] Checking dependencies...
+    pip install -r requirements.txt
+)
+start "" "venv\\Scripts\\pythonw.exe" api.py
+echo [System] Waiting for FastAPI Backend to bind to port 4132...
+powershell -Command "$retry = 0; while ($retry -lt 120) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500; $retry++ }}"
+echo [System] FastAPI Backend online! Starting Tauri Desktop App...
+cd /d "{project_dir}"
+cd meridian_frontend
+start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
 """
     
     try:
