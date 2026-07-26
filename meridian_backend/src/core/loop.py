@@ -8,6 +8,26 @@ import random
 import threading
 from typing import Dict, Any, List, AsyncGenerator, Tuple
 import ollama
+from typing import Optional
+
+_cached_openai_clients: Dict[str, Any] = {}
+_cached_anthropic_clients: Dict[str, Any] = {}
+
+def get_cached_openai_client(api_key: str, base_url: Optional[str] = None):
+    cache_key = f"{api_key}::{base_url or ''}"
+    if cache_key not in _cached_openai_clients:
+        from openai import OpenAI
+        kwargs = {"api_key": api_key}
+        if base_url:
+            kwargs["base_url"] = base_url
+        _cached_openai_clients[cache_key] = OpenAI(**kwargs)
+    return _cached_openai_clients[cache_key]
+
+def get_cached_anthropic_client(api_key: str):
+    if api_key not in _cached_anthropic_clients:
+        from anthropic import Anthropic
+        _cached_anthropic_clients[api_key] = Anthropic(api_key=api_key)
+    return _cached_anthropic_clients[api_key]
 
 def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
     """
@@ -74,7 +94,7 @@ def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
 
 
 from src.tools.registry import call_tool, TOOL_REGISTRY
-from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model, get_user_profile
+from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model, get_user_profile, get_ollama_client
 from src.core.bus import event_bus
 from src.core.speculative import preheat_tool
 
@@ -987,8 +1007,10 @@ async def run_self_question_check(goal: str, history: List[Dict[str, str]], clie
     except Exception:
         return True, ""
 
-def route_model_by_complexity(prompt: str, brain_model: str) -> str:
+def route_model_by_complexity(prompt: str, brain_model: str, model_source: str = "local") -> str:
     """Assess task complexity and route to a lightweight model for simple requests, or standard brain model for complex reasoning."""
+    if model_source == "cloud":
+        return brain_model
     p = prompt.lower()
     
     # Complex task indicators: code refactoring, full application building, advanced debugging, data exports
@@ -1043,11 +1065,7 @@ async def run_react_agent_loop(
     cached = check_semantic_cache(prompt)
     if cached:
         yield sse_event("thought", json.dumps({"type": "planning", "text": "Semantic Cache Match: returns instantly (<5ms) from Turbovec", "tool": "semantic_cache"}))
-        words = cached.split(" ")
-        for i, word in enumerate(words):
-            space = " " if i > 0 else ""
-            yield sse_event("text", space + word)
-            await asyncio.sleep(0.005)
+        yield sse_event("text", cached)
         # BUG-5 fix: only log to DB when this is a user-facing (non-worker) call.
         # HTP worker sub-loops run internal planner prompts that must not pollute
         # the persistent conversation history shown to the user.
@@ -1065,7 +1083,10 @@ async def run_react_agent_loop(
     add_to_task_log("ollama_api", 2, "started")
 
     # Set up client and initial prompt context
-    client = ollama.Client(host=ollama_host)
+    try:
+        client = get_ollama_client()
+    except Exception:
+        client = ollama.Client(host=ollama_host)
 
     # Resolve local models to prevent 404 errors
     resolved_auditor_model = get_auditor_model()
@@ -1076,8 +1097,8 @@ async def run_react_agent_loop(
     except Exception:
         pass
 
-    # 1. Hierarchical Task Planning (HTP) (Upgrade 10)
-    if not is_worker and detect_complex_prompt(prompt):
+    # 1. Hierarchical Task Planning (HTP) (Upgrade 10) — Skip for cloud models to achieve minimum TTFT
+    if not is_worker and model_source == "local" and detect_complex_prompt(prompt):
         yield sse_event("thought", json.dumps({
             "id": f"htp-decomposing-{time.time()}",
             "type": "planning",
@@ -1174,7 +1195,7 @@ async def run_react_agent_loop(
     max_turns = 10
     turn = 0
     final_text = ""
-    active_model = route_model_by_complexity(prompt, brain_model)
+    active_model = route_model_by_complexity(prompt, brain_model, model_source)
     
     # Repetition detector tracking variables
     last_tool_call = None
@@ -1216,8 +1237,11 @@ async def run_react_agent_loop(
             elif model_source == "local":
                 history = await prune_and_compress_history(history, client)
 
-            # 2. Self-Questioning Check (Upgrade 11)
-            is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
+            # 2. Self-Questioning Check (Only trigger for local model configurations)
+            if model_source == "local":
+                is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
+            else:
+                is_verified, warning_msg = True, ""
             temp_sys_idx = -1
             if not is_verified:
                 yield sse_event("thought", json.dumps({
@@ -1259,11 +1283,10 @@ async def run_react_agent_loop(
                     # Cloud APIs Direct Integration (Option 3)
                     from src.core.llm_provider import get_api_key
                     if api_provider == "gemini":
-                        from openai import OpenAI
                         gemini_key = get_api_key("gemini")
                         if not gemini_key:
                             raise ValueError("GEMINI_API_KEY is not configured in environment or database profile.")
-                        openai_client = OpenAI(
+                        openai_client = get_cached_openai_client(
                             api_key=gemini_key,
                             base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
                         )
@@ -1273,22 +1296,20 @@ async def run_react_agent_loop(
                             stream=True
                         )
                     elif api_provider == "openai":
-                        from openai import OpenAI
                         openai_key = get_api_key("openai")
                         if not openai_key:
                             raise ValueError("OPENAI_API_KEY is not configured in environment or database profile.")
-                        openai_client = OpenAI(api_key=openai_key)
+                        openai_client = get_cached_openai_client(api_key=openai_key)
                         response_stream = openai_client.chat.completions.create(
                             model=active_model,
                             messages=history,
                             stream=True
                         )
                     elif api_provider == "deepseek":
-                        from openai import OpenAI
                         deepseek_key = get_api_key("deepseek")
                         if not deepseek_key:
                             raise ValueError("DEEPSEEK_API_KEY is not configured in environment or database profile.")
-                        openai_client = OpenAI(
+                        openai_client = get_cached_openai_client(
                             api_key=deepseek_key,
                             base_url="https://api.deepseek.com/v1"
                         )
@@ -1298,11 +1319,10 @@ async def run_react_agent_loop(
                             stream=True
                         )
                     elif api_provider in ("anthropic", "claude"):
-                        from anthropic import Anthropic
                         anthropic_key = get_api_key("anthropic") or get_api_key("claude")
                         if not anthropic_key:
                             raise ValueError("ANTHROPIC_API_KEY is not configured in environment or database profile.")
-                        anthropic_client = Anthropic(api_key=anthropic_key)
+                        anthropic_client = get_cached_anthropic_client(api_key=anthropic_key)
                         system_msg = ""
                         claude_history = []
                         for m in history:

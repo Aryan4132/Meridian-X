@@ -10,12 +10,24 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { API_BASE_URL } from '../config';
 
-// Helper function to render Markdown safely
+// High-performance LRU cache for rendered Markdown to eliminate re-parsing overhead during fast token streams
+const markdownCache = new Map<string, { __html: string }>();
+const MAX_MARKDOWN_CACHE_SIZE = 300;
+
 const renderMarkdown = (text: string) => {
+  if (markdownCache.has(text)) {
+    return markdownCache.get(text)!;
+  }
   try {
     const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
     const cleanHtml = DOMPurify.sanitize(rawHtml);
-    return { __html: cleanHtml };
+    const result = { __html: cleanHtml };
+    if (markdownCache.size >= MAX_MARKDOWN_CACHE_SIZE) {
+      const firstKey = markdownCache.keys().next().value;
+      if (firstKey !== undefined) markdownCache.delete(firstKey);
+    }
+    markdownCache.set(text, result);
+    return result;
   } catch (e) {
     console.error("Markdown parse error:", e);
     return { __html: text };
@@ -26,8 +38,8 @@ interface TimelineProps {
   onThoughtsUpdate: (feed: { thoughts: string[]; streaming: boolean }) => void;
 }
 
-// Collapsible ReAct thoughts
-function ThoughtsBlock({ thoughts }: { thoughts: string[] }) {
+// Collapsible ReAct thoughts (memoized to isolate re-renders during fast text streaming)
+const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts: string[] }) {
   const [open, setOpen] = useState(false);
   return (
     <div style={{
@@ -70,7 +82,7 @@ function ThoughtsBlock({ thoughts }: { thoughts: string[] }) {
       </AnimatePresence>
     </div>
   );
-}
+});
 
 // Safety gate card (inside bot message)
 function SafetyGate({ gate, onConfirm }: { gate: any; onConfirm: (id: string, approved: boolean) => void }) {

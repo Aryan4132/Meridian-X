@@ -118,6 +118,13 @@ _turbovec_lock = threading.Lock()
 def get_sqlite_conn():
     conn = sqlite3.connect(SQLITE_DB_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
+        conn.execute("PRAGMA cache_size=-64000;")
+        conn.execute("PRAGMA mmap_size=268435456;")
+    except Exception:
+        pass
     return conn
 
 def run_vector_health_check() -> bool:
