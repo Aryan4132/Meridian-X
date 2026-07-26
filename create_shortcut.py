@@ -21,6 +21,8 @@ def create_desktop_shortcut():
         print("Error: Could not locate Windows Desktop directory.")
         return
         
+    icon_path = os.path.join(root_dir, "meridian_frontend", "src-tauri", "icons", "icon.ico")
+    
     for desktop in desktops:
         shortcut_path = os.path.join(desktop, "Meridian-X.lnk")
     
@@ -30,9 +32,11 @@ def create_desktop_shortcut():
         $Shortcut = $WshShell.CreateShortcut("{shortcut_path}")
         $Shortcut.TargetPath = "{bat_path}"
         $Shortcut.WorkingDirectory = "{root_dir}"
+        $Shortcut.IconLocation = "{icon_path}"
         $Shortcut.Description = "Launch Meridian-X Autonomous offline Desktop Agent"
         $Shortcut.Save()
         """
+
         
         try:
             # Run PowerShell script
