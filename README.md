@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="logo.png" alt="Meridian-X Logo" width="220" />
+
 # 🪐 Meridian-X
 
 ### Intelligent Agentic Desktop Workspace Companion

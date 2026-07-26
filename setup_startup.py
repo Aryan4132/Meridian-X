@@ -23,6 +23,7 @@ def enable_startup_windows():
     bat_path = os.path.join(appdata_dir, "start_silent.bat")
     
     release_exe_relative = r"meridian_frontend\src-tauri\target\release\app.exe"
+    release_sidecar_relative = r"meridian_frontend\src-tauri\target\release\api\api.exe"
     
     bat_content = f"""@echo off
 cd /d "{project_dir}"
@@ -42,12 +43,12 @@ if exist ".env" (
 )
 
 :: 3. Launch compiled release or fallback to development mode
-if exist "{release_exe_relative}" (
+if exist "{release_exe_relative}" if exist "{release_sidecar_relative}" (
     echo [System] Starting compiled production release...
     cd meridian_frontend\\src-tauri\\target\\release
     start "" "app.exe"
 ) else (
-    echo [System] Production binary not found. Falling back to development mode...
+    echo [System] Production binary or sidecar missing/incomplete. Falling back to development mode...
     echo [System] Starting FastAPI Backend...
     cd meridian_backend
     if not exist venv (
@@ -63,7 +64,7 @@ if exist "{release_exe_relative}" (
     echo [System] FastAPI Backend online! Starting Tauri Desktop App...
     cd /d "{project_dir}"
     cd meridian_frontend
-    call npx tauri dev
+    start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
 )
 """
     
@@ -85,7 +86,11 @@ if exist "{release_exe_relative}" (
             pass
 
     vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
-    vbs_content = f'Set WshShell = CreateObject("WScript.Shell")\r\nWshShell.Run "cmd.exe /c ""{bat_path}""", 0, False\r\n'
+    vbs_content = (
+        'Set WshShell = CreateObject("WScript.Shell")\r\n'
+        f'WshShell.CurrentDirectory = "{project_dir}"\r\n'
+        f'WshShell.Run "cmd.exe /c """ & "{bat_path}" & """", 0, False\r\n'
+    )
     
     try:
         with open(vbs_path, "w", newline="\r\n", encoding="utf-8") as f:

@@ -1,11 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files
 
+datas = [('../hey_meridian.onnx', '.'), ('../hey_meridian.tflite', '.')]
+try:
+    datas += collect_data_files('limits')
+except Exception:
+    pass
 
 a = Analysis(
     ['api.py'],
     pathex=[],
     binaries=[],
-    datas=[('../hey_meridian.onnx', '.'), ('../hey_meridian.tflite', '.')],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
