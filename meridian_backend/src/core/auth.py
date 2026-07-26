@@ -67,6 +67,25 @@ API_KEY = bootstrap_api_key()
 
 from fastapi import Header, HTTPException, status, Depends, Request
 
+
+def _is_loopback_request(request: Optional[Request]) -> bool:
+    """Allow same-machine desktop app traffic from localhost/loopback without a header."""
+    if request is None:
+        return False
+
+    host = (request.headers.get("host") or "").split(":", 1)[0].lower()
+    origin = (request.headers.get("origin") or "").lower()
+    client_host = getattr(getattr(request, "client", None), "host", "") or ""
+
+    if client_host in {"127.0.0.1", "::1", "localhost"}:
+        return True
+    if host in {"127.0.0.1", "::1", "localhost"}:
+        return True
+    if origin.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]", "https://localhost", "https://127.0.0.1", "tauri://localhost")):
+        return True
+    return False
+
+
 def require_api_key(
     request: Request,
     api_key_header: Optional[str] = Depends(API_KEY_HEADER)
@@ -85,6 +104,9 @@ def require_api_key(
         path = request.url.path
         if path in ("/api/health", "/api/debug/log", "/docs", "/openapi.json"):
             return True
+
+    if _is_loopback_request(request):
+        return True
 
     client_ip = getattr(getattr(request, "client", None), "host", "unknown") if request else "unknown"
 

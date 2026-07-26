@@ -12,6 +12,14 @@ from src.core.vault import get_vault_passphrase, save_secret, get_secret
 
 client = TestClient(app)
 
+
+def test_loopback_localhost_request_allowed_without_api_key():
+    """Verify local desktop app requests from loopback are allowed without X-API-Key (SEC-01)."""
+    local_client = TestClient(app, base_url="http://127.0.0.1:4132")
+    response = local_client.get("/api/system-usage")
+    assert response.status_code == 200
+
+
 def test_public_health_endpoint_allowed_without_api_key():
     """Verify public endpoint /api/health is accessible without X-API-Key header (SEC-01)."""
     response = client.get("/api/health")
