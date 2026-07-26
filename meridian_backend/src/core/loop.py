@@ -1027,6 +1027,7 @@ async def run_react_agent_loop(
     ollama_host: str,
     model_source: str = "local",
     api_provider: str = "gemini",
+    is_worker: bool = False,
 ) -> AsyncGenerator[str, None]:
     # Sanitize input prompt for prompt injection & jailbreaks (SEC-08)
     from src.core.prompt_injection import sanitize_prompt

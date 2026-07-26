@@ -52,6 +52,10 @@ def list_log_watchers() -> list:
 def start_watching_folder(path: str, goal: str) -> str:
     return f"Started watching folder '{path}'."
 
+def start_workspace_watcher(path: str = ".") -> str:
+    """Starts watching workspace folder for file changes."""
+    return start_watching_folder(path, "workspace_changes")
+
 def stop_watching_folder(path: str) -> str:
     return f"Stopped watching folder '{path}'."
 

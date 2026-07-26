@@ -10,6 +10,19 @@ from typing import Optional, List
 _cached_tts_engine = None
 _tts_lock = threading.Lock()
 
+def get_tts_engine():
+    """Initializes and returns the singleton Supertonic TTS engine."""
+    global _cached_tts_engine
+    with _tts_lock:
+        if _cached_tts_engine is None:
+            try:
+                from supertonic import TTS
+                _cached_tts_engine = TTS()
+            except Exception as e:
+                logging.getLogger("meridian_tts").error(f"Failed to initialize Supertonic TTS engine: {e}")
+                return None
+        return _cached_tts_engine
+
 def get_adaptive_voice_params(mascot_state: str = "default") -> dict:
     """Dynamically calculates TTS pitch, speed, and emotion based on time and mascot state (AST-07)."""
     from datetime import datetime

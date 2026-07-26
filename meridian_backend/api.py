@@ -2833,7 +2833,7 @@ class WriteWorkspaceConfigRequest(BaseModel):
 @app.post("/api/workspace/config")
 def api_workspace_config_post(request: WriteWorkspaceConfigRequest):
     try:
-        from src.core.mode import find_workspace_root
+        from src.core.history_manager import find_workspace_root
         import json
         try:
             root = find_workspace_root()

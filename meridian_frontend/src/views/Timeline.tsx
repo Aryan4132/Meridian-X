@@ -350,7 +350,10 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       // The backend may stream chunks then send the full text again as final event
       const thoughtsList = finalThoughts.map(t => t.text);
       const cleanedContent = extractChatText(finalContent);
-      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || 'Operation completed.', thoughts: thoughtsList }]);
+      const fallbackText = thoughtsList.length > 0 
+        ? 'Operation completed.' 
+        : 'No response returned by AI model. Please verify your LLM model selection or API keys in Settings.';
+      setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: cleanedContent || fallbackText, thoughts: thoughtsList }]);
       setStreaming('');
       setStreamThoughts([]);
       if ((window as any).__TAURI_INTERNALS__) {

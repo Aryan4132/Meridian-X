@@ -4,8 +4,14 @@ import json
 import getpass
 import platform
 import logging
+import threading
+import hmac
+import hashlib
 
 logger = logging.getLogger("meridian_audit")
+
+_audit_lock = threading.Lock()
+_last_hmac = None
 
 def get_audit_log_path() -> str:
     from src.core.config import MERIDIAN_DATA_DIR
@@ -18,14 +24,29 @@ def get_audit_log_path() -> str:
         os.makedirs(meridian_dir, exist_ok=True)
     return os.path.join(meridian_dir, "audit.log")
 
-import hmac
-import hashlib
-
-_last_hmac = "0" * 64
-
 def _compute_hmac(entry_data: str, prev_hash: str) -> str:
     key = b"MERIDIAN_AUDIT_KEY"
     return hmac.new(key, f"{prev_hash}:{entry_data}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+def _get_last_hmac_from_file(log_path: str) -> str:
+    """Reads the last recorded HMAC from audit.log to ensure chain continuity across restarts."""
+    if os.path.exists(log_path):
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+                for line in reversed(lines):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        if data.get("hmac"):
+                            return data["hmac"]
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    return "0" * 64
 
 def verify_audit_chain() -> tuple[bool, str]:
     """Verifies HMAC chain integrity of audit.log (SEC-20)."""
@@ -45,7 +66,7 @@ def verify_audit_chain() -> tuple[bool, str]:
             data_no_hmac = {k: v for k, v in data.items() if k != "hmac"}
             calc_hmac = _compute_hmac(json.dumps(data_no_hmac, sort_keys=True), prev_hash)
             if record_hmac != calc_hmac:
-                # Re-sync hash if this is the first chained entry encountered
+                # Re-sync hash if this is the first chained entry encountered or process restart break
                 calc_first = _compute_hmac(json.dumps(data_no_hmac, sort_keys=True), "0" * 64)
                 if record_hmac == calc_first:
                     prev_hash = record_hmac
@@ -73,34 +94,41 @@ def log_sensitive_action(category: str, action: str, details: dict, status: str 
     """
     Log sensitive operations to audit.log in a structured JSON lines format.
     Categories: SHELL_EXECUTION, FILE_WRITE, FILE_DELETE, GUI_INPUT
+    Thread-safe and persistent across daemon restarts.
     """
     global _last_hmac
     log_path = get_audit_log_path()
-    entry = {
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-        "epoch": time.time(),
-        "category": category.upper(),
-        "action": action,
-        "details": details,
-        "status": status.upper(),
-        "system": {
-            "user": getpass.getuser(),
-            "os": platform.system(),
-            "os_release": platform.release(),
-            "pid": os.getpid()
+    
+    with _audit_lock:
+        if _last_hmac is None:
+            _last_hmac = _get_last_hmac_from_file(log_path)
+            
+        entry = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            "epoch": time.time(),
+            "category": category.upper(),
+            "action": action,
+            "details": details,
+            "status": status.upper(),
+            "system": {
+                "user": getpass.getuser(),
+                "os": platform.system(),
+                "os_release": platform.release(),
+                "pid": os.getpid()
+            }
         }
-    }
-    
-    entry_str = json.dumps(entry, sort_keys=True)
-    entry_hmac = _compute_hmac(entry_str, _last_hmac)
-    _last_hmac = entry_hmac
-    entry["hmac"] = entry_hmac
-    
-    try:
-        # Write as single-line JSON to log file
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry, ensure_ascii=False) + "\n")
-        logger.info(f"[AUDIT] {category} - {action} - Status: {status}")
-    except Exception as e:
-        # Fallback to standard logger if file write fails
-        logger.error(f"Failed to write audit log entry: {e}. Entry: {entry}")
+        
+        entry_str = json.dumps(entry, sort_keys=True)
+        entry_hmac = _compute_hmac(entry_str, _last_hmac)
+        _last_hmac = entry_hmac
+        entry["hmac"] = entry_hmac
+        
+        try:
+            # Write as single-line JSON to log file
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            logger.info(f"[AUDIT] {category} - {action} - Status: {status}")
+        except Exception as e:
+            # Fallback to standard logger if file write fails
+            logger.error(f"Failed to write audit log entry: {e}. Entry: {entry}")
+
