@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
@@ -249,22 +250,9 @@ export default function Settings() {
   }, []);
 
   const handleBrowseOnnxFile = async () => {
-    try {
-      const w = window as any;
-      if (w.__TAURI_INTERNALS__ || w.__TAURI__) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const selected = await invoke<string | null>('plugin:dialog|open', {
-          multiple: false,
-          filters: [{ name: 'ONNX Wake Word Model', extensions: ['onnx'] }]
-        });
-        if (selected && typeof selected === 'string') {
-          setWakewordModel(selected);
-          return;
-        }
-      }
-    } catch (e) {
-      // Fall back to HTML file input
-    }
+    // tauri-plugin-dialog is not installed; fall through to HTML file input
+    // If the dialog plugin is added in the future, the invoke call can be re-enabled:
+    //   const selected = await invoke<string | null>('dialog|open', { ... });
     fileInputRef.current?.click();
   };
 

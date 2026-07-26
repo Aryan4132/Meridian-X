@@ -1,3 +1,11 @@
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
+import Mascot from './Mascot';
+import BootSequence from './startup/BootSequence';
+import SetupWizard from './startup/SetupWizard';
+import Shell from './components/Shell';
+import { AppProvider } from './AppContext';
+import './index.css';
 import { API_BASE_URL } from './config';
 
 // Global error reporting to backend daemon for WebView2 debugging
@@ -46,15 +54,6 @@ if (typeof window !== 'undefined') {
     sendDebugLog(`Unhandled Promise Rejection: ${event.reason?.stack || event.reason}`, 'error');
   };
 }
-
-import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
-import Mascot from './Mascot';
-import BootSequence from './startup/BootSequence';
-import SetupWizard from './startup/SetupWizard';
-import Shell from './components/Shell';
-import { AppProvider } from './AppContext';
-import './index.css';
 
 type AppStage = 'boot' | 'setup' | 'shell';
 
