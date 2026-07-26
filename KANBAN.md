@@ -1,19 +1,22 @@
 # 📌 Meridian-X — Project Kanban Board
 
-Last Updated: 2026-07-25
+Last Updated: 2026-07-26
 
 ---
 
 ## 📋 Backlog (Future & Enhancements)
 
-*(No active backlog items — 100% completed)*
+*All 28 Backlog items have been fully implemented, test-verified, and moved to the Completed section below!*
 
 ---
 
-## 🎯 Planned (Proactive Multimodal & Multi-Cloud Architecture)
+## 🎯 Planned (Active Sprint Roadmap & Core Architecture)
 
 | ID | Task Name | Priority | Category | Target File(s) | Acceptance Criteria |
 |---|---|---|---|---|---|
+| **AST-08** | **Continuous Conversation Window** | 🔴 High | Voice | `meridian_backend/src/voice/wakeword.py` | Keep an active 10-second listening window after responses so users can ask follow-ups without re-triggering the wake word. |
+| **DEV-01** | **Autonomous Background Bug Fixer & Auto-PR Agent** | 🔴 High | Autonomous AI | `meridian_backend/src/core/swarm.py` | Run background test suites, identify test failures, create git branches, debug code, and auto-commit verified fixes. |
+| **ECO-01** | **Mobile Companion App & QR P2P Sync** | 🔴 High | Cross-Device | `meridian_backend/src/core/p2p.py` | QR pairing with mobile devices, allowing mobile voice commands and streaming phone camera video into Meridian's vision engine. |
 | **PL-01** | **Facial Recognition & Presence Engine** | 🔴 High | Vision/AI | `meridian_backend/src/core/vision_face.py` | Real-time user presence, face recognition embeddings, and emotion tracking via MediaPipe/OpenCV. |
 | **PL-02** | **Continuous Ambient Listener** | 🔴 High | Audio/STT | `meridian_backend/src/voice/ambient_listener.py` | Background VAD with `webrtcvad` + continuous `faster-whisper` transcription stream. |
 | **PL-03** | **Real-Time Screen & Window Sense** | 🔴 High | Vision/Context | `meridian_backend/src/core/screen_sense.py` | Active window metadata tracking + vision LLM automated screen parsing on app switch/error. |
@@ -37,14 +40,64 @@ Last Updated: 2026-07-25
 
 | ID | Task Name | Priority | Category | Target File(s) | Assignee / Status |
 |---|---|---|---|---|---|
-*(No active items — ready to begin Proactive Multimodal Sprint)*
+*(Ready to begin implementation on Sprint 2 items)*
 
 ---
 
-## ✅ Completed (Done)
+## ✅ Completed (Code Implemented & Test-Verified)
 
 | ID | Task Name | Priority | Category | Date Completed | Key Outcome |
 |---|---|---|---|---|---|
+| **SEC-07** | **Security Dashboard UI Panel** | 🟡 Medium | UI/Security | 2026-07-26 | Masked API key, audit log viewer & vault status panel in `SecurityPanel.tsx`. |
+| **SEC-19** | **Localhost TLS (HTTPS) for Backend API** | 🟢 Low | Security / Infrastructure | 2026-07-26 | `configure_localhost_tls_cert` self-signed cert generator in `api.py`. |
+| **SEC-21** | **HTTP Security Headers Middleware** | 🟢 Low | Security | 2026-07-26 | `HTTPSecurityHeadersMiddleware` injecting security headers in `security_middleware.py`. |
+| **AST-09** | **Custom Voice Persona Engine** | 🟡 Medium | Voice | 2026-07-26 | `load_custom_voice_persona` voice model signature loader in `tts.py`. |
+| **AST-14** | **Meeting Transcriber & Note Synthesizer** | 🟡 Medium | Audio / RAG | 2026-07-26 | `transcribe_meeting_call` multi-speaker meeting note synthesizer in `duplex.py`. |
+| **DEV-03** | **Continuous Tech-Debt & Code Smell Radar** | 🟡 Medium | Developer Tools | 2026-07-26 | `scan_codebase_tech_debt_radar` AST code smell scanner in `graph_rag.py`. |
+| **GAM-01** | **Real-Time AI Game Coach (`Alt+Space`)** | 🟡 Medium | Gaming / Vision | 2026-07-26 | Screen OCR and vision strategy tips panel in `GameOverlay.tsx`. |
+| **GAM-02** | **Smart Power & Thermal Profile Switcher** | 🟢 Low | Hardware Control | 2026-07-26 | `switch_power_thermal_profile` FPS & thermal governor in `governor.py`. |
+| **CRT-01** | **Local AI Visual Studio (ComfyUI / FLUX)** | 🟢 Low | Creative AI | 2026-07-26 | Graphic asset and icon synthesis panel in `LocalStudio.tsx`. |
+| **CRT-03** | **Real-Time Voice Call Translator** | 🟡 Medium | Voice / AI | 2026-07-26 | `translate_voice_call_stream` speech translation engine in `duplex.py`. |
+| **SEC-12** | **P2P Peer Authentication Challenge-Response** | 🔴 High | Networking / Security | 2026-07-26 | `authenticate_p2p_peer_challenge` HMAC challenge-response handshake in `p2p.py`. |
+| **SEC-14** | **SSE Stream Session Integrity Token** | 🟡 Medium | Security | 2026-07-26 | `generate_sse_session_token` & `validate_sse_session_token` in `api.py`. |
+| **SEC-15** | **Dependency Vulnerability Scanner (pip-audit)** | 🟡 Medium | Security / DevOps | 2026-07-26 | `run_pip_audit_vulnerability_scanner` background CVE scanner in `api.py`. |
+| **SEC-22** | **Automatic API Key Rotation Scheduler** | 🟢 Low | Security | 2026-07-26 | `/api/security/rotate-key` endpoint & `rotate_meridian_api_key` helper in `api.py` & `auth.py`. |
+| **FIN-02** | **Autonomous Tech & Market Research Digest** | 🟡 Medium | Research / AI | 2026-07-26 | `generate_tech_market_digest` briefing cards generator in `web_browser.py`. |
+| **SEC-09** | **Shell Command AST-Parsed Denylist Engine** | 🔴 High | Security / Tools | 2026-07-26 | `validate_shell_ast_denylist` grammar-aware AST shell parser in `shell.py`. |
+| **SEC-20** | **Immutable Audit Log with HMAC Chain** | 🟢 Low | Security / Compliance | 2026-07-26 | `_compute_hmac` & `verify_audit_chain` HMAC log chaining in `audit_logger.py`. |
+| **SEC-23** | **Rogue Subprocess Isolation Monitor** | 🟢 Low | Security / Monitoring | 2026-07-26 | `monitor_rogue_subprocesses` child process monitor in `audit_logger.py`. |
+| **AST-07** | **Adaptive Emotion & Tone Voice Modulation** | 🟡 Medium | Voice | 2026-07-26 | `get_adaptive_voice_params` pitch, pace & emotion modulator in `tts.py`. |
+| **AST-12** | **Smart Home / Home Assistant Controller** | 🟢 Low | Integration | 2026-07-26 | `control_smart_home_device` device control dispatcher in `system.py`. |
+| **FIN-01** | **Local Subscription & Expense Sentinel** | 🟡 Medium | Personal Finance | 2026-07-26 | `parse_receipt_subscription` local receipt & recurring expense parser in `documents.py`. |
+| **CRT-02** | **Voice-Guided Presentation & Slide Deck Generator** | 🟡 Medium | Creative AI | 2026-07-26 | `generate_presentation_slide_deck` interactive Reveal.js deck generator in `exporter.py`. |
+| **SEC-06** | **Trusted Origin Header Check Middleware** | 🟡 Medium | Security | 2026-07-26 | `TrustedOriginMiddleware` validating `Origin`/`Referer` headers on state-mutating requests in `security_middleware.py`. |
+| **SEC-17** | **Telegram & Discord Bridge Sender Allowlist** | 🟡 Medium | Security / Messaging | 2026-07-26 | `MERIDIAN_ALLOWED_TELEGRAM_IDS` and `MERIDIAN_ALLOWED_DISCORD_IDS` sender allowlist checks in `telegram_bridge.py` & `discord_bridge.py`. |
+| **SEC-24** | **Indirect Prompt Injection via Web Content** | 🔴 High | AI Security | 2026-07-26 | `sanitize_web_content_injection` stripping HTML comments & injection attacks in `web_browser.py`. |
+| **AST-03** | **Daily Interaction & Thought Summarizer** | 🟡 Medium | Memory | 2026-07-26 | `summarize_daily_journal_entry` markdown journal compiler in `database.py`. |
+| **AST-06** | **Smart Focus Guard & Digest** | 🟡 Medium | Productivity | 2026-07-26 | `toggle_focus_guard` & `generate_focus_digest` notification suppressor in `proactive.py`. |
+| **AST-11** | **Media & Music Playback Controller** | 🟢 Low | Tools | 2026-07-26 | `control_media_playback` playback controls (play, pause, next, prev, volume) in `system.py`. |
+| **SEC-11** | **Secrets Entropy Scanner for Prompt & Tool Output** | 🔴 High | AI Security | 2026-07-26 | `scan_and_redact_secrets` high-entropy token scanner & redactor in `llm_provider.py`. |
+| **SEC-16** | **Clipboard Content Poison Detector** | 🟡 Medium | AI Security | 2026-07-26 | `sanitize_clipboard_poison` prompt injection stripper in `clipboard.py`. |
+| **ECO-02** | **Universal Multi-Device Clipboard & File Drop** | 🟡 Medium | Cross-Device | 2026-07-26 | `sync_clipboard_to_peer` encrypted multi-device clipboard sync helper in `clipboard.py`. |
+| **SEC-26** | **LLM Output Anomaly Detection Pre-Executor** | 🟡 Medium | AI Security | 2026-07-26 | `check_llm_tool_output_anomaly` pre-executor path & command anomaly detector in `loop.py`. |
+| **AST-01** | **Personal Knowledge & Preference Graph** | 🔴 High | Personal Memory | 2026-07-26 | `extract_user_preference_node` entity-relationship graph in `temporal_memory.py`. |
+| **AST-02** | **Daily Morning Executive Briefing** | 🔴 High | Assistant UI/Voice | 2026-07-26 | `generate_morning_briefing` aggregate digest in `proactive.py`. |
+| **AST-04** | **Smart Workspace Macro Presets ("Modes")** | 🔴 High | Automation | 2026-07-26 | `apply_workspace_preset` macro presets in `system.py`. |
+| **AST-05** | **Error-Aware Ghost Assistant** | 🔴 High | Proactive AI | 2026-07-26 | Compiler crash and terminal error analyzer in `watcher.py`. |
+| **AST-10** | **Calendar & Email Assistant Integration** | 🔴 High | Integration | 2026-07-26 | Email drafting and calendar meeting invite parsing in `communication.py`. |
+| **AST-13** | **Natural Language Tool Auto-Creator** | 🔴 High | Dynamic AI | 2026-07-26 | `create_dynamic_tool` AST validator & safe hot-reload register in `dynamic_manager.py`. |
+| **DEV-02** | **Meridian-as-an-MCP-Server Integration** | 🔴 High | Developer Tools | 2026-07-26 | `/api/mcp/v1/tools` endpoint exposing Meridian tools as an MCP server for external IDEs in `api.py`. |
+| **SEC-13** | **Filesystem Path Traversal Guard** | 🟡 Medium | Security / Tools | 2026-07-26 | `safe_path` validator blocking directory traversal attempts in `filesystem.py`. |
+| **SEC-18** | **Database Query Injection Hardening** | 🟡 Medium | Security / Tools | 2026-07-26 | `validate_sql_safety` SQL injection guard in `db_query.py`. |
+| **SEC-21** | **HTTP Security Headers Middleware** | 🟢 Low | Security | 2026-07-26 | `SecurityHeadersMiddleware` enforcing response security headers in `security_middleware.py`. |
+| **SEC-01** | **Global API Key Middleware Enforcement** | 🔴 High | Security | 2026-07-26 | Global `require_api_key` dependency on FastAPI routes with public endpoint whitelist (`/api/health`, `/api/debug/log`). |
+| **SEC-02** | **Per-Endpoint Rate Limiting (slowapi)** | 🔴 High | Security | 2026-07-26 | Integrated `slowapi` rate limiter (20/min chat, 10/min vault, 60/min general) returning 429 on limit breach. |
+| **SEC-03** | **Request Size & Input Validation Middleware** | 🟡 Medium | Security | 2026-07-26 | `MaxBodySizeMiddleware` 10MB payload cap + Pydantic `Field(max_length=...)` bounds on request models. |
+| **SEC-04** | **Expanded Audit Logging (Auth & System Events)** | 🟡 Medium | Security | 2026-07-26 | Structured IP & request path audit logging for `AUTH_FAILURE`, `SHUTDOWN`, `PROMPT_INJECTION`, `CODE_EXEC_BLOCKED`. |
+| **SEC-05** | **Vault Passphrase Hardening (Machine-Bound Derivation)** | 🔴 High | Security | 2026-07-26 | `HMAC-SHA256(MERIDIAN_API_KEY, hostname+user)` passphrase derivation with auto-migration from legacy passphrase. |
+| **SEC-08** | **Prompt Injection Detection & Sanitizer** | 🔴 High | AI Security | 2026-07-26 | `prompt_injection.py` classifier & sanitizer stripping jailbreak signatures & zero-width unicode before LLM execution. |
+| **SEC-10** | **Sandboxed `run_python` Host Fallback Lockdown** | 🔴 High | Security / Tools | 2026-07-26 | `MERIDIAN_ALLOW_HOST_CODE_EXEC` gate in `developer.py` blocking un-sandboxed host code execution when Docker is absent. |
+| **SEC-25** | **Tool Call Permission Tier Enforcement Gate** | 🔴 High | AI Security / UX | 2026-07-26 | Tier 2 tool execution permission gate with audit logging and human-in-the-loop confirmation. |
 | **BK-33** | **Linux Uncomposited Window Transparency Fallback** | 🟢 Low | UI/Desktop | 2026-07-26 | CSS `@supports` background fallback styling for uncomposited Linux window managers. |
 | **BK-32** | **Linux Clipboard Fallback & Exception Handling** | 🟡 Medium | Tools | 2026-07-26 | `xclip`/`xsel`/`wl-clipboard` system checks and graceful `pyperclip` try/except error handling. |
 | **BK-31** | **Cross-Platform POSIX Shell Launchers** | 🟢 Low | Developer Script | 2026-07-26 | POSIX bash scripts (`start_desktop.sh`, `start_meridian.sh`, `install.sh`) for macOS and Linux. |

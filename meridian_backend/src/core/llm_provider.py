@@ -6,7 +6,31 @@ import asyncio
 from typing import AsyncGenerator, List, Dict, Any, Optional
 from database import get_mongo_db
 
+import re
+import math
+
 logger = logging.getLogger("meridian_llm_provider")
+
+SECRET_REGEX_PATTERNS = [
+    re.compile(r"sk-[a-zA-Z0-9]{32,}"),
+    re.compile(r"ghp_[a-zA-Z0-9]{36}"),
+    re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"),
+]
+
+def scan_and_redact_secrets(text: str) -> str:
+    """Scans and redacts high-entropy API keys and tokens before sending to LLM APIs (SEC-11)."""
+    if not text:
+        return text
+        
+    redacted_text = text
+    for pattern in SECRET_REGEX_PATTERNS:
+        matches = pattern.findall(redacted_text)
+        for match in matches:
+            redacted_text = redacted_text.replace(match, "[REDACTED_SECRET]")
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action("SECURITY_AUDIT", "secret_redacted", {"secret_type": "high_entropy_token"}, "SUCCESS")
+            
+    return redacted_text
 
 def get_ollama_host() -> str:
   """

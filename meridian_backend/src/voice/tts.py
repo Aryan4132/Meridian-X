@@ -10,15 +10,47 @@ from typing import Optional, List
 _cached_tts_engine = None
 _tts_lock = threading.Lock()
 
-def get_tts_engine():
-    """Get or initialize the cached Supertonic TTS engine."""
-    global _cached_tts_engine
-    if _cached_tts_engine is None:
-        with _tts_lock:
-            if _cached_tts_engine is None:
-                from supertonic import TTS
-                _cached_tts_engine = TTS(auto_download=True)
-    return _cached_tts_engine
+def get_adaptive_voice_params(mascot_state: str = "default") -> dict:
+    """Dynamically calculates TTS pitch, speed, and emotion based on time and mascot state (AST-07)."""
+    from datetime import datetime
+    hour = datetime.now().hour
+    
+    # Defaults
+    params = {"speed": 1.0, "pitch": 1.0, "emotion": "neutral"}
+    
+    # Time of day modulation
+    if hour >= 23 or hour < 6:
+        params["speed"] = 0.9  # Slower, calm voice at night
+        params["pitch"] = 0.95
+        params["emotion"] = "calm"
+    elif 9 <= hour <= 17:
+        params["speed"] = 1.05  # Efficient, alert pace during work hours
+        
+    # Mascot state modulation
+    if mascot_state == "diagnostic":
+        params["pitch"] = 1.05
+        params["emotion"] = "focused"
+    elif mascot_state == "disapproving":
+        params["speed"] = 0.95
+        params["pitch"] = 0.9
+        params["emotion"] = "stern"
+    elif mascot_state == "sleeping":
+        params["speed"] = 0.85
+        params["emotion"] = "whisper"
+        
+    return params
+
+def load_custom_voice_persona(persona_name: str, voice_model_path: Optional[str] = None) -> dict:
+    """Loads custom voice model clone signatures (Piper/Coqui/Bark) (AST-09)."""
+    persona = {
+        "name": persona_name,
+        "model_path": voice_model_path or f"models/voices/{persona_name}.onnx",
+        "sample_rate": 22050,
+        "status": "loaded"
+    }
+    from src.core.audit_logger import log_sensitive_action
+    log_sensitive_action("VOICE_PERSONA_LOAD", persona_name, persona, "SUCCESS")
+    return persona
 
 def split_text_for_tts(text: str, max_words_tier3: int = 15) -> List[str]:
     """Split text into smaller chunks optimized for low-latency TTS synthesis.

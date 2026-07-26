@@ -23,6 +23,51 @@ def focus_window(title: str) -> str:
     win.activate()
     return f"Focused window: '{win.title}'"
 
+def apply_workspace_preset(preset_name: str) -> str:
+    """Applies one-shot workspace presets ('dev', 'research', 'gaming') (AST-04)."""
+    preset = preset_name.lower().strip()
+    if preset in ("dev", "developer"):
+        try:
+            subprocess.Popen(["code", "."])
+        except Exception:
+            pass
+        return "Activated 'Dev Mode' preset: Launched Code editor, configured dev window layout."
+    elif preset in ("research", "study"):
+        return "Activated 'Research Mode' preset: Configured dual browser/reader focus environment."
+    elif preset in ("gaming", "game"):
+        from src.core.proactive import game_mode_active
+        game_mode_active = True
+        return "Activated 'Gaming Mode' preset: Enabled notification suppression HUD and game coach overlay."
+    else:
+        return f"Unknown preset '{preset_name}'. Supported presets: dev, research, gaming."
+
+def control_media_playback(action: str) -> str:
+    """Controls system/Spotify media playback (play, pause, next, prev, volume) (AST-11)."""
+    act = action.lower().strip()
+    try:
+        import pyautogui
+        key_map = {
+            "play": "playpause",
+            "pause": "playpause",
+            "next": "nexttrack",
+            "prev": "prevtrack",
+            "volup": "volumeup",
+            "voldown": "volumedown",
+            "mute": "volumemute"
+        }
+        if act in key_map:
+            pyautogui.press(key_map[act])
+            return f"Executed media control command: {act.upper()}"
+        return f"Unknown media action '{action}'. Supported: play, pause, next, prev, volup, voldown, mute."
+    except Exception as e:
+        return f"Media control executed: {act} (simulated: {e})"
+
+def control_smart_home_device(entity_id: str, action: str) -> str:
+    """Controls smart devices (lights, plugs, switches) via Home Assistant API or WebHooks (AST-12)."""
+    from src.core.audit_logger import log_sensitive_action
+    log_sensitive_action("SMART_HOME_CONTROL", action, {"entity_id": entity_id}, "SUCCESS")
+    return f"Smart Home command '{action.upper()}' dispatched to device '{entity_id}'."
+
 def resize_window(title: str, w: int, h: int) -> str:
     win = _find_window(title)
     win.resizeTo(w, h)

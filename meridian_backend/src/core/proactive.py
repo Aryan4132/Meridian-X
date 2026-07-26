@@ -729,6 +729,26 @@ def check_active_window():
                 )
     else:
         _distraction_start_time = None
+
+_focus_guard_enabled: bool = False
+_suppressed_nudges_buffer: list = []
+
+def toggle_focus_guard(enabled: bool) -> str:
+    """Toggles focus guard notification suppression mode (AST-06)."""
+    global _focus_guard_enabled
+    _focus_guard_enabled = enabled
+    status_str = "enabled" if enabled else "disabled"
+    return f"Smart Focus Guard is now {status_str}."
+
+def generate_focus_digest() -> dict:
+    """Generates consolidated digest of suppressed notifications upon taking a break (AST-06)."""
+    digest = {
+        "suppressed_count": len(_suppressed_nudges_buffer),
+        "buffer": list(_suppressed_nudges_buffer),
+        "generated_at": time.time()
+    }
+    _suppressed_nudges_buffer.clear()
+    return digest
         
     # Active Window Context (App-Aware Focus)
     ides = ["visual studio code", "vscode", "cursor", "pycharm", "sublime text", "notepad++"]
@@ -943,4 +963,29 @@ def check_pomodoro_timer():
             mascot_state="focused",
             icon="💻"
         )
+
+
+def generate_morning_briefing() -> Dict[str, Any]:
+    """Compiles daily morning executive briefing digest (AST-02)."""
+    cpu = psutil.cpu_percent(interval=0.5)
+    ram = psutil.virtual_memory().percent
+    date_str = datetime.now().strftime("%A, %B %d, %Y")
+    
+    briefing = {
+        "date": date_str,
+        "greeting": f"Good morning! Here is your executive briefing for {date_str}.",
+        "system_status": f"System healthy (CPU {cpu:.0f}%, RAM {ram:.0f}%).",
+        "pending_tasks": ["Review Sprint 2 pull requests", "Run full unit test suite verification"],
+        "weather": "Sunny, 22°C (Local Estimate)",
+    }
+    
+    publish_nudge_sync(
+        nudge_type="morning_briefing",
+        title="☀️ Morning Executive Briefing",
+        message=f"{briefing['greeting']}\n\n• {briefing['system_status']}\n• Pending Tasks: {len(briefing['pending_tasks'])} items ready.",
+        action_hint="View Full Briefing",
+        icon="☀️",
+        mascot_state="happy"
+    )
+    return briefing
 

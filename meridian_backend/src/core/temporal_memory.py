@@ -76,3 +76,12 @@ class TemporalMemoryGraph:
             node["temporal_relevance"] = self.calculate_temporal_relevance(node["id"], now)
             
         return entity_nodes
+
+    def extract_user_preference_node(self, category: str, preference_key: str, preference_value: Any) -> str:
+        """Extracts and stores user preference or coding habit into preference graph (AST-01)."""
+        entity_id = f"pref:{category}:{preference_key}"
+        return self.add_event(
+            entity_id=entity_id,
+            entity_type="user_preference",
+            state={"category": category, "key": preference_key, "value": preference_value}
+        )

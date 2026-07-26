@@ -406,3 +406,11 @@ async def call_tool(name: str, args: Dict[str, Any]) -> str:
         return res
     except Exception as e:
         return f"Error executing {name}: {str(e)}"
+
+def register_dynamic_tool(name: str, func: Any, description: str = "", tier: int = 1):
+    """Registers a dynamically generated tool at runtime (AST-13)."""
+    TOOL_REGISTRY[name] = {
+        "func": func,
+        "description": description,
+        "tier": tier
+    }

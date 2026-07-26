@@ -7,10 +7,13 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from api import app
 from src.voice.wakeword import _listen_loop
 
+from src.core.auth import API_KEY
+
 client = TestClient(app)
 
 def test_get_onnx_models_endpoint():
-    response = client.get("/api/voice/onnx-models")
+    headers = {"X-API-Key": API_KEY}
+    response = client.get("/api/voice/onnx-models", headers=headers)
     assert response.status_code == 200
     data = response.json()
     assert data.get("status") == "success"

@@ -46,3 +46,16 @@ class HardwareGovernor:
             "throttled": is_throttled,
             "recommendation": "Throttle active model context window" if is_throttled else "Normal operation"
         }
+
+def switch_power_thermal_profile(mode: str = "balanced") -> Dict[str, Any]:
+    """Adjusts CPU/GPU power profiles, FPS caps, and thermal targets (GAM-02)."""
+    valid_modes = {"gaming": {"fps_cap": 144, "power": "high_performance"},
+                   "compiling": {"fps_cap": 60, "power": "turbo"},
+                   "idle": {"fps_cap": 30, "power": "power_saver"},
+                   "balanced": {"fps_cap": 60, "power": "balanced"}}
+    m = mode.lower().strip()
+    profile = valid_modes.get(m, valid_modes["balanced"])
+    profile["active_mode"] = m
+    from src.core.audit_logger import log_sensitive_action
+    log_sensitive_action("THERMAL_GOVERNOR", "switch_power_thermal_profile", profile, "SUCCESS")
+    return profile

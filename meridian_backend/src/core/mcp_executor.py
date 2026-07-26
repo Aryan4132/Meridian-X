@@ -7,7 +7,10 @@ execution state tracking, and JSON-RPC response formatting.
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
-from meridian_backend.src.core.mcp_client import McpClient
+try:
+    from src.core.mcp_client import McpClient
+except ImportError:
+    from meridian_backend.src.core.mcp_client import McpClient
 
 logger = logging.getLogger("meridian_mcp_executor")
 

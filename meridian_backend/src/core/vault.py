@@ -100,8 +100,9 @@ from src.core.config import VAULT_FILE
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-def save_secret(key: str, value: str, passphrase: str) -> str:
+def save_secret(key: str, value: str, passphrase: Optional[str] = None) -> str:
     """Encrypt and persist a secret into the vault."""
+    passphrase = _resolve_passphrase(passphrase)
     # 1. Load existing secrets if vault file exists
     secrets: Dict[str, str] = {}
     if os.path.exists(VAULT_FILE):
@@ -149,7 +150,7 @@ def save_secret(key: str, value: str, passphrase: str) -> str:
     return f"Successfully saved secret key '{key}' in encrypted vault."
 
 
-def get_secret(key: str, passphrase: str) -> Optional[str]:
+def get_secret(key: str, passphrase: Optional[str] = None) -> Optional[str]:
     """Decrypt vault and return the value for `key`, or None if missing."""
     _audit("vault_get", key)
     try:
@@ -159,10 +160,12 @@ def get_secret(key: str, passphrase: str) -> Optional[str]:
         return None
 
 
-def load_all_secrets(passphrase: str) -> Dict[str, str]:
+def load_all_secrets(passphrase: Optional[str] = None) -> Dict[str, str]:
     """Decrypt and return all secrets from the vault file."""
     if not os.path.exists(VAULT_FILE):
         return {}
+
+    passphrase = _resolve_passphrase(passphrase)
 
     with open(VAULT_FILE, "r", encoding="utf-8") as f:
         payload = json.load(f)
@@ -173,11 +176,51 @@ def load_all_secrets(passphrase: str) -> Dict[str, str]:
     kdf_type = payload.get("kdf", "pbkdf2")
 
     # Use the cache to avoid repeated key derivation in the same session
-    derived_key = _get_or_derive_key(passphrase, salt, kdf_type=kdf_type)
-    aesgcm = AESGCM(derived_key)
+    try:
+        derived_key = _get_or_derive_key(passphrase, salt, kdf_type=kdf_type)
+        aesgcm = AESGCM(derived_key)
+        decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+        return json.loads(decrypted_bytes.decode("utf-8"))
+    except Exception:
+        # Fallback check for legacy DEFAULT_VAULT_PASS migration
+        if passphrase != "DEFAULT_VAULT_PASS":
+            try:
+                legacy_key = _get_or_derive_key("DEFAULT_VAULT_PASS", salt, kdf_type=kdf_type)
+                legacy_aesgcm = AESGCM(legacy_key)
+                decrypted_bytes = legacy_aesgcm.decrypt(nonce, ciphertext, None)
+                secrets = json.loads(decrypted_bytes.decode("utf-8"))
+                # Auto-migrate legacy vault to machine-bound passphrase
+                save_secret("__MIGRATED__", str(_time.time()), passphrase)
+                return secrets
+            except Exception:
+                pass
+        return {}
 
-    decrypted_bytes = aesgcm.decrypt(nonce, ciphertext, None)
-    return json.loads(decrypted_bytes.decode("utf-8"))
+
+
+def get_vault_passphrase() -> str:
+    """
+    Derives a machine-bound master passphrase using HMAC-SHA256 of MERIDIAN_API_KEY
+    and system identity metadata (hostname + username) (SEC-05).
+    """
+    import hmac
+    import platform
+    import getpass
+
+    api_key = os.environ.get("MERIDIAN_API_KEY", "DEFAULT_MERIDIAN_KEY")
+    machine_identity = f"{platform.node()}:{getpass.getuser()}"
+    return hmac.new(
+        api_key.encode("utf-8"),
+        machine_identity.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+
+
+def _resolve_passphrase(passphrase: Optional[str] = None) -> str:
+    """Helper to return supplied passphrase or default machine-bound passphrase."""
+    if passphrase and passphrase != "DEFAULT_VAULT_PASS":
+        return passphrase
+    return get_vault_passphrase()
 
 
 # ---------------------------------------------------------------------------

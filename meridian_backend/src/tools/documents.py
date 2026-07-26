@@ -37,6 +37,30 @@ except ImportError:
     Presentation = None
 
 
+def parse_receipt_subscription(file_path_or_text: str) -> Dict[str, Any]:
+    """Parses local receipts/invoices privately to track subscriptions and price hikes (FIN-01)."""
+    text = file_path_or_text
+    if os.path.exists(file_path_or_text):
+        text = read_document_text(file_path_or_text)
+        
+    result = {
+        "service_name": "Subscription/Vendor",
+        "amount": 0.0,
+        "is_recurring": False,
+        "parsed_raw": text[:200]
+    }
+    
+    # Amount extraction heuristic
+    match = re.search(r"\$(\d+(?:\.\d{2})?)", text)
+    if match:
+        result["amount"] = float(match.group(1))
+    if any(k in text.lower() for k in ["monthly", "annual", "subscription", "recurring", "auto-renew"]):
+        result["is_recurring"] = True
+        
+    log_sensitive_action("EXPENSE_PARSED", "parse_receipt_subscription", result, "SUCCESS")
+    return result
+
+
 def read_document_text(file_path: str) -> str:
     """
     Extracts text content or data from office document formats (.pdf, .docx, .pptx, .xlsx, .xls).

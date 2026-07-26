@@ -1,6 +1,7 @@
 import os
 import secrets
 import hmac
+from typing import Optional, Any
 from fastapi import Header, HTTPException, status, Depends
 from fastapi.security import APIKeyHeader
 
@@ -52,28 +53,72 @@ def bootstrap_api_key():
   
   return api_key
 
+def rotate_meridian_api_key(new_key: str):
+    """Rotates MERIDIAN_API_KEY dynamically in environment and memory (SEC-22)."""
+    global API_KEY
+    API_KEY = new_key
+    os.environ["MERIDIAN_API_KEY"] = new_key
+    os.environ["VITE_API_KEY"] = new_key
+    from src.core.audit_logger import log_sensitive_action
+    log_sensitive_action("SECURITY_AUDIT", "api_key_rotated", {"new_key_prefix": new_key[:10] + "..."}, "SUCCESS")
+
 # Run bootstrap on module load
 API_KEY = bootstrap_api_key()
 
-def require_api_key(api_key_header: str = Depends(API_KEY_HEADER)):
-  """
-  FastAPI route dependency to validate API keys.
-  Uses constant-time comparison to prevent side-channel timing attacks.
-  """
-  # Allow bypass if testing or environment explicitly disabled auth
-  if os.getenv("DISABLE_AUTH") == "true":
+from fastapi import Header, HTTPException, status, Depends, Request
+
+def require_api_key(
+    request: Request,
+    api_key_header: Optional[str] = Depends(API_KEY_HEADER)
+):
+    """
+    FastAPI route dependency to validate API keys.
+    Uses constant-time comparison to prevent side-channel timing attacks.
+    Whitelists public endpoints (/api/health, /api/debug/log).
+    """
+    # Allow bypass if testing or environment explicitly disabled auth
+    if os.getenv("DISABLE_AUTH") == "true":
+        return True
+
+    # Check path whitelist if request object is available
+    if request is not None and hasattr(request, "url"):
+        path = request.url.path
+        if path in ("/api/health", "/api/debug/log", "/docs", "/openapi.json"):
+            return True
+
+    client_ip = getattr(getattr(request, "client", None), "host", "unknown") if request else "unknown"
+
+    if not api_key_header:
+        try:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action(
+                category="AUTH_FAILURE",
+                action="require_api_key",
+                details={"reason": "Missing X-API-Key header", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
+                status="FAILED"
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API Key header (X-API-Key) is missing."
+        )
+
+    if not hmac.compare_digest(api_key_header, API_KEY):
+        try:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action(
+                category="AUTH_FAILURE",
+                action="require_api_key",
+                details={"reason": "Invalid X-API-Key provided", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
+                status="FAILED"
+            )
+        except Exception:
+            pass
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API Key."
+        )
+
     return True
-    
-  if not api_key_header:
-    raise HTTPException(
-      status_code=status.HTTP_401_UNAUTHORIZED,
-      detail="API Key header (X-API-Key) is missing."
-    )
-    
-  if not hmac.compare_digest(api_key_header, API_KEY):
-    raise HTTPException(
-      status_code=status.HTTP_401_UNAUTHORIZED,
-      detail="Invalid API Key."
-    )
-    
-  return True
+

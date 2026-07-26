@@ -69,9 +69,30 @@ def db_disconnect() -> str:
         except Exception as e:
             return f"Error closing connection: {e}"
 
+def validate_sql_safety(sql: str) -> Optional[str]:
+    """Inspect SQL queries for raw destructive DDL or un-where'd deletes (SEC-18)."""
+    sql_upper = sql.upper().strip()
+    destructive_keywords = ["DROP", "TRUNCATE", "ALTER", "GRANT", "REVOKE"]
+    for kw in destructive_keywords:
+        if kw in sql_upper:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action("SECURITY_VIOLATION", "sql_injection_blocked", {"sql": sql, "reason": f"Forbidden keyword {kw}"}, "FAILED")
+            return f"Error: Destructive SQL keyword '{kw}' is blocked by security guardrails."
+            
+    if "DELETE" in sql_upper and "WHERE" not in sql_upper:
+        from src.core.audit_logger import log_sensitive_action
+        log_sensitive_action("SECURITY_VIOLATION", "sql_injection_blocked", {"sql": sql, "reason": "DELETE without WHERE clause"}, "FAILED")
+        return "Error: Mass DELETE statement without WHERE clause is blocked."
+        
+    return None
+
 def db_query(sql: str) -> str:
     """Execute a SQL SELECT statement and return rows as a formatted string."""
     global _conn
+    validation_err = validate_sql_safety(sql)
+    if validation_err:
+        return validation_err
+        
     with _db_lock:
         if not _conn:
             return "Error: No active database connection. Call db_connect first."
@@ -105,9 +126,9 @@ def db_query(sql: str) -> str:
 def db_execute(sql: str) -> str:
     """Execute an INSERT, UPDATE, or DELETE SQL statement."""
     global _conn
-    with _db_lock:
-        if not _conn:
-            return "Error: No active database connection. Call db_connect first."
+    validation_err = validate_sql_safety(sql)
+    if validation_err:
+        return validation_err
             
         try:
             cursor = _conn.cursor()

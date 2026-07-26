@@ -90,6 +90,19 @@ def _run_bot(token):
         is_mention = _bot.user.mentioned_in(message)
 
         if is_mention or is_dm:
+            # SEC-17: Sender allowlist check
+            allowed_ids_raw = os.environ.get("MERIDIAN_ALLOWED_DISCORD_IDS", "")
+            if allowed_ids_raw:
+                allowed_ids = {int(x.strip()) for x in allowed_ids_raw.split(",") if x.strip().isdigit()}
+                if allowed_ids and message.author.id not in allowed_ids:
+                    from src.core.audit_logger import log_sensitive_action
+                    log_sensitive_action("SECURITY_VIOLATION", "bridge_unauthorized_sender", {"user_id": str(message.author.id), "platform": "discord"}, "FAILED")
+                    try:
+                        await message.reply("⚠️ Access Denied: Your Discord account is not on the Meridian-X allowlist.")
+                    except Exception:
+                        pass
+                    return
+
             # Clean mention string out of prompt
             prompt_text = message.content.replace(f"<@{_bot.user.id}>", "").replace(f"<@!{_bot.user.id}>", "").strip()
             if not prompt_text:

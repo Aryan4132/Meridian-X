@@ -14,6 +14,41 @@ def export_session(format: str, output_path: str) -> str:
         return export_session_runbook(output_path, "md")
     return export_session_runbook(output_path, fmt)
 
+def generate_presentation_slide_deck(title: str, slides_content: List[Dict[str, str]], output_path: str) -> str:
+    """Generates an interactive HTML/Reveal.js presentation slide deck from notes/transcripts (CRT-02)."""
+    slides_html = []
+    for slide in slides_content:
+        s_title = slide.get("title", "Slide")
+        s_body = slide.get("body", "")
+        slides_html.append(f"<section><h2>{s_title}</h2><p>{s_body}</p></section>")
+        
+    reveal_html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>{title}</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.3.1/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.3.1/theme/black.min.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section><h1>{title}</h1></section>
+            {''.join(slides_html)}
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.3.1/reveal.min.js"></script>
+    <script>Reveal.initialize();</script>
+</body>
+</html>"""
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(reveal_html)
+
+    from src.core.audit_logger import log_sensitive_action
+    log_sensitive_action("SLIDE_DECK_GENERATED", "generate_presentation_slide_deck", {"title": title, "path": output_path}, "SUCCESS")
+    return f"Successfully generated interactive Reveal.js presentation slide deck at '{output_path}'."
+
 def export_goal(goal_id: str, format: str, output_path: str) -> str:
     """Export a specific past goal and its execution details from the database."""
     # Since LanceDB records are episodic, we can search by goal or runbook export

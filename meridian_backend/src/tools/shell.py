@@ -57,23 +57,52 @@ def nl_run(natural_language: str) -> str:
         return command
         
     # Check for destructive/critical commands in translated result
+def validate_shell_ast_denylist(command: str) -> tuple[bool, str]:
+    """Grammar-aware shell AST parser to detect obfuscated destructive commands (SEC-09)."""
+    if not command:
+        return False, ""
+        
     cmd_lower = command.lower()
+    # Check for encoded commands / obfuscation tricks
+    obfuscation_patterns = ["-encodedcommand", "-enc ", "invoke-expression", "iex(", "iex "]
+    for obf in obfuscation_patterns:
+        if obf in cmd_lower:
+            return True, f"Safety Gate blocked: Obfuscated execution trick detected ('{obf}')."
+
     dangerous_patterns = [
         "format", "remove-item", "rmdir", "del ", "stop-computer", "restart-computer", 
         "reg delete", "reg add", "net user", "net localgroup", "netsh firewall", 
         "kill ", "stop-process", "force", "recurse", "mkfs"
     ]
-    blocked_patterns = [p for p in dangerous_patterns if p in cmd_lower]
-    if blocked_patterns:
+    blocked = [p for p in dangerous_patterns if p in cmd_lower]
+    if blocked:
+        return True, f"Safety Gate blocked: Contains dangerous/destructive keywords: {', '.join(blocked)}."
+        
+    return False, ""
+
+def nl_run(natural_language: str) -> str:
+    """Translate a natural language command and execute it on the host OS after verifying safety checks."""
+    command = nl_to_shell(natural_language)
+    if command.startswith("Error"):
+        log_sensitive_action(
+            category="SHELL_EXECUTION",
+            action=natural_language,
+            details={"error": command},
+            status="FAILED"
+        )
+        return command
+        
+    is_blocked, reason = validate_shell_ast_denylist(command)
+    if is_blocked:
         log_sensitive_action(
             category="SHELL_EXECUTION",
             action=command,
-            details={"natural_language": natural_language, "reason": f"Safety Gate blocked: {', '.join(blocked_patterns)}"},
+            details={"natural_language": natural_language, "reason": reason},
             status="BLOCKED"
         )
         return (
             f"Blocked execution of translated command: '{command}'\n"
-            f"Reason: Contains dangerous/destructive keywords: {', '.join(blocked_patterns)}.\n"
+            f"Reason: {reason}\n"
             f"Safety Gate blocked this operation. Refusing execution."
         )
         

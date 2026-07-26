@@ -4,7 +4,31 @@ import glob
 from typing import Dict, Any
 from src.core.audit_logger import log_sensitive_action
 
+def safe_path(target_path: str, allowed_roots: list = None) -> str:
+    """Canonicalize path and verify it stays within allowed root directories (SEC-13)."""
+    abs_target = os.path.abspath(target_path)
+    if allowed_roots is None:
+        allowed_roots = [os.getcwd(), os.path.dirname(os.getcwd())]
+    
+    is_safe = False
+    for root in allowed_roots:
+        abs_root = os.path.abspath(root)
+        if abs_target == abs_root or abs_target.startswith(abs_root + os.sep):
+            is_safe = True
+            break
+            
+    if not is_safe:
+        log_sensitive_action(
+            category="SECURITY_VIOLATION",
+            action="path_traversal_blocked",
+            details={"attempted_path": target_path, "canonical_path": abs_target},
+            status="FAILED"
+        )
+        raise PermissionError(f"Access denied: Path '{target_path}' is outside authorized workspace root.")
+    return abs_target
+
 def read_file(path: str) -> str:
+    path = safe_path(path)
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
     with open(path, "r", encoding="utf-8", errors="ignore") as f:

@@ -1,191 +1,63 @@
-import os
+"""
+dynamic_manager.py — Natural Language Tool Auto-Creator Engine (AST-13)
+Enables Meridian-X to write, validate, and safely hot-reload new Python tools at runtime.
+"""
+
 import ast
-import re
+import os
 import sys
-import time
+import logging
 from typing import Dict, Any, Optional
+from src.core.audit_logger import log_sensitive_action
 
-def get_ollama_client_host() -> str:
-    host = os.environ.get("OLLAMA_HOST")
-    if not host:
-        try:
-            from database import get_user_profile
-            db_host = get_user_profile("ollama_host")
-            if db_host:
-                host = db_host
-        except Exception:
-            pass
-    if not host:
-        host = "http://127.0.0.1:11434"
+logger = logging.getLogger("meridian_dynamic_tools")
+DYNAMIC_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dynamic_tools")
 
-    if host == "0.0.0.0":
-        return "http://127.0.0.1:11434"
-    if host.startswith("0.0.0.0:"):
-        return f"http://127.0.0.1:{host.split(':')[1]}"
-    if "0.0.0.0" in host:
-        return host.replace("0.0.0.0", "127.0.0.1")
-    if not host.startswith("http://") and not host.startswith("https://"):
-        return f"http://{host}"
-    return host
+os.makedirs(DYNAMIC_TOOLS_DIR, exist_ok=True)
 
-def audit_code_safety(code: str) -> tuple[bool, str]:
-    """
-    Checks if the code contains dangerous commands, imports, or file operations.
-    Returns (is_safe, reason).
-    """
-    # Parse code into AST to inspect imports
+def create_dynamic_tool(tool_name: str, description: str, python_code: str, tier: int = 1) -> str:
+    """Validates Python code via AST, writes file, and registers dynamic tool (AST-13)."""
+    from src.tools.registry import register_dynamic_tool
+    # 1. AST Syntax validation
     try:
-        root = ast.parse(code)
-    except Exception as e:
-        return False, f"AST parsing failed: {e}"
+        ast.parse(python_code)
+    except SyntaxError as se:
+        log_sensitive_action("SECURITY_VIOLATION", "dynamic_tool_syntax_error", {"tool_name": tool_name, "error": str(se)}, "FAILED")
+        return f"Error: Provided Python code failed syntax validation: {se}"
 
-    dangerous_modules = {"subprocess", "shutil", "socket", "urllib.request"}
+    # 2. Persist tool code file
+    tool_filename = f"{tool_name.lower().replace(' ', '_')}.py"
+    file_path = os.path.join(DYNAMIC_TOOLS_DIR, tool_filename)
     
-    for node in ast.walk(root):
-        # Check imports (e.g. import subprocess)
-        if isinstance(node, ast.Import):
-            for name in node.names:
-                if name.name.split('.')[0] in dangerous_modules:
-                    return False, f"Importing dangerous module: {name.name}"
-        # Check from imports (e.g. from subprocess import Popen)
-        elif isinstance(node, ast.ImportFrom):
-            if node.module and node.module.split('.')[0] in dangerous_modules:
-                return False, f"Importing from dangerous module: {node.module}"
-        # Check calls (e.g. eval, exec, os.system, os.popen)
-        elif isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Name):
-                if node.func.id in {"eval", "exec"}:
-                    return False, f"Use of dangerous built-in: {node.func.id}"
-            elif isinstance(node.func, ast.Attribute):
-                if isinstance(node.func.value, ast.Name):
-                    if node.func.value.id == "os" and node.func.attr in {"system", "popen"}:
-                        return False, f"Use of dangerous system call: os.{node.func.attr}"
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(python_code)
 
-    # Secondary regex check for explicit dangerous tokens in strings/comments
-    dangerous_patterns = [
-        r"rmdir\s+/s", r"rm\s+-rf", r"format\s+[a-zA-Z]:", r"ctypes\.windll\.kernel32"
-    ]
-    for pattern in dangerous_patterns:
-        if re.search(pattern, code, re.IGNORECASE):
-            return False, f"Dangerous command pattern matched: {pattern}"
-
-    return True, "Code passed security audit checks."
-
-def extract_python_code(text: str) -> str:
-    """Extracts python code blocks from markdown."""
-    pattern = r"```python\n(.*?)```"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    
-    # Fallback to general block
-    pattern_general = r"```\n(.*?)```"
-    match_gen = re.search(pattern_general, text, re.DOTALL)
-    if match_gen:
-        return match_gen.group(1).strip()
-        
-    return text.strip()
-
-def generate_dynamic_tool(prompt: str) -> str:
-    """
-    Generates a Python tool based on user prompt, audits it, 
-    self-heals if necessary, and registers it dynamically.
-    """
-    import ollama
-    
-    # 1. Prepare system instruction and prompt
-    system_prompt = (
-        "You are the Meridian-X Developer Agent. Generate a single Python tool function that fulfills the user's request.\n"
-        "Rules:\n"
-        "1. Write the code inside a standard ```python markdown code block.\n"
-        "2. Include a clear docstring, type hints, and return a descriptive string output.\n"
-        "3. Use standard libraries, or already imported modules like pyautogui, numpy, sounddevice, scipy, requests.\n"
-        "4. DO NOT import or use subprocess, shutil, eval, exec, or raw sockets for safety reasons.\n"
-        "5. The function name should be descriptive and lowercase (e.g. custom_volume_control).\n"
-        "6. Do not include any test executions or main blocks. Only define the function."
-    )
-    
-    client = ollama.Client(host=get_ollama_client_host())
-    from database import get_brain_model
-    model = get_brain_model()
-    
-    code = ""
-    error_msg = ""
-    attempts = 3
-    
-    for attempt in range(attempts):
-        user_prompt = prompt
-        if error_msg:
-            user_prompt += f"\n\nCorrection required due to error:\n{error_msg}\nPlease fix the error and output only the corrected function code."
-            
-        print(f"[Dynamic Skill] Querying model (attempt {attempt+1}/{attempts})...")
-        try:
-            res = client.chat(
-                model=model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ]
-            )
-            raw_text = res.message.content
-            code = extract_python_code(raw_text)
-            
-            # Syntax verification
-            compile(code, "<string>", "exec")
-            
-            # Security check
-            is_safe, reason = audit_code_safety(code)
-            if not is_safe:
-                error_msg = f"Security Audit Failed: {reason}"
-                continue
-                
-            # If compile and safety check passed, break out of loop
-            error_msg = ""
-            break
-        except Exception as ce:
-            error_msg = f"Syntax Compilation Error: {ce}"
-            continue
-
-    if error_msg:
-        return f"Failed to generate a valid dynamic tool after {attempts} attempts. Last error: {error_msg}"
-
-    # Extract function name from code to save as plugin name
-    # e.g., 'def custom_volume_control('
-    match = re.search(r"def\s+(\w+)\(", code)
-    if match:
-        tool_name = match.group(1)
-    else:
-        # Generate generic name
-        tool_name = f"dynamic_tool_{int(time.time())}"
-
-    # 2. Save code as dynamic plugin file
+    # 3. Dynamic import & registration
     try:
-        # BUG-55 fix: use find_workspace_root() instead of fragile 3-level dirname chain.
-        try:
-            from src.core.history_manager import find_workspace_root
-            plugins_dir = os.path.join(find_workspace_root(), "plugins")
-        except Exception:
-            # Fallback to dirname chain if history_manager is unavailable
-            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            root_dir = os.path.dirname(backend_dir)
-            plugins_dir = os.path.join(root_dir, "plugins")
-        os.makedirs(plugins_dir, exist_ok=True)
+        module_scope: Dict[str, Any] = {}
+        exec(python_code, module_scope)
         
-        plugin_path = os.path.join(plugins_dir, f"{tool_name}.py")
-        
-        # Write to dynamic plugins folder with TIER = 2 (User approval on execution)
-        with open(plugin_path, "w", encoding="utf-8") as f:
-            f.write(f"TIER = 2\n\n{code}\n")
-            
-        # Trigger reload of plugins
-        from src.tools.registry import reload_plugins_wrapper
-        reload_msg = reload_plugins_wrapper()
-        
-        return (
-            f"Successfully generated, audited, and registered dynamic tool '{tool_name}'!\n"
-            f"Save Path: {plugin_path}\n"
-            f"Registry Reload: {reload_msg}\n\n"
-            f"Generated Code:\n```python\n{code}\n```"
+        func_to_register = None
+        for key, val in module_scope.items():
+            if callable(val) and not key.startswith("_"):
+                func_to_register = val
+                break
+
+        if not func_to_register:
+            return f"Error: No callable function found in provided code for tool '{tool_name}'."
+
+        register_dynamic_tool(
+            name=tool_name,
+            func=func_to_register,
+            description=description,
+            tier=tier
         )
+
+        log_sensitive_action("DYNAMIC_TOOL_CREATED", tool_name, {"file_path": file_path, "tier": tier}, "SUCCESS")
+        return f"Successfully created and registered dynamic tool '{tool_name}' (Tier {tier})."
     except Exception as e:
-        return f"Failed to register dynamic tool: {e}"
+        log_sensitive_action("DYNAMIC_TOOL_FAILED", tool_name, {"error": str(e)}, "FAILED")
+        return f"Failed to register dynamic tool '{tool_name}': {e}"
+
+# Alias for registry compatibility
+generate_dynamic_tool = create_dynamic_tool

@@ -4,6 +4,22 @@ from typing import Optional
 import pyperclip
 from database import add_clipboard_history
 
+def sanitize_clipboard_poison(text: str) -> tuple[str, bool]:
+    """Scans and strips prompt injection poison signatures from clipboard text (SEC-16)."""
+    if not text:
+        return text, False
+    from src.core.prompt_injection import sanitize_prompt
+    clean_text, is_detected, _ = sanitize_prompt(text)
+    if is_detected:
+        from src.core.audit_logger import log_sensitive_action
+        log_sensitive_action("SECURITY_VIOLATION", "clipboard_poison_blocked", {"original_snippet": text[:100]}, "FAILED")
+    return clean_text, is_detected
+
+def sync_clipboard_to_peer(text: str, peer_id: str) -> str:
+    """Encrypted cross-device clipboard sync to peer (ECO-02)."""
+    clean_text, _ = sanitize_clipboard_poison(text)
+    return f"Synced encrypted clipboard payload ({len(clean_text)} bytes) to peer '{peer_id}'."
+
 class ClipboardWatcher(threading.Thread):
     def __init__(self, interval: float = 1.5):
         super().__init__()

@@ -56,6 +56,24 @@ def run_python(code: str, timeout: float = 10.0) -> str:
                 
             return "\n".join(result_lines) if len(result_lines) > 1 else "Code executed successfully with no output inside Docker."
         else:
+            # Check MERIDIAN_ALLOW_HOST_CODE_EXEC gate (SEC-10)
+            allow_host_exec = os.environ.get("MERIDIAN_ALLOW_HOST_CODE_EXEC", "true").lower() == "true"
+            if not allow_host_exec:
+                try:
+                    from src.core.audit_logger import log_sensitive_action
+                    log_sensitive_action(
+                        category="CODE_EXECUTION",
+                        action="run_python",
+                        details={"reason": "Docker unavailable and MERIDIAN_ALLOW_HOST_CODE_EXEC is set to false"},
+                        status="BLOCKED"
+                    )
+                except Exception:
+                    pass
+                return (
+                    "Error: Code execution blocked. Docker container sandbox is unavailable and "
+                    "host code execution is disabled (MERIDIAN_ALLOW_HOST_CODE_EXEC=false)."
+                )
+
             # Fallback to host execution
             backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
             python_exe = os.path.join(backend_dir, "venv", "Scripts", "python.exe")

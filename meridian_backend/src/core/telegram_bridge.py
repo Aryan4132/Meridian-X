@@ -186,6 +186,22 @@ def _poll_loop():
                 chat = message.get("chat", {})
                 chat_id = chat.get("id")
                 
+                # SEC-17: Telegram Allowlist Check
+                allowed_tg_ids = os.environ.get("MERIDIAN_ALLOWED_TELEGRAM_IDS", "")
+                if allowed_tg_ids:
+                    allowed_set = {int(x.strip()) for x in allowed_tg_ids.split(",") if x.strip().isdigit()}
+                    if allowed_set and chat_id not in allowed_set:
+                        from src.core.audit_logger import log_sensitive_action
+                        log_sensitive_action("SECURITY_VIOLATION", "bridge_unauthorized_sender", {"chat_id": chat_id, "platform": "telegram"}, "FAILED")
+                        try:
+                            client.post(
+                                f"https://api.telegram.org/bot{token}/sendMessage",
+                                json={"chat_id": chat_id, "text": "⚠️ Access Denied: Your Telegram account is not on the Meridian-X allowlist."}
+                            )
+                        except Exception:
+                            pass
+                        continue
+
                 # Security Check
                 if auth_chat_id and chat_id != auth_chat_id:
                     print(f"[Telegram Bridge] Blocked unauthorized access from Chat ID: {chat_id}")

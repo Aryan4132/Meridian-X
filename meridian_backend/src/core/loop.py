@@ -845,6 +845,17 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
     
     return new_history
 
+def check_llm_tool_output_anomaly(tool_name: str, args: dict) -> Tuple[bool, str]:
+    """Detects system directory targeting and dangerous execution anomalies before execution (SEC-26)."""
+    args_str = json.dumps(args).lower().replace("\\\\", "/").replace("\\", "/")
+    dangerous_targets = ["c:/windows", "/etc/shadow", "/etc/passwd", "/boot", "rm -rf /", "del /f /s /q c:"]
+    for target in dangerous_targets:
+        if target in args_str:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action("SECURITY_VIOLATION", "llm_anomaly_blocked", {"tool_name": tool_name, "args": args}, "FAILED")
+            return True, f"Error: Tool execution targeting sensitive system path or pattern '{target}' was blocked by Anomaly Detector (SEC-26)."
+    return False, ""
+
 async def execute_single_tool_async(
     tool_name: str, 
     args: dict, 
@@ -853,6 +864,10 @@ async def execute_single_tool_async(
     active_model: str
 ) -> Tuple[str, str, str]:
     """Helper to run security auditor checks and execute tool asynchronously."""
+    is_anomaly, anomaly_err = check_llm_tool_output_anomaly(tool_name, args)
+    if is_anomaly:
+        return anomaly_err, "REJECTED", f"Anomaly Detector blocked {tool_name}"
+
     args_str = json.dumps(args)
     
     # 1. Security Auditor local consensus verification
@@ -1012,9 +1027,11 @@ async def run_react_agent_loop(
     ollama_host: str,
     model_source: str = "local",
     api_provider: str = "gemini",
-    is_worker: bool = False
 ) -> AsyncGenerator[str, None]:
-    
+    # Sanitize input prompt for prompt injection & jailbreaks (SEC-08)
+    from src.core.prompt_injection import sanitize_prompt
+    prompt, injection_detected, injection_cats = sanitize_prompt(prompt)
+
     # Helper to format SSE events
     def sse_event(event_type: str, data_payload: str) -> str:
         lines = data_payload.split('\n')
