@@ -4,7 +4,7 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.2.3-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.3.0-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -19,7 +19,7 @@
 </div>
 
 > [!NOTE]
-> **v0.2.3 Stable Release:** All 28 Backlog features are implemented, tested (76/76 unit tests passing), and bundled into standalone installers.
+> **v0.3.0 Stable Release:** All 28 Backlog features are implemented, tested (76/76 unit tests passing), and bundled into standalone installers.
 
 ---
 
@@ -196,8 +196,8 @@ Run one of the following commands in your terminal to automatically download and
    [📦 Download Meridian-X Installers (GitHub Releases)](https://github.com/Aryan4132/Meridian-X/releases)
 
 2. **Run** your preferred installer from the release builds:
-   - **NSIS Setup EXE** — `meridian-x_0.2.3_x64-setup.exe` — wizard-based setup
-   - **MSI Package** — `meridian-x_0.2.3_x64_en-US.msi` — standard Windows installer package
+   - **NSIS Setup EXE** — `meridian-x_0.3.0_x64-setup.exe` — wizard-based setup
+   - **MSI Package** — `meridian-x_0.3.0_x64_en-US.msi` — standard Windows installer package
 
 3. **Launch** via the **Meridian-X** desktop shortcut.
 
@@ -341,8 +341,8 @@ npm run tauri build
 ```
 
 Outputs to `meridian_frontend/src-tauri/target/release/bundle/`:
-- `nsis/meridian-x_0.2.3_x64-setup.exe` — NSIS wizard installer
-- `msi/meridian-x_0.2.3_x64_en-US.msi` — MSI enterprise installer
+- `nsis/meridian-x_0.3.0_x64-setup.exe` — NSIS wizard installer
+- `msi/meridian-x_0.3.0_x64_en-US.msi` — MSI enterprise installer
 
 ### Launch on Windows Startup
 - **Settings UI**: Toggle **Launch on Startup** in the companion window settings.
