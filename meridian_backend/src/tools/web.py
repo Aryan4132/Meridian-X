@@ -2,42 +2,65 @@ import httpx
 import os
 from typing import Dict, Any
 
-def search_web(query: str) -> str:
-    # 1. Primary: Use the standard DDGS wrapper
-    try:
-        from ddgs import DDGS
-        with DDGS() as ddgs:
-            results = ddgs.text(query, max_results=5)
-            if results:
-                lines = []
-                for r in results:
-                    title = r.get("title", "")
-                    link = r.get("href", "")
-                    body = r.get("body", "")
-                    lines.append(f"Title: {title}\nURL: {link}\nSnippet: {body}\n")
-                return "\n".join(lines)
-    except Exception as e:
-        print("DuckDuckGo wrapper search failed, attempting Tavily fallback:", e)
+def _get_tavily_key() -> str:
+    """Reads the Tavily API key from SQLite profile (set in Settings UI) or environment."""
+    key = os.environ.get("TAVILY_API_KEY", "")
+    if not key:
+        try:
+            import sqlite3, json as _json, pathlib
+            db_candidates = [
+                pathlib.Path(__file__).parent.parent.parent.parent / "meridian_memory" / "metadata.db",
+                pathlib.Path.cwd() / "meridian_memory" / "metadata.db",
+            ]
+            for db_path in db_candidates:
+                if db_path.exists():
+                    conn = sqlite3.connect(str(db_path))
+                    row = conn.execute("SELECT value FROM user_profile WHERE key='tavily_key'").fetchone()
+                    conn.close()
+                    if row and row[0]:
+                        raw = row[0].strip()
+                        try:
+                            key = _json.loads(raw)
+                        except Exception:
+                            key = raw
+                    break
+        except Exception:
+            pass
+    return key or ""
 
-    # 2. Tavily Fallback if DDG returns empty or fails
-    tavily_key = os.environ.get("TAVILY_API_KEY")
+
+def search_web(query: str) -> str:
+    # 1. Primary: Tavily (reliable, API key already configured in user profile)
+    tavily_key = _get_tavily_key()
     if tavily_key:
         try:
-            print("[Search] DuckDuckGo returned no output. Falling back to Tavily...")
-            headers = {"Content-Type": "application/json"}
-            payload = {"api_key": tavily_key, "query": query}
-            res = httpx.post("https://api.tavily.com/search", json=payload, headers=headers, timeout=10.0)
+            payload = {"api_key": tavily_key, "query": query, "max_results": 5}
+            res = httpx.post("https://api.tavily.com/search", json=payload, timeout=12.0)
             if res.status_code == 200:
                 results = res.json().get("results", [])
                 lines = []
                 for r in results:
-                    lines.append(f"Title: {r.get('title')}\nURL: {r.get('url')}\nContent: {r.get('content')}\n")
+                    lines.append(f"Title: {r.get('title', '')}\nURL: {r.get('url', '')}\nContent: {r.get('content', '')[:300]}\n")
                 if lines:
                     return "\n".join(lines)
         except Exception as e:
-            return f"Web search failed (DuckDuckGo empty/failed, Tavily fallback failed): {e}"
-            
-    return "Web search returned no results (DuckDuckGo yielded nothing and Tavily is unconfigured or failed)."
+            print("[Search] Tavily failed:", e)
+
+    # 2. Fallback: DDGS library (may work in some environments)
+    try:
+        from duckduckgo_search import DDGS
+        results = list(DDGS().text(query, max_results=5))
+        if results:
+            lines = []
+            for r in results:
+                lines.append(f"Title: {r.get('title', '')}\nURL: {r.get('href', '')}\nSnippet: {r.get('body', '')}\n")
+            return "\n".join(lines)
+    except Exception as e:
+        print("[Search] DDGS fallback failed:", e)
+
+    return "Web search returned no results. Configure a Tavily API key in Settings > Integrations for reliable web search."
+
+
 
 
 def fetch_page(url: str) -> str:

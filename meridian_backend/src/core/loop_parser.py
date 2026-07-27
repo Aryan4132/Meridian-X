@@ -17,61 +17,58 @@ from src.tools.registry import TOOL_REGISTRY
 def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
     """
     Checks Ollama's list of installed models and matches the requested model
-    to the best available tagged variant if the exact name isn't found.
+    to the best available real local model (excluding cloud pointers/tags).
     """
     try:
         res = client.list()
-        installed_models = []
+        raw_models = []
         if hasattr(res, 'models'):
-            installed_models = [m.model for m in res.models]
+            raw_models = res.models
         elif isinstance(res, dict) and 'models' in res:
-            installed_models = [
-                m.get('model') for m in res['models'] if isinstance(m, dict)
-            ] or [m.model for m in res['models'] if hasattr(m, 'model')]
+            raw_models = res['models']
         elif isinstance(res, list):
-            installed_models = [m.model for m in res if hasattr(m, 'model')]
+            raw_models = res
+
+        installed_models = []
+        for m in raw_models:
+            name = m.model if hasattr(m, 'model') else (m.get('model') or m.get('name') if isinstance(m, dict) else "")
+            size = getattr(m, 'size', 0) if hasattr(m, 'size') else (m.get('size', 0) if isinstance(m, dict) else 0)
+            if name and "cloud" not in name.lower() and (size == 0 or size > 1000000):
+                installed_models.append(name)
 
         if not installed_models:
-            return model_name
+            return "llama3.2:3b"
 
+        # 1. Exact match if valid local model
         if model_name in installed_models:
             return model_name
 
-        if ":" not in model_name:
-            if f"{model_name}:latest" in installed_models:
-                return f"{model_name}:latest"
-
-        prefix = model_name if ":" in model_name else f"{model_name}:"
-        matches = [m for m in installed_models if m.startswith(prefix)]
+        # 2. Match base model name if requested model was cloud or mismatched
+        clean_name = model_name.split(":")[0] if ":" in model_name else model_name
+        prefix = f"{clean_name}:"
+        matches = [m for m in installed_models if m.startswith(prefix) or m.startswith(clean_name)]
         if matches:
             def match_key(m):
-                tag = m[len(prefix):].lower()
-                if tag == "latest":
+                tag = m.lower()
+                if "coder" in tag and "instruct" in tag:
                     return (0, tag)
                 if "instruct" in tag:
                     return (1, tag)
-                return (2, tag)
+                if "latest" in tag:
+                    return (2, tag)
+                return (3, tag)
             matches.sort(key=match_key)
             return matches[0]
 
-        if ":" in model_name:
-            base_name = model_name.split(":")[0]
-            base_prefix = f"{base_name}:"
-            base_matches = [m for m in installed_models if m.startswith(base_prefix)]
-            if base_matches:
-                def match_key_base(m):
-                    tag = m[len(base_prefix):].lower()
-                    if "instruct" in tag:
-                        return (0, tag)
-                    if tag == "latest":
-                        return (1, tag)
-                    return (2, tag)
-                base_matches.sort(key=match_key_base)
-                return base_matches[0]
+        # 3. Fallback to preferred installed local models
+        for preferred in ["qwen2.5-coder:7b-instruct-q4_K_M", "llama3.2:3b", "qwen3.5:latest"]:
+            if preferred in installed_models:
+                return preferred
+        return installed_models[0]
     except Exception as e:
         print(f"[Ollama Resolver] Error resolving model name: {e}")
 
-    return model_name
+    return "llama3.2:3b"
 
 
 def generate_tools_doc() -> str:

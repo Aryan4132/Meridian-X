@@ -1221,9 +1221,17 @@ def chat_stream(request: ChatRequest):
         sync_model_settings(modelSettings)
 
     model_source = modelSettings.modelSource
-    api_provider = modelSettings.apiProvider or "gemini"  # BUG-4/8 fix: default to gemini if None
+    api_provider = modelSettings.apiProvider or get_user_profile("meridian_provider") or "ollama"  # BUG-8 fix: read DB provider instead of hardcoding 'gemini'
     brain_model = modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel
     ollama_host = get_ollama_client_host()
+    
+    if (api_provider or "").lower() == "ollama":
+        try:
+            from database import get_ollama_client
+            client = get_ollama_client()
+            brain_model = resolve_local_model_name(brain_model, client)
+        except Exception:
+            pass
 
     # Record user activity for the idle nudge tracker
     try:
@@ -2949,7 +2957,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.3.2"
+CURRENT_VERSION = "0.3.3"
 _auto_download_in_progress = False
 _auto_download_ready = False
 

@@ -29,68 +29,7 @@ def get_cached_anthropic_client(api_key: str):
         _cached_anthropic_clients[api_key] = Anthropic(api_key=api_key)
     return _cached_anthropic_clients[api_key]
 
-def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
-    """
-    Checks Ollama's list of installed models and matches the requested model to the best available tagged variant if the exact name isn't found.
-    """
-    try:
-        res = client.list()
-        installed_models = []
-        if hasattr(res, 'models'):
-            installed_models = [m.model for m in res.models]
-        elif isinstance(res, dict) and 'models' in res:
-            installed_models = [m.get('model') for m in res['models'] if isinstance(m, dict)] or [m.model for m in res['models'] if hasattr(m, 'model')]
-        elif isinstance(res, list):
-            installed_models = [m.model for m in res if hasattr(m, 'model')]
-            
-        if not installed_models:
-            return model_name
-            
-        # 1. Exact match
-        if model_name in installed_models:
-            return model_name
-            
-        # 2. No tag requested (e.g. "qwen2.5-coder"). Try adding ":latest"
-        if ":" not in model_name:
-            if f"{model_name}:latest" in installed_models:
-                return f"{model_name}:latest"
-                
-        # 3. Match by prefix (e.g. "qwen2.5-coder" matches "qwen2.5-coder:7b-instruct-q4_K_M")
-        prefix = model_name if ":" in model_name else f"{model_name}:"
-        matches = [m for m in installed_models if m.startswith(prefix)]
-        if matches:
-            # Sort to prioritize "latest", then tags containing "instruct", then alphabetical
-            def match_key(m):
-                tag = m[len(prefix):].lower()
-                if tag == "latest":
-                    return (0, tag)
-                if "instruct" in tag:
-                    return (1, tag)
-                return (2, tag)
-            matches.sort(key=match_key)
-            print(f"[Ollama Resolver] Resolved model '{model_name}' to '{matches[0]}'")
-            return matches[0]
-            
-        # 4. Match base name if tagged model was requested but not found (e.g. "qwen2.5-coder:7b" not found, but we have "qwen2.5-coder:3b")
-        if ":" in model_name:
-            base_name = model_name.split(":")[0]
-            base_prefix = f"{base_name}:"
-            base_matches = [m for m in installed_models if m.startswith(base_prefix)]
-            if base_matches:
-                def match_key_base(m):
-                    tag = m[len(base_prefix):].lower()
-                    if "instruct" in tag:
-                        return (0, tag)
-                    if tag == "latest":
-                        return (1, tag)
-                    return (2, tag)
-                base_matches.sort(key=match_key_base)
-                print(f"[Ollama Resolver] Resolved model '{model_name}' to '{base_matches[0]}'")
-                return base_matches[0]
-    except Exception as e:
-        print(f"[Ollama Resolver] Error resolving model name: {e}")
-        
-    return model_name
+
 
 
 from src.tools.registry import call_tool, TOOL_REGISTRY
@@ -148,159 +87,6 @@ def generate_tools_doc() -> str:
         lines.append(f"- {name}: Tier {info['tier']}")
     return "\n".join(lines)
 
-async def transliterate_to_devanagari(text: str, client: ollama.Client) -> str:
-    if not text.strip():
-        return text
-    
-    model = get_auditor_model()
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are a phonetic Hinglish-to-Hindi transliterator. Convert the input Latin Hinglish text to Hindi Devanagari script based ONLY on phonetic pronunciation.\n"
-                "CRITICAL RULES:\n"
-                "1. Do NOT translate the meaning under any circumstances (e.g. do NOT translate 'how' to 'कैसे', instead transliterate it phonetically if requested, but normally follow the Hinglish pronunciation).\n"
-                "2. Keep the exact words and order as the input Hinglish text.\n"
-                "3. Do NOT explain or add any commentary.\n"
-                "4. Output ONLY the Devanagari text."
-            )
-        },
-        {
-            "role": "user",
-            "content": (
-                "Examples:\n"
-                "Hinglish: main theek hoon, aap batao -> Devanagari: मैं ठीक हूँ, आप बताओ\n"
-                "Hinglish: aap kaise ho -> Devanagari: आप कैसे हो\n"
-                "Hinglish: kya chal raha hai -> Devanagari: क्या चल रहा है\n"
-                "Hinglish: mujhe ek code likh ke do -> Devanagari: मुझे एक कोड लिख के दो\n\n"
-                f"Hinglish: {text}\n"
-                "Devanagari:"
-            )
-        }
-    ]
-    try:
-        # Run using the fast local model in a thread pool to avoid blocking the event loop
-        res = await asyncio.to_thread(client.chat, model=model, messages=messages)
-        # client.chat() returns ChatResponse object — use attribute access
-        converted = (res.message.content if hasattr(res, "message") and hasattr(res.message, "content") else res.get("message", {}).get("content", "")).strip()
-
-        # Remove markdown code block fences if any
-        converted = re.sub(r"^```[a-zA-Z0-9_-]*\n?", "", converted)
-        converted = re.sub(r"```$", "", converted).strip()
-        # Strip outer quotes if the model returned them
-        converted = converted.strip("\"'").strip()
-        # If it returned a label like 'Devanagari:', strip it
-        if converted.startswith("Devanagari:"):
-            converted = converted.replace("Devanagari:", "").strip()
-        return converted
-    except Exception as e:
-        print(f"[Transliteration] Failed to transliterate '{text}' using {model}: {e}")
-        # Fall back to returning original text if LLM call fails
-        return text
-
-async def process_final_response(text: str, user_lang: str, client: ollama.Client) -> str:
-    import json
-    import re
-    
-    # Try to find a JSON block in the text
-    cleaned_text = text.strip()
-    
-    # Helper to extract JSON from text
-    json_data = None
-    is_json = False
-    
-    # 1. Try direct JSON parsing
-    try:
-        json_data = json.loads(cleaned_text)
-        is_json = True
-    except Exception:
-        pass
-        
-    # 2. Try parsing by finding outermost curly braces
-    if not is_json:
-        start_idx = cleaned_text.find('{')
-        end_idx = cleaned_text.rfind('}')
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            potential_json = cleaned_text[start_idx:end_idx+1]
-            try:
-                json_data = json.loads(potential_json)
-                is_json = True
-            except Exception:
-                pass
-                
-    # 3. If standard JSON parsing failed, try extracting via regex
-    if not is_json:
-        chat_match = re.search(r'"chat"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
-        speech_match = re.search(r'"speech"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
-        lang_match = re.search(r'"lang"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
-        
-        if chat_match or speech_match:
-            json_data = {}
-            if chat_match:
-                try:
-                    json_data["chat"] = json.loads(f'"{chat_match.group(1)}"')
-                except Exception:
-                    json_data["chat"] = chat_match.group(1)
-            else:
-                json_data["chat"] = ""
-                
-            if speech_match:
-                try:
-                    json_data["speech"] = json.loads(f'"{speech_match.group(1)}"')
-                except Exception:
-                    json_data["speech"] = speech_match.group(1)
-            else:
-                json_data["speech"] = json_data["chat"]
-                
-            if lang_match:
-                try:
-                    json_data["lang"] = json.loads(f'"{lang_match.group(1)}"')
-                except Exception:
-                    json_data["lang"] = lang_match.group(1)
-            else:
-                json_data["lang"] = "en"
-            is_json = True
-
-    if not is_json or json_data is None:
-        # Not a JSON response, return original text as-is
-        return text
-
-    # Ensure required keys exist
-    chat = json_data.get("chat", "")
-    speech = json_data.get("speech", "")
-    lang = json_data.get("lang", "")
-    
-    # Default speech to chat if missing
-    if not speech:
-        speech = chat
-        
-    # Check for English guardrail
-    if user_lang == "ENGLISH":
-        # If user spoke English, enforce English output (no Hindi script in speech)
-        # We only force 'en' if the model output 'hi' or Devanagari script, indicating a translation error.
-        # This allows other languages like Spanish ('es') or French ('fr') to pass through.
-        if lang == "hi" or re.search(r'[\u0900-\u097F]', speech):
-            speech = chat
-            lang = "en"
-            
-    # Check for Hindi/Hinglish guardrail
-    elif user_lang in ("HINDI", "HINGLISH"):
-        # If user spoke Hindi/Hinglish, enforce Devanagari script for speech
-        if not re.search(r'[\u0900-\u097F]', speech):
-            # Speech is not in Devanagari script (e.g. it is in Hinglish Latin script)
-            speech = await transliterate_to_devanagari(speech, client)
-        if lang != "hi":
-            lang = "hi"
-            
-    # Re-serialize to keep the exact formatting expected by the frontend
-    corrected_data = {
-        "chat": chat,
-        "speech": speech,
-        "lang": lang
-    }
-    
-    # We serialize with ensure_ascii=False to allow Devanagari characters directly in the JSON
-    return json.dumps(corrected_data, ensure_ascii=False)
 
 def parse_attributes(attr_str: str) -> Dict[str, Any]:
     attrs = {}
@@ -636,7 +422,7 @@ def clean_final_text(text: str) -> str:
     text = re.sub(r"</?call:\w+>", "", text, flags=re.IGNORECASE)
     return text.strip()
 
-def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama.Client) -> Tuple[bool, str, str]:
+def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama.Client, model_source: str = "local") -> Tuple[bool, str, str]:
     """Inspects tool signature and code blocks locally to auto-correct errors."""
     try:
         # Check registry first
@@ -650,7 +436,9 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
         try:
             args = json.loads(args_str) if args_str.strip() else {}
         except Exception as e:
-            # Broken JSON: correct via LLM
+            if model_source == "cloud":
+                return False, args_str, f"Malformed JSON arguments for tool '{tool_name}': {e}"
+            # Broken JSON: correct via LLM for local models
             prompt = (
                 f"You are a syntax recovery engine. Correct the following invalid JSON arguments for tool '{tool_name}' so it is well-formed.\n"
                 f"Invalid JSON:\n{args_str}\n\n"
@@ -658,10 +446,8 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             )
             res = client.generate(model=get_auditor_model(), prompt=prompt)
             corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-            # clean code blocks if model added them
             if corrected.startswith("```"):
                 corrected = corrected.strip("`").replace("json\n", "").strip()
-            # Verify if corrected parses
             try:
                 json.loads(corrected)
                 return True, corrected, "Auto-corrected malformed JSON arguments."
@@ -692,7 +478,14 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             unexpected = [p for p in args if p not in valid_params] if not has_var_keyword else []
 
             if missing or unexpected:
-                # Signature mismatch: try to correct it via qwen2.5-coder:1.5b
+                if model_source == "cloud":
+                    sig_err_msg = ""
+                    if missing:
+                        sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
+                    if unexpected:
+                        sig_err_msg += f"Unexpected parameter(s): {', '.join(unexpected)}."
+                    return False, args_str, f"Signature validation failed: {sig_err_msg} Expected: {str(sig)}"
+                # Signature mismatch: try to correct it via auditor model for local models
                 sig_err_msg = ""
                 if missing:
                     sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
@@ -745,13 +538,14 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 code_to_validate = content
                 code_type = "json"
 
-        if code_to_validate:
             if code_type == "python":
                 try:
                     import ast
                     ast.parse(code_to_validate)
                 except SyntaxError as se:
-                    # Syntax error: request correction from LLM
+                    if model_source == "cloud":
+                        return False, args_str, f"Python syntax error on line {se.lineno}: {se}"
+                    # Syntax error: request correction from LLM for local models
                     prompt = (
                         f"You are a code-healing assistant. The following Python code contains a syntax error:\n"
                         f"Error: {se}\n\n"
@@ -778,23 +572,25 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                         return False, args_str, f"Python syntax check failed: {se} (Auto-healing also failed with syntax error on line {se2.lineno}: {se2})"
 
                 # Python code is syntactically valid via AST.
-                # Run qwen2.5-coder:1.5b-instruct-q8_0 as a linter / compiler warning check.
-                lint_prompt = (
-                    f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
-                    f"Code:\n```python\n{code_to_validate}\n```\n\n"
-                    f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
-                )
-                res = client.generate(model=get_auditor_model(), prompt=lint_prompt)
-                lint_resp = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-                if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
-                    # Feed the lint warning back to the agent to prompt self-correction
-                    return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
+                # Skip LLM linter check when model_source is cloud
+                if model_source != "cloud":
+                    lint_prompt = (
+                        f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
+                        f"Code:\n```python\n{code_to_validate}\n```\n\n"
+                        f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
+                    )
+                    res = client.generate(model=get_auditor_model(), prompt=lint_prompt)
+                    lint_resp = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                    if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
+                        return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
 
             elif code_type == "json":
                 try:
                     json.loads(code_to_validate)
                 except Exception as e:
-                    # Invalid JSON content: correct via LLM
+                    if model_source == "cloud":
+                        return False, args_str, f"JSON content syntax error: {e}"
+                    # Invalid JSON content: correct via LLM for local models
                     prompt = (
                         f"You are a syntax recovery engine. Correct the following invalid JSON content to make it well-formed.\n"
                         f"Invalid JSON:\n{code_to_validate}\n\n"
@@ -819,7 +615,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
     except Exception as e:
         return False, args_str, f"Critique verification failed: {e}"
 
-async def prune_and_compress_history(history: List[Dict[str, str]], client: ollama.Client) -> List[Dict[str, str]]:
+async def prune_and_compress_history(history: List[Dict[str, str]], client: ollama.Client, model_source: str = "local") -> List[Dict[str, str]]:
     """Prunes history if too long, summarizes older turns, and saves raw history to Turbovec RAG."""
     # We prune if history turns > 9 (System + 8 turns)
     if len(history) <= 9:
@@ -837,18 +633,20 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
         role_label = "Assistant" if turn["role"] == "assistant" else "User"
         log_text += f"{role_label}: {turn['content']}\n"
         
-    # Summarize via LLM
-    prompt = (
-        "You are an executive memory compressor. Synthesize the following sequence of assistant actions, "
-        "commands executed, decisions, and observations into a concise bulleted summary of key facts and progress.\n\n"
-        f"Sequence:\n{log_text}"
-    )
-    
-    try:
-        res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
-        summary = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-    except Exception:
-        summary = "Older context consolidated by System."
+    # Summarize via LLM (skip Ollama client call when model_source is cloud)
+    if model_source != "cloud":
+        prompt = (
+            "You are an executive memory compressor. Synthesize the following sequence of assistant actions, "
+            "commands executed, decisions, and observations into a concise bulleted summary of key facts and progress.\n\n"
+            f"Sequence:\n{log_text}"
+        )
+        try:
+            res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
+            summary = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+        except Exception:
+            summary = "Older context consolidated by System."
+    else:
+        summary = f"Older context ({len(compress_turns)} turns) consolidated."
         
     # Index raw turns into Turbovec RAG as archived memory
     try:
@@ -881,7 +679,8 @@ async def execute_single_tool_async(
     args: dict, 
     tier: int, 
     client: ollama.Client, 
-    active_model: str
+    active_model: str,
+    model_source: str = "local"
 ) -> Tuple[str, str, str]:
     """Helper to run security auditor checks and execute tool asynchronously."""
     is_anomaly, anomaly_err = check_llm_tool_output_anomaly(tool_name, args)
@@ -890,8 +689,8 @@ async def execute_single_tool_async(
 
     args_str = json.dumps(args)
     
-    # 1. Security Auditor local consensus verification
-    if tier >= 2:
+    # 1. Security Auditor local consensus verification (Skip Ollama generate for cloud models)
+    if tier >= 2 and model_source != "cloud":
         auditor_model = get_auditor_model()
         await event_bus.publish("agent_thoughts", {
             "agent": "Security Auditor", 
@@ -1233,12 +1032,12 @@ async def run_react_agent_loop(
                     "text": f"⚠️ Context window budget warning: Estimated token count ({estimated_tokens}) is at {pct:.1f}% of context limit ({user_context_limit:,} tokens). Compressing history.",
                     "status": "completed"
                 }))
-                history = await prune_and_compress_history(history, client)
+                history = await prune_and_compress_history(history, client, model_source=model_source)
             elif model_source == "local":
-                history = await prune_and_compress_history(history, client)
+                history = await prune_and_compress_history(history, client, model_source=model_source)
 
-            # 2. Self-Questioning Check (Only trigger for local model configurations)
-            if model_source == "local":
+            # 2. Self-Questioning Check (Trigger only when prompt targets codebase/file paths)
+            if model_source == "local" and any(k in prompt.lower() for k in ["file", "path", "directory", "folder", "config", "refactor", "codebase"]):
                 is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
             else:
                 is_verified, warning_msg = True, ""
@@ -1476,70 +1275,77 @@ async def run_react_agent_loop(
                             continue
                         # Process/correct the final finish text before yielding it
                         corrected_finish = await process_final_response(event["text"], user_lang, client)
-                        
-                        # 3. Consensus Debate (Upgrade 6)
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-init-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
-                            "status": "running"
-                        }))
-                        
-                        qa_prompt = (
-                            "You are the QA Reviewer Agent. Critique the proposed response below. "
-                            "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
-                            f"Proposed Response:\n{corrected_finish}"
-                        )
-                        qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
-                        critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
-                        
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-critique-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
-                            "status": "completed"
-                        }))
-                        
-                        coder_prompt = (
-                            "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
-                            "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
-                            f"Original Response:\n{corrected_finish}\n\n"
-                            f"Critique:\n{critique}"
-                        )
-                        coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
-                        refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
-                        
-                        if refined.startswith("```"):
-                            refined = refined.strip("`").replace("json\n", "").strip()
-                            
-                        try:
-                            json.loads(refined)
-                            debated_finish = refined
-                        except Exception:
-                            debated_finish = corrected_finish
-                            
-                        _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
-                        active_debates[_debate_key] = {
-                            "draft": corrected_finish,
-                            "critique": critique,
-                            "refined": debated_finish
-                        }
-                        # BUG-10 fix: cap active_debates at 50 entries to prevent
-                        # unbounded memory growth (full chat text stored per entry).
-                        _MAX_DEBATES = 50
-                        if len(active_debates) > _MAX_DEBATES:
-                            for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
-                                del active_debates[_old_k]
-                        
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-complete-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
-                            "status": "completed"
-                        }))
-                        
-                        final_text = debated_finish
-                        yield sse_event("text", debated_finish)
+
+                        # BUG-3 fix: Consensus Debate uses Ollama client.generate() which is
+                        # only valid for local models. Skip when using a cloud provider.
+                        if model_source != "cloud":
+                            # 3. Consensus Debate (Upgrade 6)
+                            yield sse_event("thought", json.dumps({
+                                "id": f"debate-init-{time.time()}",
+                                "type": "planning",
+                                "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                                "status": "running"
+                            }))
+
+                            qa_prompt = (
+                                "You are the QA Reviewer Agent. Critique the proposed response below. "
+                                "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
+                                f"Proposed Response:\n{corrected_finish}"
+                            )
+                            qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
+                            critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+
+                            yield sse_event("thought", json.dumps({
+                                "id": f"debate-critique-{time.time()}",
+                                "type": "planning",
+                                "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                                "status": "completed"
+                            }))
+
+                            coder_prompt = (
+                                "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
+                                "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
+                                f"Original Response:\n{corrected_finish}\n\n"
+                                f"Critique:\n{critique}"
+                            )
+                            coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
+                            refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+
+                            if refined.startswith("```"):
+                                refined = refined.strip("`").replace("json\n", "").strip()
+
+                            try:
+                                json.loads(refined)
+                                debated_finish = refined
+                            except Exception:
+                                debated_finish = corrected_finish
+
+                            _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
+                            active_debates[_debate_key] = {
+                                "draft": corrected_finish,
+                                "critique": critique,
+                                "refined": debated_finish
+                            }
+                            # BUG-10 fix: cap active_debates at 50 entries to prevent
+                            # unbounded memory growth (full chat text stored per entry).
+                            _MAX_DEBATES = 50
+                            if len(active_debates) > _MAX_DEBATES:
+                                for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+                                    del active_debates[_old_k]
+
+                            yield sse_event("thought", json.dumps({
+                                "id": f"debate-complete-{time.time()}",
+                                "type": "planning",
+                                "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
+                                "status": "completed"
+                            }))
+
+                            final_text = debated_finish
+                            yield sse_event("text", debated_finish)
+                        else:
+                            # Cloud provider: skip local debate, yield corrected response directly
+                            final_text = corrected_finish
+                            yield sse_event("text", corrected_finish)
                     elif event["type"] == "call":
                         calls_to_execute.append((event["name"], event["args"]))
                         
@@ -1565,7 +1371,7 @@ async def run_react_agent_loop(
                 
                 for tool_name, args_str in calls_to_execute:
                     # 1. Critique & Self-Correction check before handling
-                    is_corrected, corrected_args, critique_err = critique_and_correct_tool_call(tool_name, args_str, client)
+                    is_corrected, corrected_args, critique_err = critique_and_correct_tool_call(tool_name, args_str, client, model_source=model_source)
                     if not is_corrected and critique_err:
                         # Feed the error back to the agent automatically to prompt self-correction
                         observations.append(f"<observation:{tool_name}>Error: {critique_err}</observation:{tool_name}>")
@@ -1653,7 +1459,7 @@ async def run_react_agent_loop(
                     }))
                     
                     tasks = [
-                        execute_single_tool_async(name, params, t, client, active_model)
+                        execute_single_tool_async(name, params, t, client, active_model, model_source=model_source)
                         for name, params, t in concurrent_calls
                     ]
                     
@@ -1694,7 +1500,10 @@ async def run_react_agent_loop(
                     tool_run_id = f"run-{tool_name}-{time.time()}"
                     
                     # Security Auditor local consensus verification
-                    if tier >= 2:
+                    # BUG-4 fix: client.generate() only works with local Ollama models.
+                    # When model_source is 'cloud', auto-approve Tier 2 tools (Tier 3 still
+                    # requires explicit user confirmation below, which is enforced separately).
+                    if tier >= 2 and model_source != "cloud":
                         auditor_model = get_auditor_model()
                         yield sse_event("thought", json.dumps({
                             "id": audit_id,
@@ -1861,8 +1670,7 @@ async def run_react_agent_loop(
                             "status": "completed"
                         }))
                         add_to_task_log(tool_name, tier, "success")
- 
-                         # If plugins are reloaded, dynamically regenerate the system prompt
+                        # If plugins are reloaded, dynamically regenerate the system prompt
                         if tool_name == "reload_plugins":
                             tools_doc = generate_tools_doc()
                             from src.core.mode import build_system_prompt
@@ -1923,59 +1731,61 @@ async def run_react_agent_loop(
                 if not final_text:
                     final_text = clean_final_text(full_turn_text)
                     final_text = await process_final_response(final_text, user_lang, client)
-                    
-                    # 3. Consensus Debate (Upgrade 6)
-                    yield sse_event("thought", json.dumps({
-                        "id": f"debate-init-break-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
-                        "status": "running"
-                    }))
-                    qa_prompt = (
-                        "You are the QA Reviewer Agent. Critique the proposed response below. "
-                        "Find any potential bugs, logical inconsistencies, security concerns, or formatting errors.\n"
-                        "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
-                        f"Proposed Response:\n{final_text}"
-                    )
-                    qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
-                    critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
-                    
-                    yield sse_event("thought", json.dumps({
-                        "id": f"debate-critique-break-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
-                        "status": "completed"
-                    }))
-                    
-                    coder_prompt = (
-                        "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
-                        "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
-                        f"Original Response:\n{final_text}\n\n"
-                        f"Critique:\n{critique}"
-                    )
-                    coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
-                    refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
-                    if refined.startswith("```"):
-                        refined = refined.strip("`").replace("json\n", "").strip()
-                        
-                    try:
-                        json.loads(refined)
-                        final_text = refined
-                    except Exception:
-                        pass
-                        
-                    _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
-                    active_debates[_debate_key2] = {
-                        "draft": final_text,
-                        "critique": critique,
-                        "refined": final_text
-                    }
-                    # BUG-10 fix: same cap as above — prune oldest entries
-                    _MAX_DEBATES = 50
-                    if len(active_debates) > _MAX_DEBATES:
-                        for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
-                            del active_debates[_old_k]
-                    
+
+                    # BUG-3b fix: Consensus Debate uses Ollama client.generate() — skip for cloud providers.
+                    if model_source != "cloud":
+                        # 3. Consensus Debate (Upgrade 6)
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-init-break-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                            "status": "running"
+                        }))
+                        qa_prompt = (
+                            "You are the QA Reviewer Agent. Critique the proposed response below. "
+                            "Find any potential bugs, logical inconsistencies, security concerns, or formatting errors.\n"
+                            "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
+                            f"Proposed Response:\n{final_text}"
+                        )
+                        qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
+                        critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-critique-break-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                            "status": "completed"
+                        }))
+
+                        coder_prompt = (
+                            "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
+                            "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
+                            f"Original Response:\n{final_text}\n\n"
+                            f"Critique:\n{critique}"
+                        )
+                        coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
+                        refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                        if refined.startswith("```"):
+                            refined = refined.strip("`").replace("json\n", "").strip()
+
+                        try:
+                            json.loads(refined)
+                            final_text = refined
+                        except Exception:
+                            pass
+
+                        _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
+                        active_debates[_debate_key2] = {
+                            "draft": final_text,
+                            "critique": critique,
+                            "refined": final_text
+                        }
+                        # BUG-10 fix: same cap as above — prune oldest entries
+                        _MAX_DEBATES = 50
+                        if len(active_debates) > _MAX_DEBATES:
+                            for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+                                del active_debates[_old_k]
+
                     yield sse_event("text", final_text)
                 break
                 

@@ -34,24 +34,24 @@ def scan_and_redact_secrets(text: str) -> str:
 
 def get_ollama_host() -> str:
   """
-  Retrieves the Ollama host URL.
-  Checks:
-  1. Environment variable OLLAMA_HOST.
-  2. SQLite/MongoDB user_profile database.
+  Retrieves the normalized Ollama host URL.
   """
-  host = os.getenv("OLLAMA_HOST")
-  if host:
-    return host
-    
   try:
-    from database import get_user_profile
-    db_host = get_user_profile("ollama_host")
-    if db_host:
-      return db_host
-  except Exception as e:
-    logger.debug(f"Failed to fetch ollama_host from database: {e}")
-    
-  return "http://localhost:11434"
+    from database import get_ollama_client_host
+    return get_ollama_client_host()
+  except Exception:
+    host = os.getenv("OLLAMA_HOST")
+    if not host:
+      host = "http://localhost:11434"
+    if host == "0.0.0.0":
+      return "http://127.0.0.1:11434"
+    if host.startswith("0.0.0.0:"):
+      return f"http://127.0.0.1:{host.split(':')[1]}"
+    if "0.0.0.0" in host:
+      return host.replace("0.0.0.0", "127.0.0.1")
+    if not host.startswith("http://") and not host.startswith("https://"):
+      return f"http://{host}"
+    return host
 
 def get_api_key(provider: str) -> Optional[str]:
   """
@@ -90,7 +90,7 @@ async def generate_completion_stream(
   """
   provider = provider.lower()
   retries = 3
-  timeout_config = httpx.Timeout(30.0, connect=10.0)
+  timeout_config = httpx.Timeout(30.0, connect=5.0, read=30.0)
 
   async def stream_with_retries(url: str, method: str = "POST", headers: dict = None, json_payload: dict = None) -> AsyncGenerator[bytes, None]:
     delay = 1.0
@@ -110,7 +110,7 @@ async def generate_completion_stream(
               yield f"Error: status code {response.status_code} - {err_content.decode('utf-8', errors='ignore')}".encode('utf-8')
               return
             
-            async for line in response.iter_lines():
+            async for line in response.aiter_lines():
               if line:
                 yield line.encode('utf-8') if isinstance(line, str) else line
             return
@@ -128,13 +128,16 @@ async def generate_completion_stream(
     url = f"{ollama_host}/api/chat"
     
     # Resolve fallback model
-    fallback_model = "qwen2.5-coder:1.5b-instruct-q8_0"
+    fallback_model = "llama3.2:3b"
     try:
       async with httpx.AsyncClient(timeout=3.0) as client:
         res = await client.get(f"{ollama_host}/api/tags")
         if res.status_code == 200:
           models_data = res.json()
-          available = [m["name"] for m in models_data.get("models", [])]
+          available = [
+            m["name"] for m in models_data.get("models", []) 
+            if m.get("size", 0) > 1000 and ":cloud" not in m.get("name", "").lower() and "cloud" not in m.get("name", "").lower()
+          ]
           if available:
             for am in available:
               if "qwen" in am or "llama" in am:

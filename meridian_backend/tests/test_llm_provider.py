@@ -41,6 +41,7 @@ class TestLLMProvider(unittest.TestCase):
             yield b'{"message": {"content": " world!"}}'
             
         mock_response.iter_lines = mock_iter_lines
+        mock_response.aiter_lines = mock_iter_lines
         
         # Mock Client
         mock_client = MagicMock()
