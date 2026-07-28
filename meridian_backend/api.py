@@ -1195,7 +1195,7 @@ def chat(request: ChatRequest):
         if not modelSettings:
             provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
             selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
-            model_source = "local" if provider == "ollama" else "cloud"
+            model_source = get_user_profile("meridian_model_source") or os.environ.get("MERIDIAN_MODEL_SOURCE") or ("local" if provider == "ollama" else "cloud")
             modelSettings = ModelSettings(
                 modelSource=model_source,
                 apiProvider=provider,
@@ -1255,7 +1255,7 @@ def chat_stream(request: ChatRequest):
     if not modelSettings:
         provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
         selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
-        model_source = "local" if provider == "ollama" else "cloud"
+        model_source = get_user_profile("meridian_model_source") or os.environ.get("MERIDIAN_MODEL_SOURCE") or ("local" if provider == "ollama" else "cloud")
         modelSettings = ModelSettings(
             modelSource=model_source,
             apiProvider=provider,
@@ -1786,6 +1786,7 @@ ENV_KEY_MAP = {
     "telegram_token": "TELEGRAM_BOT_TOKEN",
     "telegram_chat_id": "TELEGRAM_CHAT_ID",
     "meridian_provider": "MERIDIAN_PROVIDER",
+    "meridian_model_source": "MERIDIAN_MODEL_SOURCE",
     "meridian_model": "MERIDIAN_MODEL",
     "meridian_vision_model": "MERIDIAN_VISION_MODEL",
     "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",

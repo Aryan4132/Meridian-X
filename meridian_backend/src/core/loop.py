@@ -823,7 +823,11 @@ def detect_complex_prompt(prompt: str) -> bool:
 
 async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model: str = None) -> List[Dict[str, Any]]:
     if model is None:
-        model = get_auditor_model()
+        try:
+            from database import get_brain_model
+            model = get_brain_model()
+        except Exception:
+            model = get_auditor_model()
     decomp_prompt = (
         "You are the Meridian Project Manager. Decompose the user's goal into a logical list of sub-tasks (maximum 4).\n"
         f"Goal: {prompt}\n\n"
@@ -831,7 +835,10 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model:
         "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=model, prompt=decomp_prompt)
+        res = await asyncio.wait_for(
+            asyncio.to_thread(client.generate, model=model, prompt=decomp_prompt),
+            timeout=10.0
+        )
         text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
         if text.startswith("```"):
             text = text.strip("`").replace("json\n", "").strip()
@@ -968,14 +975,14 @@ async def run_react_agent_loop(
         pass
 
     # 1. Hierarchical Task Planning (HTP) (Upgrade 10) — Skip for cloud models to achieve minimum TTFT
-    if not is_worker and model_source == "local" and detect_complex_prompt(prompt):
+    if not is_worker and model_source not in ("cloud", "api") and detect_complex_prompt(prompt):
         yield sse_event("thought", json.dumps({
             "id": f"htp-decomposing-{time.time()}",
             "type": "planning",
             "text": "[Hierarchical Task Planning] Decomposing complex prompt into sub-tasks...",
             "status": "running"
         }))
-        checklist = await decompose_goal_to_checklist(prompt, client, model=resolved_auditor_model)
+        checklist = await decompose_goal_to_checklist(prompt, client, model=brain_model)
         
         if checklist:
             yield sse_event("thought", json.dumps({

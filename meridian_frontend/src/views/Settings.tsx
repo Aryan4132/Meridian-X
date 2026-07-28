@@ -82,6 +82,7 @@ export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
   const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'integrations'>('models');
   const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
+  const [modelSource, setModelSource]       = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
   const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
   const [visionModel, setVisionModel]       = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
@@ -611,7 +612,7 @@ export default function Settings() {
     e.preventDefault();
     setSaveStatus('saving');
     const entries: Record<string, string> = {
-      MERIDIAN_PROVIDER: provider, OLLAMA_HOST: ollamaHost,
+      MERIDIAN_PROVIDER: provider, MERIDIAN_MODEL_SOURCE: modelSource, OLLAMA_HOST: ollamaHost,
       MERIDIAN_MODEL: brainModel, MERIDIAN_VISION_MODEL: visionModel,
       GROQ_API_KEY: groqKey, OPENROUTER_API_KEY: openrouterKey, MISTRAL_API_KEY: mistralKey,
       OPENAI_API_KEY: openaiKey, ANTHROPIC_API_KEY: anthropicKey,
@@ -656,7 +657,7 @@ export default function Settings() {
       const res = await fetch('http://localhost:4132/api/profile/save', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          meridian_provider: provider, ollama_host: ollamaHost,
+          meridian_provider: provider, meridian_model_source: modelSource, ollama_host: ollamaHost,
           meridian_model: brainModel, meridian_vision_model: visionModel,
           groq_key: groqKey, openrouter_key: openrouterKey, mistral_key: mistralKey,
           openai_key: openaiKey, anthropic_key: anthropicKey,
@@ -810,6 +811,17 @@ export default function Settings() {
                   const [val, setter, ph] = cfg;
                   return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} />;
                 })()}
+
+                {/* Model Execution Mode */}
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                    Model Execution Mode
+                  </label>
+                  <select value={modelSource} onChange={e => setModelSource(e.target.value)} className="select-base">
+                    <option value="local">Local Mode (Enables local multi-agent features & HTP)</option>
+                    <option value="api">Cloud/API Mode (Instant streaming, bypasses local task decomposition)</option>
+                  </select>
+                </div>
 
                 {/* Brain model */}
                 <div>
