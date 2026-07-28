@@ -21,7 +21,7 @@
 </div>
 
 > [!NOTE]
-> **v0.3.0 Stable Release:** All 28 Backlog features are implemented, tested (76/76 unit tests passing), and bundled into standalone installers.
+> **v0.3.5 Stable Release:** All 28 Backlog features implemented & hardened (81/81 unit tests passing), full-stack SQLite/WAL performance optimizations, Tavily search engine integration, cloud model streaming fixes, and instant LaTeX math symbol / arrow rendering in frontend Markdown.
 
 ---
 
@@ -198,8 +198,8 @@ Run one of the following commands in your terminal to automatically download and
    [📦 Download Meridian-X Installers (GitHub Releases)](https://github.com/Aryan4132/Meridian-X/releases)
 
 2. **Run** your preferred installer from the release builds:
-   - **NSIS Setup EXE** — `meridian-x_0.3.0_x64-setup.exe` — wizard-based setup
-   - **MSI Package** — `meridian-x_0.3.0_x64_en-US.msi` — standard Windows installer package
+   - **NSIS Setup EXE** — `meridian-x_0.3.5_x64-setup.exe` — wizard-based setup
+   - **MSI Package** — `meridian-x_0.3.5_x64_en-US.msi` — standard Windows installer package
 
 3. **Launch** via the **Meridian-X** desktop shortcut.
 
@@ -343,8 +343,8 @@ npm run tauri build
 ```
 
 Outputs to `meridian_frontend/src-tauri/target/release/bundle/`:
-- `nsis/meridian-x_0.3.0_x64-setup.exe` — NSIS wizard installer
-- `msi/meridian-x_0.3.0_x64_en-US.msi` — MSI enterprise installer
+- `nsis/meridian-x_0.3.5_x64-setup.exe` — NSIS wizard installer
+- `msi/meridian-x_0.3.5_x64_en-US.msi` — MSI enterprise installer
 
 ### Launch on Windows Startup
 - **Settings UI**: Toggle **Launch on Startup** in the companion window settings.
