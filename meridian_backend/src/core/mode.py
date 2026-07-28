@@ -80,6 +80,11 @@ CONTEXT
 ════════════════════════════════════════════
 Workspace: {workspace}
 Time: {current_time}
+Current System Date: {current_date}
+TEMPORAL ANCHORING DIRECTIVES:
+- Dates on or before {current_date} represent real-time current events.
+- Do NOT flag dates on or before {current_date} as "future dates" or "temporal hallucinations".
+- When live web/news tools return recent facts dated up to {current_date}, treat them as verified truth.
 OS: {os_info}
 Active Window: {active_window}
 User Profile:
@@ -249,8 +254,10 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
     # Workspace
     workspace = os.getcwd()
     
-    # Current Time
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Current Time & Date
+    now_dt = datetime.now()
+    current_time = now_dt.strftime("%Y-%m-%d %H:%M:%S")
+    current_date = now_dt.strftime("%Y-%m-%d")
     
     # RAG Context
     rag_context = "No relevant chunks retrieved."
@@ -317,6 +324,7 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
         tools_doc=tools_doc,
         workspace=workspace,
         current_time=current_time,
+        current_date=current_date,
         os_info=os_info,
         active_window=active_window,
         user_profile=user_profile,

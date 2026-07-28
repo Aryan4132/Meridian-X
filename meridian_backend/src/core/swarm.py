@@ -44,11 +44,18 @@ class SwarmAgent:
     """Represents an autonomous specialized subagent in the swarm."""
 
     def __init__(self, role: str, name: Optional[str] = None):
+        from datetime import datetime
+        current_date_str = datetime.now().strftime("%Y-%m-%d")
         self.role = role.lower()
         self.name = name or f"Swarm-{role.capitalize()}Agent"
-        self.system_prompt = SWARM_ROLE_PROMPTS.get(
+        base_prompt = SWARM_ROLE_PROMPTS.get(
             self.role,
             f"You are a specialized Swarm Agent focused on {self.role} tasks."
+        )
+        self.system_prompt = (
+            f"Current System Date: {current_date_str}.\n"
+            f"{base_prompt}\n"
+            f"TEMPORAL DIRECTIVE: Dates on or before {current_date_str} represent real-time current events. Treat retrieved search facts up to {current_date_str} as verified truth."
         )
         self.allowed_tools = SWARM_ROLE_TOOLS.get(self.role, [])
 

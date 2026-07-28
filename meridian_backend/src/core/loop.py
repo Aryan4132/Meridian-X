@@ -99,6 +99,77 @@ def parse_attributes(attr_str: str) -> Dict[str, Any]:
         attrs[key] = val
     return attrs
 
+
+def build_consensus_qa_prompt(response_text: str) -> str:
+    """Builds QA Reviewer prompt with dynamic system date and live web search evidence rules."""
+    from datetime import datetime
+    current_date_str = datetime.now().strftime("%Y-%m-%d")
+    return (
+        f"Current System Date: {current_date_str}.\n"
+        "You are the QA Reviewer Agent. Critique the proposed response below.\n"
+        "TEMPORAL AND SEARCH EVIDENCE RULES:\n"
+        f"- Dates up to and including {current_date_str} represent real-time current events.\n"
+        f"- Do NOT flag dates on or before {current_date_str} as 'future dates' or 'temporal hallucinations'.\n"
+        "- When tools like `search_news` or `search_web` return recent facts or real-time data dated up to the current date, treat those retrieved facts as verified truth.\n"
+        "- Do NOT override live search tool evidence using pre-trained static knowledge cutoff assumptions.\n"
+        "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
+        f"Proposed Response:\n{response_text}"
+    )
+
+
+def build_consensus_coder_prompt(response_text: str, critique: str) -> str:
+    """Builds Lead Coder prompt with dynamic system date context."""
+    from datetime import datetime
+    current_date_str = datetime.now().strftime("%Y-%m-%d")
+    return (
+        f"Current System Date: {current_date_str}.\n"
+        "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
+        f"Dates on or before {current_date_str} represent current real-time events. Do NOT revert real-time search facts into defensive refusal messages.\n"
+        "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
+        f"Original Response:\n{response_text}\n\n"
+        f"Critique:\n{critique}"
+    )
+
+
+def filter_temporal_false_positives(critique: str, current_date_str: str = "", executed_search_tool: bool = False) -> Tuple[str, bool]:
+    """
+    Detects and filters out false-positive temporal hallucination critiques
+    when current search tool evidence was used or dates are on/before current system date.
+    Returns (cleaned_critique, is_false_positive).
+    """
+    if not critique:
+        return critique, False
+
+    if not current_date_str:
+        from datetime import datetime
+        current_date_str = datetime.now().strftime("%Y-%m-%d")
+
+    current_year = current_date_str.split("-")[0]
+    critique_lower = critique.lower()
+
+    temporal_keywords = [
+        "temporal error", "future date", "fabricating \"current\" events",
+        "fabricating current events", "temporal hallucination", "hallucination/temporal error",
+        "future year", "is a future date"
+    ]
+
+    has_temporal_flag = any(kw in critique_lower for kw in temporal_keywords)
+    mentions_current_year = current_year in critique
+
+    if has_temporal_flag and (executed_search_tool or mentions_current_year):
+        lines = critique.split("\n")
+        remaining_lines = []
+        for line in lines:
+            line_l = line.lower()
+            if any(kw in line_l for kw in temporal_keywords):
+                continue
+            remaining_lines.append(line)
+
+        cleaned = "\n".join(remaining_lines).strip()
+        return cleaned, True
+
+    return critique, False
+
 class StreamingXMLParser:
     def __init__(self):
         self.buffer = ""
@@ -1287,37 +1358,38 @@ async def run_react_agent_loop(
                                 "status": "running"
                             }))
 
-                            qa_prompt = (
-                                "You are the QA Reviewer Agent. Critique the proposed response below. "
-                                "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
-                                f"Proposed Response:\n{corrected_finish}"
-                            )
+                            has_search = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
+                            qa_prompt = build_consensus_qa_prompt(corrected_finish)
                             qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
                             critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+
+                            # Filter false-positive temporal error critiques
+                            critique, is_false_pos = filter_temporal_false_positives(critique, executed_search_tool=has_search)
 
                             yield sse_event("thought", json.dumps({
                                 "id": f"debate-critique-{time.time()}",
                                 "type": "planning",
-                                "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                                "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
                                 "status": "completed"
                             }))
 
-                            coder_prompt = (
-                                "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
-                                "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
-                                f"Original Response:\n{corrected_finish}\n\n"
-                                f"Critique:\n{critique}"
-                            )
-                            coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
-                            refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                            if critique:
+                                coder_prompt = build_consensus_coder_prompt(corrected_finish, critique)
+                                coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
+                                refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
 
-                            if refined.startswith("```"):
-                                refined = refined.strip("`").replace("json\n", "").strip()
+                                if refined.startswith("```"):
+                                    refined = refined.strip("`").replace("json\n", "").strip()
 
-                            try:
-                                json.loads(refined)
-                                debated_finish = refined
-                            except Exception:
+                                try:
+                                    json.loads(refined)
+                                    if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in corrected_finish.lower()):
+                                        debated_finish = corrected_finish
+                                    else:
+                                        debated_finish = refined
+                                except Exception:
+                                    debated_finish = corrected_finish
+                            else:
                                 debated_finish = corrected_finish
 
                             _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
@@ -1741,38 +1813,36 @@ async def run_react_agent_loop(
                             "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
                             "status": "running"
                         }))
-                        qa_prompt = (
-                            "You are the QA Reviewer Agent. Critique the proposed response below. "
-                            "Find any potential bugs, logical inconsistencies, security concerns, or formatting errors.\n"
-                            "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
-                            f"Proposed Response:\n{final_text}"
-                        )
+                        has_search2 = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
+                        qa_prompt = build_consensus_qa_prompt(final_text)
                         qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt)
                         critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+
+                        # Filter false-positive temporal error critiques
+                        critique, is_false_pos2 = filter_temporal_false_positives(critique, executed_search_tool=has_search2)
 
                         yield sse_event("thought", json.dumps({
                             "id": f"debate-critique-break-{time.time()}",
                             "type": "planning",
-                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique}",
+                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
                             "status": "completed"
                         }))
 
-                        coder_prompt = (
-                            "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
-                            "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
-                            f"Original Response:\n{final_text}\n\n"
-                            f"Critique:\n{critique}"
-                        )
-                        coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
-                        refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
-                        if refined.startswith("```"):
-                            refined = refined.strip("`").replace("json\n", "").strip()
+                        if critique:
+                            coder_prompt = build_consensus_coder_prompt(final_text, critique)
+                            coder_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=coder_prompt)
+                            refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                            if refined.startswith("```"):
+                                refined = refined.strip("`").replace("json\n", "").strip()
 
-                        try:
-                            json.loads(refined)
-                            final_text = refined
-                        except Exception:
-                            pass
+                            try:
+                                json.loads(refined)
+                                if has_search2 and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in final_text.lower()):
+                                    pass
+                                else:
+                                    final_text = refined
+                            except Exception:
+                                pass
 
                         _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
                         active_debates[_debate_key2] = {

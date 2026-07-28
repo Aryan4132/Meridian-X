@@ -29,7 +29,8 @@ class PromptTemplateEngine:
         "auditor_agent": (
             "You are Meridian-X Code Quality & Security Auditor.\n"
             "Code Under Review:\n{code}\n"
-            "Checklist: Check for memory leaks, unhandled exceptions, token efficiency, and security flaws."
+            "Checklist: Check for memory leaks, unhandled exceptions, token efficiency, and security flaws.\n"
+            "Temporal Rules: Do not flag real-time dates on or before current system date as temporal hallucinations."
         )
     }
 

@@ -33,6 +33,7 @@ Last Updated: 2026-07-26
 | **PL-14** | **Mascot Real-Time Voice Audio Visualizer** | 🟡 Medium | UI/Audio | `meridian_frontend/src/Mascot.tsx` | Circular 8-bar audio equalizer orbit surrounding mascot reacting to STT/TTS audio frequencies. |
 | **PL-15** | **Agent Loop Action Auras for Mascot** | 🟡 Medium | UI/Agent | `meridian_frontend/src/Mascot.tsx` | Action-specific mascot states (`browsing` web particles, `vision_scanning` sonar beam, `auditing` shield polygon). |
 | **PL-16** | **Desktop Floating Pet Edge-Snapping & Drag Physics** | 🟢 Low | UI/Desktop | `meridian_frontend/src/Mascot.tsx` | Magnetic screen edge-snapping, drag physics, and interactive click reactions for floating pet mode. |
+| **PL-17** | **Native Pure-Python PDF Layout & Table Extractor** | 🔴 High | RAG/Memory | `meridian_backend/src/tools/documents.py`, `meridian_backend/src/core/doc_indexer.py` | Native Python XY-Cut layout sorting (multi-column reading order) and bounding box table extraction for RAG indexing without Java or external repos. |
 
 ---
 
