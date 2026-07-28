@@ -47,6 +47,7 @@ def send_whatsapp_message(contact: str = "", message: str = "", phone_number: st
 
     try:
         import pyautogui
+        pyautogui.FAILSAFE = False
 
         # 1. Open WhatsApp desktop
         if os.name == "nt":
