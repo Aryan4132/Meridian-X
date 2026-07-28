@@ -68,5 +68,20 @@ class TestTools(unittest.TestCase):
         self.assertEqual(last_line["status"], "BLOCKED")
         self.assertIn("Safety Gate", last_line["details"]["reason"])
 
+    def test_send_whatsapp_message(self):
+        from src.tools.communication import send_whatsapp_message
+        
+        # Test with contact parameter
+        res1 = send_whatsapp_message(contact="Aryan", message="Hello\n* Item 1\n* Item 2")
+        self.assertIn("Aryan", res1)
+        
+        # Test with phone_number parameter
+        res2 = send_whatsapp_message(phone_number="+1234567890", message="Test msg")
+        self.assertIn("+1234567890", res2)
+        
+        # Test empty input error handling
+        res_empty = send_whatsapp_message()
+        self.assertIn("Error", res_empty)
+
 if __name__ == "__main__":
     unittest.main()

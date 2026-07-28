@@ -239,7 +239,7 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
         print("[System Prompt] Error reading conversation history for WhatsApp check:", e)
 
     if "whatsapp" in prompt.lower() or has_whatsapp_history:
-        mode_directive += "\n- CRITICAL DIRECTIVE: The user wants to send a WhatsApp message. You MUST use the `send_whatsapp_message` tool to search for the contact and send the message."
+        mode_directive += "\n- CRITICAL DIRECTIVE: The user wants to send a WhatsApp message. You MUST use the `send_whatsapp_message(contact='<name_or_number>', message='<text_body>')` tool to search for the contact and send the message."
     
     # OS Info
     os_info = f"{platform.system()} {platform.release()} ({platform.machine()})"
