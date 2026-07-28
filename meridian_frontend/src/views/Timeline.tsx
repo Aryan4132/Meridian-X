@@ -10,6 +10,87 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { API_BASE_URL } from '../config';
 
+// Preprocessor for LaTeX math symbols, arrows, and formatting (e.g. \rightarrow, $\rightarrow$, \Rightarrow, \textbf)
+const preprocessLatex = (text: string): string => {
+  if (!text) return text;
+
+  // Split by code blocks / inline code to preserve code snippets
+  const parts = text.split(/(```[\s\S]*?```|`[^`]+`)/g);
+
+  const latexSymbols: [RegExp, string][] = [
+    [/\\rightarrow\b/g, '→'],
+    [/\\to\b/g, '→'],
+    [/\\leftarrow\b/g, '←'],
+    [/\\Rightarrow\b/g, '⇒'],
+    [/\\Leftarrow\b/g, '⇐'],
+    [/\\leftrightarrow\b/g, '↔'],
+    [/\\Leftrightarrow\b/g, '⇔'],
+    [/\\uparrow\b/g, '↑'],
+    [/\\downarrow\b/g, '↓'],
+    [/\\leq?\b/g, '≤'],
+    [/\\geq?\b/g, '≥'],
+    [/\\neq\b/g, '≠'],
+    [/\\approx\b/g, '≈'],
+    [/\\cdot\b/g, '·'],
+    [/\\times\b/g, '×'],
+    [/\\pm\b/g, '±'],
+    [/\\infty\b/g, '∞'],
+    [/\\checkmark\b/g, '✓'],
+    [/\\degree\b/g, '°'],
+    [/\\alpha\b/g, 'α'],
+    [/\\beta\b/g, 'β'],
+    [/\\gamma\b/g, 'γ'],
+    [/\\delta\b/g, 'δ'],
+    [/\\epsilon\b/g, 'ε'],
+    [/\\theta\b/g, 'θ'],
+    [/\\lambda\b/g, 'λ'],
+    [/\\mu\b/g, 'μ'],
+    [/\\pi\b/g, 'π'],
+    [/\\sigma\b/g, 'σ'],
+    [/\\tau\b/g, 'τ'],
+    [/\\phi\b/g, 'φ'],
+    [/\\omega\b/g, 'ω'],
+    [/\\Delta\b/g, 'Δ'],
+    [/\\Sigma\b/g, 'Σ'],
+    [/\\Omega\b/g, 'Ω'],
+    [/\\bullet\b/g, '•'],
+    [/\\dots\b/g, '…'],
+    [/\\ldots\b/g, '…'],
+  ];
+
+  const processed = parts.map((part, index) => {
+    if (index % 2 === 1) return part; // Keep code blocks & inline code as-is
+
+    let t = part;
+
+    // Convert LaTeX text formatting commands
+    t = t.replace(/\\textbf\{([^}]+)\}/g, '**$1**');
+    t = t.replace(/\\textit\{([^}]+)\}/g, '*$1*');
+    t = t.replace(/\\text\{([^}]+)\}/g, '$1');
+
+    // Convert LaTeX symbol commands to Unicode equivalents
+    for (const [regex, replacement] of latexSymbols) {
+      t = t.replace(regex, replacement);
+    }
+
+    // Unwrap $...$ surrounding converted single symbols, arrows, or clean text expressions
+    t = t.replace(/\$\s*([→←⇒⇐↔⇔↑↓≤≥≠≈·×±∞✓°αβγδεθλμπστφωΔΣΩ•…\w\s+\-=/\(\)]+?)\s*\$/g, (match, inner) => {
+      if (!inner.includes('\\')) {
+        return inner;
+      }
+      return match;
+    });
+
+    // Clean up leftover math block/inline delimiters \(...\) or \[...\]
+    t = t.replace(/\\\(\s*(.*?)\s*\\\)/g, '$1');
+    t = t.replace(/\\\[\s*(.*?)\s*\\\]/g, '$1');
+
+    return t;
+  });
+
+  return processed.join('');
+};
+
 // High-performance LRU cache for rendered Markdown to eliminate re-parsing overhead during fast token streams
 const markdownCache = new Map<string, { __html: string }>();
 const MAX_MARKDOWN_CACHE_SIZE = 300;
@@ -19,7 +100,8 @@ const renderMarkdown = (text: string) => {
     return markdownCache.get(text)!;
   }
   try {
-    const rawHtml = marked.parse(text, { breaks: true, gfm: true }) as string;
+    const cleanText = preprocessLatex(text);
+    const rawHtml = marked.parse(cleanText, { breaks: true, gfm: true }) as string;
     const cleanHtml = DOMPurify.sanitize(rawHtml);
     const result = { __html: cleanHtml };
     if (markdownCache.size >= MAX_MARKDOWN_CACHE_SIZE) {
@@ -74,7 +156,7 @@ const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts
               display: 'flex', flexDirection: 'column', gap: 4,
             }}>
               {thoughts.map((t, i) => (
-                <li key={i} style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.5 }}>{t}</li>
+                <li key={i} style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.5 }}>{preprocessLatex(t)}</li>
               ))}
             </ol>
           </motion.div>
