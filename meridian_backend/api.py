@@ -100,6 +100,52 @@ def log_finetune_data(prompt: str, response_text: str):
     except Exception as e:
         print("Failed to log finetuning data:", e)
 
+# ENV_KEY_MAP must be defined before lifespan() so the startup handler can
+# iterate it. The authoritative copy lives further down in the file (near the
+# settings endpoint), but Python resolves names at call-time for regular
+# functions — however, for module-level dict literals the name must already
+# exist when the function body runs at import time.  Moving the definition
+# here (before the first use) fixes the startup NameError.
+ENV_KEY_MAP = {
+    "ollama_host": "OLLAMA_HOST",
+    "groq_key": "GROQ_API_KEY",
+    "openrouter_key": "OPENROUTER_API_KEY",
+    "mistral_key": "MISTRAL_API_KEY",
+    "openai_key": "OPENAI_API_KEY",
+    "anthropic_key": "ANTHROPIC_API_KEY",
+    "gemini_key": "GEMINI_API_KEY",
+    "deepseek_key": "DEEPSEEK_API_KEY",
+    "tavily_key": "TAVILY_API_KEY",
+    "discord_token": "DISCORD_BOT_TOKEN",
+    "telegram_token": "TELEGRAM_BOT_TOKEN",
+    "telegram_chat_id": "TELEGRAM_CHAT_ID",
+    "meridian_provider": "MERIDIAN_PROVIDER",
+    "meridian_model": "MERIDIAN_MODEL",
+    "meridian_vision_model": "MERIDIAN_VISION_MODEL",
+    "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
+    "meridian_voice": "MERIDIAN_VOICE",
+    "wakeword_threshold": "WAKEWORD_THRESHOLD",
+    "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
+    "wakeword_phrase": "WAKEWORD_PHRASE",
+    "stt_model_size": "STT_MODEL_SIZE",
+    "stt_silence_timeout": "STT_SILENCE_TIMEOUT",
+    "stt_vad_threshold": "STT_VAD_THRESHOLD",
+    "stt_max_duration": "STT_MAX_DURATION",
+    "browser_viewport_width": "BROWSER_VIEWPORT_WIDTH",
+    "browser_viewport_height": "BROWSER_VIEWPORT_HEIGHT",
+    "cpu_warn_threshold": "CPU_WARN_THRESHOLD",
+    "ram_warn_threshold": "RAM_WARN_THRESHOLD",
+    "disk_warn_threshold": "DISK_WARN_THRESHOLD",
+    "distraction_sites": "DISTRACTION_SITES",
+    "smtp_server": "SMTP_SERVER",
+    "smtp_port": "SMTP_PORT",
+    "smtp_email": "SMTP_EMAIL",
+    "smtp_password": "SMTP_PASSWORD",
+    "imap_server": "IMAP_SERVER",
+    "mongodb_uri": "MONGODB_URI",
+    "meridian_log_level": "MERIDIAN_LOG_LEVEL"
+}
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load profile keys from database into os.environ on startup
@@ -2957,7 +3003,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.3.3"
+CURRENT_VERSION = "0.3.5"
 _auto_download_in_progress = False
 _auto_download_ready = False
 

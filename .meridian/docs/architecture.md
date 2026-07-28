@@ -789,10 +789,12 @@ graph TD
   - Imports: `concurrent`
   - Imports: `database`
   - Imports: `ddgs`
+  - Imports: `duckduckgo_search`
   - Imports: `httpx`
   - Imports: `os`
   - Imports: `re`
   - Imports: `selectolax`
+  - Imports: `sqlite3,`
   - Imports: `time`
   - Imports: `typing`
 - **meridian_backend/src/tools/web_browser.py**

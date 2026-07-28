@@ -44,19 +44,7 @@ def nl_to_shell(natural_language: str) -> str:
     except Exception as e:
         return f"Error translating command: {e}"
 
-def nl_run(natural_language: str) -> str:
-    """Translate a natural language command and execute it on the host OS after verifying safety checks."""
-    command = nl_to_shell(natural_language)
-    if command.startswith("Error"):
-        log_sensitive_action(
-            category="SHELL_EXECUTION",
-            action=natural_language,
-            details={"error": command},
-            status="FAILED"
-        )
-        return command
-        
-    # Check for destructive/critical commands in translated result
+
 def validate_shell_ast_denylist(command: str) -> tuple[bool, str]:
     """Grammar-aware shell AST parser to detect obfuscated destructive commands (SEC-09)."""
     if not command:
@@ -227,15 +215,21 @@ def monitor_process(command: str, duration_seconds: float = 5.0) -> str:
         stdout_lines = []
         stderr_lines = []
         
+        import select, sys
         while time.time() - start_time < duration_seconds:
             ret = proc.poll()
+            # Non-blocking read: try to drain available output without blocking forever
             try:
-                stdout, stderr = proc.communicate(timeout=0.5)
-                if stdout:
-                    stdout_lines.append(stdout)
-                if stderr:
-                    stderr_lines.append(stderr)
-            except subprocess.TimeoutExpired:
+                line = proc.stdout.readline()
+                if line:
+                    stdout_lines.append(line)
+            except Exception:
+                pass
+            try:
+                err_line = proc.stderr.readline()
+                if err_line:
+                    stderr_lines.append(err_line)
+            except Exception:
                 pass
             
             if ret is not None:
@@ -249,11 +243,15 @@ def monitor_process(command: str, duration_seconds: float = 5.0) -> str:
             except Exception:
                 proc.kill()
                 
-        stdout, stderr = proc.communicate()
-        if stdout:
-            stdout_lines.append(stdout)
-        if stderr:
-            stderr_lines.append(stderr)
+        # Drain any remaining output after process ends
+        try:
+            remaining_out, remaining_err = proc.communicate(timeout=2.0)
+        except Exception:
+            remaining_out, remaining_err = "", ""
+        if remaining_out:
+            stdout_lines.append(remaining_out)
+        if remaining_err:
+            stderr_lines.append(remaining_err)
             
         full_out = "".join(stdout_lines).strip()
         full_err = "".join(stderr_lines).strip()

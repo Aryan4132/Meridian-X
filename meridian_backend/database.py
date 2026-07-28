@@ -128,9 +128,9 @@ def get_sqlite_conn():
     return conn
 
 def run_vector_health_check() -> bool:
+    """Verify integrity of all Turbovec vector index files on startup."""
     if IdMapIndex is None:
         return False
-    """Verify integrity of all Turbovec vector index files on startup."""
     print("[Turbovec Health Check] Starting validation...")
     healthy = True
     for name, path in [("Knowledge Base", KB_INDEX_PATH), ("Semantic Cache", CACHE_INDEX_PATH), ("Conversations", CONV_INDEX_PATH)]:
@@ -609,6 +609,9 @@ def clear_conversations():
             conn.close()
             
     # Reset conversations index outside the connection scope
+    if IdMapIndex is None:
+        print("[Conversations Log] Turbovec not installed — skipping index reset.")
+        return
     try:
         with _turbovec_lock:
             conv_index = IdMapIndex(dim=768, bit_width=4)
@@ -916,7 +919,11 @@ def purge_expired_cache():
         if expired_ids:
             cursor.execute("DELETE FROM semantic_cache WHERE expires_at < ?", (now,))
             conn.commit()
-            
+
+            if IdMapIndex is None:
+                print("[Semantic Cache] Turbovec not installed — skipping index rebuild.")
+                return
+
             # Rebuild Turbovec semantic cache index from remaining entries
             cursor.execute("SELECT id, query_text FROM semantic_cache")
             remaining = cursor.fetchall()
@@ -997,7 +1004,7 @@ def consolidate_memory_sleep_cycle():
                     cursor = conn.cursor()
                     ids_to_delete = [r["id"] for r in valid_records]
                     placeholders = ",".join("?" for _ in ids_to_delete)
-                    cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids_to_delete)
+                    cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", tuple(ids_to_delete))
                     conn.commit()
                     print(f"[Sleep Cycle] Successfully consolidated {len(valid_records)} turns into {added_count} KB facts.")
                 finally:

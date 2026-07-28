@@ -2,8 +2,13 @@ import os
 import asyncio
 import threading
 import time
-import discord
-from discord.ext import commands
+try:
+    import discord
+    from discord.ext import commands
+except ImportError:
+    discord = None
+    commands = None
+
 
 DISCORD_ACTIVE = False
 _bot = None
@@ -35,7 +40,12 @@ def _is_rate_limited_discord(user_id: int) -> bool:
 
 def start_discord_bridge():
     global DISCORD_ACTIVE, _thread
+    if not discord:
+        print("[Discord Bridge] discord.py library not installed. Bot bridge disabled.")
+        return
+
     token = os.environ.get("DISCORD_BOT_TOKEN")
+
     if not token:
         print("[Discord Bridge] DISCORD_BOT_TOKEN not configured in .env. Bot bridge disabled.")
         return

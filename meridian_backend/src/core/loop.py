@@ -385,7 +385,7 @@ async def run_memory_summarization_background(ollama_host: str):
             cursor = conn.cursor()
             ids_to_delete = [r["id"] for r in distill_set]
             placeholders = ",".join("?" for _ in ids_to_delete)
-            cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", ids_to_delete)
+            cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", tuple(ids_to_delete))
             conn.commit()
             conn.close()
             print(f"[Memory Summarizer] Distilled {len(distill_set)} episodic turns into facts.")

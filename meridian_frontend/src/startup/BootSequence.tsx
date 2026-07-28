@@ -23,7 +23,7 @@ const BOOT_LINES: BootLine[] = [
 ];
 
 const TITLE = 'MERIDIAN-X';
-const SUBTITLE = 'v0.3.3  ·  agentic core';
+const SUBTITLE = 'v0.3.5  ·  agentic core';
 
 function HexCore({ phase }: { phase: BootPhase }) {
   const visible = phase >= 2;

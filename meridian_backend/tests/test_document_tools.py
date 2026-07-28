@@ -13,6 +13,7 @@ from src.tools.documents import (
 )
 
 def test_word_document_flow(tmp_path):
+    pytest.importorskip("docx")
     doc_path = os.path.join(tmp_path, "test.docx")
     
     # 1. Create document
@@ -55,7 +56,9 @@ def test_word_document_flow(tmp_path):
 
 
 def test_excel_document_flow(tmp_path):
+    pytest.importorskip("openpyxl")
     xls_path = os.path.join(tmp_path, "test.xlsx")
+
     
     # 1. Create sheet
     sheets_data = {
@@ -124,6 +127,7 @@ def test_excel_document_flow(tmp_path):
 
 
 def test_powerpoint_presentation_flow(tmp_path):
+    pytest.importorskip("pptx")
     ppt_path = os.path.join(tmp_path, "test.pptx")
     
     # 1. Create presentation
@@ -171,7 +175,10 @@ def test_powerpoint_presentation_flow(tmp_path):
 
 
 def test_pdf_document_flow(tmp_path):
+    pytest.importorskip("reportlab")
+    pytest.importorskip("pypdf")
     pdf_path = os.path.join(tmp_path, "test.pdf")
+
     
     # 1. Create PDF
     content = "# PDF Report\n## Introduction\nThis is a standard PDF document compiled from markdown.\n- Point 1\n- Point 2"
