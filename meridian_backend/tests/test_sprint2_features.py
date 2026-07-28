@@ -63,3 +63,23 @@ def test_mcp_reverse_server_endpoint():
     data = response.json()
     assert data.get("status") == "success"
     assert "tools" in data
+
+@pytest.mark.asyncio
+async def test_ollama_cloud_api_mode_support():
+    """Verify run_react_agent_loop supports api_provider='ollama' when model_source='api'."""
+    from unittest.mock import MagicMock, patch
+    from src.core.loop import run_react_agent_loop
+    
+    mock_client = MagicMock()
+    mock_chunk = MagicMock()
+    mock_chunk.message.content = "Test Ollama Cloud Response"
+    mock_client.chat.return_value = [mock_chunk]
+    
+    events = []
+    with patch("src.core.loop.get_ollama_client", return_value=mock_client):
+        async for event in run_react_agent_loop("Hello", "llama3.2:3b", "http://localhost:11434", model_source="api", api_provider="ollama"):
+            events.append(event)
+            
+    text_events = [e for e in events if "Test Ollama Cloud Response" in e]
+    assert len(text_events) > 0
+

@@ -1150,7 +1150,7 @@ async def run_react_agent_loop(
             
             # Start response stream
             try:
-                if model_source == "local":
+                if model_source == "local" or (api_provider or "").lower() == "ollama":
                     response_stream = client.chat(
                         model=active_model,
                         messages=history,
@@ -1214,6 +1214,12 @@ async def run_react_agent_loop(
                             system=system_msg,
                             messages=claude_history,
                             max_tokens=4096,
+                            stream=True
+                        )
+                    elif (api_provider or "").lower() == "ollama":
+                        response_stream = client.chat(
+                            model=active_model,
+                            messages=history,
                             stream=True
                         )
                     else:
@@ -1311,7 +1317,7 @@ async def run_react_agent_loop(
                         temp_sys_idx = -1
                     yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                     return
-                if model_source == "local":
+                if model_source == "local" or (api_provider or "").lower() == "ollama":
                     # Ollama streaming chunks are ChatResponse objects, not dicts
                     if hasattr(chunk, "message") and hasattr(chunk.message, "content"):
                         content = chunk.message.content or ""

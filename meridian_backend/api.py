@@ -1268,7 +1268,7 @@ def chat_stream(request: ChatRequest):
 
     model_source = modelSettings.modelSource
     api_provider = modelSettings.apiProvider or get_user_profile("meridian_provider") or "ollama"  # BUG-8 fix: read DB provider instead of hardcoding 'gemini'
-    brain_model = modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel
+    brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or "llama3.2:3b"
     ollama_host = get_ollama_client_host()
     
     if (api_provider or "").lower() == "ollama":
@@ -3004,7 +3004,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.3.6"
+CURRENT_VERSION = "0.3.5"
 _auto_download_in_progress = False
 _auto_download_ready = False
 
