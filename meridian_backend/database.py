@@ -882,7 +882,19 @@ def get_auditor_model() -> str:
             return str(model)
     except Exception:
         pass
-    return os.environ.get("MERIDIAN_AUDITOR_MODEL", "qwen2.5-coder:1.5b-instruct-q8_0")
+    auditor_env = os.environ.get("MERIDIAN_AUDITOR_MODEL")
+    if auditor_env:
+        return auditor_env
+    return get_brain_model()
+
+def get_model_source() -> str:
+    try:
+        source = get_user_profile("meridian_model_source")
+        if source:
+            return str(source)
+    except Exception:
+        pass
+    return os.environ.get("MERIDIAN_MODEL_SOURCE", "").strip()
 
 def get_brain_model() -> str:
     try:

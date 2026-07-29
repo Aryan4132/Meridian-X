@@ -851,7 +851,11 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model:
 
 async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> float:
     if model is None:
-        model = get_auditor_model()
+        try:
+            from database import get_brain_model
+            model = get_brain_model()
+        except Exception:
+            model = get_auditor_model()
     prompt = (
         f"You are the Monte Carlo Tree Search evaluator. Score the proposed action from 0.0 (fails/dangerous/unlikely to succeed) to 1.0 (highly successful/safe/optimal).\n"
         f"Goal/History context length: {len(history)} turns.\n"
@@ -868,7 +872,11 @@ async def score_candidate_branch(tool_name: str, args_str: str, history: List[Di
 
 async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> Tuple[bool, str]:
     if model is None:
-        model = get_auditor_model()
+        try:
+            from database import get_brain_model
+            model = get_brain_model()
+        except Exception:
+            model = get_auditor_model()
     check_prompt = (
         f"Goal: {goal}\n"
         f"Recent History turns: {len(history)}.\n"

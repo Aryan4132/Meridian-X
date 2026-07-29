@@ -1739,6 +1739,7 @@ class ProfileSaveRequest(BaseModel):
     telegram_chat_id: Optional[str] = None
     meridian_model: Optional[str] = None
     meridian_vision_model: Optional[str] = None
+    meridian_model_source: Optional[str] = None
     groq_key: Optional[str] = None
     openrouter_key: Optional[str] = None
     mistral_key: Optional[str] = None
