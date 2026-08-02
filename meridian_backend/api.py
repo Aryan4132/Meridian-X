@@ -2306,6 +2306,44 @@ def voice_interrupt():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/voice/continuous-window/start")
+def start_continuous_conversation_window(duration: float = 10.0):
+    try:
+        from src.voice.wakeword import trigger_continuous_window, get_continuous_window_remaining
+        trigger_continuous_window(duration=duration)
+        return {
+            "status": "success",
+            "message": f"Continuous conversation window active for {duration} seconds.",
+            "duration": duration,
+            "remaining_seconds": round(get_continuous_window_remaining(), 2)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/voice/continuous-window/cancel")
+def cancel_continuous_conversation_window():
+    try:
+        from src.voice.wakeword import cancel_continuous_window
+        cancel_continuous_window()
+        return {"status": "success", "message": "Continuous conversation window cancelled."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/voice/continuous-window/status")
+def get_continuous_conversation_window_status():
+    try:
+        from src.voice.wakeword import is_continuous_window_active, get_continuous_window_remaining
+        active = is_continuous_window_active()
+        remaining = get_continuous_window_remaining()
+        return {
+            "status": "success",
+            "active": active,
+            "remaining_seconds": round(remaining, 2)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ----------------- P2P SWARM SYNC ROUTES -----------------
 @app.get("/api/p2p/status")
 def get_p2p_status():

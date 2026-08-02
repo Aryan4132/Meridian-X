@@ -9,6 +9,43 @@ WAKEWORD_ACTIVE = False
 WAKEWORD_PAUSED = False
 _thread = None
 
+CONTINUOUS_WINDOW_ACTIVE = False
+CONTINUOUS_WINDOW_EXPIRES_AT = 0.0
+CONTINUOUS_WINDOW_DURATION = 10.0
+
+def trigger_continuous_window(duration: float = 10.0):
+    """Activates follow-up listening mode for duration seconds."""
+    global CONTINUOUS_WINDOW_ACTIVE, CONTINUOUS_WINDOW_EXPIRES_AT, CONTINUOUS_WINDOW_DURATION
+    CONTINUOUS_WINDOW_DURATION = duration
+    CONTINUOUS_WINDOW_EXPIRES_AT = time.time() + duration
+    CONTINUOUS_WINDOW_ACTIVE = True
+    print(f"[Wake Word] Continuous listening window triggered for {duration} seconds.")
+
+def is_continuous_window_active() -> bool:
+    """Returns True if continuous listening window is currently active and unexpired."""
+    global CONTINUOUS_WINDOW_ACTIVE, CONTINUOUS_WINDOW_EXPIRES_AT
+    if not CONTINUOUS_WINDOW_ACTIVE:
+        return False
+    if time.time() >= CONTINUOUS_WINDOW_EXPIRES_AT:
+        CONTINUOUS_WINDOW_ACTIVE = False
+        return False
+    return True
+
+def cancel_continuous_window():
+    """Cancels continuous listening mode immediately."""
+    global CONTINUOUS_WINDOW_ACTIVE, CONTINUOUS_WINDOW_EXPIRES_AT
+    CONTINUOUS_WINDOW_ACTIVE = False
+    CONTINUOUS_WINDOW_EXPIRES_AT = 0.0
+    print("[Wake Word] Continuous listening window cancelled.")
+
+def get_continuous_window_remaining() -> float:
+    """Returns remaining seconds for continuous listening window."""
+    global CONTINUOUS_WINDOW_ACTIVE, CONTINUOUS_WINDOW_EXPIRES_AT
+    if not is_continuous_window_active():
+        return 0.0
+    return max(0.0, CONTINUOUS_WINDOW_EXPIRES_AT - time.time())
+
+
 def start_wakeword_monitoring():
     """Starts the background wake word monitoring thread."""
     global WAKEWORD_ACTIVE, _thread
@@ -92,7 +129,23 @@ def _listen_loop():
                     chunk, overflow = stream.read(chunk_size)
                     audio_data = chunk.flatten()
                     
+                    if is_continuous_window_active():
+                        print("[Wake Word] Continuous conversation window active! Triggering follow-up voice command.")
+                        cancel_continuous_window()
+                        pause_wakeword()
+                        publish_nudge_sync(
+                            nudge_type="wakeword",
+                            title="🎙️ Continuous Follow-Up Listening",
+                            message="Continuous conversation window active. Listening...",
+                            action_hint="Listening for follow-up voice command...",
+                            icon="🎙️",
+                            mascot_state="happy",
+                            action="start_voice_command"
+                        )
+                        break
+
                     predictions = oww_model.predict(audio_data)
+
                     score = max(predictions.values()) if predictions else 0.0
                     
                     try:
