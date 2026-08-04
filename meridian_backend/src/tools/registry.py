@@ -311,7 +311,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "browser_navigate": {"tier": 1, "func": lambda url: browser_navigate_wrapper(url)},
     "browser_interact": {"tier": 2, "func": lambda action, selector, text="": browser_interact_wrapper(action, selector, text)},
     "mcp_list_servers": {"tier": 0, "func": lambda: mcp_list_servers_wrapper()},
-    "mcp_install_server": {"tier": 2, "func": lambda server_id: mcp_install_server_wrapper(server_id)}
+    "mcp_install_server": {"tier": 2, "func": lambda server_id: mcp_install_server_wrapper(server_id)},
+    "run_autonomous_bug_fixer": {"tier": 2, "func": lambda target_path=None: run_autonomous_bug_fixer_wrapper(target_path)}
 }
 
 def browser_navigate_wrapper(url: str) -> str:
@@ -340,6 +341,19 @@ def run_agent_swarm_wrapper(goal: str, roles: str = "researcher,auditor") -> str
         return res.get("synthesis", "Swarm execution complete.")
     except Exception as e:
         return f"Swarm execution failed: {e}"
+
+
+def run_autonomous_bug_fixer_wrapper(target_path: str = None) -> str:
+    """DEV-01: Autonomous Background Bug Fixer & Auto-PR Agent."""
+    import json
+    try:
+        from src.core.swarm import AutonomousBugFixer
+        fixer = AutonomousBugFixer()
+        res = asyncio.run(fixer.auto_fix_pipeline(target_path=target_path))
+        return json.dumps(res, indent=2)
+    except Exception as e:
+        return f"Autonomous bug fixer execution failed: {e}"
+
 
 
 def p2p_sync_wrapper() -> str:

@@ -3043,7 +3043,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.3.6"
+CURRENT_VERSION = "0.3.7"
 _auto_download_in_progress = False
 _auto_download_ready = False
 
@@ -3176,6 +3176,26 @@ def api_trigger_update():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to trigger update: {e}")
+
+
+class SwarmAutoFixRequest(BaseModel):
+    target_path: Optional[str] = None
+
+
+@app.post("/api/swarm/auto-fix")
+async def api_swarm_auto_fix(req: Optional[SwarmAutoFixRequest] = None):
+    """DEV-01: Triggers Autonomous Background Bug Fixer & Auto-PR Agent."""
+    try:
+        from src.core.swarm import AutonomousBugFixer
+        fixer = AutonomousBugFixer()
+        target = req.target_path if req else None
+        res = await fixer.auto_fix_pipeline(target_path=target)
+        return {
+            "status": "success",
+            "data": res
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Swarm auto-fix execution failed: {e}")
 
 if __name__ == "__main__":
     import uvicorn

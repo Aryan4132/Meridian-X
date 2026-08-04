@@ -107,37 +107,38 @@ graph TD
     N101["test_temporal_consensus.py [meridian_backend/tests]"]
     N102["test_tools.py [meridian_backend/tests]"]
     N103["test_vault.py [meridian_backend/tests]"]
-    N104["test_wakeword_onnx.py [meridian_backend/tests]"]
-    N105["vite.config.ts [meridian_frontend]"]
-    N106["AppContext.tsx [meridian_frontend/src]"]
-    N107["main.tsx [meridian_frontend/src]"]
-    N108["Mascot.tsx [meridian_frontend/src]"]
-    N109["CommandPalette.tsx [meridian_frontend/src/components]"]
-    N110["NavRail.tsx [meridian_frontend/src/components]"]
-    N111["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N112["Shell.tsx [meridian_frontend/src/components]"]
-    N113["StatusBar.tsx [meridian_frontend/src/components]"]
-    N114["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N115["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N116["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N117["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N118["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N119["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N120["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N121["Clipboard.tsx [meridian_frontend/src/views]"]
-    N122["GameOverlay.tsx [meridian_frontend/src/views]"]
-    N123["Jobs.tsx [meridian_frontend/src/views]"]
-    N124["LocalStudio.tsx [meridian_frontend/src/views]"]
-    N125["Productivity.tsx [meridian_frontend/src/views]"]
-    N126["SecurityPanel.tsx [meridian_frontend/src/views]"]
-    N127["Settings.tsx [meridian_frontend/src/views]"]
-    N128["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N129["Timeline.tsx [meridian_frontend/src/views]"]
-    N130["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N131["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N132["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N133["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N134["get_system_platform_info.py [plugins]"]
+    N104["test_wakeword_continuous.py [meridian_backend/tests]"]
+    N105["test_wakeword_onnx.py [meridian_backend/tests]"]
+    N106["vite.config.ts [meridian_frontend]"]
+    N107["AppContext.tsx [meridian_frontend/src]"]
+    N108["main.tsx [meridian_frontend/src]"]
+    N109["Mascot.tsx [meridian_frontend/src]"]
+    N110["CommandPalette.tsx [meridian_frontend/src/components]"]
+    N111["NavRail.tsx [meridian_frontend/src/components]"]
+    N112["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N113["Shell.tsx [meridian_frontend/src/components]"]
+    N114["StatusBar.tsx [meridian_frontend/src/components]"]
+    N115["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N116["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N117["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N118["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N119["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N120["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N121["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N122["Clipboard.tsx [meridian_frontend/src/views]"]
+    N123["GameOverlay.tsx [meridian_frontend/src/views]"]
+    N124["Jobs.tsx [meridian_frontend/src/views]"]
+    N125["LocalStudio.tsx [meridian_frontend/src/views]"]
+    N126["Productivity.tsx [meridian_frontend/src/views]"]
+    N127["SecurityPanel.tsx [meridian_frontend/src/views]"]
+    N128["Settings.tsx [meridian_frontend/src/views]"]
+    N129["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N130["Timeline.tsx [meridian_frontend/src/views]"]
+    N131["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N132["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N133["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N134["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N135["get_system_platform_info.py [plugins]"]
 
     N5 --> N10
     N10 --> N11
@@ -180,62 +181,63 @@ graph TD
     N98 --> N10
     N99 --> N10
     N104 --> N10
-    N106 --> N133
-    N106 --> N17
-    N107 --> N108
-    N107 --> N119
-    N107 --> N120
-    N107 --> N112
-    N107 --> N106
+    N105 --> N10
+    N107 --> N134
     N107 --> N17
-    N110 --> N106
-    N110 --> N108
-    N111 --> N106
-    N111 --> N117
-    N111 --> N114
-    N112 --> N106
-    N112 --> N110
-    N112 --> N113
-    N112 --> N111
-    N112 --> N129
-    N112 --> N123
-    N112 --> N121
-    N112 --> N125
-    N112 --> N128
-    N112 --> N127
-    N113 --> N106
+    N108 --> N109
+    N108 --> N120
+    N108 --> N121
+    N108 --> N113
+    N108 --> N107
+    N108 --> N17
+    N111 --> N107
+    N111 --> N109
+    N112 --> N107
+    N112 --> N118
+    N112 --> N115
+    N113 --> N107
+    N113 --> N111
     N113 --> N114
-    N119 --> N17
-    N120 --> N116
+    N113 --> N112
+    N113 --> N130
+    N113 --> N124
+    N113 --> N122
+    N113 --> N126
+    N113 --> N129
+    N113 --> N128
+    N114 --> N107
+    N114 --> N115
     N120 --> N17
-    N121 --> N133
-    N121 --> N106
-    N121 --> N116
+    N121 --> N117
     N121 --> N17
-    N123 --> N133
-    N123 --> N116
-    N123 --> N115
-    N123 --> N17
-    N125 --> N133
-    N125 --> N117
-    N125 --> N116
-    N125 --> N115
-    N125 --> N17
-    N127 --> N17
-    N127 --> N133
-    N127 --> N106
-    N127 --> N117
-    N127 --> N116
-    N127 --> N115
-    N128 --> N118
-    N128 --> N116
+    N122 --> N134
+    N122 --> N107
+    N122 --> N117
+    N122 --> N17
+    N124 --> N134
+    N124 --> N117
+    N124 --> N116
+    N124 --> N17
+    N126 --> N134
+    N126 --> N118
+    N126 --> N117
+    N126 --> N116
+    N126 --> N17
     N128 --> N17
-    N129 --> N133
-    N129 --> N116
-    N129 --> N115
+    N128 --> N134
+    N128 --> N107
+    N128 --> N118
+    N128 --> N117
+    N128 --> N116
+    N129 --> N119
+    N129 --> N117
     N129 --> N17
-    N132 --> N133
-    N133 --> N132
+    N130 --> N134
+    N130 --> N117
+    N130 --> N116
+    N130 --> N17
+    N133 --> N134
+    N134 --> N133
 ```
 
 ## Detailed File Index
@@ -973,6 +975,14 @@ graph TD
   - Imports: `os`
   - Imports: `pytest`
   - Imports: `src`
+  - Imports: `time`
+- **meridian_backend/tests/test_wakeword_continuous.py**
+  - Imports: `api`
+  - Imports: `fastapi`
+  - Imports: `os`
+  - Imports: `pytest`
+  - Imports: `src`
+  - Imports: `sys`
   - Imports: `time`
 - **meridian_backend/tests/test_wakeword_onnx.py**
   - Imports: `api`
