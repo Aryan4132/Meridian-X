@@ -87,58 +87,59 @@ graph TD
     N81["tts.py [meridian_backend/src/voice]"]
     N82["wakeword.py [meridian_backend/src/voice]"]
     N83["run_tests.py [meridian_backend/tests]"]
-    N84["test_backlog_features.py [meridian_backend/tests]"]
-    N85["test_backlog_sprint.py [meridian_backend/tests]"]
-    N86["test_bridges.py [meridian_backend/tests]"]
-    N87["test_config.py [meridian_backend/tests]"]
-    N88["test_context_budget.py [meridian_backend/tests]"]
-    N89["test_database.py [meridian_backend/tests]"]
-    N90["test_document_tools.py [meridian_backend/tests]"]
-    N91["test_llm_provider.py [meridian_backend/tests]"]
-    N92["test_logging.py [meridian_backend/tests]"]
-    N93["test_loop_parser.py [meridian_backend/tests]"]
-    N94["test_loop_submodules.py [meridian_backend/tests]"]
-    N95["test_model_source.py [meridian_backend/tests]"]
-    N96["test_p2p.py [meridian_backend/tests]"]
-    N97["test_proactive.py [meridian_backend/tests]"]
-    N98["test_security_features.py [meridian_backend/tests]"]
-    N99["test_sprint2_features.py [meridian_backend/tests]"]
-    N100["test_swarm.py [meridian_backend/tests]"]
-    N101["test_temporal_consensus.py [meridian_backend/tests]"]
-    N102["test_tools.py [meridian_backend/tests]"]
-    N103["test_vault.py [meridian_backend/tests]"]
-    N104["test_wakeword_continuous.py [meridian_backend/tests]"]
-    N105["test_wakeword_onnx.py [meridian_backend/tests]"]
-    N106["vite.config.ts [meridian_frontend]"]
-    N107["AppContext.tsx [meridian_frontend/src]"]
-    N108["main.tsx [meridian_frontend/src]"]
-    N109["Mascot.tsx [meridian_frontend/src]"]
-    N110["CommandPalette.tsx [meridian_frontend/src/components]"]
-    N111["NavRail.tsx [meridian_frontend/src/components]"]
-    N112["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N113["Shell.tsx [meridian_frontend/src/components]"]
-    N114["StatusBar.tsx [meridian_frontend/src/components]"]
-    N115["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N116["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N117["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N118["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N119["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N120["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N121["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N122["Clipboard.tsx [meridian_frontend/src/views]"]
-    N123["GameOverlay.tsx [meridian_frontend/src/views]"]
-    N124["Jobs.tsx [meridian_frontend/src/views]"]
-    N125["LocalStudio.tsx [meridian_frontend/src/views]"]
-    N126["Productivity.tsx [meridian_frontend/src/views]"]
-    N127["SecurityPanel.tsx [meridian_frontend/src/views]"]
-    N128["Settings.tsx [meridian_frontend/src/views]"]
-    N129["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N130["Timeline.tsx [meridian_frontend/src/views]"]
-    N131["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N132["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N133["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N134["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N135["get_system_platform_info.py [plugins]"]
+    N84["test_auto_bug_fixer.py [meridian_backend/tests]"]
+    N85["test_backlog_features.py [meridian_backend/tests]"]
+    N86["test_backlog_sprint.py [meridian_backend/tests]"]
+    N87["test_bridges.py [meridian_backend/tests]"]
+    N88["test_config.py [meridian_backend/tests]"]
+    N89["test_context_budget.py [meridian_backend/tests]"]
+    N90["test_database.py [meridian_backend/tests]"]
+    N91["test_document_tools.py [meridian_backend/tests]"]
+    N92["test_llm_provider.py [meridian_backend/tests]"]
+    N93["test_logging.py [meridian_backend/tests]"]
+    N94["test_loop_parser.py [meridian_backend/tests]"]
+    N95["test_loop_submodules.py [meridian_backend/tests]"]
+    N96["test_model_source.py [meridian_backend/tests]"]
+    N97["test_p2p.py [meridian_backend/tests]"]
+    N98["test_proactive.py [meridian_backend/tests]"]
+    N99["test_security_features.py [meridian_backend/tests]"]
+    N100["test_sprint2_features.py [meridian_backend/tests]"]
+    N101["test_swarm.py [meridian_backend/tests]"]
+    N102["test_temporal_consensus.py [meridian_backend/tests]"]
+    N103["test_tools.py [meridian_backend/tests]"]
+    N104["test_vault.py [meridian_backend/tests]"]
+    N105["test_wakeword_continuous.py [meridian_backend/tests]"]
+    N106["test_wakeword_onnx.py [meridian_backend/tests]"]
+    N107["vite.config.ts [meridian_frontend]"]
+    N108["AppContext.tsx [meridian_frontend/src]"]
+    N109["main.tsx [meridian_frontend/src]"]
+    N110["Mascot.tsx [meridian_frontend/src]"]
+    N111["CommandPalette.tsx [meridian_frontend/src/components]"]
+    N112["NavRail.tsx [meridian_frontend/src/components]"]
+    N113["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N114["Shell.tsx [meridian_frontend/src/components]"]
+    N115["StatusBar.tsx [meridian_frontend/src/components]"]
+    N116["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N117["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N118["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N119["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N120["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N121["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N122["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N123["Clipboard.tsx [meridian_frontend/src/views]"]
+    N124["GameOverlay.tsx [meridian_frontend/src/views]"]
+    N125["Jobs.tsx [meridian_frontend/src/views]"]
+    N126["LocalStudio.tsx [meridian_frontend/src/views]"]
+    N127["Productivity.tsx [meridian_frontend/src/views]"]
+    N128["SecurityPanel.tsx [meridian_frontend/src/views]"]
+    N129["Settings.tsx [meridian_frontend/src/views]"]
+    N130["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N131["Timeline.tsx [meridian_frontend/src/views]"]
+    N132["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N133["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N134["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N135["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N136["get_system_platform_info.py [plugins]"]
 
     N5 --> N10
     N10 --> N11
@@ -172,72 +173,73 @@ graph TD
     N80 --> N11
     N81 --> N11
     N82 --> N11
-    N84 --> N11
-    N85 --> N10
-    N88 --> N11
+    N84 --> N10
+    N85 --> N11
+    N86 --> N10
     N89 --> N11
-    N95 --> N11
+    N90 --> N11
     N96 --> N11
-    N98 --> N10
+    N97 --> N11
     N99 --> N10
-    N104 --> N10
+    N100 --> N10
     N105 --> N10
-    N107 --> N134
-    N107 --> N17
-    N108 --> N109
-    N108 --> N120
-    N108 --> N121
-    N108 --> N113
-    N108 --> N107
+    N106 --> N10
+    N108 --> N135
     N108 --> N17
-    N111 --> N107
-    N111 --> N109
-    N112 --> N107
-    N112 --> N118
-    N112 --> N115
-    N113 --> N107
-    N113 --> N111
-    N113 --> N114
-    N113 --> N112
-    N113 --> N130
-    N113 --> N124
-    N113 --> N122
-    N113 --> N126
-    N113 --> N129
-    N113 --> N128
-    N114 --> N107
+    N109 --> N110
+    N109 --> N121
+    N109 --> N122
+    N109 --> N114
+    N109 --> N108
+    N109 --> N17
+    N112 --> N108
+    N112 --> N110
+    N113 --> N108
+    N113 --> N119
+    N113 --> N116
+    N114 --> N108
+    N114 --> N112
     N114 --> N115
-    N120 --> N17
-    N121 --> N117
+    N114 --> N113
+    N114 --> N131
+    N114 --> N125
+    N114 --> N123
+    N114 --> N127
+    N114 --> N130
+    N114 --> N129
+    N115 --> N108
+    N115 --> N116
     N121 --> N17
-    N122 --> N134
-    N122 --> N107
-    N122 --> N117
+    N122 --> N118
     N122 --> N17
-    N124 --> N134
-    N124 --> N117
-    N124 --> N116
-    N124 --> N17
-    N126 --> N134
-    N126 --> N118
-    N126 --> N117
-    N126 --> N116
-    N126 --> N17
-    N128 --> N17
-    N128 --> N134
-    N128 --> N107
-    N128 --> N118
-    N128 --> N117
-    N128 --> N116
-    N129 --> N119
-    N129 --> N117
+    N123 --> N135
+    N123 --> N108
+    N123 --> N118
+    N123 --> N17
+    N125 --> N135
+    N125 --> N118
+    N125 --> N117
+    N125 --> N17
+    N127 --> N135
+    N127 --> N119
+    N127 --> N118
+    N127 --> N117
+    N127 --> N17
     N129 --> N17
-    N130 --> N134
-    N130 --> N117
-    N130 --> N116
+    N129 --> N135
+    N129 --> N108
+    N129 --> N119
+    N129 --> N118
+    N129 --> N117
+    N130 --> N120
+    N130 --> N118
     N130 --> N17
-    N133 --> N134
-    N134 --> N133
+    N131 --> N135
+    N131 --> N118
+    N131 --> N117
+    N131 --> N17
+    N134 --> N135
+    N135 --> N134
 ```
 
 ## Detailed File Index
@@ -581,7 +583,9 @@ graph TD
   - Imports: `datetime`
   - Imports: `json`
   - Imports: `os`
+  - Imports: `re`
   - Imports: `src`
+  - Imports: `sys`
   - Imports: `time`
   - Imports: `typing`
 - **meridian_backend/src/core/telegram_bridge.py**
@@ -739,6 +743,7 @@ graph TD
   - Imports: `asyncio`
   - Imports: `database`
   - Imports: `inspect`
+  - Imports: `json`
   - Imports: `os`
   - Imports: `src`
   - Imports: `typing`
@@ -870,6 +875,14 @@ graph TD
   - Imports: `os`
   - Imports: `sys`
   - Imports: `unittest`
+- **meridian_backend/tests/test_auto_bug_fixer.py**
+  - Imports: `api`
+  - Imports: `asyncio`
+  - Imports: `fastapi`
+  - Imports: `os`
+  - Imports: `pytest`
+  - Imports: `src`
+  - Imports: `sys`
 - **meridian_backend/tests/test_backlog_features.py**
   - Imports: `database`
   - Imports: `pytest`
