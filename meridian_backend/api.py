@@ -184,10 +184,17 @@ async def lifespan(app: FastAPI):
 
     # Startup operations
     try:
+        from src.core.proactive import set_main_event_loop
+        set_main_event_loop(asyncio.get_running_loop())
+        print("[Startup] Bound main FastAPI event loop to proactive publisher.")
+    except Exception as e:
+        print("Failed to bind proactive event loop:", e)
+    try:
         from src.core.clipboard import start_clipboard_monitoring
         start_clipboard_monitoring()
     except Exception as e:
         print("Failed to start clipboard monitoring:", e)
+
     try:
         from src.core.scheduler import start_scheduler
         start_scheduler()
@@ -3043,7 +3050,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.3.7"
+CURRENT_VERSION = "0.3.8"
 _auto_download_in_progress = False
 _auto_download_ready = False
 
@@ -3196,6 +3203,34 @@ async def api_swarm_auto_fix(req: Optional[SwarmAutoFixRequest] = None):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Swarm auto-fix execution failed: {e}")
+
+
+class ProactiveNotifyRequest(BaseModel):
+    title: str
+    message: str
+    priority: Optional[str] = "medium"
+    category: Optional[str] = "general"
+    action_hint: Optional[str] = None
+    mascot_state: Optional[str] = "default"
+
+
+@app.post("/api/proactive/notify")
+async def api_trigger_proactive_notification(payload: ProactiveNotifyRequest):
+    """PL-28: Multi-Channel Proactive Event & Notification Dispatcher endpoint."""
+    try:
+        from src.core.proactive import dispatch_notification
+        res = dispatch_notification(
+            title=payload.title,
+            message=payload.message,
+            priority=payload.priority or "medium",
+            category=payload.category or "general",
+            action_hint=payload.action_hint,
+            mascot_state=payload.mascot_state or "default"
+        )
+        return {"status": "success", "data": res}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to dispatch proactive notification: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn
