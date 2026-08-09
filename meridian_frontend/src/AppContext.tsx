@@ -39,7 +39,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   });
   const [rightDrawerOpen, setRightDrawerOpen] = useState(true);
   const [systemUsage, setSystemUsage] = useState<SystemUsage>({ cpu: 0, ram: 0 });
-  const [gameMode, _setGameMode] = useState(() => localStorage.getItem('GAME_MODE') === 'true');
+  const [gameMode, _setGameMode] = useState(false);
 
   const setGameMode = async (enabled: boolean) => {
     _setGameMode(enabled);
@@ -109,9 +109,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(t);
   }, []);
 
-  // Sync initial game mode to Tauri and Python Backend on mount
+  // Sync initial game mode (off by default) to Tauri and Python Backend on mount
   useEffect(() => {
-    const initialMode = localStorage.getItem('GAME_MODE') === 'true';
+    const initialMode = false;
+    localStorage.setItem('GAME_MODE', 'false');
     if ((window as any).__TAURI_INTERNALS__) {
       invoke('toggle_game_mode', { enabled: initialMode }).catch(err =>
         console.error("Failed to sync initial game mode in Tauri:", err)
