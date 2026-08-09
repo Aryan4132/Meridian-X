@@ -6,6 +6,7 @@ import { emit } from '@tauri-apps/api/event';
 import { API_BASE_URL } from '../config';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
+import { useLowRamMode } from '../hooks/useMemoryOptimizer';
 import ProgressArc from '../components/ui/ProgressArc';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
@@ -80,6 +81,7 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
 
 export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
+  const { isLowRam, toggleLowRamMode } = useLowRamMode();
   const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'integrations'>('models');
   const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [modelSource, setModelSource]       = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
@@ -1603,6 +1605,29 @@ export default function Settings() {
               <div>
                 <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Distraction Websites Blocklist (comma-separated)</label>
                 <input type="text" value={distractions} onChange={e => setDistractions(e.target.value)} className="input-base" />
+              </div>
+            </div>
+          </GlowCard>
+
+          {/* OPT-01 RAM & Performance Engine */}
+          <GlowCard className="glass" style={{ padding: 16 }}>
+            <div className="section-label">⚡ RAM & Performance Engine (OPT-01)</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>Low-RAM Performance Mode</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>Strips blurs, backdrop filters, animations, and box shadows to maintain memory under 45MB RAM.</div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={isLowRam}
+                    onChange={e => toggleLowRamMode(e.target.checked)}
+                  />
+                  <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: isLowRam ? 'var(--accent)' : 'var(--text-dim)' }}>
+                    {isLowRam ? 'Enabled' : 'Disabled'}
+                  </span>
+                </label>
               </div>
             </div>
           </GlowCard>

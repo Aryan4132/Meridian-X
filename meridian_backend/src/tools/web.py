@@ -29,7 +29,14 @@ def _get_tavily_key() -> str:
     return key or ""
 
 
-def search_web(query: str) -> str:
+def search_web(query: str, use_spatial_bias: bool = True) -> str:
+    if use_spatial_bias:
+        try:
+            from src.tools.geo_location import bias_query_spatially
+            query = bias_query_spatially(query)
+        except Exception:
+            pass
+
     # 1. Primary: Tavily (reliable, API key already configured in user profile)
     tavily_key = _get_tavily_key()
     if tavily_key:

@@ -41,6 +41,7 @@ from src.tools.recording import record_screen, stop_recording, analyze_recording
 from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
+from src.tools.geo_location import resolve_location, get_localized_weather, bias_query_spatially
 
 # Advanced desktop tools imports
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
@@ -244,6 +245,11 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "nl_run": {"tier": 2, "func": nl_run},
     "shell_history": {"tier": 0, "func": shell_history},
     "monitor_process": {"tier": 1, "func": monitor_process},
+
+    # Geo-Location & Spatial Context Engine
+    "resolve_location": {"tier": 0, "func": resolve_location},
+    "get_localized_weather": {"tier": 0, "func": get_localized_weather},
+    "bias_query_spatially": {"tier": 0, "func": bias_query_spatially},
 
 
     # Local DB query
