@@ -188,10 +188,15 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     
     # Communication
     "send_notification": {"tier": 1, "func": send_notification},
+    "send_proactive_notification": {
+        "tier": 1,
+        "func": lambda title, message, priority="medium", category="general": __import__("src.core.proactive", fromlist=["dispatch_notification"]).dispatch_notification(title, message, priority, category)
+    },
     "send_email": {"tier": 2, "func": send_email},
     "read_emails": {"tier": 0, "func": read_emails},
     "send_whatsapp_message": {"tier": 2, "func": send_whatsapp_message},
     "triage_and_read_emails": {"tier": 1, "func": triage_and_read_emails},
+
 
 
     # --- ADVANCED CAPABILITY REGISTRATIONS ---

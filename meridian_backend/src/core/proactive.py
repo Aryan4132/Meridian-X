@@ -26,6 +26,17 @@ from src.core.bus import event_bus
 game_mode_active = False
 auto_game_mode_active = False
 
+# Main event loop reference for zero-drop cross-thread event bus publishing
+_main_loop: Optional[asyncio.AbstractEventLoop] = None
+
+def set_main_event_loop(loop: asyncio.AbstractEventLoop):
+    """Binds the active FastAPI / main application event loop for proactive publishing."""
+    global _main_loop
+    _main_loop = loop
+
+def get_main_event_loop() -> Optional[asyncio.AbstractEventLoop]:
+    return _main_loop
+
 # ──────────────────────────────────────────────
 # Shared nudge publisher
 # ──────────────────────────────────────────────
@@ -62,22 +73,80 @@ def publish_nudge_sync(
     }
     if patch:
         payload["patch"] = patch
-    try:
-        # get_running_loop() is the correct API in Python 3.10+ (get_event_loop is deprecated)
-        loop = asyncio.get_running_loop()
-        # We're inside an async context — schedule coroutine thread-safely
+
+    # Resolve target main loop first to avoid publishing onto disposable temporary loops
+    target_loop = _main_loop
+    if target_loop is None or target_loop.is_closed():
+        try:
+            target_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            target_loop = None
+
+    if target_loop and target_loop.is_running():
         asyncio.run_coroutine_threadsafe(
-            event_bus.publish("proactive_nudge", payload), loop
+            event_bus.publish("proactive_nudge", payload), target_loop
         )
-    except RuntimeError:
-        # No running loop in this thread (e.g., APScheduler background thread)
-        # BUG-30 fix: use isolated new_loop without asyncio.set_event_loop()
-        # (set_event_loop in a non-main thread is deprecated in Python 3.10+)
+    else:
         new_loop = asyncio.new_event_loop()
         try:
             new_loop.run_until_complete(event_bus.publish("proactive_nudge", payload))
         finally:
             new_loop.close()
+
+
+def dispatch_notification(
+    title: str,
+    message: str,
+    priority: str = "medium",
+    category: str = "general",
+    action_hint: Optional[str] = None,
+    mascot_state: str = "default"
+) -> Dict[str, Any]:
+    """Unified multi-channel proactive notification dispatcher (PL-28)."""
+    icon_map = {
+        "high": "🚨",
+        "medium": "💡",
+        "low": "ℹ️"
+    }
+    icon = icon_map.get(priority.lower(), "💡")
+    
+    publish_nudge_sync(
+        nudge_type=f"notification_{category}",
+        title=title,
+        message=message,
+        action_hint=action_hint,
+        icon=icon,
+        mascot_state=mascot_state
+    )
+    return {"status": "dispatched", "title": title, "priority": priority}
+
+
+def on_terminal_crash(command: str, exit_code: int, stderr: str):
+    """Proactive intervention trigger for terminal failures."""
+    stderr_snippet = (stderr or "Unknown error")[:200]
+    publish_nudge_sync(
+        nudge_type="terminal_error",
+        title="⚠️ Terminal Command Failed",
+        message=f"Command '{command}' exited with code {exit_code}.\nError: {stderr_snippet}",
+        action_hint="1-Click Auto Fix",
+        icon="🛠️",
+        mascot_state="worried",
+        action="auto_fix_command"
+    )
+
+
+def on_user_motion_return():
+    """Proactive intervention trigger when user returns to desk after away period."""
+    publish_nudge_sync(
+        nudge_type="presence_return",
+        title="👋 Welcome Back!",
+        message="You returned to your desk. Ready to resume session briefing or view pending task notifications?",
+        action_hint="View Session Briefing",
+        icon="👋",
+        mascot_state="happy",
+        action="view_briefing"
+    )
+
 
 
 
