@@ -81,47 +81,66 @@ Switch themes in **Settings → Mascot & Style** with live visual swatch preview
 ## 🏗️ System Architecture
 
 ```mermaid
-flowchart TB
-    subgraph FE["🎨 Presentation Tier (Tauri v2 + React 18)"]
-        UI["Main Workspace Shell"]
-        Mascot["🦊 3D Mascot & Floating Island\n(State-Locked Orb & Ring Controller)"]
-        Themes["🎭 Theme Engine\n(7 Styles + Visual Swatches)"]
-        Overlay["🎮 Sub-10ms Game Overlay\n(Global Alt+Space Hotkey)"]
+flowchart TD
+    %% User Input Entrypoints
+    subgraph Trigger["1️⃣ Event & User Trigger Layer"]
+        U1["💬 Main Workspace UI / Chat"]
+        U2["🎮 Frameless Overlay (Alt+Space)"]
+        U3["🎙️ Voice Engine ('Hey Meridian')"]
+        U4["📋 Background Surveillance (Clipboard & File Watcher)"]
     end
 
-    subgraph BE["⚙️ Core Backend Daemon (FastAPI Async Engine)"]
-        Security["🛡️ Security Gate & Rate Limiter\n(X-API-Key & Input Sanitizer)"]
-        Agent["🧠 ReAct Loop & AST Self-Correction"]
-        Router["⚡ Speculative Concurrency Router\n(Tier 0 Parallel / Tier 1 Serial)"]
-        Vault["🔐 Machine-Bound AES-GCM Vault"]
-        MCP["🔌 MCP Server Hub & Marketplace"]
+    %% Security Gate
+    subgraph Security["2️⃣ Security Gate & Input Sanitization"]
+        Gate["🛡️ Security Middleware Gate\n(X-API-Key Check & Rate Limiting)"]
+        Sanitize["🧹 Prompt Injection Sanitizer\n(Strips Poison Directives & Zero-Width Attacks)"]
     end
 
-    subgraph DB["💾 Storage & Memory Layer"]
-        VectorDB[("⚡ Turbovec Vector DB\n(On-Device RAG Embeddings)")]
-        StateDB[("📁 SQLite WAL Database\n(Task Memory & State)")]
+    %% ReAct Engine & Context Retrieval
+    subgraph Core["3️⃣ ReAct Reasoning & Execution Engine"]
+        Context["🔍 RAG Context Aggregator\n(Vector RAG + Knowledge Graph + History)"]
+        Planner["🧠 ReAct Planning Loop\n(Local qwen2.5-coder / Cloud LLM)"]
+        SelfHeal{"❓ AST Syntax / Tool Call Valid?"}
+        Fixer["🩹 Self-Healing Repair Engine\n(Auto-Fixes Tool Signature & Schema Mismatches)"]
     end
 
-    subgraph LLM["🤖 Hybrid Inference Engine"]
-        LocalLLM["🖥️ Local Inference (Ollama)\nqwen2.5-coder · moondream"]
-        CloudLLM["☁️ Cloud API Gateway\nGroq · OpenRouter · OpenAI · Anthropic · Gemini"]
+    %% Execution & Routing
+    subgraph Execution["4️⃣ Tool Execution & Concurrency Router"]
+        Router{"⚡ Speculative Concurrency Filter"}
+        Tier0["⚡ Tier 0: Read-Only Operations\n(read_file, search_web, fetch_url)\n⏩ Concurrent Execution via asyncio.gather()"]
+        Tier1["🔒 Tier 1+: Mutating / Host Execution\n(write_file, run_command, gui_click)\n⏳ Transactional Sequential Queue"]
+        MCP["🔌 External MCP Server Registry\n(GitHub, Slack, PostgreSQL, Linear)"]
     end
 
-    UI --> Security
-    Overlay --> Security
-    Security --> Agent
+    %% Output & Telemetry
+    subgraph Output["5️⃣ Output, Memory & Feedback Loop"]
+        SSE["📡 SSE Telemetry & Streaming Engine"]
+        Mascot["🦊 3D Mascot Orb & Dynamic Island\n(Updates Core Color & Ring Spin Dynamic)"]
+        Vault[("🔐 Machine-Bound AES-GCM Vault")]
+        Memory[("💾 SQLite WAL & Turbovec Memory")]
+    end
 
-    Agent <-->|Real-time SSE Telemetry| Mascot
-    Agent <--> Router
+    %% Flow Connections
+    U1 & U2 & U3 & U4 --> Gate
+    Gate --> Sanitize
+    Sanitize --> Context
+    Context --> Planner
+    Planner --> SelfHeal
+    SelfHeal -- "Syntax / Parameter Error" --> Fixer
+    Fixer --> Planner
+    SelfHeal -- "Valid Action" --> Router
 
-    Router --> Vault
-    Router --> MCP
+    Router -- "Read-Only Tasks" --> Tier0
+    Router -- "Mutating Actions" --> Tier1
+    Router -- "MCP Tools" --> MCP
 
-    Agent <-->|RAG & Context Search| VectorDB
-    Agent <-->|State & Memory Persistence| StateDB
+    Tier0 & Tier1 & MCP --> SSE
+    Tier1 --> Vault
+    Tier1 --> Memory
 
-    Agent <-->|Offline Prompts| LocalLLM
-    Agent <-->|Cloud Failover / High-Speed| CloudLLM
+    SSE --> Mascot
+    SSE --> U1
+    SSE --> U2
 ```
 
 ### Architectural Layer Breakdown
