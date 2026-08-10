@@ -179,11 +179,12 @@ flowchart TD
 
 | Layer | Technologies | Core Responsibility |
 |:---|:---|:---|
-| **Presentation** | Tauri v2, React 18, Three.js, Lucide | Multi-window shell, theme switcher, ambient canvas particles, floating mascot island & HUD |
+| **Presentation** | Tauri v2, React 18, Three.js, Lucide, Anime.js | Multi-window shell, 11-style theme switcher, responsive card grids, floating mascot island & HUD |
 | **Orchestration** | FastAPI, asyncio, Pydantic v2 | ReAct agent loop, tool parameter auto-correction, speculative concurrency, SSE streaming |
-| **Security & Vault** | AES-256-GCM, Cryptography, SlowAPI | Machine-bound passphrase derivation, input sanitization, rate limiting, host execution gates |
+| **Surveillance & Productivity** | Pyperclip, Watchdog, Distraction Shield | 50-slot persistent pastebuffer surveillance, website/process distraction blocker, Pomodoro HUD |
+| **Security & Vault** | AES-256-GCM, Cryptography, SlowAPI | Machine-bound passphrase derivation, prompt injection sanitizer (SEC-16), rate limiting, host execution gates |
 | **Storage & Memory** | Turbovec, SQLite WAL, MongoDB | On-device vector embeddings, persistent task histories, entity-relationship memory graph |
-| **Inference Gateway** | Ollama, Groq, OpenRouter, Cloud APIs | Offline LLM execution with automatic failover to high-speed cloud providers |
+| **Inference & Voice** | Ollama, Supertonic TTS, Groq, OpenRouter | Offline LLM execution with cloud failover + local 10-voice speech synthesizer |
 
 ---
 
@@ -216,8 +217,8 @@ powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.c
 ```
 
 Or download the installer from [GitHub Releases](https://github.com/Aryan4132/Meridian-X/releases):
-- `meridian-x_0.3.9_x64-setup.exe` — NSIS wizard
-- `meridian-x_0.3.9_x64_en-US.msi` — MSI package
+- `meridian-x_0.4.0_x64-setup.exe` — NSIS wizard
+- `meridian-x_0.4.0_x64_en-US.msi` — MSI package
 
 ---
 
