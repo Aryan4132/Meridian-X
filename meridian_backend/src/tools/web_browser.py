@@ -6,7 +6,15 @@ import httpx
 from selectolax.parser import HTMLParser
 import ollama
 from typing import List, Dict, Any, Optional
-from database import get_ollama_client_host
+from database import get_ollama_client_host, get_vision_model, get_brain_model
+
+def _get_vision_model() -> str:
+    """Return the configured vision model name (e.g. moondream:1.8b)."""
+    return get_vision_model()
+
+def _get_active_model() -> str:
+    """Return the active brain/LLM model name."""
+    return get_brain_model()
 
 # Global browser state
 _playwright = None
@@ -246,7 +254,8 @@ def browser_close() -> str:
         if _page:
             _page.close()
         _browser.close()
-        _playwright.stop()
+        if _playwright:
+            _playwright.stop()
         
         _page = None
         _browser = None
