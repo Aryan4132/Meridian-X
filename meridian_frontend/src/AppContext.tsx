@@ -69,13 +69,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (t: string) => {
     _setTheme(t);
     localStorage.setItem('theme', t);
-    document.documentElement.className = t === 'void' ? '' : `theme-${t}`;
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.className = `theme-${t}`;
+    window.dispatchEvent(new Event('meridian-theme-changed'));
+    if ((window as any).__TAURI_INTERNALS__) {
+      emit('meridian-theme-changed', { theme: t }).catch(() => {});
+    }
   };
 
   // Apply theme on mount
   useEffect(() => {
-    const t = localStorage.getItem('theme') || 'void';
-    document.documentElement.className = t === 'void' ? '' : `theme-${t}`;
+    const t = localStorage.getItem('theme') || 'cyberslate';
+    document.documentElement.setAttribute('data-theme', t);
+    document.documentElement.className = `theme-${t}`;
   }, []);
 
   // Update model name when localStorage changes

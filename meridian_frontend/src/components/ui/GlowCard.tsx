@@ -19,8 +19,8 @@ const glowColors: Record<string, string> = {
 
 export default function GlowCard({ children, glow = 'none', hover = false, className = '', onClick, style }: GlowCardProps) {
   const glowStyle: React.CSSProperties = glow !== 'none' ? {
-    boxShadow: `0 0 0 1px ${glowColors[glow]}22, 0 0 24px ${glowColors[glow]}10`,
-    borderColor: `${glowColors[glow]}33`,
+    borderColor: `${glowColors[glow]}30`,
+    borderLeftColor: `${glowColors[glow]}60`,
   } : {};
 
   return (

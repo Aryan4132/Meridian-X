@@ -15,15 +15,17 @@ import {
   X,
   Play
 } from 'lucide-react';
+import { Mascot3DCharacter } from './Mascot3DCharacter';
+
 
 const THEME_COLORS: Record<string, { accent: string; bg: string; border: string }> = {
-  void:          { accent: '#00E5FF', bg: '#0A0D17', border: 'rgba(0, 229, 255, 0.15)' },
-  frost:         { accent: '#60A5FA', bg: '#050A14', border: 'rgba(96, 165, 250, 0.15)' },
-  'tokyo-storm': { accent: '#7AA2F7', bg: '#131421', border: 'rgba(122, 162, 247, 0.15)' },
-  abyss:         { accent: '#00A896', bg: '#00212B', border: 'rgba(0, 168, 150, 0.15)' },
-  carbon:        { accent: '#E2E8F0', bg: '#0E0E10', border: 'rgba(226, 232, 240, 0.15)' },
-  noir:          { accent: '#38BDF8', bg: '#000000', border: 'rgba(56, 189, 248, 0.15)' },
+  slate: { accent: '#E8A020', bg: '#1A1F28', border: 'rgba(232, 160, 32, 0.18)' },
+  void:  { accent: '#E8A020', bg: '#1A1F28', border: 'rgba(232, 160, 32, 0.18)' },
 };
+
+
+
+
 
 type HudState = 'idle' | 'working' | 'success' | 'error';
 
@@ -31,65 +33,21 @@ interface MascotCharacterProps {
   state: string;
   accentColor: string;
   speechAmplitude?: number;
+  themeMode?: 'dark' | 'light';
 }
 
-export function MascotCharacter({ state, accentColor, speechAmplitude = 0 }: MascotCharacterProps) {
-  // Body float animation
-  const floatVariants = {
-    default: {
-      y: [0, -2.5, 0],
-      transition: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-    },
-    happy: {
-      y: [0, -4.5, 0],
-      scaleY: [1, 0.94, 1.06, 1],
-      transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" }
-    },
-    sleeping: {
-      y: [0, -1.2, 0],
-      scaleY: [1, 0.96, 1],
-      transition: { duration: 4.5, repeat: Infinity, ease: "easeInOut" }
-    },
-    tired: {
-      y: [1, 2.5, 1],
-      rotate: [0.3, -0.3, 0.3],
-      transition: { duration: 4.2, repeat: Infinity, ease: "easeInOut" }
-    },
-    diagnostic: {
-      y: [0, -1.8, 0],
-      rotate: [0, 3, -3, 0],
-      transition: { duration: 3.2, repeat: Infinity, ease: "easeInOut" }
-    },
-    disapproving: {
-      x: [0, -0.8, 0.8, -0.8, 0.8, 0],
-      transition: { duration: 0.6, repeat: Infinity, ease: "linear" }
-    },
-    typing: {
-      y: [0, -1.5, 0],
-      rotate: [0, -2, 2, 0],
-      transition: { duration: 0.75, repeat: Infinity, ease: "easeInOut" }
-    }
-  };
-
-  const currentVariant = floatVariants[state as keyof typeof floatVariants] ? state : 'default';
-
-  // Determine state-specific coloring
+export function MascotCharacter({ state, accentColor, speechAmplitude = 0, themeMode = 'dark' }: MascotCharacterProps) {
+  // Core orb state colors: Blue = idle/happy/default, Yellow = working/diagnostic, Red = failed/disapproving, Green = success/typing
   const stateColor = 
-    state === 'sleeping' ? '#818cf8' : 
-    state === 'tired' ? '#22d3ee' : 
-    state === 'disapproving' ? '#f43f5e' : 
-    state === 'diagnostic' ? '#f59e0b' : 
-    state === 'typing' ? '#10b981' : 
-    state === 'happy' ? '#3b82f6' : 
-    accentColor;
-
-  // Sizing central core based on speech amplitude
-  const coreRadius = Math.min(8.0, 4.5 + speechAmplitude * 6.5);
+    state === 'disapproving' || state === 'error' || state === 'failed' ? '#F43F5E' : 
+    state === 'working' || state === 'diagnostic' ? '#F59E0B' : 
+    state === 'success' || state === 'typing' ? '#10B981' : 
+    '#3B82F6';
 
   return (
     <div className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
       {/* State-specific background glow */}
-      <span className={`absolute w-7 h-7 rounded-full opacity-30 blur-[8px] transition-colors duration-500 ${
+      <span className={`absolute w-7 h-7 rounded-full opacity-35 blur-[8px] transition-colors duration-500 ${
         state === 'sleeping' ? 'bg-indigo-500' :
         state === 'tired' ? 'bg-cyan-500' :
         state === 'disapproving' ? 'bg-rose-500' :
@@ -97,130 +55,17 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0 }: Mas
         state === 'typing' ? 'bg-emerald-400' : 'bg-cyan-400'
       }`} />
 
-      <motion.div
-        variants={floatVariants}
-        animate={currentVariant}
-        className="w-full h-full flex items-center justify-center relative z-10"
-      >
-        <svg viewBox="0 0 32 32" className="w-full h-full overflow-visible" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <radialGradient id="core-glow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={stateColor} />
-              <stop offset="40%" stopColor={stateColor} stopOpacity="0.6" />
-              <stop offset="100%" stopColor={stateColor} stopOpacity="0" />
-            </radialGradient>
-            <linearGradient id="yellow-hat" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#fbbf24" />
-              <stop offset="100%" stopColor="#d97706" />
-            </linearGradient>
-            <filter id="glow-visor-filter" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="1" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-          </defs>
+      <div className="w-full h-full flex items-center justify-center relative z-10">
+        <Mascot3DCharacter
+          state={state}
+          accentColor={stateColor}
+          speechAmplitude={speechAmplitude}
+          themeMode={themeMode}
+          size={32}
+        />
+      </div>
 
-          {/* Inner ring (Motion) */}
-          <motion.ellipse 
-            cx="16" 
-            cy="16" 
-            rx="8.5" 
-            ry="3.5" 
-            stroke={stateColor} 
-            strokeWidth={state === 'diagnostic' ? 1.5 : 1} 
-            strokeDasharray={state === 'diagnostic' ? "2 2" : undefined}
-            fill="none" 
-            animate={{ rotate: [45, 45 + 360] }}
-            transition={{
-              duration: state === 'sleeping' ? 22 : state === 'tired' ? 15 : state === 'typing' ? 1.4 : state === 'diagnostic' ? 2.5 : 6,
-              repeat: Infinity,
-              ease: "linear"
-            }}
-            style={{ transformOrigin: '16px 16px' }}
-          />
-
-          {/* Middle ring (Motion) */}
-          <motion.ellipse 
-            cx="16" 
-            cy="16" 
-            rx="11.5" 
-            ry="4.5" 
-            stroke={stateColor} 
-            strokeWidth={state === 'diagnostic' ? 1.5 : 1} 
-            strokeDasharray={state === 'diagnostic' ? "3 1.5" : undefined}
-            fill="none" 
-            animate={{ rotate: [-45, -45 - 360] }}
-            transition={{
-              duration: state === 'sleeping' ? 18 : state === 'tired' ? 12 : state === 'typing' ? 1.1 : state === 'diagnostic' ? 2.0 : 5,
-              repeat: Infinity,
-              ease: "linear"
-            }}
-            style={{ transformOrigin: '16px 16px' }}
-          />
-
-          {/* Outer ring (Motion) */}
-          {state === 'diagnostic' ? (
-            <motion.polygon 
-              points="16,2.5 27.5,9.2 27.5,22.8 16,29.5 4.5,22.8 4.5,9.2"
-              stroke={stateColor} 
-              strokeWidth="1.5"
-              strokeDasharray="4 2"
-              fill="none"
-              animate={{ rotate: [0, 360] }}
-              transition={{
-                duration: state === 'diagnostic' ? 3.5 : 8,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-              style={{ transformOrigin: '16px 16px' }}
-            />
-          ) : (
-            <motion.ellipse 
-              cx="16" 
-              cy="16" 
-              rx="14.5" 
-              ry="5.5" 
-              stroke={stateColor} 
-              strokeWidth={state === 'typing' ? 1.5 : 1} 
-              fill="none" 
-              animate={{ rotate: [15, 15 + 360] }}
-              transition={{
-                duration: state === 'sleeping' ? 14 : state === 'tired' ? 10 : state === 'typing' ? 0.8 : 4,
-                repeat: Infinity,
-                ease: "linear"
-              }}
-              style={{ transformOrigin: '16px 16px' }}
-            />
-          )}
-
-          {/* Core Glow (Motion) */}
-          <motion.circle 
-            cx="16" 
-            cy="16" 
-            r={coreRadius + 2.5} 
-            fill="url(#core-glow)" 
-            className="pointer-events-none" 
-            animate={state === 'diagnostic' ? { scale: [0.92, 1.1, 0.92], opacity: [0.4, 0.75, 0.4] } : { scale: [0.95, 1.05, 0.95], opacity: [0.35, 0.5, 0.35] }}
-            transition={{ duration: state === 'diagnostic' ? 0.8 : 2.5, repeat: Infinity, ease: "easeInOut" }}
-            style={{ transformOrigin: '16px 16px' }}
-          />
-
-          {/* Actual Core (Motion) */}
-          <motion.circle 
-            cx="16" 
-            cy="16" 
-            r={coreRadius} 
-            fill={stateColor} 
-            stroke="#0f172a" 
-            strokeWidth="1" 
-            animate={state === 'diagnostic' ? { scale: [1, 1.12, 1] } : { scale: [1, 1.06, 1] }}
-            transition={{ duration: state === 'diagnostic' ? 0.8 : 1.8, repeat: Infinity, ease: "easeInOut" }}
-            style={{ transformOrigin: '16px 16px' }}
-          />
-
-        </svg>
-      </motion.div>
-
-      {/* Floating particles */}
+      {/* Floating sleep Zzz particles */}
       {state === 'sleeping' && (
         <div className="absolute inset-0 pointer-events-none">
           {[[9, 0], [12, 0.8], [15, 1.6]].map(([yShift, delay]) => (
@@ -239,6 +84,7 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0 }: Mas
     </div>
   );
 }
+
 
 const playSoundEffect = (state: string) => {
   if (localStorage.getItem('meridian_mascot_audio_fx') === 'false') return;
@@ -360,6 +206,32 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   useEffect(() => {
     if (propMascotState) setMascotState(propMascotState);
   }, [propMascotState]);
+
+  // Sync theme to Mascot window
+  useEffect(() => {
+    const applyCurrentTheme = () => {
+      const t = localStorage.getItem('theme') || 'artdeco';
+      document.documentElement.className = `theme-${t}`;
+    };
+    applyCurrentTheme();
+
+    window.addEventListener('meridian-theme-changed', applyCurrentTheme);
+    window.addEventListener('storage', applyCurrentTheme);
+
+    let unlistenTheme: any;
+    if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+      listen('meridian-theme-changed', (event: any) => {
+        const t = event.payload?.theme || localStorage.getItem('theme') || 'artdeco';
+        document.documentElement.className = `theme-${t}`;
+      }).then(u => { unlistenTheme = u; });
+    }
+
+    return () => {
+      window.removeEventListener('meridian-theme-changed', applyCurrentTheme);
+      window.removeEventListener('storage', applyCurrentTheme);
+      if (unlistenTheme) unlistenTheme();
+    };
+  }, []);
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => e.preventDefault();
@@ -839,7 +711,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             data-tauri-drag-region 
             className="flex items-center justify-center gap-2 w-full h-full cursor-grab active:cursor-grabbing px-3"
           >
-            <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} />
+            <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={theme === 'neo-brutalism' ? 'light' : 'dark'} />
             <span className="text-[10px] font-bold text-zinc-300 tracking-wider uppercase truncate" data-tauri-drag-region>
               MERIDIAN
             </span>
@@ -853,7 +725,8 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               className="flex items-center justify-between w-full h-8 cursor-grab active:cursor-grabbing"
             >
               <div className="flex items-center gap-2 flex-1 min-w-0" data-tauri-drag-region>
-                <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} />
+                <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={theme === 'neo-brutalism' ? 'light' : 'dark'} />
+
 
                 {voiceState === 'listening' || voiceState === 'speaking' ? (
                   <div className="flex items-center gap-1.5 h-6 px-1 flex-1 justify-center overflow-hidden">

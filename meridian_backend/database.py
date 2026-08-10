@@ -804,15 +804,50 @@ def add_clipboard_history(text: str):
         except Exception as e:
             print("[MongoDB Clipboard] Save failed:", e)
 
-def get_clipboard_history(limit: int = 10) -> List[Dict[str, Any]]:
+    # SQLite sync/fallback
+    conn = None
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS clipboard_history (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp REAL)")
+        cursor.execute("SELECT text FROM clipboard_history ORDER BY id DESC LIMIT 1")
+        row = cursor.fetchone()
+        if row and row[0] == text:
+            return
+        cursor.execute("INSERT INTO clipboard_history (text, timestamp) VALUES (?, ?)", (text, time.time()))
+        conn.commit()
+    except Exception as e:
+        print("[SQLite Clipboard] Save failed:", e)
+    finally:
+        if conn:
+            conn.close()
+
+def get_clipboard_history(limit: int = 50) -> List[Dict[str, Any]]:
     db_conn = get_mongo_db()
     if db_conn is not None:
         try:
             collection = db_conn["smart_clipboard"]
-            return list(collection.find({}, {"_id": 0}).sort("timestamp", pymongo.DESCENDING).limit(limit))
+            records = list(collection.find({}, {"_id": 0}).sort("timestamp", pymongo.DESCENDING).limit(limit))
+            if records:
+                return records
         except Exception as e:
             print("[MongoDB Clipboard] Fetch failed:", e)
-    return []
+
+    # SQLite fallback
+    conn = None
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS clipboard_history (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT, timestamp REAL)")
+        cursor.execute("SELECT text, timestamp FROM clipboard_history ORDER BY timestamp DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+        return [{"text": row[0], "timestamp": row[1]} for row in rows]
+    except Exception as e:
+        print("[SQLite Clipboard] Fetch failed:", e)
+        return []
+    finally:
+        if conn:
+            conn.close()
 
 def save_user_profile(key: str, value: Any):
     # 1. Save to SQLite user_profile table
