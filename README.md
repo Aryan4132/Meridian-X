@@ -82,65 +82,79 @@ Switch themes in **Settings → Mascot & Style** with live visual swatch preview
 
 ```mermaid
 flowchart TD
-    %% User Input Entrypoints
-    subgraph Trigger["1️⃣ Event & User Trigger Layer"]
-        U1["💬 Main Workspace UI / Chat"]
-        U2["🎮 Frameless Overlay (Alt+Space)"]
-        U3["🎙️ Voice Engine ('Hey Meridian')"]
-        U4["📋 Background Surveillance (Clipboard & File Watcher)"]
+    %% Layer 1: Trigger & Input Ingestion
+    subgraph L1 ["1️⃣ Input Ingestion Layer"]
+        U_UI["💬 Workspace Chat UI"]
+        U_HUD["🎮 Frameless HUD Overlay (Alt+Space)"]
+        U_VOICE["🎙️ Voice Engine ('Hey Meridian')"]
+        U_CLIP["📋 Surveillance (Clipboard & File Watcher)"]
     end
 
-    %% Security Gate
-    subgraph Security["2️⃣ Security Gate & Input Sanitization"]
-        Gate["🛡️ Security Middleware Gate\n(X-API-Key Check & Rate Limiting)"]
-        Sanitize["🧹 Prompt Injection Sanitizer\n(Strips Poison Directives & Zero-Width Attacks)"]
+    %% Layer 2: Security Gate & Pre-Processing
+    subgraph L2 ["2️⃣ Security & Pre-Processing Gate"]
+        AUTH["🛡️ Middleware Auth Gate\n(X-API-Key Check & Rate Limiter)"]
+        SAN["🧹 Prompt Injection Sanitizer\n(Strips Directives & Poison Tokens)"]
     end
 
-    %% ReAct Engine & Context Retrieval
-    subgraph Core["3️⃣ ReAct Reasoning & Execution Engine"]
-        Context["🔍 RAG Context Aggregator\n(Vector RAG + Knowledge Graph + History)"]
-        Planner["🧠 ReAct Planning Loop\n(Local qwen2.5-coder / Cloud LLM)"]
-        SelfHeal{"❓ AST Syntax / Tool Call Valid?"}
-        Fixer["🩹 Self-Healing Repair Engine\n(Auto-Fixes Tool Signature & Schema Mismatches)"]
+    %% Layer 3: Memory & Context Assembly
+    subgraph L3 ["3️⃣ Memory & Context Assembly"]
+        subgraph L3_PAR ["Parallel Context Fetching"]
+            VEC["⚡ Turbovec Vector RAG"]
+            GRAPH["🕸️ Knowledge Graph Facts"]
+            HIST["📜 Conversation History"]
+        end
+        CTX["📦 Unified Prompt Context"]
     end
 
-    %% Execution & Routing
-    subgraph Execution["4️⃣ Tool Execution & Concurrency Router"]
-        Router{"⚡ Speculative Concurrency Filter"}
-        Tier0["⚡ Tier 0: Read-Only Operations\n(read_file, search_web, fetch_url)\n⏩ Concurrent Execution via asyncio.gather()"]
-        Tier1["🔒 Tier 1+: Mutating / Host Execution\n(write_file, run_command, gui_click)\n⏳ Transactional Sequential Queue"]
-        MCP["🔌 External MCP Server Registry\n(GitHub, Slack, PostgreSQL, Linear)"]
+    %% Layer 4: ReAct Reasoning & Self-Healing
+    subgraph L4 ["4️⃣ ReAct Reasoning & AST Self-Correction"]
+        LLM["🧠 Model Inference Gateway\n(Local Ollama / Cloud Failover)"]
+        CHECK{"❓ Schema & Syntax Valid?"}
+        HEAL["🩹 Self-Healing Repair\n(Fixes Tool Signatures & Mismatches)"]
     end
 
-    %% Output & Telemetry
-    subgraph Output["5️⃣ Output, Memory & Feedback Loop"]
-        SSE["📡 SSE Telemetry & Streaming Engine"]
-        Mascot["🦊 3D Mascot Orb & Dynamic Island\n(Updates Core Color & Ring Spin Dynamic)"]
-        Vault[("🔐 Machine-Bound AES-GCM Vault")]
-        Memory[("💾 SQLite WAL & Turbovec Memory")]
+    %% Layer 5: Concurrency Router & Tool Execution
+    subgraph L5 ["5️⃣ Tool Execution & Concurrency Router"]
+        ROUTER{"⚡ Concurrency Classification"}
+        subgraph TIER0 ["Parallel Tier 0 (Read-Only)"]
+            T0_EXEC["⏩ asyncio.gather()\n(read_file, search_web, fetch_url)"]
+        end
+        subgraph TIER1 ["Sequential Tier 1+ (Mutating / Host)"]
+            T1_EXEC["🔒 Serial Transaction Queue\n(write_file, run_command, gui_click)"]
+        end
+        subgraph MCP_SERVERS ["External MCP Protocols"]
+            MCP_EXEC["🔌 MCP JSON-RPC Gateway\n(GitHub, PostgreSQL, Slack, Linear)"]
+        end
     end
 
-    %% Flow Connections
-    U1 & U2 & U3 & U4 --> Gate
-    Gate --> Sanitize
-    Sanitize --> Context
-    Context --> Planner
-    Planner --> SelfHeal
-    SelfHeal -- "Syntax / Parameter Error" --> Fixer
-    Fixer --> Planner
-    SelfHeal -- "Valid Action" --> Router
+    %% Layer 6: Telemetry, Mascot & State Persistence
+    subgraph L6 ["6️⃣ Telemetry, Mascot & Memory State"]
+        SSE["📡 SSE Telemetry Engine"]
+        MASCOT["🦊 3D Mascot Orb\n(State Colors & Ring Dynamics)"]
+        STORE["💾 SQLite WAL & Vector DB Storage"]
+    end
 
-    Router -- "Read-Only Tasks" --> Tier0
-    Router -- "Mutating Actions" --> Tier1
-    Router -- "MCP Tools" --> MCP
+    %% Workflow Connections Sequence
+    U_UI & U_HUD & U_VOICE & U_CLIP --> AUTH
+    AUTH --> SAN
+    SAN --> VEC & GRAPH & HIST
+    VEC & GRAPH & HIST --> CTX
+    CTX --> LLM
+    LLM --> CHECK
+    CHECK -- "❌ Invalid Schema / Error" --> HEAL
+    HEAL --> LLM
+    CHECK -- "✅ Valid Action" --> ROUTER
 
-    Tier0 & Tier1 & MCP --> SSE
-    Tier1 --> Vault
-    Tier1 --> Memory
+    ROUTER -- "Read-Only Tasks" --> T0_EXEC
+    ROUTER -- "Mutating Host Actions" --> T1_EXEC
+    ROUTER -- "MCP Tools" --> MCP_EXEC
 
-    SSE --> Mascot
-    SSE --> U1
-    SSE --> U2
+    T0_EXEC & T1_EXEC & MCP_EXEC --> SSE
+    T1_EXEC & MCP_EXEC --> STORE
+
+    SSE --> MASCOT
+    SSE --> U_UI
+    SSE --> U_HUD
 ```
 
 ### Architectural Layer Breakdown
