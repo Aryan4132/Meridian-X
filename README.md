@@ -45,8 +45,14 @@ A 3D orbital-ring companion floating over your desktop that reflects cognitive s
 - **Island Mode**: Closing the dashboard compresses Meridian-X into a sleek floating island.
 - **6 Anchor Positions**: Top/Bottom × Left/Center/Right.
 
-### 🎮 Frameless Game Overlay (`Alt+Space`)
-Sub-10ms frameless HUD triggered by global hotkey — query AI without leaving full-screen games or apps.
+### 🎮 Frameless Overlay & Global Hotkeys
+Sub-10ms frameless HUD and global hotkey engine — toggle workspace, mascot island, or voice input without leaving full-screen games or apps.
+
+| Global Hotkey | Action Target | Description |
+|:---|:---|:---|
+| **`Alt + M`** | 💬 Main Workspace Window | Hides/shows the main desktop workspace shell |
+| **`Alt + Shift + M`** | 🦊 Mascot / Frameless Overlay | Toggles between full dashboard and compact floating mascot HUD |
+| **`Alt + V`** | 🎙️ Push-to-Talk Voice Input | Triggers instant voice dictation from anywhere |
 
 ### ⚡ Speculative Concurrency Filtering
 Dual-lane tool execution for maximum throughput with safety guarantees:
@@ -103,8 +109,8 @@ flowchart TD
     subgraph Trigger["1️⃣ Trigger Layer"]
         direction LR
         U_UI["💬 Workspace Chat UI"]
-        U_HUD["🎮 Game Overlay<br/>(Alt+Space)"]
-        U_VOICE["🎙️ Voice / Wake Word"]
+        U_HUD["🎮 Overlay<br/>(Alt+Shift+M)"]
+        U_VOICE["🎙️ Voice<br/>(Alt+V / Wake Word)"]
         U_CLIP["📋 Clipboard & File<br/>Watcher"]
     end
 
