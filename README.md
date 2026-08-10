@@ -100,79 +100,110 @@ Switch themes in **Settings → Mascot & Style** with live visual swatch preview
 
 ```mermaid
 flowchart TD
-    %% Layer 1: Trigger & Input Ingestion
-    subgraph L1 ["1️⃣ Input Ingestion Layer"]
+    subgraph Trigger["1️⃣ Trigger Layer"]
+        direction LR
         U_UI["💬 Workspace Chat UI"]
-        U_HUD["🎮 Frameless HUD Overlay (Alt+Space)"]
-        U_VOICE["🎙️ Voice Engine ('Hey Meridian')"]
-        U_CLIP["📋 Surveillance (Clipboard & File Watcher)"]
+        U_HUD["🎮 Game Overlay<br/>(Alt+Space)"]
+        U_VOICE["🎙️ Voice / Wake Word"]
+        U_CLIP["📋 Clipboard & File<br/>Watcher"]
     end
 
-    %% Layer 2: Security Gate & Pre-Processing
-    subgraph L2 ["2️⃣ Security & Pre-Processing Gate"]
-        AUTH["🛡️ Middleware Auth Gate\n(X-API-Key Check & Rate Limiter)"]
-        SAN["🧹 Prompt Injection Sanitizer\n(Strips Directives & Poison Tokens)"]
+    subgraph Security["2️⃣ Security Gate"]
+        AUTH["🛡️ Auth & Rate Limit<br/>(X-API-Key)"]
+        SAN["🧹 Prompt Injection<br/>Sanitizer"]
+        AUTH --> SAN
     end
 
-    %% Layer 3: Memory & Context Assembly
-    subgraph L3 ["3️⃣ Memory & Context Assembly"]
-        subgraph L3_PAR ["Parallel Context Fetching"]
-            VEC["⚡ Turbovec Vector RAG"]
-            GRAPH["🕸️ Knowledge Graph Facts"]
-            HIST["📜 Conversation History"]
+    subgraph Context["3️⃣ Context Assembly"]
+        subgraph CtxPar["Fetched in parallel"]
+            direction LR
+            VEC["⚡ Turbovec<br/>Vector RAG"]
+            GRAPH["🕸️ Knowledge<br/>Graph"]
+            HIST["📜 Conversation<br/>History"]
         end
         CTX["📦 Unified Prompt Context"]
+        VEC --> CTX
+        GRAPH --> CTX
+        HIST --> CTX
     end
 
-    %% Layer 4: ReAct Reasoning & Self-Healing
-    subgraph L4 ["4️⃣ ReAct Reasoning & AST Self-Correction"]
-        LLM["🧠 Model Inference Gateway\n(Local Ollama / Cloud Failover)"]
+    subgraph Core["4️⃣ ReAct Reasoning"]
+        LLM["🧠 Reason<br/>(Local Ollama / Cloud Failover)"]
         CHECK{"❓ Schema & Syntax Valid?"}
-        HEAL["🩹 Self-Healing Repair\n(Fixes Tool Signatures & Mismatches)"]
+        HEAL["🩹 Self-Heal<br/>Fixes Tool Signature Mismatch"]
+        LLM --> CHECK
+        CHECK -- "Invalid" --> HEAL --> LLM
     end
 
-    %% Layer 5: Concurrency Router & Tool Execution
-    subgraph L5 ["5️⃣ Tool Execution & Concurrency Router"]
-        ROUTER{"⚡ Concurrency Classification"}
-        subgraph TIER0 ["Parallel Tier 0 (Read-Only)"]
-            T0_EXEC["⏩ asyncio.gather()\n(read_file, search_web, fetch_url)"]
+    subgraph Execution["5️⃣ Act — Tiered Execution"]
+        ROUTER{"⚡ Concurrency Router"}
+        subgraph Tier0["Tier 0 — Read-Only (parallel)"]
+            direction LR
+            T0a["read_file"]
+            T0b["search_web"]
+            T0c["fetch_url"]
         end
-        subgraph TIER1 ["Sequential Tier 1+ (Mutating / Host)"]
-            T1_EXEC["🔒 Serial Transaction Queue\n(write_file, run_command, gui_click)"]
+        subgraph Tier1["Tier 1+ — Mutating (sequential)"]
+            direction LR
+            T1a["write_file"] --> T1b["run_command"] --> T1c["gui_click"]
         end
-        subgraph MCP_SERVERS ["External MCP Protocols"]
-            MCP_EXEC["🔌 MCP JSON-RPC Gateway\n(GitHub, PostgreSQL, Slack, Linear)"]
-        end
+        MCPX["🔌 MCP Servers<br/>(GitHub, Slack, Postgres, Linear)"]
+        ROUTER --> Tier0
+        ROUTER --> Tier1
+        ROUTER -.->|"as needed"| MCPX
     end
 
-    %% Layer 6: Telemetry, Mascot & State Persistence
-    subgraph L6 ["6️⃣ Telemetry, Mascot & Memory State"]
-        SSE["📡 SSE Telemetry Engine"]
-        MASCOT["🦊 3D Mascot Orb\n(State Colors & Ring Dynamics)"]
-        STORE["💾 SQLite WAL & Vector DB Storage"]
+    subgraph Output["6️⃣ Observe, Respond & Persist"]
+        OBS["👁️ Observe<br/>merge tool results"]
+        RESP["📝 Final Response"]
+        TTS["🔊 Supertonic TTS<br/>(10 voices)"]
+        VAULT[("🔐 AES-GCM Vault")]
+        STORE[("💾 SQLite WAL + Turbovec")]
+        SSE["📡 SSE Telemetry"]
+        MASCOT["🦊 Mascot & Island<br/>(color + spin state)"]
     end
 
-    %% Workflow Connections Sequence
     U_UI & U_HUD & U_VOICE & U_CLIP --> AUTH
-    AUTH --> SAN
-    SAN --> VEC & GRAPH & HIST
-    VEC & GRAPH & HIST --> CTX
+    SAN --> VEC
+    SAN --> GRAPH
+    SAN --> HIST
     CTX --> LLM
-    LLM --> CHECK
-    CHECK -- "❌ Invalid Schema / Error" --> HEAL
-    HEAL --> LLM
-    CHECK -- "✅ Valid Action" --> ROUTER
+    CHECK -- "Valid" --> ROUTER
 
-    ROUTER -- "Read-Only Tasks" --> T0_EXEC
-    ROUTER -- "Mutating Host Actions" --> T1_EXEC
-    ROUTER -- "MCP Tools" --> MCP_EXEC
+    Tier0 --> OBS
+    Tier1 --> OBS
+    MCPX --> OBS
+    Tier1 -.->|"fetch creds"| VAULT
+    OBS -->|"persist"| STORE
+    OBS -->|"loop until task complete"| LLM
+    OBS -->|"task complete"| RESP
+    RESP --> TTS
+    RESP --> U_UI
 
-    T0_EXEC & T1_EXEC & MCP_EXEC --> SSE
-    T1_EXEC & MCP_EXEC --> STORE
-
+    LLM -.->|"live state"| SSE
+    ROUTER -.->|"live state"| SSE
+    OBS -.->|"live state"| SSE
     SSE --> MASCOT
     SSE --> U_UI
     SSE --> U_HUD
+
+    classDef trigStyle fill:#818CF8,stroke:#4F46E5,color:#1E1B4B,stroke-width:1px
+    classDef secStyle fill:#38BDF8,stroke:#0284C7,color:#0C1E2E,stroke-width:1px
+    classDef ctxStyle fill:#67E8F9,stroke:#0891B2,color:#083344,stroke-width:1px
+    classDef coreStyle fill:#A78BFA,stroke:#7C3AED,color:#1E1235,stroke-width:1px
+    classDef parallelStyle fill:#4ADE80,stroke:#15803D,color:#052E16,stroke-width:1px
+    classDef sequentialStyle fill:#FB923C,stroke:#C2410C,color:#2E1300,stroke-width:1px
+    classDef outStyle fill:#FF71CE,stroke:#DB2777,color:#2E0A1A,stroke-width:1px
+    classDef dbStyle fill:#FFDE59,stroke:#CA8A04,color:#1F1300,stroke-width:1px
+
+    class U_UI,U_HUD,U_VOICE,U_CLIP trigStyle
+    class AUTH,SAN secStyle
+    class VEC,GRAPH,HIST,CTX ctxStyle
+    class LLM,CHECK,HEAL,ROUTER,OBS,RESP coreStyle
+    class T0a,T0b,T0c parallelStyle
+    class T1a,T1b,T1c sequentialStyle
+    class MCPX,TTS,SSE,MASCOT outStyle
+    class VAULT,STORE dbStyle
 ```
 
 ### Architectural Layer Breakdown
