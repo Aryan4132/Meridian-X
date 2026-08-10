@@ -13,7 +13,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **local LLMs via Ollama**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships an interactive 3D mascot companion with full cloud API vault and MCP server integration.
+**Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **user-configurable AI models (Local or Cloud)**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships an interactive 3D mascot companion with full cloud API vault and MCP server integration.
 
 [⬇ Download](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Installation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
 
@@ -24,9 +24,9 @@
 ## ✨ Key Features
 
 ### 🧠 ReAct Reasoning Agent
-Asynchronous **Reason → Act → Observe** loop powered by local models (`qwen2.5-coder`) or cloud LLMs, streaming live reasoning timelines to the UI via SSE.
+Asynchronous **Reason → Act → Observe** loop powered by user-selected local or cloud models (Ollama, OpenAI, Anthropic, Gemini, Groq, OpenRouter, DeepSeek), streaming live reasoning timelines to the UI via SSE.
 - **Self-Correction**: Intercepts tool calls and heals parameter mismatches against the `TOOL_REGISTRY`.
-- **Syntax & Logic Validation**: Validates Python/JSON before execution; a fast auditor LLM (`qwen2.5-coder:1.5b`) catches logic bugs before they run.
+- **Syntax & Logic Validation**: Validates Python/JSON before execution; an auditor model catches logic bugs before they run.
 
 ### 🔐 Encrypted Secret Vault
 AES-GCM encrypted credential store for all third-party secrets:
@@ -134,7 +134,7 @@ flowchart TD
     end
 
     subgraph Core["4️⃣ ReAct Reasoning"]
-        LLM["🧠 Reason<br/>(Local Ollama / Cloud Failover)"]
+        LLM["🧠 Reason<br/>(User-Selected Local or Cloud Agent)"]
         CHECK{"❓ Schema & Syntax Valid?"}
         HEAL["🩹 Self-Heal<br/>Fixes Tool Signature Mismatch"]
         LLM --> CHECK
@@ -221,7 +221,7 @@ flowchart TD
 | **Surveillance & Productivity** | Pyperclip, Watchdog, Distraction Shield | 50-slot persistent pastebuffer surveillance, website/process distraction blocker, Pomodoro HUD |
 | **Security & Vault** | AES-256-GCM, Cryptography, SlowAPI | Machine-bound passphrase derivation, prompt injection sanitizer (SEC-16), rate limiting, host execution gates |
 | **Storage & Memory** | Turbovec, SQLite WAL, MongoDB | On-device vector embeddings, persistent task histories, entity-relationship memory graph |
-| **Inference & Voice** | Ollama, Supertonic TTS, Groq, OpenRouter | Offline LLM execution with cloud failover + local 10-voice speech synthesizer |
+| **Inference & Voice** | Local / Cloud LLMs, Supertonic TTS | User-selected AI agents (Ollama, OpenAI, Anthropic, Gemini, Groq, OpenRouter) + local 10-voice speech synthesizer |
 
 ---
 
