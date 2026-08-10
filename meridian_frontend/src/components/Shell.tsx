@@ -10,6 +10,8 @@ import Productivity from '../views/Productivity';
 import SwarmDebate from '../views/SwarmDebate';
 import Settings from '../views/Settings';
 
+import AmbientParticles from './ui/AmbientParticles';
+
 export default function Shell() {
   const { activeTab } = useApp();
   // Lifted state so RightDrawer can receive live thoughts from Timeline
@@ -28,6 +30,7 @@ export default function Shell() {
     }}>
       {/* Ambient background */}
       <div className="void-bg" />
+      <AmbientParticles />
 
       {/* Main row */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
@@ -57,10 +60,12 @@ export default function Shell() {
           </div>
         </main>
 
-        {/* Right drawer */}
-        <div style={{ position: 'relative', flexShrink: 0 }}>
-          <RightDrawer thoughtsFeed={thoughtsFeed} recentRuns={recentRuns} />
-        </div>
+        {/* Right drawer — Timeline & Jobs tabs only */}
+        {(activeTab === 'timeline' || activeTab === 'jobs') && (
+          <div style={{ position: 'relative', flexShrink: 0 }}>
+            <RightDrawer thoughtsFeed={thoughtsFeed} recentRuns={recentRuns} />
+          </div>
+        )}
       </div>
 
       <StatusBar />

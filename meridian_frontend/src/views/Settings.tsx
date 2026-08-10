@@ -12,41 +12,49 @@ import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
 
 const SETTINGS_TABS = [
-  { id: 'models',       label: 'AI Models',       icon: Cpu },
-  { id: 'mascot',       label: 'Mascot & Style',  icon: Sparkles },
-  { id: 'voice',        label: 'Voice & Audio',   icon: Mic },
-  { id: 'guard',        label: 'System Guard',    icon: ShieldCheck },
-  { id: 'integrations', label: 'Integrations',    icon: Plug },
+  { id: 'models', label: 'AI Models', icon: Cpu },
+  { id: 'mascot', label: 'Mascot & Style', icon: Sparkles },
+  { id: 'voice', label: 'Voice & Audio', icon: Mic },
+  { id: 'guard', label: 'System Guard', icon: ShieldCheck },
+  { id: 'integrations', label: 'Integrations', icon: Plug },
 ] as const;
 
 const PROVIDERS = [
-  { id: 'ollama',    label: 'Ollama',     sub: 'Local · Offline',    color: '#00D97E' },
-  { id: 'groq',      label: 'Groq',       sub: 'Ultra-Fast Cloud',   color: '#F55036' },
-  { id: 'openrouter',label: 'OpenRouter', sub: '100+ Cloud Models',  color: '#6366F1' },
-  { id: 'mistral',   label: 'Mistral',    sub: 'Cloud · API Key',    color: '#FF7000' },
-  { id: 'openai',    label: 'OpenAI',     sub: 'Cloud · API Key',    color: '#74AA9C' },
-  { id: 'anthropic', label: 'Anthropic',  sub: 'Cloud · API Key',    color: '#CC785C' },
-  { id: 'gemini',    label: 'Gemini',     sub: 'Cloud · API Key',    color: '#4285F4' },
-  { id: 'deepseek',  label: 'DeepSeek',   sub: 'Cloud · API Key',    color: '#7C3AED' },
+  { id: 'ollama', label: 'Ollama', sub: 'Local · Offline', color: '#00D97E' },
+  { id: 'groq', label: 'Groq', sub: 'Ultra-Fast Cloud', color: '#F55036' },
+  { id: 'openrouter', label: 'OpenRouter', sub: '100+ Cloud Models', color: '#6366F1' },
+  { id: 'mistral', label: 'Mistral', sub: 'Cloud · API Key', color: '#FF7000' },
+  { id: 'openai', label: 'OpenAI', sub: 'Cloud · API Key', color: '#74AA9C' },
+  { id: 'anthropic', label: 'Anthropic', sub: 'Cloud · API Key', color: '#CC785C' },
+  { id: 'gemini', label: 'Gemini', sub: 'Cloud · API Key', color: '#4285F4' },
+  { id: 'deepseek', label: 'DeepSeek', sub: 'Cloud · API Key', color: '#7C3AED' },
 ];
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  groq:       ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
+  groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
   openrouter: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1'],
-  mistral:    ['mistral-large-latest', 'codestral-latest', 'pixtral-12b-2409', 'mistral-small-latest'],
-  openai:     ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
-  anthropic:  ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  gemini:     ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
-  deepseek:   ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
+  mistral: ['mistral-large-latest', 'codestral-latest', 'pixtral-12b-2409', 'mistral-small-latest'],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
+  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+  gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
 };
 
 const THEMES = [
-  { id: 'frost',       label: 'Frost',        color: '#60A5FA' },
-  { id: 'tokyo-storm', label: 'Tokyo Storm',  color: '#7AA2F7' },
-  { id: 'abyss',       label: 'Abyss',        color: '#00A896' },
-  { id: 'carbon',      label: 'Carbon',       color: '#E2E8F0' },
-  { id: 'noir',        label: 'Noir (OLED)',  color: '#38BDF8' },
+  { id: 'cyberslate',   label: 'Classic Cyber Slate', icon: '🪐', sub: 'Tactile Slate & Solar Amber',        font: "'IBM Plex Mono', monospace", mode: 'Dark',  swatches: ['#0A0C10', '#E8A020', '#1E232E'] },
+  { id: 'artdeco',      label: 'Art Deco Luxury',     icon: '🏛️', sub: 'Obsidian Black & Metallic Gold',    font: "'Playfair Display', serif",  mode: 'Dark',  swatches: ['#050505', '#D4AF37', '#1E3D59'] },
+  { id: 'neobrutalism', label: 'Neobrutalism',        icon: '⚡', sub: 'Light Cream & Stark Black Shadows', font: "'Space Grotesk', sans-serif",mode: 'Light', swatches: ['#FFFDF5', '#FFDE59', '#000000'] },
+  { id: 'cyberpunk',    label: 'Cyberpunk Neon',      icon: '🌆', sub: 'Dark Void & Neon Magenta/Cyan',   font: "'Orbitron', sans-serif",     mode: 'Dark',  swatches: ['#030308', '#FF0055', '#00F0FF'] },
+  { id: 'retro',        label: 'Retro Synthwave',     icon: '👾', sub: '80s CRT Terminal & Vaporwave',   font: "'VT323', monospace",         mode: 'Dark',  swatches: ['#0A0414', '#FF71CE', '#05FFA1'] },
+  { id: 'ink',          label: 'Ink & Slate',          icon: '🖋️', sub: 'Warm Charcoal & Muted Indigo',   font: "'Inter', sans-serif",        mode: 'Dark',  swatches: ['#111113', '#818CF8', '#34D399'] },
+  { id: 'nordic',       label: 'Nordic Frost',        icon: '❄️', sub: 'Midnight Slate & Sky Blue',      font: "'DM Sans', sans-serif",      mode: 'Dark',  swatches: ['#0B0F17', '#38BDF8', '#A7F3D0'] },
+  { id: 'maximalism',   label: 'Maximalism',          icon: '🌈', sub: 'High-Energy Vibrant Magenta & Lime',font: "'Syne', sans-serif",        mode: 'Dark',  swatches: ['#0D021A', '#FF007A', '#76FF03'] },
+  { id: 'paper',        label: 'Paper & Ink',         icon: '📜', sub: 'Warm Off-White Editorial Linen',    font: "'Lora', serif",              mode: 'Light', swatches: ['#F4F2EC', '#D95338', '#2D6A4F'] },
+  { id: 'sakura',       label: 'Sakura Blossom',      icon: '🌸', sub: 'Soft Pastel Blush & Rose Quartz',   font: "'Outfit', sans-serif",       mode: 'Light', swatches: ['#FFF5F7', '#E85D75', '#6DB193'] },
+  { id: 'solaris',      label: 'Solaris Light',       icon: '☀️', sub: 'Clean Solar White & Cobalt Blue',   font: "'DM Sans', sans-serif",      mode: 'Light', swatches: ['#F4F6FB', '#2563EB', '#059669'] },
 ];
+
+
 
 function PasswordInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
   const [show, setShow] = useState(false);
@@ -83,33 +91,34 @@ export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
   const { isLowRam, toggleLowRamMode } = useLowRamMode();
   const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'integrations'>('models');
-  const [provider, setProvider]             = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
-  const [modelSource, setModelSource]       = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
-  const [ollamaHost, setOllamaHost]         = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
-  const [brainModel, setBrainModel]         = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
-  const [visionModel, setVisionModel]       = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
+  const [provider, setProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
+  const [modelSource, setModelSource] = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
+  const [ollamaHost, setOllamaHost] = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
+  const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
+  const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
   const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
   const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
   const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
-  const [groqKey, setGroqKey]               = useState(() => localStorage.getItem('GROQ_API_KEY') || '');
-  const [openrouterKey, setOpenrouterKey]   = useState(() => localStorage.getItem('OPENROUTER_API_KEY') || '');
-  const [mistralKey, setMistralKey]         = useState(() => localStorage.getItem('MISTRAL_API_KEY') || '');
-  const [openaiKey, setOpenaiKey]           = useState(() => localStorage.getItem('OPENAI_API_KEY') || '');
-  const [anthropicKey, setAnthropicKey]     = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
-  const [geminiKey, setGeminiKey]           = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
-  const [deepseekKey, setDeepseekKey]       = useState(() => localStorage.getItem('DEEPSEEK_API_KEY') || '');
-  const [elevenlabsKey, setElevenlabsKey]   = useState(() => localStorage.getItem('ELEVENLABS_API_KEY') || '');
-  const [deepgramKey, setDeepgramKey]       = useState(() => localStorage.getItem('DEEPGRAM_API_KEY') || '');
-  const [tavilyKey, setTavilyKey]           = useState(() => localStorage.getItem('TAVILY_API_KEY') || '');
-  const [discordToken, setDiscordToken]     = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
-  const [telegramToken, setTelegramToken]   = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
+  const [groqKey, setGroqKey] = useState(() => localStorage.getItem('GROQ_API_KEY') || '');
+  const [openrouterKey, setOpenrouterKey] = useState(() => localStorage.getItem('OPENROUTER_API_KEY') || '');
+  const [mistralKey, setMistralKey] = useState(() => localStorage.getItem('MISTRAL_API_KEY') || '');
+  const [openaiKey, setOpenaiKey] = useState(() => localStorage.getItem('OPENAI_API_KEY') || '');
+  const [anthropicKey, setAnthropicKey] = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
+  const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
+  const [deepseekKey, setDeepseekKey] = useState(() => localStorage.getItem('DEEPSEEK_API_KEY') || '');
+  const [elevenlabsKey, setElevenlabsKey] = useState(() => localStorage.getItem('ELEVENLABS_API_KEY') || '');
+  const [deepgramKey, setDeepgramKey] = useState(() => localStorage.getItem('DEEPGRAM_API_KEY') || '');
+  const [tavilyKey, setTavilyKey] = useState(() => localStorage.getItem('TAVILY_API_KEY') || '');
+  const [discordToken, setDiscordToken] = useState(() => localStorage.getItem('DISCORD_BOT_TOKEN') || '');
+  const [telegramToken, setTelegramToken] = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
-  const [saveStatus, setSaveStatus]         = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
 
   const [audioFxEnabled, setAudioFxEnabled] = useState(() => localStorage.getItem('meridian_mascot_audio_fx') !== 'false');
-  const [ttsVoice, setTtsVoice]             = useState(() => localStorage.getItem('meridian_tts_voice') || 'M1');
-  const [ttsVolume, setTtsVolume]           = useState(() => parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5'));
+  const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem('meridian_tts_voice') || 'M1');
+  const [ttsVolume, setTtsVolume] = useState(() => parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5'));
   const [startupEnabled, setStartupEnabled] = useState(false);
+  const [themeFilter, setThemeFilter] = useState<'all' | 'dark' | 'light'>('all');
 
   // MCP state variables
   const [mcpServers, setMcpServers] = useState<Record<string, any>>({});
@@ -131,7 +140,7 @@ export default function Settings() {
       if (data.servers) {
         setMcpServers(data.servers);
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -140,7 +149,7 @@ export default function Settings() {
       .then(data => {
         if (data.servers && data.servers.length > 0) setMcpCatalog(data.servers);
       })
-      .catch(() => {});
+      .catch(() => { });
     fetchCustomMcpServers();
   }, []);
 
@@ -155,7 +164,7 @@ export default function Settings() {
         setMcpCatalog(prev => prev.map(s => s.id === serverId ? { ...s, installed: true } : s));
         fetchCustomMcpServers();
       }
-    } catch {}
+    } catch { }
   };
 
   const handleAddCustomMcpServer = async () => {
@@ -165,7 +174,7 @@ export default function Settings() {
         .split(' ')
         .map(a => a.trim())
         .filter(a => a.length > 0);
-      
+
       const envObj: Record<string, string> = {};
       newServerEnv.split(',').forEach(pair => {
         const [k, v] = pair.split('=');
@@ -189,7 +198,7 @@ export default function Settings() {
         setNewServerEnv('');
         fetchCustomMcpServers();
       }
-    } catch {}
+    } catch { }
   };
 
   const handleDeleteCustomMcpServer = async (serverName: string) => {
@@ -200,7 +209,7 @@ export default function Settings() {
       if (res.ok) {
         fetchCustomMcpServers();
       }
-    } catch {}
+    } catch { }
   };
 
   const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
@@ -297,12 +306,12 @@ export default function Settings() {
   const [workspaceDirectives, setWorkspaceDirectives] = useState('');
 
   const [smtpServer, setSmtpServer] = useState(() => localStorage.getItem('SMTP_SERVER') || 'smtp.gmail.com');
-  const [smtpPort, setSmtpPort]     = useState(() => parseInt(localStorage.getItem('SMTP_PORT') || '587'));
-  const [smtpEmail, setSmtpEmail]   = useState(() => localStorage.getItem('SMTP_EMAIL') || '');
+  const [smtpPort, setSmtpPort] = useState(() => parseInt(localStorage.getItem('SMTP_PORT') || '587'));
+  const [smtpEmail, setSmtpEmail] = useState(() => localStorage.getItem('SMTP_EMAIL') || '');
   const [smtpPassword, setSmtpPassword] = useState(() => localStorage.getItem('SMTP_PASSWORD') || '');
   const [imapServer, setImapServer] = useState(() => localStorage.getItem('IMAP_SERVER') || 'imap.gmail.com');
   const [mongodbUri, setMongodbUri] = useState(() => localStorage.getItem('MONGODB_URI') || 'mongodb://localhost:27017/meridian_kg');
-  const [logLevel, setLogLevel]     = useState(() => localStorage.getItem('MERIDIAN_LOG_LEVEL') || 'INFO');
+  const [logLevel, setLogLevel] = useState(() => localStorage.getItem('MERIDIAN_LOG_LEVEL') || 'INFO');
 
   // Dynamic Secret Vault Keys state
   const [vaultKeys, setVaultKeys] = useState<Array<{ name: string; env_var: string; api_key: string; base_url: string; category: string }>>([]);
@@ -382,7 +391,7 @@ export default function Settings() {
           if (data.discord_token) { setDiscordToken(data.discord_token); localStorage.setItem('DISCORD_BOT_TOKEN', data.discord_token); }
           if (data.telegram_token) { setTelegramToken(data.telegram_token); localStorage.setItem('TELEGRAM_BOT_TOKEN', data.telegram_token); }
           if (data.telegram_chat_id) { setTelegramChatId(data.telegram_chat_id); localStorage.setItem('TELEGRAM_CHAT_ID', data.telegram_chat_id); }
-          
+
           if (data.meridian_auditor_model) { setAuditorModel(data.meridian_auditor_model); localStorage.setItem('meridian_auditor_model', data.meridian_auditor_model); }
           if (data.meridian_voice) { setTtsVoice(data.meridian_voice); localStorage.setItem('meridian_tts_voice', data.meridian_voice); }
           if (data.wakeword_threshold) { setWakewordThreshold(data.wakeword_threshold); localStorage.setItem('wakeword_threshold', String(data.wakeword_threshold)); }
@@ -397,22 +406,22 @@ export default function Settings() {
           if (data.cpu_warn_threshold) { setCpuWarn(data.cpu_warn_threshold); localStorage.setItem('cpu_warn_threshold', String(data.cpu_warn_threshold)); }
           if (data.ram_warn_threshold) { setRamWarn(data.ram_warn_threshold); localStorage.setItem('ram_warn_threshold', String(data.ram_warn_threshold)); }
           if (data.disk_warn_threshold) { setDiskWarn(data.disk_warn_threshold); localStorage.setItem('disk_warn_threshold', String(data.disk_warn_threshold)); }
-            if (data.distraction_sites) {
-              const listStr = Array.isArray(data.distraction_sites) ? data.distraction_sites.join(', ') : data.distraction_sites;
-              setDistractions(listStr);
-              localStorage.setItem('distraction_sites', listStr);
-            }
-            if (data.smtp_server) { setSmtpServer(data.smtp_server); localStorage.setItem('SMTP_SERVER', data.smtp_server); }
-            if (data.smtp_port) { setSmtpPort(data.smtp_port); localStorage.setItem('SMTP_PORT', String(data.smtp_port)); }
-            if (data.smtp_email) { setSmtpEmail(data.smtp_email); localStorage.setItem('SMTP_EMAIL', data.smtp_email); }
-            if (data.smtp_password) { setSmtpPassword(data.smtp_password); localStorage.setItem('SMTP_PASSWORD', data.smtp_password); }
-            if (data.imap_server) { setImapServer(data.imap_server); localStorage.setItem('IMAP_SERVER', data.imap_server); }
-            if (data.mongodb_uri) { setMongodbUri(data.mongodb_uri); localStorage.setItem('MONGODB_URI', data.mongodb_uri); }
-            if (data.meridian_log_level) { setLogLevel(data.meridian_log_level); localStorage.setItem('MERIDIAN_LOG_LEVEL', data.meridian_log_level); }
+          if (data.distraction_sites) {
+            const listStr = Array.isArray(data.distraction_sites) ? data.distraction_sites.join(', ') : data.distraction_sites;
+            setDistractions(listStr);
+            localStorage.setItem('distraction_sites', listStr);
           }
-        })
-        .catch(() => {});
-    }, []);
+          if (data.smtp_server) { setSmtpServer(data.smtp_server); localStorage.setItem('SMTP_SERVER', data.smtp_server); }
+          if (data.smtp_port) { setSmtpPort(data.smtp_port); localStorage.setItem('SMTP_PORT', String(data.smtp_port)); }
+          if (data.smtp_email) { setSmtpEmail(data.smtp_email); localStorage.setItem('SMTP_EMAIL', data.smtp_email); }
+          if (data.smtp_password) { setSmtpPassword(data.smtp_password); localStorage.setItem('SMTP_PASSWORD', data.smtp_password); }
+          if (data.imap_server) { setImapServer(data.imap_server); localStorage.setItem('IMAP_SERVER', data.imap_server); }
+          if (data.mongodb_uri) { setMongodbUri(data.mongodb_uri); localStorage.setItem('MONGODB_URI', data.mongodb_uri); }
+          if (data.meridian_log_level) { setLogLevel(data.meridian_log_level); localStorage.setItem('MERIDIAN_LOG_LEVEL', data.meridian_log_level); }
+        }
+      })
+      .catch(() => { });
+  }, []);
 
   // Fetch MCP config on mount
   useEffect(() => {
@@ -423,7 +432,7 @@ export default function Settings() {
           setMcpServers(data.mcpServers);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const saveMcpConfig = async (servers: Record<string, any>) => {
@@ -440,13 +449,13 @@ export default function Settings() {
 
   const handleAddMcpServer = async () => {
     if (!newServerName.trim() || !newServerCommand.trim()) return;
-    
+
     // Parse args
     const parsedArgs = newServerArgs
       .split(',')
       .map(s => s.trim())
       .filter(s => s.length > 0);
-      
+
     // Parse env
     const parsedEnv: Record<string, string> = {};
     if (newServerEnv.trim()) {
@@ -457,7 +466,7 @@ export default function Settings() {
         }
       });
     }
-    
+
     const updatedServers = {
       ...mcpServers,
       [newServerName.trim()]: {
@@ -466,15 +475,15 @@ export default function Settings() {
         env: parsedEnv
       }
     };
-    
+
     setMcpServers(updatedServers);
-    
+
     // Reset form
     setNewServerName('');
     setNewServerCommand('');
     setNewServerArgs('');
     setNewServerEnv('');
-    
+
     await saveMcpConfig(updatedServers);
   };
 
@@ -490,8 +499,8 @@ export default function Settings() {
     fetch('http://localhost:4132/api/system/startup')
       .then(r => r.json())
       .then(data => { if (typeof data.enabled === 'boolean') setStartupEnabled(data.enabled); })
-      .catch(() => {});
-      
+      .catch(() => { });
+
     fetch('http://localhost:4132/api/workspace/config')
       .then(r => r.json())
       .then(data => {
@@ -501,7 +510,7 @@ export default function Settings() {
           setWorkspaceDirectives(data.config.custom_directives || '');
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handleToggleStartup = async (checked: boolean) => {
@@ -540,7 +549,7 @@ export default function Settings() {
           setAvailableOllamaModels(d.models.map((m: any) => m.name || m));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [ollamaHost]);
 
   // Fetch Brain models based on selected provider and key
@@ -559,7 +568,7 @@ export default function Settings() {
           setAvailableBrainModels(d.models.map((m: any) => m.name || m));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [provider, ollamaHost, openaiKey, anthropicKey, geminiKey, deepseekKey]);
 
   // Set default models when provider changes to prevent model mismatch
@@ -718,13 +727,13 @@ export default function Settings() {
 
   const apiKeyForProvider = (): [string, (v: string) => void, string] | null => {
     const map: Record<string, [string, (v: string) => void, string]> = {
-      groq:       [groqKey,       setGroqKey,       'gsk_...'],
+      groq: [groqKey, setGroqKey, 'gsk_...'],
       openrouter: [openrouterKey, setOpenrouterKey, 'sk-or-v1-...'],
-      mistral:    [mistralKey,    setMistralKey,    'sk-...'],
-      openai:     [openaiKey,     setOpenaiKey,     'sk-proj-...'],
-      anthropic:  [anthropicKey,  setAnthropicKey,  'sk-ant-...'],
-      gemini:     [geminiKey,     setGeminiKey,     'AIzaSy...'],
-      deepseek:   [deepseekKey,   setDeepseekKey,   'sk-...'],
+      mistral: [mistralKey, setMistralKey, 'sk-...'],
+      openai: [openaiKey, setOpenaiKey, 'sk-proj-...'],
+      anthropic: [anthropicKey, setAnthropicKey, 'sk-ant-...'],
+      gemini: [geminiKey, setGeminiKey, 'AIzaSy...'],
+      deepseek: [deepseekKey, setDeepseekKey, 'sk-...'],
     };
     return map[provider] ?? null;
   };
@@ -734,7 +743,7 @@ export default function Settings() {
       <div style={{ marginBottom: 16, flexShrink: 0 }}>
         <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Settings</h1>
         <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 8px', fontFamily: "'JetBrains Mono', monospace" }}>Configuration · Models · Appearance · Guard</p>
-        
+
         {/* Category Navigation Bar */}
         <div style={{ display: 'flex', gap: 6, overflowX: 'auto', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8, marginTop: 12 }}>
           {SETTINGS_TABS.map(t => {
@@ -773,1105 +782,1227 @@ export default function Settings() {
             <>
               {/* AI Config */}
               <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">AI Configuration</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Provider grid */}
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Intelligence Provider
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-                  {PROVIDERS.map(p => {
-                    const active = provider === p.id;
-                    return (
-                      <button key={p.id} type="button" onClick={() => setProvider(p.id)} style={{
-                        padding: '8px 4px', borderRadius: 'var(--radius-sm)',
-                        border: active ? `1px solid ${p.color}` : '1px solid var(--border-subtle)',
-                        background: active ? `${p.color}12` : 'var(--bg-surface)',
-                        cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s ease',
-                      }}>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: active ? p.color : 'var(--text-main)', marginBottom: 2 }}>{p.label}</div>
-                        <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace" }}>{p.sub}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                <div className="section-label">AI Configuration</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Provider grid */}
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Intelligence Provider
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
+                      {PROVIDERS.map(p => {
+                        const active = provider === p.id;
+                        return (
+                          <button key={p.id} type="button" onClick={() => setProvider(p.id)} style={{
+                            padding: '8px 4px', borderRadius: 'var(--radius-sm)',
+                            border: active ? `1px solid ${p.color}` : '1px solid var(--border-subtle)',
+                            background: active ? `${p.color}12` : 'var(--bg-surface)',
+                            cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s ease',
+                          }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: active ? p.color : 'var(--text-main)', marginBottom: 2 }}>{p.label}</div>
+                            <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace" }}>{p.sub}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-              {/* Provider-specific */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {provider === 'ollama' ? (
+                  {/* Provider-specific */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {provider === 'ollama' ? (
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Ollama Host URL
+                        </label>
+                        <input type="text" value={ollamaHost} onChange={e => setOllamaHost(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                      </div>
+                    ) : (() => {
+                      const cfg = apiKeyForProvider();
+                      if (!cfg) return null;
+                      const [val, setter, ph] = cfg;
+                      return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} />;
+                    })()}
+
+                    {/* Model Execution Mode */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Model Execution Mode
+                      </label>
+                      <select value={modelSource} onChange={e => setModelSource(e.target.value)} className="select-base">
+                        <option value="local">Local Mode (Enables local multi-agent features & HTP)</option>
+                        <option value="api">Cloud/API Mode (Instant streaming, bypasses local task decomposition)</option>
+                      </select>
+                    </div>
+
+                    {/* Brain model */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Brain Model
+                      </label>
+                      {availableBrainModels.length > 0 ? (
+                        <select value={brainModel} onChange={e => setBrainModel(e.target.value)} className="select-base">
+                          {availableBrainModels.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      ) : (
+                        <input type="text" value={brainModel} onChange={e => setBrainModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                      )}
+                    </div>
+
+                    {/* Vision model */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Vision Model (Ollama)
+                      </label>
+                      {availableOllamaModels.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                          <select value={visionModel} onChange={e => setVisionModel(e.target.value)} className="select-base">
+                            {filterVisionModels(availableOllamaModels).map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-dim)', cursor: 'pointer', marginTop: 2 }}>
+                            <input
+                              type="checkbox"
+                              checked={showAllVisionModels}
+                              onChange={e => {
+                                setShowAllVisionModels(e.target.checked);
+                                localStorage.setItem('meridian_show_all_vision_models', String(e.target.checked));
+                              }}
+                            />
+                            Show all models (disable vision filtering)
+                          </label>
+                        </div>
+                      ) : (
+                        <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                      )}
+                    </div>
+
+                    {/* Auditor model */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Auditor & Local Fallback Model (Ollama)
+                      </label>
+                      {availableOllamaModels.length > 0 ? (
+                        <select value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="select-base">
+                          {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      ) : (
+                        <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                      )}
+                    </div>
+
+                    {/* Token Context Limit */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Max Token Context Limit
+                      </label>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <select
+                          value={[4096, 8192, 16384, 32768, 65536, 131072].includes(contextTokenLimit) ? contextTokenLimit : 'custom'}
+                          onChange={e => {
+                            if (e.target.value !== 'custom') {
+                              const val = parseInt(e.target.value);
+                              setContextTokenLimit(val);
+                              localStorage.setItem('context_token_limit', String(val));
+                            }
+                          }}
+                          className="select-base"
+                          style={{ flex: 1 }}
+                        >
+                          <option value="4096">4,096 tokens (4k)</option>
+                          <option value="8192">8,192 tokens (8k - Default)</option>
+                          <option value="16384">16,384 tokens (16k)</option>
+                          <option value="32768">32,768 tokens (32k)</option>
+                          <option value="65536">65,536 tokens (64k)</option>
+                          <option value="131072">131,072 tokens (128k)</option>
+                          <option value="custom">Custom Limit...</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="1024"
+                          max="1048576"
+                          step="1024"
+                          value={contextTokenLimit}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 8192;
+                            setContextTokenLimit(val);
+                            localStorage.setItem('context_token_limit', String(val));
+                          }}
+                          className="input-base"
+                          style={{ width: 110, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
+                        Warning threshold triggers compression at 80% ({Math.round(contextTokenLimit * 0.8).toLocaleString()} tokens).
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Workspace Configuration override (.meridian.json) */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Workspace Override Configuration (.meridian.json)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   <div>
                     <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Ollama Host URL
+                      Workspace Brain Model Override
                     </label>
-                    <input type="text" value={ollamaHost} onChange={e => setOllamaHost(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                  </div>
-                ) : (() => {
-                  const cfg = apiKeyForProvider();
-                  if (!cfg) return null;
-                  const [val, setter, ph] = cfg;
-                  return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} />;
-                })()}
-
-                {/* Model Execution Mode */}
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Model Execution Mode
-                  </label>
-                  <select value={modelSource} onChange={e => setModelSource(e.target.value)} className="select-base">
-                    <option value="local">Local Mode (Enables local multi-agent features & HTP)</option>
-                    <option value="api">Cloud/API Mode (Instant streaming, bypasses local task decomposition)</option>
-                  </select>
-                </div>
-
-                {/* Brain model */}
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Brain Model
-                  </label>
-                  {availableBrainModels.length > 0 ? (
-                    <select value={brainModel} onChange={e => setBrainModel(e.target.value)} className="select-base">
-                      {availableBrainModels.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" value={brainModel} onChange={e => setBrainModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                  )}
-                </div>
-
-                {/* Vision model */}
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Vision Model (Ollama)
-                  </label>
-                  {availableOllamaModels.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <select value={visionModel} onChange={e => setVisionModel(e.target.value)} className="select-base">
-                        {filterVisionModels(availableOllamaModels).map(m => <option key={m} value={m}>{m}</option>)}
-                      </select>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-dim)', cursor: 'pointer', marginTop: 2 }}>
-                        <input
-                          type="checkbox"
-                          checked={showAllVisionModels}
-                          onChange={e => {
-                            setShowAllVisionModels(e.target.checked);
-                            localStorage.setItem('meridian_show_all_vision_models', String(e.target.checked));
-                          }}
-                        />
-                        Show all models (disable vision filtering)
-                      </label>
-                    </div>
-                  ) : (
-                    <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                  )}
-                </div>
-
-                {/* Auditor model */}
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Auditor & Local Fallback Model (Ollama)
-                  </label>
-                  {availableOllamaModels.length > 0 ? (
-                    <select value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="select-base">
-                      {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  ) : (
-                    <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                  )}
-                </div>
-
-                {/* Token Context Limit */}
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Max Token Context Limit
-                  </label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <select
-                      value={[4096, 8192, 16384, 32768, 65536, 131072].includes(contextTokenLimit) ? contextTokenLimit : 'custom'}
-                      onChange={e => {
-                        if (e.target.value !== 'custom') {
-                          const val = parseInt(e.target.value);
-                          setContextTokenLimit(val);
-                          localStorage.setItem('context_token_limit', String(val));
-                        }
-                      }}
-                      className="select-base"
-                      style={{ flex: 1 }}
-                    >
-                      <option value="4096">4,096 tokens (4k)</option>
-                      <option value="8192">8,192 tokens (8k - Default)</option>
-                      <option value="16384">16,384 tokens (16k)</option>
-                      <option value="32768">32,768 tokens (32k)</option>
-                      <option value="65536">65,536 tokens (64k)</option>
-                      <option value="131072">131,072 tokens (128k)</option>
-                      <option value="custom">Custom Limit...</option>
-                    </select>
                     <input
-                      type="number"
-                      min="1024"
-                      max="1048576"
-                      step="1024"
-                      value={contextTokenLimit}
-                      onChange={e => {
-                        const val = parseInt(e.target.value) || 8192;
-                        setContextTokenLimit(val);
-                        localStorage.setItem('context_token_limit', String(val));
-                      }}
+                      type="text"
+                      value={workspaceModel}
+                      onChange={e => setWorkspaceModel(e.target.value)}
+                      placeholder="e.g. qwen2.5-coder:7b (empty to use global default)"
                       className="input-base"
-                      style={{ width: 110, fontFamily: "'JetBrains Mono', monospace" }}
+                      style={{ fontFamily: "'JetBrains Mono', monospace" }}
                     />
                   </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-                    Warning threshold triggers compression at 80% ({Math.round(contextTokenLimit * 0.8).toLocaleString()} tokens).
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Workspace Custom Directives
+                    </label>
+                    <textarea
+                      value={workspaceDirectives}
+                      onChange={e => setWorkspaceDirectives(e.target.value)}
+                      placeholder="Enter system prompt instructions, custom agent constraints or rules specific to this workspace..."
+                      className="input-base"
+                      rows={4}
+                      style={{ resize: 'vertical', minHeight: 80 }}
+                    />
                   </div>
                 </div>
-              </div>
-            </div>
-          </GlowCard>
+              </GlowCard>
 
-          {/* Workspace Configuration override (.meridian.json) */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Workspace Override Configuration (.meridian.json)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Workspace Brain Model Override
-                </label>
-                <input
-                  type="text"
-                  value={workspaceModel}
-                  onChange={e => setWorkspaceModel(e.target.value)}
-                  placeholder="e.g. qwen2.5-coder:7b (empty to use global default)"
-                  className="input-base"
-                  style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Workspace Custom Directives
-                </label>
-                <textarea
-                  value={workspaceDirectives}
-                  onChange={e => setWorkspaceDirectives(e.target.value)}
-                  placeholder="Enter system prompt instructions, custom agent constraints or rules specific to this workspace..."
-                  className="input-base"
-                  rows={4}
-                  style={{ resize: 'vertical', minHeight: 80 }}
-                />
-              </div>
-            </div>
-          </GlowCard>
-
-          {/* Universal Encrypted Secret Vault inside AI Models tab */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
-              <button
-                type="button"
-                onClick={() => setShowVaultSecrets(v => !v)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-              >
-                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-              </button>
-            </div>
-
-            {/* List of active custom keys */}
-            {vaultKeys.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {vaultKeys.map(k => (
-                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                          {k.category || 'LLM Provider'}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                          ${k.env_var}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
-                      </div>
-                    </div>
-                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                      <Trash2 size={12} />
-                    </HoloButton>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
-              </div>
-            )}
-
-            {/* Add New Key Form */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                + Add Dynamic API Key or Cloud Secret
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
+              {/* Universal Encrypted Secret Vault inside AI Models tab */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVaultSecrets(v => !v)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+                  >
+                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+                  </button>
                 </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                    <option value="LLM Provider">LLM Provider</option>
-                    <option value="Search & Web">Search & Web</option>
-                    <option value="Audio & Voice">Audio & Voice</option>
-                    <option value="Vision & Media">Vision & Media</option>
-                    <option value="Vector DB">Vector DB</option>
-                    <option value="Custom Tool">Custom Tool</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                  <Plus size={12} /> Save Secret to Vault
-                </HoloButton>
-              </div>
-            </div>
-          </GlowCard>
-        </>
-      )}
-
-      {/* Category: Integrations */}
-      {activeCategory === 'integrations' && (
-        <>
-          {/* Integrations */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Integrations & Tokens</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PasswordInput label="Tavily API Key (Web Search)" value={tavilyKey} onChange={setTavilyKey} placeholder="tvly-..." />
-              <PasswordInput label="Discord Bot Token" value={discordToken} onChange={setDiscordToken} placeholder="MT..." />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <PasswordInput label="Telegram Bot Token" value={telegramToken} onChange={setTelegramToken} placeholder="bot..." />
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
-                  <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
-                </div>
-              </div>
-            </div>
-          </GlowCard>
-
-          {/* Universal Encrypted Secret Vault */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Secret Vault</div>
-              <button
-                type="button"
-                onClick={() => setShowVaultSecrets(v => !v)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-              >
-                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-              </button>
-            </div>
-
-            {/* List of active custom keys */}
-            {vaultKeys.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {vaultKeys.map(k => (
-                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                          {k.category || 'LLM Provider'}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                          ${k.env_var}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
-                      </div>
-                    </div>
-                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                      <Trash2 size={12} />
-                    </HoloButton>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
-              </div>
-            )}
-
-            {/* Add New Key Form */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                + Add Dynamic API Key or Cloud Secret
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                    <option value="LLM Provider">LLM Provider</option>
-                    <option value="Search & Web">Search & Web</option>
-                    <option value="Audio & Voice">Audio & Voice</option>
-                    <option value="Vision & Media">Vision & Media</option>
-                    <option value="Vector DB">Vector DB</option>
-                    <option value="Custom Tool">Custom Tool</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                  <Plus size={12} /> Save Secret to Vault
-                </HoloButton>
-              </div>
-            </div>
-          </GlowCard>
-
-          {/* Email Configuration */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Email Configuration (SMTP & IMAP)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Email Address</label>
-                  <input type="email" value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)} placeholder="your_email@gmail.com" className="input-base" />
-                </div>
-                <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Server</label>
-                  <input type="text" value={smtpServer} onChange={e => setSmtpServer(e.target.value)} placeholder="smtp.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Port</label>
-                  <input type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value) || 587)} placeholder="587" className="input-base" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>IMAP Server</label>
-                  <input type="text" value={imapServer} onChange={e => setImapServer(e.target.value)} placeholder="imap.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                </div>
-              </div>
-            </div>
-          </GlowCard>
-
-          {/* Model Context Protocol (MCP) Server Marketplace */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label" style={{ marginBottom: 10 }}>🔌 Model Context Protocol (MCP) Server Registry</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: '1.5' }}>
-                Manage connected Model Context Protocol (MCP) servers. Registered servers dynamically expose tools directly into the ReAct reasoning loop.
-              </div>
-
-              {/* Registered Custom Servers */}
-              {Object.keys(mcpServers).length > 0 ? (
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    Active Connected MCP Servers ({Object.keys(mcpServers).length})
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {Object.entries(mcpServers).map(([srvName, srvConfig]: [string, any]) => (
-                      <div key={srvName} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                {/* List of active custom keys */}
+                {vaultKeys.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    {vaultKeys.map(k => (
+                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{srvName}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(0, 217, 126, 0.15)', color: '#00D97E', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                              Active
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                              {k.category || 'LLM Provider'}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                              ${k.env_var}
                             </span>
                           </div>
-                          <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
-                            {srvConfig.command} {srvConfig.args?.join(' ')}
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
                           </div>
                         </div>
-                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteCustomMcpServer(srvName)}>
+                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
                           <Trash2 size={12} />
                         </HoloButton>
                       </div>
                     ))}
                   </div>
-                </div>
-              ) : null}
-
-              {/* Add Custom MCP Server Form */}
-              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                  + Enter / Register Custom MCP Server
-                </label>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server Name</label>
-                    <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. Filesystem MCP / Git MCP" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                    No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
                   </div>
+                )}
+
+                {/* Add New Key Form */}
+                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                    + Add Dynamic API Key or Cloud Secret
+                  </label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                        <option value="LLM Provider">LLM Provider</option>
+                        <option value="Search & Web">Search & Web</option>
+                        <option value="Audio & Voice">Audio & Voice</option>
+                        <option value="Vision & Media">Vision & Media</option>
+                        <option value="Vector DB">Vector DB</option>
+                        <option value="Custom Tool">Custom Tool</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Command Executable</label>
-                    <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx / uvx / node / python" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                      <Plus size={12} /> Save Secret to Vault
+                    </HoloButton>
                   </div>
                 </div>
+              </GlowCard>
+            </>
+          )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (Space Separated)</label>
-                    <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-filesystem C:/Projects" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Vars (KEY=VAL, ...)</label>
-                    <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="API_KEY=xxx, TOKEN=yyy" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+          {/* Category: Integrations */}
+          {activeCategory === 'integrations' && (
+            <>
+              {/* Integrations */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Integrations & Tokens</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <PasswordInput label="Tavily API Key (Web Search)" value={tavilyKey} onChange={setTavilyKey} placeholder="tvly-..." />
+                  <PasswordInput label="Discord Bot Token" value={discordToken} onChange={setDiscordToken} placeholder="MT..." />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <PasswordInput label="Telegram Bot Token" value={telegramToken} onChange={setTelegramToken} placeholder="bot..." />
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
+                      <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
+                    </div>
                   </div>
                 </div>
+              </GlowCard>
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
-                  <HoloButton type="button" variant="primary" size="sm" onClick={handleAddCustomMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
-                    <Plus size={12} /> Register MCP Server
-                  </HoloButton>
+              {/* Universal Encrypted Secret Vault */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Secret Vault</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVaultSecrets(v => !v)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+                  >
+                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+                  </button>
                 </div>
-              </div>
 
-              {/* Catalog Servers */}
-              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  1-Click Featured MCP Marketplace Catalog
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {mcpCatalog.map(s => (
-                    <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
-                      <div>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
-                          <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                            {s.installed ? 'Installed' : s.category}
-                          </span>
+                {/* List of active custom keys */}
+                {vaultKeys.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    {vaultKeys.map(k => (
+                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                              {k.category || 'LLM Provider'}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                              ${k.env_var}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                          </div>
                         </div>
-                        <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
-                        <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <HoloButton
-                          type="button"
-                          variant={s.installed ? "ghost" : "primary"}
-                          size="sm"
-                          disabled={s.installed}
-                          onClick={() => handleInstallMcp(s.id)}
-                        >
-                          {s.installed ? "Active" : "Install Server"}
+                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
+                          <Trash2 size={12} />
                         </HoloButton>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </GlowCard>
-        </>
-      )}
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                    No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
+                  </div>
+                )}
 
-      {/* Category: Voice */}
-      {activeCategory === 'voice' && (
-        <>
-              {/* Voice & Wake Word Advanced Config */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Voice & Wake Word Settings</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>STT Whisper Model</label>
-                <select value={sttModelSize} onChange={e => setSttModelSize(e.target.value)} className="select-base">
-                  <option value="base">base (Fastest)</option>
-                  <option value="small">small</option>
-                  <option value="medium">medium</option>
-                  <option value="large-v3">large-v3</option>
-                  <option value="turbo">turbo (Accurate)</option>
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Score Threshold</label>
-                <input type="number" min="0.1" max="1.0" step="0.05" value={wakewordThreshold} onChange={e => setWakewordThreshold(parseFloat(e.target.value))} className="input-base" />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Model (Path / Filename)</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input
-                    type="text"
-                    value={wakewordModel}
-                    onChange={e => setWakewordModel(e.target.value)}
-                    className="input-base"
-                    placeholder="hey_meridian.onnx or C:/path/to/model.onnx"
-                    style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1 }}
-                  />
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept=".onnx"
-                    style={{ display: 'none' }}
-                    onChange={handleFileInputChange}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleBrowseOnnxFile}
-                    className="btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    title="Browse folders for .onnx model"
-                  >
-                    <FolderOpen size={14} />
-                    Browse...
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fetchScannedOnnxModels}
-                    disabled={isScanningOnnx}
-                    className="btn-secondary"
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                    title="Scan system folders for .onnx models"
-                  >
-                    <Search size={14} />
-                    {isScanningOnnx ? 'Scanning...' : 'Scan'}
-                  </button>
+                {/* Add New Key Form */}
+                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                    + Add Dynamic API Key or Cloud Secret
+                  </label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                        <option value="LLM Provider">LLM Provider</option>
+                        <option value="Search & Web">Search & Web</option>
+                        <option value="Audio & Voice">Audio & Voice</option>
+                        <option value="Vision & Media">Vision & Media</option>
+                        <option value="Vector DB">Vector DB</option>
+                        <option value="Custom Tool">Custom Tool</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                      <Plus size={12} /> Save Secret to Vault
+                    </HoloButton>
+                  </div>
                 </div>
-                {scannedOnnxModels.length > 0 && (
-                  <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, fontFamily: 'JetBrains Mono' }}>DETECTED ONNX MODELS:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {scannedOnnxModels.map((m, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setWakewordModel(m.path || m.name)}
-                          style={{
-                            fontSize: 11,
-                            fontFamily: "'JetBrains Mono', monospace",
-                            background: wakewordModel === m.path || wakewordModel === m.name ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255,255,255,0.05)',
-                            border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent-primary, #60A5FA)' : '1px solid rgba(255,255,255,0.1)',
-                            color: 'var(--text-main, #E2E8F0)',
-                            borderRadius: 4,
-                            padding: '4px 8px',
-                            cursor: 'pointer'
-                          }}
-                          title={m.path}
-                        >
-                          {m.name}
-                        </button>
+              </GlowCard>
+
+              {/* Email Configuration */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Email Configuration (SMTP & IMAP)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Email Address</label>
+                      <input type="email" value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)} placeholder="your_email@gmail.com" className="input-base" />
+                    </div>
+                    <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Server</label>
+                      <input type="text" value={smtpServer} onChange={e => setSmtpServer(e.target.value)} placeholder="smtp.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Port</label>
+                      <input type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value) || 587)} placeholder="587" className="input-base" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>IMAP Server</label>
+                      <input type="text" value={imapServer} onChange={e => setImapServer(e.target.value)} placeholder="imap.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                    </div>
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Model Context Protocol (MCP) Server Marketplace */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label" style={{ marginBottom: 10 }}>🔌 Model Context Protocol (MCP) Server Registry</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: '1.5' }}>
+                    Manage connected Model Context Protocol (MCP) servers. Registered servers dynamically expose tools directly into the ReAct reasoning loop.
+                  </div>
+
+                  {/* Registered Custom Servers */}
+                  {Object.keys(mcpServers).length > 0 ? (
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                        Active Connected MCP Servers ({Object.keys(mcpServers).length})
+                      </label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {Object.entries(mcpServers).map(([srvName, srvConfig]: [string, any]) => (
+                          <div key={srvName} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{srvName}</span>
+                                <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(0, 217, 126, 0.15)', color: '#00D97E', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                                  Active
+                                </span>
+                              </div>
+                              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
+                                {srvConfig.command} {srvConfig.args?.join(' ')}
+                              </div>
+                            </div>
+                            <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteCustomMcpServer(srvName)}>
+                              <Trash2 size={12} />
+                            </HoloButton>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {/* Add Custom MCP Server Form */}
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                      + Enter / Register Custom MCP Server
+                    </label>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server Name</label>
+                        <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. Filesystem MCP / Git MCP" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Command Executable</label>
+                        <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx / uvx / node / python" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (Space Separated)</label>
+                        <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-filesystem C:/Projects" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Vars (KEY=VAL, ...)</label>
+                        <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="API_KEY=xxx, TOKEN=yyy" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
+                      <HoloButton type="button" variant="primary" size="sm" onClick={handleAddCustomMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
+                        <Plus size={12} /> Register MCP Server
+                      </HoloButton>
+                    </div>
+                  </div>
+
+                  {/* Catalog Servers */}
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      1-Click Featured MCP Marketplace Catalog
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      {mcpCatalog.map(s => (
+                        <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
+                              <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                                {s.installed ? 'Installed' : s.category}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
+                            <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <HoloButton
+                              type="button"
+                              variant={s.installed ? "ghost" : "primary"}
+                              size="sm"
+                              disabled={s.installed}
+                              onClick={() => handleInstallMcp(s.id)}
+                            >
+                              {s.installed ? "Active" : "Install Server"}
+                            </HoloButton>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
-                )}
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Phrase Text</label>
-                <input type="text" value={wakewordPhrase} onChange={e => setWakewordPhrase(e.target.value)} className="input-base" />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Silence Timeout (sec)</label>
-                <input type="number" min="0.2" max="5.0" step="0.1" value={sttSilenceTimeout} onChange={e => setSttSilenceTimeout(parseFloat(e.target.value))} className="input-base" />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Amplitude Threshold</label>
-                <input type="number" min="50" max="2000" step="50" value={sttVadThreshold} onChange={e => setSttVadThreshold(parseFloat(e.target.value))} className="input-base" />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max STT Recording Duration (sec)</label>
-                <input type="number" min="2.0" max="60.0" step="1.0" value={sttMaxDuration} onChange={e => setSttMaxDuration(parseFloat(e.target.value))} className="input-base" />
-              </div>
-            </div>
-          </GlowCard>
+                </div>
+              </GlowCard>
+            </>
+          )}
 
-          {/* Voice & Audio Provider API Credentials */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Cloud Voice & Speech Provider API Keys</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." />
-              <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." />
-            </div>
-          </GlowCard>
-
-          {/* Universal Encrypted Secret Vault inside Voice tab */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
-              <button
-                type="button"
-                onClick={() => setShowVaultSecrets(v => !v)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-              >
-                {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-              </button>
-            </div>
-
-            {/* List of active custom keys */}
-            {vaultKeys.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                {vaultKeys.map(k => (
-                  <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                        <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                          {k.category || 'Audio & Voice'}
-                        </span>
-                        <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                          ${k.env_var}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                        Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
-                      </div>
+          {/* Category: Voice */}
+          {activeCategory === 'voice' && (
+            <>
+              {/* Voice & Wake Word Advanced Config */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Voice & Wake Word Settings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>STT Whisper Model</label>
+                    <select value={sttModelSize} onChange={e => setSttModelSize(e.target.value)} className="select-base">
+                      <option value="base">base (Fastest)</option>
+                      <option value="small">small</option>
+                      <option value="medium">medium</option>
+                      <option value="large-v3">large-v3</option>
+                      <option value="turbo">turbo (Accurate)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Score Threshold</label>
+                    <input type="number" min="0.1" max="1.0" step="0.05" value={wakewordThreshold} onChange={e => setWakewordThreshold(parseFloat(e.target.value))} className="input-base" />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Model (Path / Filename)</label>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <input
+                        type="text"
+                        value={wakewordModel}
+                        onChange={e => setWakewordModel(e.target.value)}
+                        className="input-base"
+                        placeholder="hey_meridian.onnx or C:/path/to/model.onnx"
+                        style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1 }}
+                      />
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        accept=".onnx"
+                        style={{ display: 'none' }}
+                        onChange={handleFileInputChange}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleBrowseOnnxFile}
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        title="Browse folders for .onnx model"
+                      >
+                        <FolderOpen size={14} />
+                        Browse...
+                      </button>
+                      <button
+                        type="button"
+                        onClick={fetchScannedOnnxModels}
+                        disabled={isScanningOnnx}
+                        className="btn-secondary"
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        title="Scan system folders for .onnx models"
+                      >
+                        <Search size={14} />
+                        {isScanningOnnx ? 'Scanning...' : 'Scan'}
+                      </button>
                     </div>
-                    <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                      <Trash2 size={12} />
+                    {scannedOnnxModels.length > 0 && (
+                      <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, fontFamily: 'JetBrains Mono' }}>DETECTED ONNX MODELS:</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {scannedOnnxModels.map((m, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setWakewordModel(m.path || m.name)}
+                              style={{
+                                fontSize: 11,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                background: wakewordModel === m.path || wakewordModel === m.name ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255,255,255,0.05)',
+                                border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent-primary, #60A5FA)' : '1px solid rgba(255,255,255,0.1)',
+                                color: 'var(--text-main, #E2E8F0)',
+                                borderRadius: 4,
+                                padding: '4px 8px',
+                                cursor: 'pointer'
+                              }}
+                              title={m.path}
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Phrase Text</label>
+                    <input type="text" value={wakewordPhrase} onChange={e => setWakewordPhrase(e.target.value)} className="input-base" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Silence Timeout (sec)</label>
+                    <input type="number" min="0.2" max="5.0" step="0.1" value={sttSilenceTimeout} onChange={e => setSttSilenceTimeout(parseFloat(e.target.value))} className="input-base" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Amplitude Threshold</label>
+                    <input type="number" min="50" max="2000" step="50" value={sttVadThreshold} onChange={e => setSttVadThreshold(parseFloat(e.target.value))} className="input-base" />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max STT Recording Duration (sec)</label>
+                    <input type="number" min="2.0" max="60.0" step="1.0" value={sttMaxDuration} onChange={e => setSttMaxDuration(parseFloat(e.target.value))} className="input-base" />
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Voice & Audio Provider API Credentials */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Cloud Voice & Speech Provider API Keys</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." />
+                  <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." />
+                </div>
+              </GlowCard>
+
+              {/* Universal Encrypted Secret Vault inside Voice tab */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowVaultSecrets(v => !v)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
+                  >
+                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
+                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
+                  </button>
+                </div>
+
+                {/* List of active custom keys */}
+                {vaultKeys.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                    {vaultKeys.map(k => (
+                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                              {k.category || 'Audio & Voice'}
+                            </span>
+                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
+                              ${k.env_var}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                          </div>
+                        </div>
+                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
+                          <Trash2 size={12} />
+                        </HoloButton>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
+                    No custom API keys registered in encrypted vault yet. Add ElevenLabs, Deepgram, Whisper Cloud or any custom tool key below.
+                  </div>
+                )}
+
+                {/* Add New Key Form */}
+                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                    + Add Dynamic API Key or Cloud Secret
+                  </label>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
+                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. ElevenLabs / Deepgram" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
+                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. ELEVENLABS_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
+                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="xi-... / dg-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
+                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                        <option value="Audio & Voice">Audio & Voice</option>
+                        <option value="LLM Provider">LLM Provider</option>
+                        <option value="Search & Web">Search & Web</option>
+                        <option value="Vision & Media">Vision & Media</option>
+                        <option value="Vector DB">Vector DB</option>
+                        <option value="Custom Tool">Custom Tool</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
+                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.elevenlabs.io/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
+                      <Plus size={12} /> Save Secret to Vault
                     </HoloButton>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                No custom API keys registered in encrypted vault yet. Add ElevenLabs, Deepgram, Whisper Cloud or any custom tool key below.
-              </div>
-            )}
-
-            {/* Add New Key Form */}
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                + Add Dynamic API Key or Cloud Secret
-              </label>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                  <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. ElevenLabs / Deepgram" className="input-base" style={{ height: 32, fontSize: 11 }} />
                 </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                  <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. ELEVENLABS_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-              </div>
+              </GlowCard>
+            </>
+          )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                  <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="xi-... / dg-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                  <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                    <option value="Audio & Voice">Audio & Voice</option>
-                    <option value="LLM Provider">LLM Provider</option>
-                    <option value="Search & Web">Search & Web</option>
-                    <option value="Vision & Media">Vision & Media</option>
-                    <option value="Vector DB">Vector DB</option>
-                    <option value="Custom Tool">Custom Tool</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.elevenlabs.io/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                  <Plus size={12} /> Save Secret to Vault
-                </HoloButton>
-              </div>
-            </div>
-          </GlowCard>
-        </>
-      )}
-
-      {/* Category: Guard */}
-      {activeCategory === 'guard' && (
-        <>
-          {/* System Version & Auto-Update Engine */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div className="section-label" style={{ margin: 0 }}>🪐 System Version & Auto-Update Engine</div>
-              <HoloButton type="button" variant="ghost" size="sm" onClick={checkSystemUpdate} disabled={isCheckingUpdate}>
-                {isCheckingUpdate ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                {isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}
-              </HoloButton>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>Installed Version</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
-                  v{updateInfo?.current_version || '0.2.3'}
-                </div>
-              </div>
-              <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>GitHub Latest Version</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: updateInfo?.update_available ? '#34D399' : 'var(--text-bright)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
-                  v{updateInfo?.version_on_github || '0.2.3'}
-                </div>
-              </div>
-            </div>
-
-            {updateInfo?.update_available ? (
-              <div style={{ background: updateInfo.update_type === 'major' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', border: updateInfo.update_type === 'major' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: updateInfo.update_type === 'major' ? '#F87171' : '#34D399', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>✨ {updateInfo.update_type === 'major' ? 'Major Version Upgrade Available!' : updateInfo.auto_downloaded ? 'Patch Update Ready to Apply!' : 'Minor Update Ready!'}</span>
-                  <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-main)', marginTop: 6, lineHeight: 1.4 }}>
-                  {updateInfo.update_type === 'major'
-                    ? 'A major release has breaking architectural changes. Click below to upgrade.'
-                    : updateInfo.auto_downloaded
-                    ? 'Patch assets were auto-downloaded in the background. Click below to pull final code and apply update.'
-                    : 'A minor update is available. Click below to apply.'}
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                  <HoloButton type="button" variant="primary" size="sm" onClick={handleTriggerUpdate} disabled={isTriggeringUpdate}>
-                    {isTriggeringUpdate ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                    {isTriggeringUpdate ? 'Updating...' : updateInfo.update_type === 'major' ? 'Upgrade to Major Version' : 'Apply Update & Pull Code'}
+          {/* Category: Guard */}
+          {activeCategory === 'guard' && (
+            <>
+              {/* System Version & Auto-Update Engine */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ margin: 0 }}>🪐 System Version & Auto-Update Engine</div>
+                  <HoloButton type="button" variant="ghost" size="sm" onClick={checkSystemUpdate} disabled={isCheckingUpdate}>
+                    {isCheckingUpdate ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                    {isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}
                   </HoloButton>
-                  {updateInfo.release_url && (
-                    <a href={updateInfo.release_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'JetBrains Mono' }}>
-                      View Release Notes ↗
-                    </a>
-                  )}
                 </div>
-              </div>
-            ) : (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                ✅ Meridian-X is running the latest version.
-              </div>
-            )}
-            {updateMsg && (
-              <div style={{ marginTop: 8, fontSize: 11, color: '#34D399', fontFamily: 'JetBrains Mono' }}>
-                {updateMsg}
-              </div>
-            )}
-          </GlowCard>
 
-          {/* Proactive Guard Config */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Proactive Monitoring & System Guard</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPU Warn (%)</label>
-                  <input type="number" min="10" max="95" value={cpuWarn} onChange={e => setCpuWarn(parseFloat(e.target.value))} className="input-base" />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>Installed Version</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
+                      v{updateInfo?.current_version || '0.2.3'}
+                    </div>
+                  </div>
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>GitHub Latest Version</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: updateInfo?.update_available ? '#34D399' : 'var(--text-bright)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
+                      v{updateInfo?.version_on_github || '0.2.3'}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>RAM Warn (%)</label>
-                  <input type="number" min="10" max="95" value={ramWarn} onChange={e => setRamWarn(parseFloat(e.target.value))} className="input-base" />
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Disk Warn (%)</label>
-                  <input type="number" min="10" max="95" value={diskWarn} onChange={e => setDiskWarn(parseFloat(e.target.value))} className="input-base" />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Distraction Websites Blocklist (comma-separated)</label>
-                <input type="text" value={distractions} onChange={e => setDistractions(e.target.value)} className="input-base" />
-              </div>
-            </div>
-          </GlowCard>
 
-          {/* OPT-01 RAM & Performance Engine */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">⚡ RAM & Performance Engine (OPT-01)</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>Low-RAM Performance Mode</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>Strips blurs, backdrop filters, animations, and box shadows to maintain memory under 45MB RAM.</div>
+                {updateInfo?.update_available ? (
+                  <div style={{ background: updateInfo.update_type === 'major' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', border: updateInfo.update_type === 'major' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: updateInfo.update_type === 'major' ? '#F87171' : '#34D399', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span>✨ {updateInfo.update_type === 'major' ? 'Major Version Upgrade Available!' : updateInfo.auto_downloaded ? 'Patch Update Ready to Apply!' : 'Minor Update Ready!'}</span>
+                      <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-main)', marginTop: 6, lineHeight: 1.4 }}>
+                      {updateInfo.update_type === 'major'
+                        ? 'A major release has breaking architectural changes. Click below to upgrade.'
+                        : updateInfo.auto_downloaded
+                          ? 'Patch assets were auto-downloaded in the background. Click below to pull final code and apply update.'
+                          : 'A minor update is available. Click below to apply.'}
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+                      <HoloButton type="button" variant="primary" size="sm" onClick={handleTriggerUpdate} disabled={isTriggeringUpdate}>
+                        {isTriggeringUpdate ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                        {isTriggeringUpdate ? 'Updating...' : updateInfo.update_type === 'major' ? 'Upgrade to Major Version' : 'Apply Update & Pull Code'}
+                      </HoloButton>
+                      {updateInfo.release_url && (
+                        <a href={updateInfo.release_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'JetBrains Mono' }}>
+                          View Release Notes ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                    ✅ Meridian-X is running the latest version.
+                  </div>
+                )}
+                {updateMsg && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: '#34D399', fontFamily: 'JetBrains Mono' }}>
+                    {updateMsg}
+                  </div>
+                )}
+              </GlowCard>
+
+              {/* Proactive Guard Config */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Proactive Monitoring & System Guard</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPU Warn (%)</label>
+                      <input type="number" min="10" max="95" value={cpuWarn} onChange={e => setCpuWarn(parseFloat(e.target.value))} className="input-base" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>RAM Warn (%)</label>
+                      <input type="number" min="10" max="95" value={ramWarn} onChange={e => setRamWarn(parseFloat(e.target.value))} className="input-base" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Disk Warn (%)</label>
+                      <input type="number" min="10" max="95" value={diskWarn} onChange={e => setDiskWarn(parseFloat(e.target.value))} className="input-base" />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Distraction Websites Blocklist (comma-separated)</label>
+                    <input type="text" value={distractions} onChange={e => setDistractions(e.target.value)} className="input-base" />
+                  </div>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={isLowRam}
-                    onChange={e => toggleLowRamMode(e.target.checked)}
-                  />
-                  <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: isLowRam ? 'var(--accent)' : 'var(--text-dim)' }}>
-                    {isLowRam ? 'Enabled' : 'Disabled'}
-                  </span>
-                </label>
-              </div>
-            </div>
-          </GlowCard>
+              </GlowCard>
 
-          {/* Browser Tool Config */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Web Browser Tool Settings</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Width (px)</label>
-                <input type="number" min="320" max="3840" value={browserWidth} onChange={e => setBrowserWidth(parseInt(e.target.value))} className="input-base" />
-              </div>
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Height (px)</label>
-                <input type="number" min="240" max="2160" value={browserHeight} onChange={e => setBrowserHeight(parseInt(e.target.value))} className="input-base" />
-              </div>
-            </div>
-          </GlowCard>
+              {/* OPT-01 RAM & Performance Engine */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">⚡ RAM & Performance Engine (OPT-01)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>Low-RAM Performance Mode</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>Strips blurs, backdrop filters, animations, and box shadows to maintain memory under 45MB RAM.</div>
+                    </div>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={isLowRam}
+                        onChange={e => toggleLowRamMode(e.target.checked)}
+                      />
+                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: isLowRam ? 'var(--accent)' : 'var(--text-dim)' }}>
+                        {isLowRam ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </GlowCard>
 
-          {/* MCP Servers Manager */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">MCP Servers Manager</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              
-              {/* Active Servers List */}
-              {Object.keys(mcpServers).length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Active Servers
-                  </label>
-                  {Object.entries(mcpServers).map(([name, srv]: [string, any]) => (
-                    <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>
-                          {name} <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, fontFamily: 'JetBrains Mono' }}>({srv.command})</span>
-                        </div>
-                        {srv.args && srv.args.length > 0 && (
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', wordBreak: 'break-all' }}>
-                            args: {srv.args.join(' ')}
+              {/* Browser Tool Config */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Web Browser Tool Settings</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Width (px)</label>
+                    <input type="number" min="320" max="3840" value={browserWidth} onChange={e => setBrowserWidth(parseInt(e.target.value))} className="input-base" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Height (px)</label>
+                    <input type="number" min="240" max="2160" value={browserHeight} onChange={e => setBrowserHeight(parseInt(e.target.value))} className="input-base" />
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* MCP Servers Manager */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">MCP Servers Manager</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                  {/* Active Servers List */}
+                  {Object.keys(mcpServers).length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Active Servers
+                      </label>
+                      {Object.entries(mcpServers).map(([name, srv]: [string, any]) => (
+                        <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>
+                              {name} <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, fontFamily: 'JetBrains Mono' }}>({srv.command})</span>
+                            </div>
+                            {srv.args && srv.args.length > 0 && (
+                              <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', wordBreak: 'break-all' }}>
+                                args: {srv.args.join(' ')}
+                              </div>
+                            )}
+                            {srv.env && Object.keys(srv.env).length > 0 && (
+                              <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                                env: {Object.entries(srv.env).map(([k, v]) => `${k}=${v}`).join(', ')}
+                              </div>
+                            )}
                           </div>
+                          <HoloButton type="button" variant="danger" size="sm" onClick={() => handleRemoveMcpServer(name)}>
+                            <Trash2 size={12} />
+                          </HoloButton>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '12px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
+                      No active MCP servers configured. Add one below to extend agent capabilities.
+                    </div>
+                  )}
+
+                  {/* Add New Server Form */}
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                      Add Stdio MCP Server
+                    </label>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server ID Name</label>
+                        <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. sqlite" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Startup Command</label>
+                        <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (comma-separated)</label>
+                      <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y, @modelcontextprotocol/server-sqlite, --db, test.db" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Environment Variables (comma-separated KEY=VAL)</label>
+                      <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="e.g. API_KEY=abc, DB_PATH=def" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                      <HoloButton type="button" variant="primary" size="sm" onClick={handleAddMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
+                        <Plus size={12} /> Add Server
+                      </HoloButton>
+                    </div>
+                  </div>
+
+                </div>
+              </GlowCard>
+            </>
+          )}
+
+          {/* Category: Mascot & Style */}
+          {activeCategory === 'mascot' && (
+            <>
+              {/* Theme & Design Styles Selector */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div className="section-label" style={{ margin: 0 }}>Design Styles & Themes</div>
+                  <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--accent-muted)', padding: '2px 8px', borderRadius: 4 }}>
+                    11 STYLES AVAILABLE
+                  </span>
+                </div>
+
+                {/* Filter Tabs */}
+                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                  {(['all', 'dark', 'light'] as const).map(tab => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setThemeFilter(tab)}
+                      style={{
+                        flex: 1,
+                        padding: '4px 8px',
+                        fontSize: 10,
+                        fontFamily: 'JetBrains Mono',
+                        borderRadius: 4,
+                        border: '1px solid var(--border-subtle)',
+                        background: themeFilter === tab ? 'var(--accent-muted)' : 'transparent',
+                        color: themeFilter === tab ? 'var(--accent)' : 'var(--text-dim)',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      {tab === 'all' ? 'All (11)' : tab === 'dark' ? '🌙 Dark (7)' : '☀️ Light (4)'}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}>
+                  {THEMES.filter(t => themeFilter === 'all' || (themeFilter === 'dark' ? t.mode === 'Dark' : t.mode === 'Light')).map(t => {
+                    const isSelected = theme === t.id;
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => setTheme(t.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 12,
+                          padding: '10px 12px',
+                          borderRadius: 'var(--radius-md)',
+                          background: isSelected ? 'var(--bg-surface)' : 'var(--bg-panel)',
+                          border: isSelected ? '1.5px solid var(--accent)' : '1px solid var(--border-subtle)',
+                          boxShadow: isSelected ? '0 0 12px var(--accent-muted)' : 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          position: 'relative',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        {/* Active accent bar */}
+                        {isSelected && (
+                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--accent)' }} />
                         )}
-                        {srv.env && Object.keys(srv.env).length > 0 && (
-                          <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            env: {Object.entries(srv.env).map(([k, v]) => `${k}=${v}`).join(', ')}
+
+                        {/* Color Swatch Stack */}
+                        <div style={{ display: 'flex', gap: 3, flexShrink: 0, padding: 3, background: t.swatches[0], borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)' }}>
+                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[0] }} />
+                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[1] }} />
+                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[2] }} />
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 13 }}>{t.icon}</span>
+                            <span style={{
+                              fontSize: 13,
+                              fontWeight: 600,
+                              fontFamily: t.font,
+                              color: isSelected ? 'var(--text-bright)' : 'var(--text-main)',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {t.label}
+                            </span>
+                            <span style={{
+                              fontSize: 9,
+                              fontFamily: 'JetBrains Mono',
+                              padding: '1px 5px',
+                              borderRadius: 3,
+                              background: t.mode === 'Light' ? 'rgba(255, 222, 89, 0.2)' : 'rgba(255,255,255,0.06)',
+                              color: t.mode === 'Light' ? '#FFDE59' : 'var(--text-dim)',
+                              marginLeft: 'auto',
+                            }}>
+                              {t.mode}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {t.sub}
+                          </div>
+                        </div>
+
+                        {/* Selected Checkmark */}
+                        {isSelected && (
+                          <div style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            background: 'var(--accent)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}>
+                            <Check size={12} color="#000" strokeWidth={3} />
                           </div>
                         )}
                       </div>
-                      <HoloButton type="button" variant="danger" size="sm" onClick={() => handleRemoveMcpServer(name)}>
-                        <Trash2 size={12} />
-                      </HoloButton>
+                    );
+                  })}
+                </div>
+              </GlowCard>
+
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Mascot & Audio Customize</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                  {/* Dynamic Island Position */}
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Dynamic Island Screen Position
+                    </label>
+                    <select
+                      value={islandPosition}
+                      onChange={e => setIslandPosition(e.target.value as any)}
+                      className="select-base"
+                    >
+                      <option value="top-center">🍏 Top-Center (Apple Notch / Header)</option>
+                      <option value="bottom-center">📱 Bottom-Center (Dock Style)</option>
+                      <option value="top-right">↗️ Top-Right HUD</option>
+                      <option value="bottom-right">📍 Bottom-Right Tray (Default)</option>
+                      <option value="top-left">↖️ Top-Left Corner</option>
+                      <option value="bottom-left">↙️ Bottom-Left Corner</option>
+                    </select>
+                  </div>
+
+                  {/* TTS Voice Selection */}
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      TTS Voice Engine (Speaker)
+                    </label>
+                    <select
+                      value={ttsVoice}
+                      onChange={e => handleVoiceChange(e.target.value)}
+                      className="select-base"
+                    >
+                      <option value="M1">Male 1 (Coordinator)</option>
+                      <option value="M2">Male 2 (Assistant)</option>
+                      <option value="M3">Male 3 (Calm)</option>
+                      <option value="M4">Male 4 (Warm)</option>
+                      <option value="M5">Male 5 (Deep)</option>
+                      <option value="F1">Female 1 (Soft)</option>
+                      <option value="F2">Female 2 (Professional)</option>
+                      <option value="F3">Female 3 (Expressive)</option>
+                      <option value="F4">Female 4 (Bright)</option>
+                      <option value="F5">Female 5 (Crisp)</option>
+                    </select>
+                  </div>
+
+                  {/* TTS Volume Slider */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Speech Volume
+                      </label>
+                      <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
+                        {Math.round(ttsVolume * 100)}%
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '12px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                  No active MCP servers configured. Add one below to extend agent capabilities.
-                </div>
-              )}
-
-              {/* Add New Server Form */}
-              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                  Add Stdio MCP Server
-                </label>
-                
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server ID Name</label>
-                    <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. sqlite" className="input-base" style={{ height: 32, fontSize: 11 }} />
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={ttsVolume}
+                      onChange={e => handleVolumeChange(parseFloat(e.target.value))}
+                      style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
                   </div>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Startup Command</label>
-                    <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx" className="input-base" style={{ height: 32, fontSize: 11 }} />
+
+                  {/* Sound FX Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Mascot Sound FX</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Enable ambient state-change audio.</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={audioFxEnabled}
+                      onChange={e => handleAudioFxChange(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
                   </div>
                 </div>
+              </GlowCard>
+            </>
+          )}
 
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (comma-separated)</label>
-                  <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y, @modelcontextprotocol/server-sqlite, --db, test.db" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Environment Variables (comma-separated KEY=VAL)</label>
-                  <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="e.g. API_KEY=abc, DB_PATH=def" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                  <HoloButton type="button" variant="primary" size="sm" onClick={handleAddMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
-                    <Plus size={12} /> Add Server
-                  </HoloButton>
-                </div>
-              </div>
-
-            </div>
-          </GlowCard>
-        </>
-      )}
-
-      {/* Category: Mascot & Style */}
-      {activeCategory === 'mascot' && (
-        <>
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Mascot & Audio Customize</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-              {/* Dynamic Island Position */}
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Dynamic Island Screen Position
-                </label>
-                <select
-                  value={islandPosition}
-                  onChange={e => setIslandPosition(e.target.value as any)}
-                  className="select-base"
-                >
-                  <option value="top-center">🍏 Top-Center (Apple Notch / Header)</option>
-                  <option value="bottom-center">📱 Bottom-Center (Dock Style)</option>
-                  <option value="top-right">↗️ Top-Right HUD</option>
-                  <option value="bottom-right">📍 Bottom-Right Tray (Default)</option>
-                  <option value="top-left">↖️ Top-Left Corner</option>
-                  <option value="bottom-left">↙️ Bottom-Left Corner</option>
-                </select>
-              </div>
-
-              {/* TTS Voice Selection */}
-              <div>
-                <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  TTS Voice Engine (Speaker)
-                </label>
-                <select 
-                  value={ttsVoice} 
-                  onChange={e => handleVoiceChange(e.target.value)} 
-                  className="select-base"
-                >
-                  <option value="M1">Male 1 (Coordinator)</option>
-                  <option value="M2">Male 2 (Assistant)</option>
-                  <option value="M3">Male 3 (Calm)</option>
-                  <option value="M4">Male 4 (Warm)</option>
-                  <option value="M5">Male 5 (Deep)</option>
-                  <option value="F1">Female 1 (Soft)</option>
-                  <option value="F2">Female 2 (Professional)</option>
-                  <option value="F3">Female 3 (Expressive)</option>
-                  <option value="F4">Female 4 (Bright)</option>
-                  <option value="F5">Female 5 (Crisp)</option>
-                </select>
-              </div>
-
-              {/* TTS Volume Slider */}
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Speech Volume
-                  </label>
-                  <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
-                    {Math.round(ttsVolume * 100)}%
-                  </span>
-                </div>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max="1" 
-                  step="0.05"
-                  value={ttsVolume} 
-                  onChange={e => handleVolumeChange(parseFloat(e.target.value))} 
-                  style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-                />
-              </div>
-
-              {/* Sound FX Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Mascot Sound FX</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Enable ambient state-change audio.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={audioFxEnabled}
-                  onChange={e => handleAudioFxChange(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                />
-              </div>
-            </div>
-          </GlowCard>
-        </>
-      )}
-
-      {/* System Card inside Guard */}
-      {activeCategory === 'guard' && (
-        <>
-          {/* System */}
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">System</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {/* Startup Toggle */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Launch on Startup</div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically start Meridian-X when Windows boots.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={startupEnabled}
-                  onChange={e => handleToggleStartup(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                />
-              </div>
-
-              {/* Game Mode */}
-              {((window as any).__TAURI_INTERNALS__) && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Desktop Game Mode</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Suspends Alt+M / Alt+V hotkeys during full-screen games.</div>
+          {/* System Card inside Guard */}
+          {activeCategory === 'guard' && (
+            <>
+              {/* System */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">System</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {/* Startup Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Launch on Startup</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically start Meridian-X when Windows boots.</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={startupEnabled}
+                      onChange={e => handleToggleStartup(e.target.checked)}
+                      style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={gameMode}
-                    onChange={e => handleGameMode(e.target.checked)}
-                    style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                  />
-                </div>
-              )}
 
-              {/* Log Level & MongoDB URI */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
-                  <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                    <option value="DEBUG">DEBUG</option>
-                    <option value="INFO">INFO</option>
-                    <option value="WARNING">WARNING</option>
-                    <option value="ERROR">ERROR</option>
-                    <option value="CRITICAL">CRITICAL</option>
-                  </select>
+                  {/* Game Mode */}
+                  {((window as any).__TAURI_INTERNALS__) && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
+                      <div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Desktop Game Mode</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Suspends Alt+M / Alt+V hotkeys during full-screen games.</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={gameMode}
+                        onChange={e => handleGameMode(e.target.checked)}
+                        style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Log Level & MongoDB URI */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
+                      <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
+                      <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
-                  <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
-                </div>
-              </div>
-            </div>
-          </GlowCard>
-        </>
-      )}
+              </GlowCard>
+            </>
+          )}
 
           {/* Save Button */}
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -1881,7 +2012,7 @@ export default function Settings() {
           </div>
         </div>
 
-        {/* Right: hardware + theme */}
+        {/* Right: Hardware Vitals & Engine Monitor */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <GlowCard className="glass" style={{ padding: 16 }}>
             <div className="section-label">Hardware Vitals</div>
@@ -1895,22 +2026,40 @@ export default function Settings() {
             </div>
           </GlowCard>
 
-          <GlowCard className="glass" style={{ padding: 16 }}>
-            <div className="section-label">Theme</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {THEMES.map(t => (
-                <label key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 2px' }}>
-                  <input
-                    type="radio"
-                    name="theme"
-                    checked={theme === t.id}
-                    onChange={() => setTheme(t.id)}
-                    style={{ accentColor: t.color }}
-                  />
-                  <span style={{ width: 10, height: 10, borderRadius: '50%', background: t.color, flexShrink: 0, boxShadow: theme === t.id ? `0 0 8px ${t.color}` : 'none' }} />
-                  <span style={{ fontSize: 12, color: theme === t.id ? 'var(--text-bright)' : 'var(--text-main)', fontWeight: theme === t.id ? 600 : 400 }}>{t.label}</span>
-                </label>
-              ))}
+          {/* Engine Health & Memory Optimizer Card */}
+          <GlowCard className="glass" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="section-label" style={{ margin: 0 }}>Memory & Engine Monitor</div>
+
+            {/* Low RAM Mode Toggle */}
+            <div style={{ padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)' }}>Low RAM Optimizer</span>
+                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: isLowRam ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: isLowRam ? 'var(--success)' : 'var(--text-dim)' }}>
+                  {isLowRam ? 'ACTIVE' : 'DISABLED'}
+                </span>
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                Disables canvas background particles to optimize memory footprint.
+              </div>
+              <HoloButton type="button" variant={isLowRam ? "secondary" : "primary"} size="sm" onClick={toggleLowRamMode}>
+                {isLowRam ? 'Disable Low-RAM Mode' : '⚡ Enable Low-RAM Mode'}
+              </HoloButton>
+            </div>
+
+            {/* Subsystem Health Badges */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ color: 'var(--text-dim)' }}>Backend Daemon</span>
+                <span style={{ color: 'var(--success)', fontWeight: 600 }}>● Active (:4132)</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ color: 'var(--text-dim)' }}>Vector DB Engine</span>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Turbovec Active</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
+                <span style={{ color: 'var(--text-dim)' }}>State Store</span>
+                <span style={{ color: 'var(--accent-2)', fontWeight: 600 }}>SQLite WAL</span>
+              </div>
             </div>
           </GlowCard>
         </div>

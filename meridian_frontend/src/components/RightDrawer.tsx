@@ -59,6 +59,13 @@ export default function RightDrawer({
   const { rightDrawerOpen, setRightDrawerOpen, activeTab, systemUsage } = useApp();
   const title = DRAWER_TITLES[activeTab];
 
+  // Auto-expand drawer when AI starts streaming thoughts
+  React.useEffect(() => {
+    if (thoughtsFeed?.streaming) {
+      setRightDrawerOpen(true);
+    }
+  }, [thoughtsFeed?.streaming]);
+
   return (
     <>
       <div
@@ -66,7 +73,7 @@ export default function RightDrawer({
           width: rightDrawerOpen ? 'var(--drawer-width)' : 0,
           opacity: rightDrawerOpen ? 1 : 0,
           transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-          background: 'var(--bg-void)',
+          background: 'var(--bg-panel)',
           borderLeft: rightDrawerOpen ? '1px solid var(--border-subtle)' : 'none',
           overflow: 'hidden',
           flexShrink: 0,
@@ -81,13 +88,25 @@ export default function RightDrawer({
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: "'JetBrains Mono', monospace" }}>
               {title}
             </span>
-            <button
-              onClick={() => setRightDrawerOpen(false)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 4, borderRadius: 'var(--radius-sm)', display: 'flex' }}
-              title="Collapse"
-            >
-              <ChevronRight size={14} />
-            </button>
+
+            {/* Hardware Vitals Mini Bar & Collapse Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '2px 6px', borderRadius: 4, background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-dim)' }}>CPU</span>
+                <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: 600, color: systemUsage.cpu > 80 ? 'var(--danger)' : 'var(--accent)' }}>{systemUsage.cpu}%</span>
+                <span style={{ fontSize: 9, color: 'var(--text-ghost)' }}>|</span>
+                <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono', color: 'var(--text-dim)' }}>RAM</span>
+                <span style={{ fontSize: 9, fontFamily: 'JetBrains Mono', fontWeight: 600, color: systemUsage.ram > 85 ? 'var(--danger)' : 'var(--accent-2)' }}>{systemUsage.ram}%</span>
+              </div>
+
+              <button
+                onClick={() => setRightDrawerOpen(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 4, borderRadius: 'var(--radius-sm)', display: 'flex' }}
+                title="Collapse"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
           </div>
 
           {/* Content */}
@@ -199,7 +218,7 @@ export default function RightDrawer({
             right: 0,
             top: '50%',
             transform: 'translateY(-50%)',
-            background: 'var(--bg-void)',
+            background: 'var(--bg-panel)',
             border: '1px solid var(--border-subtle)',
             borderRight: 'none',
             borderRadius: '6px 0 0 6px',

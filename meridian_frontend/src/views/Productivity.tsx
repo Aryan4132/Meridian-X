@@ -23,12 +23,44 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
   );
 }
 
+const PRESET_DISTRACTIONS = [
+  { id: 'youtube', label: 'YouTube', target: 'youtube.com' },
+  { id: 'reddit', label: 'Reddit', target: 'reddit.com' },
+  { id: 'twitter', label: 'Twitter / X', target: 'x.com' },
+  { id: 'twitch', label: 'Twitch', target: 'twitch.tv' },
+  { id: 'discord', label: 'Discord App', target: 'discord.exe' },
+  { id: 'steam', label: 'Steam', target: 'steam.exe' },
+];
+
 export default function Productivity() {
   const [stats, setStats] = useState<DeveloperStats>({ total: 0, success: 0, failed: 0, audits: 0, heals: 0, gitCommits: 0, pomodoros: 0 });
   const [durationMins, setDurationMins] = useState(25);
   const [secsLeft, setSecsLeft] = useState(25 * 60);
   const [active, setActive] = useState(false);
   const intervalRef = useRef<any>(null);
+
+  const [blockedTargets, setBlockedTargets] = useState<string[]>(() => {
+    const saved = localStorage.getItem('distraction_targets');
+    return saved ? JSON.parse(saved) : ['youtube.com', 'reddit.com', 'x.com'];
+  });
+  const [customTarget, setCustomTarget] = useState('');
+
+  const toggleTarget = (target: string) => {
+    const next = blockedTargets.includes(target)
+      ? blockedTargets.filter(t => t !== target)
+      : [...blockedTargets, target];
+    setBlockedTargets(next);
+    localStorage.setItem('distraction_targets', JSON.stringify(next));
+  };
+
+  const addCustomTarget = () => {
+    const clean = customTarget.trim().toLowerCase();
+    if (!clean || blockedTargets.includes(clean)) return;
+    const next = [...blockedTargets, clean];
+    setBlockedTargets(next);
+    localStorage.setItem('distraction_targets', JSON.stringify(next));
+    setCustomTarget('');
+  };
 
   const fetchStats = async () => {
     try {
@@ -198,22 +230,115 @@ export default function Productivity() {
             </div>
           </GlowCard>
 
-          {/* Diagnostics */}
-          <GlowCard className="glass" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div className="section-label">System Diagnostics</div>
-            {[
-              { name: 'AST Syntax Watcher', desc: 'Auto-compiles workspace files on save. Syntax errors trigger self-healing diff patches.', color: 'var(--danger)', status: 'ACTIVE' },
-              { name: 'Secure Port Check', desc: 'Prevents credential leaks. Audits outgoing connections and blocks restricted file access.', color: 'var(--warning)', status: 'ACTIVE' },
-              { name: 'Security Auditor', desc: 'Tier 2+ operations run through an isolated validator model before execution.', color: 'var(--accent)', status: 'ACTIVE' },
-            ].map(({ name, desc, color, status }) => (
-              <div key={name} style={{ padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', borderLeft: `2px solid ${color}` }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, fontWeight: 600, color, fontFamily: "'JetBrains Mono', monospace" }}>{name}</span>
-                  <span className="badge badge-success" style={{ borderColor: color, color }}>{status}</span>
+          {/* Distraction Blocker (Websites & Apps) */}
+          <GlowCard className="glass" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div className="section-label" style={{ margin: 0 }}>Focus Distraction Blocker</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+                  Block distracting sites & background apps during focus blocks.
                 </div>
-                <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: 0, lineHeight: 1.5 }}>{desc}</p>
               </div>
-            ))}
+              <span style={{
+                fontSize: 9,
+                fontFamily: 'JetBrains Mono',
+                padding: '2px 8px',
+                borderRadius: 4,
+                background: active ? 'rgba(239, 68, 68, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                color: active ? 'var(--danger)' : 'var(--success)',
+                fontWeight: 600,
+                border: `1px solid ${active ? 'var(--danger)' : 'var(--success)'}`,
+              }}>
+                {active ? '🛡️ FOCUS SHIELD ACTIVE' : '⚡ READY (IDLE)'}
+              </span>
+            </div>
+
+            {/* Presets */}
+            <div>
+              <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Preset Distraction Targets
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {PRESET_DISTRACTIONS.map(item => {
+                  const isBlocked = blockedTargets.includes(item.target);
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => toggleTarget(item.target)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '5px 10px',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: 11,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        cursor: 'pointer',
+                        background: isBlocked ? 'rgba(239, 68, 68, 0.14)' : 'var(--bg-surface)',
+                        border: isBlocked ? '1px solid var(--danger)' : '1px solid var(--border-subtle)',
+                        color: isBlocked ? 'var(--danger)' : 'var(--text-main)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span>{isBlocked ? '⛔' : '🌐'}</span>
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Targets Add */}
+            <div>
+              <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                Custom Domains & App Processes
+              </label>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input
+                  type="text"
+                  value={customTarget}
+                  onChange={e => setCustomTarget(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addCustomTarget()}
+                  placeholder="e.g. instagram.com or chrome.exe"
+                  className="input-base"
+                  style={{ flex: 1, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}
+                />
+                <HoloButton type="button" variant="primary" size="sm" onClick={addCustomTarget} disabled={!customTarget.trim()}>
+                  + Add
+                </HoloButton>
+              </div>
+
+              {/* Active Target Tags List */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, maxHeight: 90, overflowY: 'auto' }}>
+                {blockedTargets.map(t => (
+                  <span
+                    key={t}
+                    style={{
+                      fontSize: 10,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      padding: '3px 8px',
+                      borderRadius: 4,
+                      background: 'var(--bg-surface)',
+                      border: '1px solid var(--border-subtle)',
+                      color: 'var(--text-bright)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    {t}
+                    <button
+                      type="button"
+                      onClick={() => toggleTarget(t)}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', padding: 0, fontSize: 10, lineHeight: 1 }}
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
           </GlowCard>
         </div>
       </div>

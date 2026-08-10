@@ -2088,10 +2088,28 @@ def clipboard_add(request: ClipboardRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/clipboard/history")
-def clipboard_history(limit: Optional[int] = 10):
+def clipboard_history(limit: Optional[int] = 50):
     try:
         history = get_clipboard_history(limit)
         return {"history": history}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/clipboard/clear")
+def clipboard_clear():
+    from database import get_sqlite_conn, get_mongo_db
+    try:
+        db = get_mongo_db()
+        if db is not None:
+            try:
+                db["smart_clipboard"].delete_many({})
+            except Exception:
+                pass
+        conn = get_sqlite_conn()
+        conn.execute("DELETE FROM clipboard_history;")
+        conn.commit()
+        conn.close()
+        return {"status": "cleared"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
