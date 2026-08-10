@@ -65,6 +65,18 @@ Block distracting websites (`YouTube`, `Reddit`, `Twitter/X`, `Twitch`) and back
 ### 📋 50-Slot Clipboard Surveillance & Multi-Column Grid
 Real-time pastebuffer monitoring with 50 persistent slots, automatic URL/Code classification, 1-click prompt analysis, and SQLite WAL database persistence fallback.
 
+### 🔊 Supertonic Speech & Voice Engine
+Local text-to-speech engine featuring 10 distinct speaker voices (Male M1–M5, Female F1–F5), dynamic speech volume control, and audio state-change sound FX.
+
+### 📈 Developer Productivity & Real Stats Engine
+Queries live SQLite task logs and Git repository commits to calculate real metrics: `Success Rate`, `Heals Applied`, `Git Commits/Snapshots`, and `Pomodoros Completed`.
+
+### 🌌 Ambient Particle Canvas & Low RAM Optimizer
+Dynamic background particle renderer (`AmbientParticles.tsx`) with floating nodes & accent connections, featuring a 1-click **Low RAM Mode** toggle in Settings to conserve memory.
+
+### ⚡ On-Device Turbovec Vector RAG & Knowledge Graph
+Local semantic vector store (`Turbovec`) combined with entity-relationship knowledge graph memory for instant sub-millisecond retrieval without sending context to third parties.
+
 ### 🎨 11 Selectable Design Styles
 Switch themes in **Settings → Mascot & Style** with live visual swatch previews & category filters (`All`, `Dark`, `Light`):
 
