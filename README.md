@@ -59,8 +59,14 @@ Dual-lane tool execution for maximum throughput with safety guarantees:
 - Prompt injection sanitizer stripping jailbreak directives and zero-width unicode attacks.
 - `MERIDIAN_ALLOW_HOST_CODE_EXEC` sandbox gate blocking un-sandboxed execution.
 
+### 🛡️ Focus Distraction Blocker
+Block distracting websites (`YouTube`, `Reddit`, `Twitter/X`, `Twitch`) and background processes (`discord.exe`, `steam.exe`) during Pomodoro focus blocks with active shield status.
+
+### 📋 50-Slot Clipboard Surveillance & Multi-Column Grid
+Real-time pastebuffer monitoring with 50 persistent slots, automatic URL/Code classification, 1-click prompt analysis, and SQLite WAL database persistence fallback.
+
 ### 🎨 11 Selectable Design Styles
-Switch themes in **Settings → Mascot & Style** with live visual swatch previews & category filters:
+Switch themes in **Settings → Mascot & Style** with live visual swatch previews & category filters (`All`, `Dark`, `Light`):
 
 | Theme | Type | Key Accent | Typography |
 |---|---|---|---|
