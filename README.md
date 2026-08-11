@@ -15,7 +15,7 @@
 
 **Meridian-X** is an offline-first, agentic desktop AI assistant built on **Tauri v2 + React**, **FastAPI**, and **user-configurable AI models (Local or Cloud)**. It runs autonomous ReAct reasoning loops, secures your workspace with multi-tier safety gates, parses documents into a local vector store, and ships an interactive 3D mascot companion with full cloud API vault and MCP server integration.
 
-[⬇ Download](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Installation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
+[🌐 Website](https://meridian-x.pages.dev) · [⬇ Download](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Installation](#️-getting-started--installation) · [🛠 Contributing](#-contributing)
 
 </div>
 

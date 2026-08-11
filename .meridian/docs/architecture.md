@@ -117,33 +117,35 @@ graph TD
     N111["AppContext.tsx [meridian_frontend/src]"]
     N112["main.tsx [meridian_frontend/src]"]
     N113["Mascot.tsx [meridian_frontend/src]"]
-    N114["CommandPalette.tsx [meridian_frontend/src/components]"]
-    N115["NavRail.tsx [meridian_frontend/src/components]"]
-    N116["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N117["Shell.tsx [meridian_frontend/src/components]"]
-    N118["StatusBar.tsx [meridian_frontend/src/components]"]
-    N119["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N120["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N121["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N122["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N123["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N124["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
-    N125["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N126["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N127["Clipboard.tsx [meridian_frontend/src/views]"]
-    N128["GameOverlay.tsx [meridian_frontend/src/views]"]
-    N129["Jobs.tsx [meridian_frontend/src/views]"]
-    N130["LocalStudio.tsx [meridian_frontend/src/views]"]
-    N131["Productivity.tsx [meridian_frontend/src/views]"]
-    N132["SecurityPanel.tsx [meridian_frontend/src/views]"]
-    N133["Settings.tsx [meridian_frontend/src/views]"]
-    N134["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N135["Timeline.tsx [meridian_frontend/src/views]"]
-    N136["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N137["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N138["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N139["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N140["get_system_platform_info.py [plugins]"]
+    N114["Mascot3DCharacter.tsx [meridian_frontend/src]"]
+    N115["CommandPalette.tsx [meridian_frontend/src/components]"]
+    N116["NavRail.tsx [meridian_frontend/src/components]"]
+    N117["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N118["Shell.tsx [meridian_frontend/src/components]"]
+    N119["StatusBar.tsx [meridian_frontend/src/components]"]
+    N120["AmbientParticles.tsx [meridian_frontend/src/components/ui]"]
+    N121["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N122["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N123["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N124["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N125["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N126["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
+    N127["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N128["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N129["Clipboard.tsx [meridian_frontend/src/views]"]
+    N130["GameOverlay.tsx [meridian_frontend/src/views]"]
+    N131["Jobs.tsx [meridian_frontend/src/views]"]
+    N132["LocalStudio.tsx [meridian_frontend/src/views]"]
+    N133["Productivity.tsx [meridian_frontend/src/views]"]
+    N134["SecurityPanel.tsx [meridian_frontend/src/views]"]
+    N135["Settings.tsx [meridian_frontend/src/views]"]
+    N136["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N137["Timeline.tsx [meridian_frontend/src/views]"]
+    N138["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N139["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N140["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N141["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N142["get_system_platform_info.py [plugins]"]
 
     N5 --> N10
     N10 --> N11
@@ -189,63 +191,66 @@ graph TD
     N103 --> N10
     N108 --> N10
     N109 --> N10
-    N111 --> N139
+    N111 --> N141
     N111 --> N17
     N112 --> N113
-    N112 --> N125
-    N112 --> N126
-    N112 --> N117
+    N112 --> N127
+    N112 --> N128
+    N112 --> N118
     N112 --> N111
     N112 --> N17
-    N115 --> N111
-    N115 --> N113
+    N113 --> N114
     N116 --> N111
-    N116 --> N122
-    N116 --> N119
+    N116 --> N113
     N117 --> N111
-    N117 --> N115
-    N117 --> N118
-    N117 --> N116
-    N117 --> N135
-    N117 --> N129
-    N117 --> N127
-    N117 --> N131
-    N117 --> N134
-    N117 --> N133
+    N117 --> N124
+    N117 --> N121
     N118 --> N111
+    N118 --> N116
     N118 --> N119
-    N125 --> N17
-    N126 --> N121
-    N126 --> N17
-    N127 --> N139
-    N127 --> N111
-    N127 --> N121
+    N118 --> N117
+    N118 --> N137
+    N118 --> N131
+    N118 --> N129
+    N118 --> N133
+    N118 --> N136
+    N118 --> N135
+    N118 --> N120
+    N119 --> N111
+    N119 --> N121
+    N120 --> N126
     N127 --> N17
-    N129 --> N139
-    N129 --> N121
-    N129 --> N120
+    N128 --> N123
+    N128 --> N17
+    N129 --> N141
+    N129 --> N111
+    N129 --> N123
     N129 --> N17
-    N131 --> N139
+    N131 --> N141
+    N131 --> N123
     N131 --> N122
-    N131 --> N121
-    N131 --> N120
     N131 --> N17
-    N133 --> N17
-    N133 --> N139
-    N133 --> N111
+    N133 --> N141
     N133 --> N124
+    N133 --> N123
     N133 --> N122
-    N133 --> N121
-    N133 --> N120
-    N134 --> N123
-    N134 --> N121
-    N134 --> N17
-    N135 --> N139
-    N135 --> N121
-    N135 --> N120
+    N133 --> N17
     N135 --> N17
-    N138 --> N139
-    N139 --> N138
+    N135 --> N141
+    N135 --> N111
+    N135 --> N126
+    N135 --> N124
+    N135 --> N123
+    N135 --> N122
+    N136 --> N125
+    N136 --> N123
+    N136 --> N17
+    N137 --> N141
+    N137 --> N123
+    N137 --> N122
+    N137 --> N17
+    N140 --> N141
+    N141 --> N140
 ```
 
 ## Detailed File Index
@@ -1049,10 +1054,15 @@ graph TD
   - Imports: `react`
   - Imports: `types`
 - **meridian_frontend/src/Mascot.tsx**
+  - Imports: `Mascot3DCharacter`
   - Imports: `core`
   - Imports: `event`
   - Imports: `react`
   - Imports: `window`
+- **meridian_frontend/src/Mascot3DCharacter.tsx**
+  - Imports: `animejs`
+  - Imports: `react`
+  - Imports: `three`
 - **meridian_frontend/src/components/CommandPalette.tsx**
   - Imports: `lucide-react`
   - Imports: `react`
@@ -1069,6 +1079,7 @@ graph TD
   - Imports: `lucide-react`
   - Imports: `react`
 - **meridian_frontend/src/components/Shell.tsx**
+  - Imports: `AmbientParticles`
   - Imports: `AppContext`
   - Imports: `Clipboard`
   - Imports: `Jobs`
@@ -1084,6 +1095,9 @@ graph TD
   - Imports: `AppContext`
   - Imports: `DataBadge`
   - Imports: `react`
+- **meridian_frontend/src/components/ui/AmbientParticles.tsx**
+  - Imports: `react`
+  - Imports: `useMemoryOptimizer`
 - **meridian_frontend/src/components/ui/DataBadge.tsx**
   - Imports: `react`
 - **meridian_frontend/src/components/ui/GlowCard.tsx**
