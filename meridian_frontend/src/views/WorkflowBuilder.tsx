@@ -27,12 +27,16 @@ export const WorkflowBuilder: React.FC = () => {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null);
-  const [newWorkflowName, setNewWorkflowName] = useState('');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [executionLogs, setExecutionLogs] = useState<any[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
   const [oauthConnections, setOauthConnections] = useState<Record<string, { connected: boolean; updated_at: number | null }>>({});
+
+  // Interactive OAuth Modal state
+  const [activeModalProvider, setActiveModalProvider] = useState<{ id: string; name: string; icon: string } | null>(null);
+  const [manualTokenInput, setManualTokenInput] = useState('');
+  const [isConnecting, setIsConnecting] = useState(false);
 
   const fetchWorkflows = async () => {
     try {
@@ -59,29 +63,54 @@ export const WorkflowBuilder: React.FC = () => {
     fetchOAuthStatus();
   }, []);
 
-  const handleOAuthConnect = async (provider: string) => {
+  const handleOpenOAuthModal = (provider: { id: string; name: string; icon: string }) => {
+    setActiveModalProvider(provider);
+    setManualTokenInput('');
+  };
+
+  const handleOAuthDisconnect = async (providerId: string) => {
     try {
-      const resp = await fetch(`${API_BASE_URL}/api/auth/oauth/authorize`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, redirect_uri: window.location.origin + '/oauth/callback' })
-      });
-      const data = await resp.json();
-      if (data.auth_url) {
-        // Open OAuth authorization window
-        window.open(data.auth_url, '_blank', 'width=600,height=700');
-        // Simulate immediate authorization completion for desktop testing
-        setTimeout(async () => {
-          await fetch(`${API_BASE_URL}/api/auth/oauth/callback`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ state: data.state, code: 'mock_code', provider })
-          });
-          fetchOAuthStatus();
-        }, 1500);
-      }
+      await fetch(`${API_BASE_URL}/api/auth/oauth/disconnect/${providerId}`, { method: 'DELETE' });
+      fetchOAuthStatus();
     } catch (e) {
-      console.error('OAuth connect failed:', e);
+      console.error('OAuth disconnect failed:', e);
+    }
+  };
+
+  const handlePerformOAuthSignIn = async () => {
+    if (!activeModalProvider) return;
+    setIsConnecting(true);
+    try {
+      if (manualTokenInput.trim()) {
+        // Direct Account Token / Credentials submission
+        await fetch(`${API_BASE_URL}/api/auth/oauth/callback`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            state: 'manual_state',
+            code: manualTokenInput.trim(),
+            provider: activeModalProvider.id,
+            redirect_uri: window.location.origin + '/oauth/callback'
+          })
+        });
+      } else {
+        // Standard OAuth Browser PKCE Redirect Flow
+        const resp = await fetch(`${API_BASE_URL}/api/auth/oauth/authorize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: activeModalProvider.id, redirect_uri: window.location.origin + '/oauth/callback' })
+        });
+        const data = await resp.json();
+        if (data.auth_url) {
+          window.open(data.auth_url, '_blank', 'width=600,height=700');
+        }
+      }
+      await fetchOAuthStatus();
+      setActiveModalProvider(null);
+    } catch (e) {
+      console.error('OAuth sign in failed:', e);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -188,7 +217,6 @@ export const WorkflowBuilder: React.FC = () => {
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400">
             Meridian-X Workflow Automation Engine
           </h1>
-
           <p className="text-sm text-slate-400 mt-1">
             Visual DAG pipeline runner & AI-powered workflow generator with OAuth service integration.
           </p>
@@ -198,7 +226,7 @@ export const WorkflowBuilder: React.FC = () => {
       {/* OAuth Connected Services Toolbar */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">OAuth Services Sign-In & Status</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { id: 'google', name: 'Google Workspace', icon: '🌐' },
             { id: 'github', name: 'GitHub', icon: '🐙' },
@@ -215,19 +243,96 @@ export const WorkflowBuilder: React.FC = () => {
                     <div className="text-[10px] text-slate-400">{isConnected ? '✓ Connected' : 'Not Connected'}</div>
                   </div>
                 </div>
-                <button
-                  onClick={() => handleOAuthConnect(provider.id)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded transition ${
-                    isConnected ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-cyan-600 hover:bg-cyan-500 text-white'
-                  }`}
-                >
-                  {isConnected ? 'Signed In' : 'Sign In'}
-                </button>
+                {isConnected ? (
+                  <button
+                    onClick={() => handleOAuthDisconnect(provider.id)}
+                    className="px-2.5 py-1 text-xs font-semibold rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 border border-rose-500/30 transition"
+                  >
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleOpenOAuthModal(provider)}
+                    className="px-2.5 py-1 text-xs font-semibold rounded bg-cyan-600 hover:bg-cyan-500 text-white transition"
+                  >
+                    Sign In
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Interactive OAuth Sign In Modal */}
+      {activeModalProvider && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>{activeModalProvider.icon}</span>
+                <span>Sign In to {activeModalProvider.name}</span>
+              </h3>
+              <button
+                onClick={() => setActiveModalProvider(null)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Sign in via browser OAuth popup or paste your service API key / access token to bind credentials securely in your encrypted vault.
+            </p>
+
+            <div className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Option A: Browser OAuth 2.0 PKCE Login</label>
+                <button
+                  onClick={handlePerformOAuthSignIn}
+                  disabled={isConnecting}
+                  className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs rounded-lg transition"
+                >
+                  🚀 Open Browser Login Popup
+                </button>
+              </div>
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-800"></div>
+                <span className="flex-shrink mx-2 text-[10px] text-slate-500 uppercase font-bold">OR</span>
+                <div className="flex-grow border-t border-slate-800"></div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Option B: Enter API Key / Access Token</label>
+                <input
+                  type="password"
+                  placeholder={`Paste ${activeModalProvider.name} Token / Key...`}
+                  value={manualTokenInput}
+                  onChange={(e) => setManualTokenInput(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => setActiveModalProvider(null)}
+                className="px-4 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handlePerformOAuthSignIn}
+                disabled={isConnecting}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition"
+              >
+                {isConnecting ? 'Saving...' : 'Authorize & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* AI Prompt Natural Language Workflow Generator Bar */}
       <div className="bg-gradient-to-r from-indigo-950/40 via-slate-900 to-teal-950/40 border border-indigo-500/30 rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-center">
@@ -315,7 +420,6 @@ export const WorkflowBuilder: React.FC = () => {
                     {selectedWorkflow.id}
                   </span>
                 </h2>
-                {/* Node Action Toolbar */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleAddActionNode('action_cloudflare', 'Check Cloudflare')}
