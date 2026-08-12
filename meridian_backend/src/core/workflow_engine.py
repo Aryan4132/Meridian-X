@@ -50,7 +50,13 @@ def create_workflow(name: str, nodes: List[Dict[str, Any]], edges: List[Dict[str
         "execution_count": 0
     }
     workflows = _load_workflows()
+    workflows[workflow_id] = workflow
+    _save_workflows(workflows)
+    return workflow
+
+
 def create_ai_workflow(goal: str) -> Dict[str, Any]:
+
     """
     AI Agent Helper: Converts a natural language goal (e.g. 'check cloudflare domain example.com and email me on gmail')
     into a structured n8n-style workflow definition automatically.
