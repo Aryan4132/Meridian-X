@@ -91,9 +91,11 @@ def require_api_key(
     api_key_header: Optional[str] = Depends(API_KEY_HEADER)
 ):
     """
-    FastAPI route dependency to validate API keys.
-    Uses constant-time comparison to prevent side-channel timing attacks.
-    Whitelists public endpoints (/api/health, /api/debug/log).
+    FastAPI route dependency supporting Dual Auth:
+    1. Authorization: Bearer <jwt_token>
+    2. X-API-Key: <api_key>
+    Uses constant-time comparison and JWT decoding to prevent side-channel timing attacks.
+    Whitelists public endpoints (/api/health, /api/debug/log, /api/auth/oauth/*).
     """
     # Allow bypass if testing or environment explicitly disabled auth
     if os.getenv("DISABLE_AUTH") == "true":
@@ -102,7 +104,7 @@ def require_api_key(
     # Check path whitelist if request object is available
     if request is not None and hasattr(request, "url"):
         path = request.url.path
-        if path in ("/api/health", "/api/debug/log", "/docs", "/openapi.json"):
+        if path in ("/api/health", "/api/debug/log", "/docs", "/openapi.json") or path.startswith("/api/auth/oauth") or path.startswith("/api/workflows/webhook"):
             return True
 
     if _is_loopback_request(request):
@@ -110,37 +112,34 @@ def require_api_key(
 
     client_ip = getattr(getattr(request, "client", None), "host", "unknown") if request else "unknown"
 
-    if not api_key_header:
-        try:
-            from src.core.audit_logger import log_sensitive_action
-            log_sensitive_action(
-                category="AUTH_FAILURE",
-                action="require_api_key",
-                details={"reason": "Missing X-API-Key header", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
-                status="FAILED"
-            )
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="API Key header (X-API-Key) is missing."
-        )
+    # 1. Check for Authorization: Bearer <jwt_token>
+    auth_header = request.headers.get("Authorization") if request else None
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split(" ", 1)[1].strip()
+        from src.core.oauth_manager import decode_jwt_token
+        decoded = decode_jwt_token(bearer_token)
+        if decoded:
+            return True
 
-    if not hmac.compare_digest(api_key_header, API_KEY):
-        try:
-            from src.core.audit_logger import log_sensitive_action
-            log_sensitive_action(
-                category="AUTH_FAILURE",
-                action="require_api_key",
-                details={"reason": "Invalid X-API-Key provided", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
-                status="FAILED"
-            )
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid API Key."
-        )
+    # 2. Check X-API-Key header
+    if api_key_header and hmac.compare_digest(api_key_header, API_KEY):
+        return True
 
-    return True
+    # Auth failed
+    try:
+        from src.core.audit_logger import log_sensitive_action
+        log_sensitive_action(
+            category="AUTH_FAILURE",
+            action="require_api_key",
+            details={"reason": "Missing or invalid auth credential", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
+            status="FAILED"
+        )
+    except Exception:
+        pass
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Unauthorized: Valid X-API-Key or Bearer JWT token required."
+    )
+
 
