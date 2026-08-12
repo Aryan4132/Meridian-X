@@ -89,9 +89,10 @@ def _listen_loop():
     if os.path.isabs(wakeword_filename) and os.path.exists(wakeword_filename):
         onnx_path = wakeword_filename
     else:
-        import sys
         if getattr(sys, 'frozen', False):
-            base_dir = sys._MEIPASS
+            base_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+
+
             onnx_path = os.path.join(base_dir, wakeword_filename)
         else:
             backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
