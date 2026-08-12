@@ -67,6 +67,10 @@ export const WorkflowBuilder: React.FC = () => {
     fetchOAuthStatus();
   }, []);
 
+  const openExternalUrl = (url: string) => {
+    window.open(url, '_blank', 'width=800,height=700,resizable=yes,scrollbars=yes');
+  };
+
   const handleOpenOAuthModal = (provider: { id: string; name: string; icon: string }) => {
     setActiveModalProvider(provider);
     setManualTokenInput('');
@@ -340,14 +344,12 @@ export const WorkflowBuilder: React.FC = () => {
                 <div className="bg-emerald-950/40 border border-emerald-500/40 p-3.5 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-emerald-300 uppercase block">⭐ Option 1: Gmail App Password (Zero Verification!)</label>
-                    <a
-                      href="https://myaccount.google.com/apppasswords"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-semibold text-emerald-400 hover:underline bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/30"
+                    <button
+                      onClick={() => openExternalUrl('https://myaccount.google.com/apppasswords')}
+                      className="text-[10px] font-semibold text-emerald-300 hover:text-white bg-emerald-900/80 hover:bg-emerald-800 px-2 py-0.5 rounded border border-emerald-500/50 transition cursor-pointer"
                     >
                       Generate App Password ↗
-                    </a>
+                    </button>
                   </div>
                   <div className="text-[11px] text-slate-300 space-y-1 bg-black/30 p-2 rounded border border-emerald-900/50">
                     <div className="font-semibold text-emerald-400">💡 3-Step Setup Guide:</div>
@@ -386,24 +388,20 @@ export const WorkflowBuilder: React.FC = () => {
                     {activeModalProvider.id === 'google' ? 'Option 2: Personal Access Token / API Key' : 'Option 1: Personal Access Token / API Key'}
                   </label>
                   {activeModalProvider.id === 'github' && (
-                    <a
-                      href="https://github.com/settings/tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-semibold text-teal-400 hover:underline bg-teal-900/60 px-2 py-0.5 rounded border border-teal-500/30"
+                    <button
+                      onClick={() => openExternalUrl('https://github.com/settings/tokens')}
+                      className="text-[10px] font-semibold text-teal-300 hover:text-white bg-teal-900/80 hover:bg-teal-800 px-2 py-0.5 rounded border border-teal-500/50 transition cursor-pointer"
                     >
                       Generate GitHub Token ↗
-                    </a>
+                    </button>
                   )}
                   {activeModalProvider.id === 'cloudflare' && (
-                    <a
-                      href="https://dash.cloudflare.com/profile/api-tokens"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-semibold text-teal-400 hover:underline bg-teal-900/60 px-2 py-0.5 rounded border border-teal-500/30"
+                    <button
+                      onClick={() => openExternalUrl('https://dash.cloudflare.com/profile/api-tokens')}
+                      className="text-[10px] font-semibold text-teal-300 hover:text-white bg-teal-900/80 hover:bg-teal-800 px-2 py-0.5 rounded border border-teal-500/50 transition cursor-pointer"
                     >
                       Generate Cloudflare Token ↗
-                    </a>
+                    </button>
                   )}
                 </div>
 
