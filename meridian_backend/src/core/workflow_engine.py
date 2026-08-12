@@ -50,9 +50,69 @@ def create_workflow(name: str, nodes: List[Dict[str, Any]], edges: List[Dict[str
         "execution_count": 0
     }
     workflows = _load_workflows()
-    workflows[workflow_id] = workflow
-    _save_workflows(workflows)
-    return workflow
+def create_ai_workflow(goal: str) -> Dict[str, Any]:
+    """
+    AI Agent Helper: Converts a natural language goal (e.g. 'check cloudflare domain example.com and email me on gmail')
+    into a structured n8n-style workflow definition automatically.
+    """
+    goal_lower = goal.lower()
+    nodes = [
+        {"id": "node_1", "type": "trigger_webhook", "name": "Incoming Trigger", "parameters": {}}
+    ]
+    edges = []
+    
+    node_idx = 2
+    if "cloudflare" in goal_lower or "domain" in goal_lower:
+        # Extract domain name if present
+        domain_match = re.search(r'([a-zA-Z0-9-]+\.[a-zA-Z]{2,})', goal)
+        target_domain = domain_match.group(1) if domain_match else "example.com"
+        nodes.append({
+            "id": f"node_{node_idx}",
+            "type": "action_cloudflare",
+            "name": f"Check Cloudflare ({target_domain})",
+            "parameters": {"domain": target_domain}
+        })
+        edges.append({"from": f"node_{node_idx-1}", "to": f"node_{node_idx}"})
+        node_idx += 1
+        
+    if "gmail" in goal_lower or "email" in goal_lower or "mail" in goal_lower:
+        email_match = re.search(r'[\w\.-]+@[\w\.-]+', goal)
+        target_email = email_match.group(0) if email_match else "admin@example.com"
+        nodes.append({
+            "id": f"node_{node_idx}",
+            "type": "action_gmail",
+            "name": f"Send Gmail Alert to {target_email}",
+            "parameters": {
+                "to": target_email,
+                "subject": "Automated Meridian-X Workflow Alert",
+                "body": f"Workflow execution alert for goal: '{goal}'"
+            }
+        })
+        edges.append({"from": f"node_{node_idx-1}", "to": f"node_{node_idx}"})
+        node_idx += 1
+
+    if "github" in goal_lower or "repo" in goal_lower or "pr" in goal_lower:
+        nodes.append({
+            "id": f"node_{node_idx}",
+            "type": "action_github",
+            "name": "Check GitHub PRs",
+            "parameters": {"action": "list_prs", "repo": "owner/repo"}
+        })
+        edges.append({"from": f"node_{node_idx-1}", "to": f"node_{node_idx}"})
+        node_idx += 1
+
+    if len(nodes) == 1:
+        # Generic LLM step
+        nodes.append({
+            "id": "node_2",
+            "type": "action_llm",
+            "name": "LLM Synthesis Action",
+            "parameters": {"prompt": goal}
+        })
+        edges.append({"from": "node_1", "to": "node_2"})
+        
+    return create_workflow(f"AI: {goal[:40]}", nodes, edges, active=True)
+
 
 
 def get_workflow(workflow_id: str) -> Optional[Dict[str, Any]]:
