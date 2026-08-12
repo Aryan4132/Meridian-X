@@ -3287,19 +3287,20 @@ async def get_oauth_providers_api():
 @app.post("/api/auth/oauth/authorize")
 async def authorize_oauth_flow_api(payload: OAuthAuthorizeRequest):
     """SEC-25: Generates PKCE code challenge and state token for OAuth flow."""
-    from src.core.oauth_manager import create_pkce_auth_state, OAUTH_PROVIDERS
+    from src.core.oauth_manager import create_pkce_auth_state, OAUTH_PROVIDERS, get_oauth_client_id
     if payload.provider not in OAUTH_PROVIDERS:
         raise HTTPException(status_code=400, detail=f"Unsupported OAuth provider '{payload.provider}'")
         
     pkce_info = create_pkce_auth_state(payload.provider, payload.redirect_uri)
     provider_config = OAUTH_PROVIDERS[payload.provider]
+    client_id = get_oauth_client_id(payload.provider)
     
     # Construct OAuth authorization URL
     scopes_str = "%20".join(provider_config["scopes"])
     auth_url = (
         f"{provider_config['auth_url']}?"
         f"response_type=code&"
-        f"client_id={os.getenv(f'OAUTH_{payload.provider.upper()}_CLIENT_ID', 'MERIDIAN_CLIENT_ID')}&"
+        f"client_id={client_id}&"
         f"redirect_uri={payload.redirect_uri}&"
         f"scope={scopes_str}&"
         f"state={pkce_info['state']}&"
@@ -3311,8 +3312,23 @@ async def authorize_oauth_flow_api(payload: OAuthAuthorizeRequest):
         "status": "success",
         "state": pkce_info["state"],
         "auth_url": auth_url,
-        "provider": payload.provider
+        "provider": payload.provider,
+        "client_id_configured": client_id != "MERIDIAN_CLIENT_ID"
     }
+
+
+class OAuthConfigRequest(BaseModel):
+    provider: str
+    client_id: str
+
+
+@app.post("/api/auth/oauth/config")
+async def save_oauth_config_api(payload: OAuthConfigRequest):
+    """SEC-25: Saves developer OAuth Client ID into vault."""
+    from src.core.oauth_manager import save_oauth_client_id
+    res = save_oauth_client_id(payload.provider, payload.client_id)
+    return {"status": "success", "provider": payload.provider, "saved": res}
+
 
 
 @app.post("/api/auth/oauth/callback")

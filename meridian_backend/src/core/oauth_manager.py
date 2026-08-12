@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional
 
 # JWT Support (using PyJWT or pure-python HMAC-SHA256 fallback)
 try:
-    import jwt
+    import jwt  # type: ignore
     _HAS_PYJWT = True
 except ImportError:
     _HAS_PYJWT = False
@@ -211,6 +211,24 @@ def save_oauth_tokens(service_name: str, token_data: Dict[str, Any], user_id: st
     return bool(res)
 
 
+def save_oauth_client_id(provider: str, client_id: str) -> bool:
+    """Saves OAuth Client ID into security vault."""
+    vault_key = f"OAUTH_CLIENT_ID_{provider.upper()}"
+    res = save_secret(vault_key, client_id.strip(), "DEFAULT_VAULT_PASS")
+    os.environ[f"OAUTH_{provider.upper()}_CLIENT_ID"] = client_id.strip()
+    return bool(res)
+
+
+def get_oauth_client_id(provider: str) -> str:
+    """Gets OAuth Client ID from vault or environment."""
+    vault_key = f"OAUTH_CLIENT_ID_{provider.upper()}"
+    val = get_secret(vault_key, "DEFAULT_VAULT_PASS")
+    if val:
+        return val
+    return os.getenv(f"OAUTH_{provider.upper()}_CLIENT_ID", "MERIDIAN_CLIENT_ID")
+
+
+
 def get_oauth_tokens(service_name: str, user_id: str = "default_user") -> Optional[Dict[str, Any]]:
     """Retrieves decrypted OAuth service tokens from security vault."""
     vault_key = f"OAUTH_TOKEN_{user_id.upper()}_{service_name.upper()}"
@@ -228,7 +246,7 @@ def clear_oauth_tokens(service_name: str, user_id: str = "default_user") -> bool
     from src.core.vault import delete_secret
     vault_key = f"OAUTH_TOKEN_{user_id.upper()}_{service_name.upper()}"
     res = delete_secret(vault_key, "DEFAULT_VAULT_PASS")
-    return bool(res)
+    return res
 
 
 
