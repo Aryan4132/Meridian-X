@@ -362,7 +362,9 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)]
 )
+app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
+
 
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=10_485_760)  # 10 MB cap
