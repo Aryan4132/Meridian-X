@@ -3371,6 +3371,36 @@ async def get_oauth_connections_status_api():
     return {"status": "success", "connections": status_dict}
 
 
+class GoogleAppPasswordRequest(BaseModel):
+    email: str
+    app_password: str
+
+
+@app.post("/api/auth/google/app-password")
+async def save_google_app_password_api(payload: GoogleAppPasswordRequest):
+    """Saves Gmail App Password into security vault and marks Google service connected."""
+    from src.core.vault import save_secret
+    from src.core.oauth_manager import save_oauth_tokens
+    
+    clean_email = payload.email.strip()
+    clean_pass = payload.app_password.strip().replace(" ", "")
+    
+    save_secret("SMTP_EMAIL", clean_email, "DEFAULT_VAULT_PASS")
+    save_secret("SMTP_PASSWORD", clean_pass, "DEFAULT_VAULT_PASS")
+    os.environ["SMTP_EMAIL"] = clean_email
+    os.environ["SMTP_PASSWORD"] = clean_pass
+    
+    save_oauth_tokens("google", {
+        "access_token": f"app_pass_{clean_pass[:6]}",
+        "refresh_token": "app_pass",
+        "token_type": "AppPassword",
+        "expires_in": 86400 * 365
+    })
+    
+    return {"status": "success", "email": clean_email}
+
+
+
 @app.delete("/api/auth/oauth/disconnect/{provider}")
 async def disconnect_oauth_service_api(provider: str):
     """SEC-25: Disconnects an OAuth service and clears its tokens from encrypted vault."""
