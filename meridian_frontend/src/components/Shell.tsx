@@ -8,6 +8,7 @@ import Jobs from '../views/Jobs';
 import Clipboard from '../views/Clipboard';
 import Productivity from '../views/Productivity';
 import SwarmDebate from '../views/SwarmDebate';
+import WorkflowBuilder from '../views/WorkflowBuilder';
 import Settings from '../views/Settings';
 
 import AmbientParticles from './ui/AmbientParticles';
@@ -54,10 +55,14 @@ export default function Shell() {
             <div style={{ display: activeTab === 'lobby' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
               <SwarmDebate />
             </div>
+            <div style={{ display: activeTab === 'workflows' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
+              <WorkflowBuilder />
+            </div>
             <div style={{ display: activeTab === 'settings' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
               <Settings />
             </div>
           </div>
+
         </main>
 
         {/* Right drawer — Timeline & Jobs tabs only */}

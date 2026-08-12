@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4132';
+import { API_BASE_URL } from '../config';
 
 interface WorkflowNode {
   id: string;
@@ -34,8 +32,9 @@ export const WorkflowBuilder: React.FC = () => {
 
   const fetchWorkflows = async () => {
     try {
-      const resp = await axios.get(`${API_BASE_URL}/api/workflows/list`);
-      setWorkflows(resp.data.workflows || []);
+      const resp = await fetch(`${API_BASE_URL}/api/workflows/list`);
+      const data = await resp.json();
+      setWorkflows(data.workflows || []);
     } catch (e) {
       console.error('Failed to load workflows:', e);
     }
@@ -58,11 +57,15 @@ export const WorkflowBuilder: React.FC = () => {
     ];
 
     try {
-      await axios.post(`${API_BASE_URL}/api/workflows/create`, {
-        name: newWorkflowName,
-        nodes: sampleNodes,
-        edges: sampleEdges,
-        active: true
+      await fetch(`${API_BASE_URL}/api/workflows/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newWorkflowName,
+          nodes: sampleNodes,
+          edges: sampleEdges,
+          active: true
+        })
       });
       setNewWorkflowName('');
       fetchWorkflows();
@@ -74,8 +77,13 @@ export const WorkflowBuilder: React.FC = () => {
   const handleExecuteWorkflow = async (id: string) => {
     setIsExecuting(true);
     try {
-      const resp = await axios.post(`${API_BASE_URL}/api/workflows/${id}/execute`, {});
-      setExecutionLogs(resp.data.data?.logs || []);
+      const resp = await fetch(`${API_BASE_URL}/api/workflows/${id}/execute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await resp.json();
+      setExecutionLogs(data.data?.logs || []);
     } catch (e) {
       console.error('Execution failed:', e);
     } finally {
@@ -85,7 +93,7 @@ export const WorkflowBuilder: React.FC = () => {
 
   const handleDeleteWorkflow = async (id: string) => {
     try {
-      await axios.delete(`${API_BASE_URL}/api/workflows/${id}`);
+      await fetch(`${API_BASE_URL}/api/workflows/${id}`, { method: 'DELETE' });
       if (selectedWorkflow?.id === id) setSelectedWorkflow(null);
       fetchWorkflows();
     } catch (e) {

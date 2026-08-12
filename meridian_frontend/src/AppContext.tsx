@@ -4,7 +4,8 @@ import { API_BASE_URL } from './config';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
-export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'settings';
+export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'workflows' | 'settings';
+
 export type IslandPosition = 'top-center' | 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'bottom-center';
 
 interface AppContextValue {
