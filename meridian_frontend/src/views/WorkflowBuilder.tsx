@@ -344,14 +344,17 @@ export const WorkflowBuilder: React.FC = () => {
                       href="https://myaccount.google.com/apppasswords"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] font-semibold text-emerald-400 hover:underline"
+                      className="text-[10px] font-semibold text-emerald-400 hover:underline bg-emerald-900/60 px-2 py-0.5 rounded border border-emerald-500/30"
                     >
                       Generate App Password ↗
                     </a>
                   </div>
-                  <p className="text-[11px] text-slate-300">
-                    Use your 16-character Google App Password for instant 100% Gmail & Calendar automation without Google verification.
-                  </p>
+                  <div className="text-[11px] text-slate-300 space-y-1 bg-black/30 p-2 rounded border border-emerald-900/50">
+                    <div className="font-semibold text-emerald-400">💡 3-Step Setup Guide:</div>
+                    <div>1. Click <b>Generate App Password ↗</b> button above.</div>
+                    <div>2. Type <i>Meridian-X</i> as app name and click <b>Create</b>.</div>
+                    <div>3. Copy the 16-character code and paste below!</div>
+                  </div>
                   <input
                     type="email"
                     placeholder="your_email@gmail.com"
@@ -376,23 +379,42 @@ export const WorkflowBuilder: React.FC = () => {
                 </div>
               ) : null}
 
-              {/* Standard OAuth Browser Popup */}
-              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Popup</label>
-                <p className="text-[11px] text-slate-400">Launches floating authorization popup for {activeModalProvider.name}.</p>
-                <button
-                  onClick={handleOpenBrowserLogin}
-                  disabled={isConnecting}
-                  className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs rounded-lg transition"
-                >
-                  🚀 Open Browser Login Popup
-                </button>
-              </div>
+              {/* Personal Access Token / API Key Option */}
+              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-teal-400 uppercase block">
+                    {activeModalProvider.id === 'google' ? 'Option 2: Personal Access Token / API Key' : 'Option 1: Personal Access Token / API Key'}
+                  </label>
+                  {activeModalProvider.id === 'github' && (
+                    <a
+                      href="https://github.com/settings/tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-semibold text-teal-400 hover:underline bg-teal-900/60 px-2 py-0.5 rounded border border-teal-500/30"
+                    >
+                      Generate GitHub Token ↗
+                    </a>
+                  )}
+                  {activeModalProvider.id === 'cloudflare' && (
+                    <a
+                      href="https://dash.cloudflare.com/profile/api-tokens"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-semibold text-teal-400 hover:underline bg-teal-900/60 px-2 py-0.5 rounded border border-teal-500/30"
+                    >
+                      Generate Cloudflare Token ↗
+                    </a>
+                  )}
+                </div>
 
-              {/* Personal Access Token / API Key */}
-              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-teal-400 uppercase block">Option B: Enter Personal Access Token / API Key</label>
-                <p className="text-[11px] text-slate-400">Instant connection via personal access token / service key.</p>
+                {activeModalProvider.id === 'github' && (
+                  <div className="text-[11px] text-slate-300 space-y-1 bg-black/30 p-2 rounded border border-slate-800">
+                    <div className="font-semibold text-teal-400">💡 2-Step GitHub Setup Guide:</div>
+                    <div>1. Click <b>Generate GitHub Token ↗</b> above (select <i>repo</i> & <i>workflow</i>).</div>
+                    <div>2. Paste your token (starts with <code>ghp_</code>) below!</div>
+                  </div>
+                )}
+
                 <input
                   type="password"
                   placeholder={`Paste ${activeModalProvider.name} Token / Key...`}
@@ -406,6 +428,19 @@ export const WorkflowBuilder: React.FC = () => {
                   className="w-full py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
                 >
                   {isConnecting ? 'Saving...' : 'Connect with Token'}
+                </button>
+              </div>
+
+              {/* Standard OAuth Browser Popup Option */}
+              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
+                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Popup</label>
+                <p className="text-[11px] text-slate-400">Launches floating authorization popup window for {activeModalProvider.name}.</p>
+                <button
+                  onClick={handleOpenBrowserLogin}
+                  disabled={isConnecting}
+                  className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs rounded-lg transition"
+                >
+                  🚀 Open Browser Login Popup
                 </button>
               </div>
 
