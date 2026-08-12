@@ -3355,12 +3355,24 @@ async def list_workflows_api():
     return {"status": "success", "workflows": list_workflows()}
 
 
+class AIWorkflowRequest(BaseModel):
+    goal: str
+
+@app.post("/api/workflows/ai-create")
+async def create_ai_workflow_api(payload: AIWorkflowRequest):
+    """WKF-01: Generates an n8n-style workflow DAG automatically from natural language prompt."""
+    from src.core.workflow_engine import create_ai_workflow
+    wf = create_ai_workflow(payload.goal)
+    return {"status": "success", "workflow": wf}
+
+
 @app.post("/api/workflows/create")
 async def create_workflow_api(payload: WorkflowCreateRequest):
     """WKF-01: Creates a new n8n-style node workflow definition."""
     from src.core.workflow_engine import create_workflow
     wf = create_workflow(payload.name, payload.nodes, payload.edges, payload.active or True)
     return {"status": "success", "workflow": wf}
+
 
 
 @app.post("/api/workflows/{workflow_id}/execute")
