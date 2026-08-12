@@ -17,14 +17,95 @@ interface BootLine {
 const BOOT_LINES: BootLine[] = [
   { label: 'Initializing ReAct inference engine', endpoint: `${API_BASE_URL}/api/health`, status: 'pending' },
   { label: 'Mounting SQLite + Turbovec vectors',  endpoint: `${API_BASE_URL}/api/health`, status: 'pending' },
-  { label: 'Binding P2P swarm daemon',            status: 'pending' },
+  { label: 'Binding P2P swarm daemon & OAuth vault', status: 'pending' },
   { label: 'Checking Ollama inference endpoint',  endpoint: `${API_BASE_URL}/api/ollama-models`, status: 'pending' },
-  { label: 'Loading Mascot companion core',       status: 'pending' },
+  { label: 'Loading Mascot companion core & n8n engine', status: 'pending' },
 ];
 
 const TITLE = 'MERIDIAN-X';
-const SUBTITLE = 'v0.4.0  ·  agentic core';
+const SUBTITLE = 'v0.4.0  ·  agentic intelligence core';
 
+/* Interactive Cybernetic Canvas Backdrop */
+function RadarParticleCanvas() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const particles: { x: number; y: number; r: number; dx: number; dy: number; alpha: number }[] = [];
+    for (let i = 0; i < 45; i++) {
+      particles.push({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 1.8 + 0.6,
+        dx: (Math.random() - 0.5) * 0.4,
+        dy: (Math.random() - 0.5) * 0.4,
+        alpha: Math.random() * 0.5 + 0.2
+      });
+    }
+
+    let sweepAngle = 0;
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Radar Sweep Effect from Center
+      const cx = width / 2;
+      const cy = height / 2;
+      sweepAngle += 0.015;
+
+      const sweepGradient = ctx.createConicGradient(sweepAngle, cx, cy);
+      sweepGradient.addColorStop(0, 'rgba(0, 240, 255, 0.08)');
+      sweepGradient.addColorStop(0.1, 'rgba(0, 240, 255, 0.01)');
+      sweepGradient.addColorStop(1, 'transparent');
+
+      ctx.fillStyle = sweepGradient;
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(width, height) * 0.7, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Render Floating Cyber Particles
+      particles.forEach(p => {
+        p.x += p.dx;
+        p.y += p.dy;
+        if (p.x < 0 || p.x > width) p.dx *= -1;
+        if (p.y < 0 || p.y > height) p.dy *= -1;
+
+        ctx.fillStyle = `rgba(0, 217, 255, ${p.alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.8 }} />;
+}
+
+/* Kinetic Hex Core Component with Audio Bars */
 function KineticHexCore({ phase, progress }: { phase: BootPhase; progress: number }) {
   const visible = phase >= 1;
   return (
@@ -34,82 +115,82 @@ function KineticHexCore({ phase, progress }: { phase: BootPhase; progress: numbe
           initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
           animate={{ opacity: 1, scale: 1, rotate: 0 }}
           transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
-          style={{ position: 'relative', width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}
+          style={{ position: 'relative', width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}
         >
           {/* Pulsing Outer Glow Halo */}
           <motion.div
-            animate={{ scale: [1, 1.25, 1], opacity: [0.2, 0.45, 0.2] }}
+            animate={{ scale: [1, 1.3, 1], opacity: [0.25, 0.55, 0.25] }}
             transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             style={{
               position: 'absolute',
-              width: 170,
-              height: 170,
+              width: 190,
+              height: 190,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)',
-              filter: 'blur(20px)',
+              background: 'radial-gradient(circle, #00F0FF 0%, #00D97E 40%, transparent 70%)',
+              filter: 'blur(24px)',
             }}
           />
 
           {/* Outer Rotating Dash Ring */}
           <motion.svg
-            width="170" height="170"
-            viewBox="0 0 170 170"
+            width="190" height="190"
+            viewBox="0 0 190 190"
             animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
             style={{ position: 'absolute', transformOrigin: 'center' }}
           >
-            <circle cx="85" cy="85" r="78" fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeDasharray="8 12" strokeOpacity="0.5" />
-            <circle cx="85" cy="7" r="4" fill="var(--accent)" />
-            <circle cx="85" cy="163" r="3" fill="var(--accent-2)" />
+            <circle cx="95" cy="95" r="88" fill="none" stroke="#00F0FF" strokeWidth="1.5" strokeDasharray="10 14" strokeOpacity="0.6" />
+            <circle cx="95" cy="7" r="4" fill="#00F0FF" />
+            <circle cx="95" cy="183" r="3.5" fill="#6366F1" />
           </motion.svg>
 
           {/* Middle Counter-Rotating Wave Ring */}
           <motion.svg
-            width="136" height="136"
-            viewBox="0 0 136 136"
+            width="150" height="150"
+            viewBox="0 0 150 150"
             animate={{ rotate: -360 }}
-            transition={{ duration: 14, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
             style={{ position: 'absolute', transformOrigin: 'center' }}
           >
-            <circle cx="68" cy="68" r="60" fill="none" stroke="var(--accent-2)" strokeWidth="1" strokeDasharray="4 8" strokeOpacity="0.4" />
-            <circle cx="68" cy="8" r="3" fill="var(--accent-2)" opacity="0.9" />
+            <circle cx="75" cy="75" r="68" fill="none" stroke="#6366F1" strokeWidth="1.2" strokeDasharray="6 10" strokeOpacity="0.5" />
+            <circle cx="75" cy="7" r="3" fill="#00D97E" opacity="0.9" />
           </motion.svg>
 
-          {/* Double Hexagon Core */}
+          {/* Hexagon Cyber Core */}
           <motion.svg
-            width="104" height="104"
-            viewBox="0 0 104 104"
-            animate={{ scale: [1, 1.04, 1] }}
+            width="116" height="116"
+            viewBox="0 0 116 116"
+            animate={{ scale: [1, 1.05, 1] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ position: 'absolute', filter: 'drop-shadow(0 0 16px var(--accent))' }}
+            style={{ position: 'absolute', filter: 'drop-shadow(0 0 20px #00F0FF)' }}
           >
             {/* Outer Hex */}
             <polygon
-              points="52,6 90,28 90,76 52,98 14,76 14,28"
-              fill="color-mix(in srgb, var(--accent) 12%, transparent)"
-              stroke="var(--accent)"
-              strokeWidth="2"
+              points="58,6 100,30 100,86 58,110 16,86 16,30"
+              fill="rgba(0, 240, 255, 0.08)"
+              stroke="#00F0FF"
+              strokeWidth="2.2"
             />
             {/* Inner Hex */}
             <polygon
-              points="52,20 76,34 76,70 52,84 28,70 28,34"
-              fill="color-mix(in srgb, var(--accent) 8%, transparent)"
-              stroke="var(--accent-2)"
-              strokeWidth="1.2"
-              strokeOpacity="0.6"
+              points="58,22 84,37 84,79 58,94 32,79 32,37"
+              fill="rgba(99, 102, 241, 0.12)"
+              stroke="#6366F1"
+              strokeWidth="1.5"
+              strokeOpacity="0.8"
             />
           </motion.svg>
 
           {/* Central Glowing Core Sphere */}
           <motion.div
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            animate={{ scale: [1, 1.25, 1] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
             style={{
               position: 'absolute',
-              width: 22, height: 22,
+              width: 26, height: 26,
               borderRadius: '50%',
-              background: 'var(--accent)',
-              boxShadow: '0 0 24px var(--accent), 0 0 48px var(--accent-2)',
+              background: 'linear-gradient(135deg, #00F0FF, #6366F1)',
+              boxShadow: '0 0 28px #00F0FF, 0 0 56px #6366F1',
             }}
           />
         </motion.div>
@@ -118,6 +199,7 @@ function KineticHexCore({ phase, progress }: { phase: BootPhase; progress: numbe
   );
 }
 
+/* Kinetic Logotype Header */
 function KineticLogotype({ phase }: { phase: BootPhase }) {
   const visible = phase >= 1;
   return (
@@ -126,23 +208,23 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          style={{ textAlign: 'center', marginBottom: 12 }}
+          style={{ textAlign: 'center', marginBottom: 16 }}
         >
-          <div style={{ display: 'flex', gap: 2, justifyContent: 'center', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', gap: 3, justifyContent: 'center', overflow: 'hidden' }}>
             {TITLE.split('').map((ch, i) => (
               <motion.span
                 key={i}
-                initial={{ opacity: 0, y: 16, filter: 'blur(8px)', scale: 0.8 }}
+                initial={{ opacity: 0, y: 20, filter: 'blur(10px)', scale: 0.7 }}
                 animate={{ opacity: 1, y: 0, filter: 'blur(0px)', scale: 1 }}
-                transition={{ delay: 0.06 * i, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ delay: 0.05 * i, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                 style={{
-                  fontSize: ch === '-' ? 30 : 34,
-                  fontWeight: 700,
-                  fontFamily: "'Inter', sans-serif",
-                  color: ch === '-' ? 'var(--accent)' : 'var(--text-bright)',
-                  letterSpacing: '0.18em',
+                  fontSize: ch === '-' ? 32 : 36,
+                  fontWeight: 800,
+                  fontFamily: "'Orbitron', 'Inter', sans-serif",
+                  color: ch === '-' ? '#00F0FF' : '#F8FAFC',
+                  letterSpacing: '0.2em',
                   lineHeight: 1,
-                  textShadow: ch === '-' ? '0 0 12px var(--accent)' : 'none',
+                  textShadow: ch === '-' ? '0 0 16px #00F0FF' : '0 0 12px rgba(255, 255, 255, 0.2)',
                 }}
               >
                 {ch === ' ' ? '\u00A0' : ch}
@@ -152,13 +234,14 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
           <motion.p
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.4 }}
+            transition={{ delay: 0.5, duration: 0.4 }}
             style={{
               fontSize: 11,
-              color: 'var(--text-dim)',
+              color: '#94A3B8',
               fontFamily: "'JetBrains Mono', monospace",
-              letterSpacing: '0.12em',
-              marginTop: 6,
+              letterSpacing: '0.14em',
+              marginTop: 8,
+              textTransform: 'uppercase',
             }}
           >
             {SUBTITLE}
@@ -169,56 +252,66 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
   );
 }
 
+/* Boot Progress & System Check Log Container */
 function BootLog({ lines, phase, progress }: { lines: BootLine[]; phase: BootPhase; progress: number }) {
   const visible = phase >= 2;
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0, y: 16, scale: 0.96 }}
+          initial={{ opacity: 0, y: 18, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           style={{
-            marginTop: 16,
-            width: 440,
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-md)',
-            padding: '14px 18px',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            marginTop: 12,
+            width: 480,
+            background: 'rgba(10, 15, 26, 0.85)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(0, 240, 255, 0.2)',
+            borderRadius: 14,
+            padding: '16px 20px',
+            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1)',
+            position: 'relative'
           }}
         >
-          {/* Progress Bar Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-ghost)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-              System Initialization
+          {/* HUD Corner Tech Brackets */}
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 8, height: 8, borderTop: '2px solid #00F0FF', borderLeft: '2px solid #00F0FF' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderTop: '2px solid #00F0FF', borderRight: '2px solid #00F0FF' }} />
+          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderLeft: '2px solid #00F0FF' }} />
+          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderRight: '2px solid #00F0FF' }} />
+
+          {/* Header Telemetry Status */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+              SYSTEM BOOT SEQUENCE // ACTIVE
             </span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace" }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: '#00F0FF', fontFamily: "'JetBrains Mono', monospace" }}>
               {Math.round(progress)}%
             </span>
           </div>
 
-          {/* Track */}
-          <div style={{ width: '100%', height: 4, background: 'var(--bg-surface)', borderRadius: 99, overflow: 'hidden', marginBottom: 14 }}>
+          {/* Progress Bar Track */}
+          <div style={{ width: '100%', height: 5, background: 'rgba(255, 255, 255, 0.06)', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
             <motion.div
               style={{
                 height: '100%',
-                background: 'linear-gradient(90deg, var(--accent-dim), var(--accent), var(--accent-2))',
+                background: 'linear-gradient(90deg, #00D97E, #00F0FF, #6366F1)',
                 borderRadius: 99,
                 width: `${progress}%`,
                 transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                boxShadow: '0 0 10px #00F0FF'
               }}
             />
           </div>
 
-          {/* Lines */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {/* Line Logs */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {lines.map((line, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.15, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ delay: i * 0.12, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
@@ -227,19 +320,19 @@ function BootLog({ lines, phase, progress }: { lines: BootLine[]; phase: BootPha
                   fontSize: 11,
                 }}
               >
-                <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: 'var(--accent)', fontSize: 9, fontWeight: 700 }}>[SYS]</span>
+                <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: '#00F0FF', fontSize: 9, fontWeight: 800 }}>[SYS_INIT]</span>
                   {line.label}...
                 </span>
                 <span style={{
-                  color: line.status === 'ok' ? 'var(--success)'
-                       : line.status === 'warn' ? 'var(--warning)'
-                       : line.status === 'fail' ? 'var(--danger)'
-                       : 'var(--text-dim)',
-                  fontWeight: 600,
+                  color: line.status === 'ok' ? '#00D97E'
+                       : line.status === 'warn' ? '#F59E0B'
+                       : line.status === 'fail' ? '#EF4444'
+                       : '#64748B',
+                  fontWeight: 700,
                   fontSize: 12,
                 }}>
-                  {line.status === 'ok' ? '✓' : line.status === 'warn' ? '⚠' : line.status === 'fail' ? '✕' : '…'}
+                  {line.status === 'ok' ? '✓ OK' : line.status === 'warn' ? '⚠ WARN' : line.status === 'fail' ? '✕ FAIL' : '… PENDING'}
                 </span>
               </motion.div>
             ))}
@@ -265,7 +358,6 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
     setTimeout(onComplete, 650);
   };
 
-  // Phase & Progress progression
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
     timers.push(setTimeout(() => setPhase(1), 200));
@@ -282,7 +374,6 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
   }, []);
 
   const checkBootLines = async () => {
-    // 1. Poll the backend health endpoint until it is online
     let backendOnline = false;
     for (let retry = 0; retry < 40; retry++) {
       try {
@@ -298,7 +389,6 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       await new Promise(r => setTimeout(r, 180));
     }
 
-    // 2. Proceed to run sequential checks for all boot lines
     for (let i = 0; i < BOOT_LINES.length; i++) {
       const line = BOOT_LINES[i];
       let status: BootLine['status'] = 'ok';
@@ -315,7 +405,6 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       await new Promise(r => setTimeout(r, 200));
     }
 
-    // 3. Complete progress bar & trigger online banner
     setProgress(100);
     setPhase(4);
     await new Promise(r => setTimeout(r, 350));
@@ -324,7 +413,6 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
     doExit();
   };
 
-  // Skip on keypress after phase 2
   useEffect(() => {
     const handler = () => {
       if (phase >= 2 && !skipRef.current) doExit();
@@ -338,7 +426,7 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'var(--bg-void)',
+        background: '#030712',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -346,14 +434,29 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
         zIndex: 9999,
         clipPath: exiting ? undefined : 'none',
         animation: exiting ? 'iris-open 0.65s cubic-bezier(0.4, 0, 1, 1) forwards' : 'none',
+        overflow: 'hidden'
       }}
       onClick={() => phase >= 2 && doExit()}
     >
-      {/* Background ambient grid tint */}
-      <div className="void-bg" />
+      {/* Radar Particle Background Canvas */}
+      <RadarParticleCanvas />
+
+      {/* Screen HUD Overlay Corners */}
+      <div style={{ position: 'absolute', top: 24, left: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+        SYSTEM: MERIDIAN_OS // RE_ACT_HYBRID
+      </div>
+      <div style={{ position: 'absolute', top: 24, right: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+        VAULT: AES_GCM_256 // OAUTH_ACTIVE
+      </div>
+      <div style={{ position: 'absolute', bottom: 24, left: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+        LATENCY: 0.4MS // ADAPTIVE_INFRASTRUCTURE
+      </div>
+      <div style={{ position: 'absolute', bottom: 24, right: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+        NODE: 0x4132 // PORT_ACTIVE
+      </div>
 
       {/* Center Layout Stack */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 1 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
         <KineticHexCore phase={phase} progress={progress} />
         <KineticLogotype phase={phase} />
         <BootLog lines={lines} phase={phase} progress={progress} />
@@ -369,18 +472,19 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
               style={{
                 marginTop: 20,
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 800,
                 fontFamily: "'JetBrains Mono', monospace",
-                color: 'var(--accent)',
+                color: '#00F0FF',
                 letterSpacing: '0.28em',
                 textTransform: 'uppercase',
-                background: 'var(--accent-muted)',
-                padding: '6px 16px',
+                background: 'rgba(0, 240, 255, 0.12)',
+                padding: '8px 20px',
                 borderRadius: 99,
-                border: '1px solid var(--border-active)',
+                border: '1px solid #00F0FF',
+                boxShadow: '0 0 24px rgba(0, 240, 255, 0.4)',
               }}
             >
-              SYSTEM ONLINE
+              ⚡ SYSTEM ONLINE
             </motion.div>
           )}
         </AnimatePresence>
@@ -390,12 +494,12 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
           {phase >= 2 && !showOnline && (
             <motion.p
               initial={{ opacity: 0 }}
-              animate={{ opacity: 0.35 }}
+              animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.4 }}
-              style={{ marginTop: 24, fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em' }}
+              style={{ marginTop: 24, fontSize: 10, color: '#94A3B8', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em' }}
             >
-              press any key to skip
+              [PRESS ANY KEY TO SKIP]
             </motion.p>
           )}
         </AnimatePresence>
