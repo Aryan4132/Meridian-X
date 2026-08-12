@@ -59,5 +59,14 @@ def start_workspace_watcher(path: str = ".") -> str:
 def stop_watching_folder(path: str) -> str:
     return f"Stopped watching folder '{path}'."
 
+def stop_workspace_watcher(path: str = ".") -> str:
+    """Stops watching workspace folder."""
+    return stop_watching_folder(path)
+
+def stop_all_watchers() -> str:
+    """Stops all active log and folder watchers."""
+    return "All active log and folder watchers stopped."
+
 def list_folder_watchers() -> list:
     return []
+

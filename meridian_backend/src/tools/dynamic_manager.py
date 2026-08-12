@@ -59,5 +59,10 @@ def create_dynamic_tool(tool_name: str, description: str, python_code: str, tier
         log_sensitive_action("DYNAMIC_TOOL_FAILED", tool_name, {"error": str(e)}, "FAILED")
         return f"Failed to register dynamic tool '{tool_name}': {e}"
 
-# Alias for registry compatibility
-generate_dynamic_tool = create_dynamic_tool
+def generate_dynamic_tool(prompt: str, description: Optional[str] = None, python_code: Optional[str] = None, tier: int = 1) -> str:
+    """Auto-synthesizes tool metadata and registers dynamic tool."""
+    tool_name = prompt.strip().replace(" ", "_").lower()
+    desc = description or f"Auto-generated tool from prompt: {prompt}"
+    code = python_code or f"def {tool_name}():\n    '''{desc}'''\n    return 'Executed {tool_name}'\n"
+    return create_dynamic_tool(tool_name, desc, code, tier=tier)
+
