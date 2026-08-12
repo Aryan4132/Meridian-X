@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { API_BASE_URL } from '../config';
+import { MascotCharacter } from '../Mascot';
 
 interface BootSequenceProps {
   onComplete: () => void;
@@ -63,7 +64,6 @@ function RadarParticleCanvas() {
     const render = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Radar Sweep Effect from Center
       const cx = width / 2;
       const cy = height / 2;
       sweepAngle += 0.015;
@@ -78,7 +78,6 @@ function RadarParticleCanvas() {
       ctx.arc(cx, cy, Math.max(width, height) * 0.7, 0, Math.PI * 2);
       ctx.fill();
 
-      // Render Floating Cyber Particles
       particles.forEach(p => {
         p.x += p.dx;
         p.y += p.dy;
@@ -105,94 +104,103 @@ function RadarParticleCanvas() {
   return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.8 }} />;
 }
 
-/* Kinetic Hex Core Component with Audio Bars */
-function KineticHexCore({ phase, progress }: { phase: BootPhase; progress: number }) {
+/* Mascot Loading Animation Orb & Circular Progress Gauge */
+function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootPhase }) {
   const visible = phase >= 1;
+  
+  // Resolve dynamic mascot emotion state based on loading progress
+  const mascotState = 
+    progress >= 100 ? 'happy' :
+    progress > 65 ? 'typing' :
+    progress > 30 ? 'diagnostic' :
+    'idle';
+
+  const strokeDashoffset = 326.72 - (326.72 * progress) / 100;
+
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.5, rotate: -45 }}
-          animate={{ opacity: 1, scale: 1, rotate: 0 }}
-          transition={{ duration: 1.0, ease: [0.16, 1, 0.3, 1] }}
-          style={{ position: 'relative', width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          style={{ position: 'relative', width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}
         >
-          {/* Pulsing Outer Glow Halo */}
+          {/* Ambient Pulsing Glow Background */}
           <motion.div
-            animate={{ scale: [1, 1.3, 1], opacity: [0.25, 0.55, 0.25] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
             style={{
               position: 'absolute',
-              width: 190,
-              height: 190,
+              width: 140,
+              height: 140,
               borderRadius: '50%',
-              background: 'radial-gradient(circle, #00F0FF 0%, #00D97E 40%, transparent 70%)',
-              filter: 'blur(24px)',
+              background: progress >= 100 
+                ? 'radial-gradient(circle, #00D97E 0%, transparent 70%)' 
+                : 'radial-gradient(circle, #00F0FF 0%, #6366F1 50%, transparent 75%)',
+              filter: 'blur(22px)',
             }}
           />
 
-          {/* Outer Rotating Dash Ring */}
+          {/* SVG Circular Orbit Progress Gauge (Replaces Bar) */}
+          <svg width="150" height="150" viewBox="0 0 120 120" style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
+            {/* Track Circle */}
+            <circle
+              cx="60" cy="60" r="52"
+              fill="none"
+              stroke="rgba(255, 255, 255, 0.08)"
+              strokeWidth="4"
+            />
+            {/* Animated Dynamic Progress Circle */}
+            <circle
+              cx="60" cy="60" r="52"
+              fill="none"
+              stroke={progress >= 100 ? '#00D97E' : '#00F0FF'}
+              strokeWidth="5"
+              strokeDasharray="326.72"
+              strokeDashoffset={strokeDashoffset}
+              strokeLinecap="round"
+              style={{ transition: 'stroke-dashoffset 0.3s ease, stroke 0.3s ease' }}
+            />
+          </svg>
+
+          {/* Outer Rotating Cyber Marks */}
           <motion.svg
-            width="190" height="190"
-            viewBox="0 0 190 190"
+            width="170" height="170"
+            viewBox="0 0 170 170"
             animate={{ rotate: 360 }}
-            transition={{ duration: 18, repeat: Infinity, ease: 'linear' }}
+            transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
             style={{ position: 'absolute', transformOrigin: 'center' }}
           >
-            <circle cx="95" cy="95" r="88" fill="none" stroke="#00F0FF" strokeWidth="1.5" strokeDasharray="10 14" strokeOpacity="0.6" />
-            <circle cx="95" cy="7" r="4" fill="#00F0FF" />
-            <circle cx="95" cy="183" r="3.5" fill="#6366F1" />
+            <circle cx="85" cy="85" r="80" fill="none" stroke="#00F0FF" strokeWidth="1.2" strokeDasharray="6 12" strokeOpacity="0.4" />
+            <circle cx="85" cy="5" r="3.5" fill="#00F0FF" />
           </motion.svg>
 
-          {/* Middle Counter-Rotating Wave Ring */}
-          <motion.svg
-            width="150" height="150"
-            viewBox="0 0 150 150"
-            animate={{ rotate: -360 }}
-            transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
-            style={{ position: 'absolute', transformOrigin: 'center' }}
-          >
-            <circle cx="75" cy="75" r="68" fill="none" stroke="#6366F1" strokeWidth="1.2" strokeDasharray="6 10" strokeOpacity="0.5" />
-            <circle cx="75" cy="7" r="3" fill="#00D97E" opacity="0.9" />
-          </motion.svg>
-
-          {/* Hexagon Cyber Core */}
-          <motion.svg
-            width="116" height="116"
-            viewBox="0 0 116 116"
-            animate={{ scale: [1, 1.05, 1] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-            style={{ position: 'absolute', filter: 'drop-shadow(0 0 20px #00F0FF)' }}
-          >
-            {/* Outer Hex */}
-            <polygon
-              points="58,6 100,30 100,86 58,110 16,86 16,30"
-              fill="rgba(0, 240, 255, 0.08)"
-              stroke="#00F0FF"
-              strokeWidth="2.2"
+          {/* Center Mascot Companion Character */}
+          <div style={{ position: 'relative', zIndex: 10, transform: 'scale(2.4)' }}>
+            <MascotCharacter
+              state={mascotState}
+              accentColor={progress >= 100 ? '#00D97E' : '#00F0FF'}
+              speechAmplitude={0.4}
             />
-            {/* Inner Hex */}
-            <polygon
-              points="58,22 84,37 84,79 58,94 32,79 32,37"
-              fill="rgba(99, 102, 241, 0.12)"
-              stroke="#6366F1"
-              strokeWidth="1.5"
-              strokeOpacity="0.8"
-            />
-          </motion.svg>
+          </div>
 
-          {/* Central Glowing Core Sphere */}
-          <motion.div
-            animate={{ scale: [1, 1.25, 1] }}
-            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              position: 'absolute',
-              width: 26, height: 26,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #00F0FF, #6366F1)',
-              boxShadow: '0 0 28px #00F0FF, 0 0 56px #6366F1',
-            }}
-          />
+          {/* Progress Percentage Overlay Badge */}
+          <div style={{
+            position: 'absolute',
+            bottom: -8,
+            background: 'rgba(3, 7, 18, 0.85)',
+            border: '1px solid rgba(0, 240, 255, 0.3)',
+            borderRadius: 99,
+            padding: '2px 10px',
+            fontSize: 11,
+            fontWeight: 800,
+            color: progress >= 100 ? '#00D97E' : '#00F0FF',
+            fontFamily: "'JetBrains Mono', monospace",
+            boxShadow: '0 0 12px rgba(0, 240, 255, 0.3)'
+          }}>
+            {Math.round(progress)}%
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -208,7 +216,7 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          style={{ textAlign: 'center', marginBottom: 16 }}
+          style={{ textAlign: 'center', marginBottom: 14 }}
         >
           <div style={{ display: 'flex', gap: 3, justifyContent: 'center', overflow: 'hidden' }}>
             {TITLE.split('').map((ch, i) => (
@@ -252,8 +260,8 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
   );
 }
 
-/* Boot Progress & System Check Log Container */
-function BootLog({ lines, phase, progress }: { lines: BootLine[]; phase: BootPhase; progress: number }) {
+/* Boot Progress & System Check Log Container (Clean Check List without progress bar) */
+function BootLog({ lines, phase }: { lines: BootLine[]; phase: BootPhase }) {
   const visible = phase >= 2;
   return (
     <AnimatePresence>
@@ -280,28 +288,11 @@ function BootLog({ lines, phase, progress }: { lines: BootLine[]; phase: BootPha
           <div style={{ position: 'absolute', bottom: 4, left: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderLeft: '2px solid #00F0FF' }} />
           <div style={{ position: 'absolute', bottom: 4, right: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderRight: '2px solid #00F0FF' }} />
 
-          {/* Header Telemetry Status */}
+          {/* Header Status */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.12em' }}>
-              SYSTEM BOOT SEQUENCE // ACTIVE
+              AGENTIC SYSTEM INITIALIZATION
             </span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: '#00F0FF', fontFamily: "'JetBrains Mono', monospace" }}>
-              {Math.round(progress)}%
-            </span>
-          </div>
-
-          {/* Progress Bar Track */}
-          <div style={{ width: '100%', height: 5, background: 'rgba(255, 255, 255, 0.06)', borderRadius: 99, overflow: 'hidden', marginBottom: 16 }}>
-            <motion.div
-              style={{
-                height: '100%',
-                background: 'linear-gradient(90deg, #00D97E, #00F0FF, #6366F1)',
-                borderRadius: 99,
-                width: `${progress}%`,
-                transition: 'width 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-                boxShadow: '0 0 10px #00F0FF'
-              }}
-            />
           </div>
 
           {/* Line Logs */}
@@ -457,9 +448,9 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
 
       {/* Center Layout Stack */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-        <KineticHexCore phase={phase} progress={progress} />
+        <MascotLoadingCore progress={progress} phase={phase} />
         <KineticLogotype phase={phase} />
-        <BootLog lines={lines} phase={phase} progress={progress} />
+        <BootLog lines={lines} phase={phase} />
 
         {/* SYSTEM ONLINE Banner */}
         <AnimatePresence>
@@ -474,14 +465,14 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
                 fontSize: 12,
                 fontWeight: 800,
                 fontFamily: "'JetBrains Mono', monospace",
-                color: '#00F0FF',
+                color: '#00D97E',
                 letterSpacing: '0.28em',
                 textTransform: 'uppercase',
-                background: 'rgba(0, 240, 255, 0.12)',
+                background: 'rgba(0, 217, 126, 0.12)',
                 padding: '8px 20px',
                 borderRadius: 99,
-                border: '1px solid #00F0FF',
-                boxShadow: '0 0 24px rgba(0, 240, 255, 0.4)',
+                border: '1px solid #00D97E',
+                boxShadow: '0 0 24px rgba(0, 217, 126, 0.4)',
               }}
             >
               ⚡ SYSTEM ONLINE
