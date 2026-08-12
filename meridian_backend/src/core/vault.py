@@ -160,6 +160,34 @@ def get_secret(key: str, passphrase: Optional[str] = None) -> Optional[str]:
         return None
 
 
+def delete_secret(key: str, passphrase: Optional[str] = None) -> bool:
+    """Removes a key from the encrypted vault if present."""
+    secrets = load_all_secrets(passphrase)
+    if key in secrets:
+        del secrets[key]
+        passphrase = _resolve_passphrase(passphrase)
+        data_bytes = json.dumps(secrets).encode("utf-8")
+        salt = os.urandom(16)
+        kdf_type = "argon2id"
+        derived_key = _derive_key(passphrase, salt, kdf_type=kdf_type)
+        aesgcm = AESGCM(derived_key)
+        nonce = os.urandom(12)
+        ciphertext = aesgcm.encrypt(nonce, data_bytes, None)
+        payload = {
+            "kdf": kdf_type,
+            "salt": base64.b64encode(salt).decode("utf-8"),
+            "nonce": base64.b64encode(nonce).decode("utf-8"),
+            "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
+        }
+        with open(VAULT_FILE, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+        _invalidate_key_cache()
+        _audit("vault_delete", key)
+        return True
+    return False
+
+
+
 def load_all_secrets(passphrase: Optional[str] = None) -> Dict[str, str]:
     """Decrypt and return all secrets from the vault file."""
     if not os.path.exists(VAULT_FILE):
