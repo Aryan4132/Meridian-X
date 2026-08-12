@@ -33,7 +33,8 @@ class EndpointFilter(logging.Filter):
 def configure_localhost_tls_cert() -> Optional[Dict[str, str]]:
     """Generates self-signed localhost TLS certificate for HTTPS server (SEC-19)."""
     try:
-        import trustme
+        import trustme  # type: ignore
+
         ca = trustme.CA()
         server_cert = ca.issue_cert("127.0.0.1", "localhost")
         cert_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "certs")
@@ -359,8 +360,8 @@ app = FastAPI(
     lifespan=lifespan,
     dependencies=[Depends(require_api_key)]
 )
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
+
 app.add_middleware(SlowAPIMiddleware)
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=10_485_760)  # 10 MB cap
 app.add_middleware(TrustedOriginMiddleware)
@@ -1101,7 +1102,7 @@ def check_shortcut_command(prompt: str) -> Optional[dict]:
     if p in ["run tests", "run test", "execute tests", "test codebase", "run unit tests", "test"]:
         print("[Shortcut Engine] Bypassing LLM. Executing run_tests directly.")
         from src.tools.developer import run_tests
-        res = run_tests()
+        res = run_tests(".")
         return {
             "text": f"Bypassed LLM reasoning (Sub-100ms execute).\n\n**Test Results:**\n{res}",
             "thoughts": [{"id": f"shortcut-step-{int(time.time())}", "type": "exec", "text": "Direct voice shortcut triggered: run_tests", "tool": "run_tests", "status": "completed"}]
@@ -1111,7 +1112,8 @@ def check_shortcut_command(prompt: str) -> Optional[dict]:
     if p in ["git status", "repository status", "check git", "status of repo", "repo status"]:
         print("[Shortcut Engine] Bypassing LLM. Executing git_status directly.")
         from src.tools.developer import git_status
-        res = git_status()
+        res = git_status(".")
+
         return {
             "text": f"Bypassed LLM reasoning (Sub-100ms execute).\n\n**Git Status:**\n{res}",
             "thoughts": [{"id": f"shortcut-step-{int(time.time())}", "type": "exec", "text": "Direct voice shortcut triggered: git_status", "tool": "git_status", "status": "completed"}]
@@ -1337,7 +1339,8 @@ def chat_clear():
 def chat_history(limit: Optional[int] = 50):
     try:
         from database import get_conversation_history
-        history = get_conversation_history(limit=limit)
+        history = get_conversation_history(limit=limit or 50)
+
         formatted_history = []
         for msg in history:
             formatted_history.append({
@@ -1387,7 +1390,8 @@ async def save_mcp_config_route(request: SaveMcpConfig):
 def scheduler_runs(limit: Optional[int] = 20):
     try:
         from database import get_background_runs
-        runs = get_background_runs(limit=limit)
+        runs = get_background_runs(limit=limit or 20)
+
         return {"runs": runs}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1655,7 +1659,7 @@ class ExportRequest(BaseModel):
 def session_export(request: ExportRequest):
     try:
         from src.core.exporter import export_session_runbook
-        msg = export_session_runbook(request.path, request.format)
+        msg = export_session_runbook(request.path, request.format or "md")
         return {"status": "success", "message": msg}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -1668,7 +1672,7 @@ class IngestRequest(BaseModel):
 @app.post("/api/rag/ingest")
 def rag_ingest(request: IngestRequest):
     try:
-        ingest_into_knowledge_base(request.source, request.text, request.metadata)
+        ingest_into_knowledge_base(request.source, request.text, request.metadata or {})
         add_to_task_log("ingest_file", 1, "success")
         return {"status": "success", "message": f"Successfully ingested '{request.source}' into Turbovec RAG."}
     except Exception as e:
@@ -1703,9 +1707,10 @@ async def rag_ingest_file_upload(file: UploadFile = File(...)):
         import shutil
         import tempfile
         
+        fname = file.filename or "uploaded_file"
         # Save uploaded file to a temporary file
         await file.seek(0)
-        suffix = os.path.splitext(file.filename)[1]
+        suffix = os.path.splitext(fname)[1]
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             shutil.copyfileobj(file.file, tmp)
             tmp_path = tmp.name
@@ -1714,9 +1719,9 @@ async def rag_ingest_file_upload(file: UploadFile = File(...)):
             text = extract_text_from_file(tmp_path)
             if not text or not text.strip():
                 raise ValueError("No extractable text content found. The file may be empty, scanned, or password-protected.")
-            ingest_into_knowledge_base(file.filename, text)
+            ingest_into_knowledge_base(fname, text)
             add_to_task_log("ingest_file", 1, "success")
-            return {"status": "success", "message": f"Successfully parsed and ingested '{file.filename}' into Turbovec RAG."}
+            return {"status": "success", "message": f"Successfully parsed and ingested '{fname}' into Turbovec RAG."}
         finally:
             # Always clean up the temp file
             if os.path.exists(tmp_path):
@@ -1732,9 +1737,10 @@ class SearchRequest(BaseModel):
 @app.post("/api/rag/search")
 def rag_search(request: SearchRequest):
     try:
-        results = search_knowledge_base(request.query, request.limit)
+        results = search_knowledge_base(request.query, request.limit or 2)
         add_to_task_log("search_knowledge", 0, "success")
         return {"results": results}
+
     except Exception as e:
         add_to_task_log("search_knowledge", 0, "failed", str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -1858,7 +1864,8 @@ def update_local_env_file(key: str, val: str):
 @app.post("/api/profile/save")
 def profile_save(req: ProfileSaveRequest):
     try:
-        update_data = req.dict(exclude_unset=True)
+        update_data = req.model_dump(exclude_unset=True)
+
         for k, v in update_data.items():
             if v is not None:
                 save_user_profile(k, v)
@@ -2067,7 +2074,7 @@ def sandbox_run(request: SandboxRequest):
     # 3. Execute python
     add_to_task_log("sandbox_run", 2, "started")
     try:
-        output = run_python(request.code, timeout=request.timeout)
+        output = run_python(request.code, timeout=request.timeout or 30.0)
         add_to_task_log("sandbox_run", 2, "success")
         return {
             "status": "success",
@@ -2096,7 +2103,8 @@ def clipboard_add(request: ClipboardRequest):
 @app.get("/api/clipboard/history")
 def clipboard_history(limit: Optional[int] = 50):
     try:
-        history = get_clipboard_history(limit)
+        history = get_clipboard_history(limit or 50)
+
         return {"history": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -3417,15 +3425,17 @@ class OpenUrlRequest(BaseModel):
 async def open_external_url_api(payload: OpenUrlRequest):
     """Opens an external URL in the user's system default web browser."""
     import webbrowser
+    import subprocess
     target_url = payload.url.strip()
     try:
         if os.name == "nt":
-            os.system(f'start "" "{target_url}"')
+            subprocess.Popen(["cmd", "/c", "start", "", target_url], shell=False)
         else:
             webbrowser.open(target_url)
         return {"status": "success", "url": target_url}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
 
 
 
