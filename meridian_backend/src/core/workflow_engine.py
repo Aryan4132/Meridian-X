@@ -56,11 +56,11 @@ def create_workflow(name: str, nodes: List[Dict[str, Any]], edges: List[Dict[str
 
 
 def create_ai_workflow(goal: str) -> Dict[str, Any]:
-
     """
     AI Agent Helper: Converts a natural language goal (e.g. 'check cloudflare domain example.com and email me on gmail')
-    into a structured n8n-style workflow definition automatically.
+    into a structured Meridian-X DAG workflow definition automatically.
     """
+
     goal_lower = goal.lower()
     nodes = [
         {"id": "node_1", "type": "trigger_webhook", "name": "Incoming Trigger", "parameters": {}}

@@ -186,8 +186,9 @@ export const WorkflowBuilder: React.FC = () => {
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400">
-            n8n Workflow Automation Engine
+            Meridian-X Workflow Automation Engine
           </h1>
+
           <p className="text-sm text-slate-400 mt-1">
             Visual DAG pipeline runner & AI-powered workflow generator with OAuth service integration.
           </p>

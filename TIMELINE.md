@@ -14,13 +14,14 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 2 — OAuth 2.0, External Connectors & n8n Workflow Engine (🔴 High Priority)
+## 📅 Day 2 — OAuth 2.0, External Connectors & Workflow Automation Engine (🔴 High Priority)
 - **`SEC-25` — OAuth 2.0 Hybrid Auth & External Connector Engine**
   - *Target*: `oauth_manager.py`, `external_connectors.py`
   - *Deliverable*: Dual API key + Bearer JWT auth, PKCE login flow, encrypted OAuth token vault for Gmail, Calendar, Contacts, GitHub, and Cloudflare.
-- **`WKF-01` — n8n-Style Node Workflow & Automation Engine**
+- **`WKF-01` — Meridian-X Node Workflow & Automation Engine**
   - *Target*: `workflow_engine.py`, `WorkflowBuilder.tsx`
-  - *Deliverable*: Trigger/Action visual workflow runner (Webhook/Schedule/Email trigger $\rightarrow$ Filter $\rightarrow$ External Service Node $\rightarrow$ LLM step) executing n8n-style multi-step automation pipelines.
+  - *Deliverable*: Trigger/Action visual workflow runner (Webhook/Schedule/Email trigger $\rightarrow$ Filter $\rightarrow$ External Service Node $\rightarrow$ LLM step) executing multi-step automation pipelines.
+
 
 ---
 
