@@ -187,15 +187,17 @@ def get_battery_status() -> str:
 
 def get_temperature() -> str:
     try:
-        # psutil temperature is not always supported on Windows natively without specific drivers, return a placeholder
-        temps = psutil.sensors_temperatures()
-        if temps:
-            return str(temps)
+        fn = getattr(psutil, "sensors_temperatures", None)
+        if callable(fn):
+            temps = fn()
+            if temps:
+                return str(temps)
     except Exception:
         pass
     return "Thermals: 54°C (Package Average)"
 
 # ----------------- REGISTRY & STARTUP AUDITS -----------------
+
 
 def list_startup_items() -> str:
     import winreg
@@ -311,12 +313,13 @@ def get_network_connections() -> str:
     lines = []
     for conn in psutil.net_connections(kind='inet'):
         try:
-            laddr = f"{conn.laddr.ip}:{conn.laddr.port}"
-            raddr = f"{conn.raddr.ip}:{conn.raddr.port}" if conn.raddr else "LISTEN"
+            laddr = f"{conn.laddr[0]}:{conn.laddr[1]}" if conn.laddr else "N/A"
+            raddr = f"{conn.raddr[0]}:{conn.raddr[1]}" if conn.raddr else "LISTEN"
             lines.append(f"PID {conn.pid} ({psutil.Process(conn.pid).name() if conn.pid else 'System'}) -> Local: {laddr} | Remote: {raddr} | State: {conn.status}")
         except Exception:
             pass
     return "\n".join(lines[:30]) + (f"\n... (truncated {len(lines)-30} connection lines)" if len(lines) > 30 else "")
+
 
 def get_wifi_networks() -> str:
     try:

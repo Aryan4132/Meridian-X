@@ -50,7 +50,8 @@ class RAGContextOptimizer:
         results = []
 
         for idx, doc in enumerate(documents):
-            content = doc.get("content", doc.get("text", str(doc)))
+            content = doc.get("content") or doc.get("text") or str(doc)
+
             sparse_score = self._calculate_bm25_score(query, content)
             dense_score = vector_scores[idx] if vector_scores and idx < len(vector_scores) else 0.5
 
