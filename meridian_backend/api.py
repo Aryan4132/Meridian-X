@@ -1,5 +1,7 @@
 import os
+import asyncio
 from src.core.mcp_client import mcp_manager
+
 # Load local .env file if present
 from src.core.config import ENV_FILE as env_path
 if os.path.exists(env_path):
@@ -1283,10 +1285,12 @@ def chat_stream(request: ChatRequest):
     if (api_provider or "").lower() == "ollama":
         try:
             from database import get_ollama_client
+            from src.core.loop_parser import resolve_local_model_name
             client = get_ollama_client()
             brain_model = resolve_local_model_name(brain_model, client)
         except Exception:
             pass
+
 
     # Record user activity for the idle nudge tracker
     try:
@@ -2528,8 +2532,9 @@ class PowerSaveRequest(BaseModel):
 @app.post("/api/system/power-save")
 def toggle_power_save(request: PowerSaveRequest):
     try:
-        if active:
+        if request.active:
             from database import get_auditor_model
+
             os.environ["MERIDIAN_MODEL"] = get_auditor_model()
             print("[Resource Governor] Power-Saving Mode activated. Model set to lightweight auditor.")
             return {"status": "success", "message": "Power-Saving Mode activated. Using lightweight fallback model."}
