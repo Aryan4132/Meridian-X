@@ -21,7 +21,9 @@ import logging
 import platform
 import json
 from contextlib import asynccontextmanager
+from typing import cast, Any, Dict, List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
@@ -443,16 +445,9 @@ def post_rotate_api_key(request: Request):
     from src.core.auth import rotate_meridian_api_key
     rotate_meridian_api_key(new_key)
     return {"status": "success", "message": "API key rotated successfully.", "new_key_prefix": new_key[:12] + "..."}
-    try:
-        backend_dir = os.path.dirname(os.path.abspath(__file__))
-        log_path = os.path.join(backend_dir, "frontend_debug.log")
-        with open(log_path, "a", encoding="utf-8") as f:
-            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] [{log.level.upper()}] {log.message}\n")
-    except Exception as e:
-        print("Failed to write debug log to file:", e)
-    return {"status": "ok"}
 
 @app.post("/api/system/shutdown")
+
 @limiter.limit("5/minute")
 def post_system_shutdown(request: Request):
     import threading
