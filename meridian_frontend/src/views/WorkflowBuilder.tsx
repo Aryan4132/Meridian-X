@@ -77,38 +77,56 @@ export const WorkflowBuilder: React.FC = () => {
     }
   };
 
-  const handlePerformOAuthSignIn = async () => {
+  const handleOpenBrowserLogin = async () => {
     if (!activeModalProvider) return;
     setIsConnecting(true);
+
+    // 1. Open blank window synchronously to prevent browser popup blockers
+    const popupWindow = window.open('about:blank', '_blank', 'width=600,height=700');
+
     try {
-      if (manualTokenInput.trim()) {
-        // Direct Account Token / Credentials submission
-        await fetch(`${API_BASE_URL}/api/auth/oauth/callback`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            state: 'manual_state',
-            code: manualTokenInput.trim(),
-            provider: activeModalProvider.id,
-            redirect_uri: window.location.origin + '/oauth/callback'
-          })
-        });
-      } else {
-        // Standard OAuth Browser PKCE Redirect Flow
-        const resp = await fetch(`${API_BASE_URL}/api/auth/oauth/authorize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ provider: activeModalProvider.id, redirect_uri: window.location.origin + '/oauth/callback' })
-        });
-        const data = await resp.json();
-        if (data.auth_url) {
-          window.open(data.auth_url, '_blank', 'width=600,height=700');
+      const resp = await fetch(`${API_BASE_URL}/api/auth/oauth/authorize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: activeModalProvider.id, redirect_uri: window.location.origin + '/oauth/callback' })
+      });
+      const data = await resp.json();
+
+      if (data.auth_url) {
+        if (popupWindow) {
+          popupWindow.location.href = data.auth_url;
+        } else {
+          window.location.href = data.auth_url;
         }
+      } else if (popupWindow) {
+        popupWindow.close();
       }
+    } catch (e) {
+      console.error('OAuth popup launch failed:', e);
+      if (popupWindow) popupWindow.close();
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const handleSaveManualToken = async () => {
+    if (!activeModalProvider || !manualTokenInput.trim()) return;
+    setIsConnecting(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/oauth/callback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: 'manual_state',
+          code: manualTokenInput.trim(),
+          provider: activeModalProvider.id,
+          redirect_uri: window.location.origin + '/oauth/callback'
+        })
+      });
       await fetchOAuthStatus();
       setActiveModalProvider(null);
     } catch (e) {
-      console.error('OAuth sign in failed:', e);
+      console.error('Manual token submission failed:', e);
     } finally {
       setIsConnecting(false);
     }
@@ -266,7 +284,7 @@ export const WorkflowBuilder: React.FC = () => {
 
       {/* Interactive OAuth Sign In Modal */}
       {activeModalProvider && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-2">
@@ -282,14 +300,15 @@ export const WorkflowBuilder: React.FC = () => {
             </div>
 
             <p className="text-xs text-slate-300">
-              Sign in via browser OAuth popup or paste your service API key / access token to bind credentials securely in your encrypted vault.
+              Sign in via browser OAuth window or paste your account API key / access token to bind credentials securely in your encrypted vault.
             </p>
 
-            <div className="space-y-3 pt-2">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Option A: Browser OAuth 2.0 PKCE Login</label>
+            <div className="space-y-4 pt-1">
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
+                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Login</label>
+                <p className="text-[11px] text-slate-400">Launches authorization window directly for {activeModalProvider.name}.</p>
                 <button
-                  onClick={handlePerformOAuthSignIn}
+                  onClick={handleOpenBrowserLogin}
                   disabled={isConnecting}
                   className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs rounded-lg transition"
                 >
@@ -297,37 +316,32 @@ export const WorkflowBuilder: React.FC = () => {
                 </button>
               </div>
 
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-800"></div>
-                <span className="flex-shrink mx-2 text-[10px] text-slate-500 uppercase font-bold">OR</span>
-                <div className="flex-grow border-t border-slate-800"></div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase block mb-1">Option B: Enter API Key / Access Token</label>
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
+                <label className="text-xs font-bold text-teal-400 uppercase block">Option B: Enter API Key / Personal Access Token</label>
+                <p className="text-[11px] text-slate-400">Instant connection via personal access token / service key.</p>
                 <input
                   type="password"
                   placeholder={`Paste ${activeModalProvider.name} Token / Key...`}
                   value={manualTokenInput}
                   onChange={(e) => setManualTokenInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-teal-500"
                 />
+                <button
+                  onClick={handleSaveManualToken}
+                  disabled={!manualTokenInput.trim() || isConnecting}
+                  className="w-full py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
+                >
+                  {isConnecting ? 'Saving...' : 'Connect with Token'}
+                </button>
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+            <div className="flex justify-end pt-2">
               <button
                 onClick={() => setActiveModalProvider(null)}
                 className="px-4 py-1.5 text-xs text-slate-400 hover:text-slate-200"
               >
-                Cancel
-              </button>
-              <button
-                onClick={handlePerformOAuthSignIn}
-                disabled={isConnecting}
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs rounded-lg transition"
-              >
-                {isConnecting ? 'Saving...' : 'Authorize & Save'}
+                Close
               </button>
             </div>
           </div>
