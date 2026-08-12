@@ -223,6 +223,15 @@ def get_oauth_tokens(service_name: str, user_id: str = "default_user") -> Option
         return None
 
 
+def clear_oauth_tokens(service_name: str, user_id: str = "default_user") -> bool:
+    """Removes OAuth service tokens from security vault."""
+    from src.core.vault import delete_secret
+    vault_key = f"OAUTH_TOKEN_{user_id.upper()}_{service_name.upper()}"
+    res = delete_secret(vault_key, "DEFAULT_VAULT_PASS")
+    return bool(res)
+
+
+
 def delete_oauth_tokens(service_name: str, user_id: str = "default_user") -> bool:
     """Deletes OAuth service tokens from security vault."""
     vault_key = f"OAUTH_TOKEN_{user_id.upper()}_{service_name.upper()}"

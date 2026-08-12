@@ -3355,6 +3355,15 @@ async def get_oauth_connections_status_api():
     return {"status": "success", "connections": status_dict}
 
 
+@app.delete("/api/auth/oauth/disconnect/{provider}")
+async def disconnect_oauth_service_api(provider: str):
+    """SEC-25: Disconnects an OAuth service and clears its tokens from encrypted vault."""
+    from src.core.oauth_manager import clear_oauth_tokens
+    res = clear_oauth_tokens(provider)
+    return {"status": "success", "disconnected": provider, "cleared": res}
+
+
+
 @app.get("/api/workflows/list")
 async def list_workflows_api():
     """WKF-01: Lists all configured Meridian-X automation workflows."""
