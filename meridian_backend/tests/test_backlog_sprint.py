@@ -20,10 +20,20 @@ def test_shell_ast_denylist():
     assert is_blocked is True
     assert "Safety Gate" in reason
 
-def test_audit_hmac_chain_verification():
-    """Verify HMAC chain verification on audit log (SEC-20)."""
-    is_valid, msg = verify_audit_chain()
-    assert is_valid is True
+def test_audit_hmac_chain_verification(tmp_path):
+    """Verify HMAC chain verification on a fresh isolated audit log (SEC-20)."""
+    from src.core.audit_logger import log_sensitive_action
+    tmp_log = str(tmp_path / "audit_test.log")
+    hmac_state = ["0" * 64]
+    # Write a short chain of 3 entries to the temp log
+    for i in range(3):
+        log_sensitive_action(
+            "TEST", f"action_{i}", {"idx": i},
+            _log_path=tmp_log, _hmac_state=hmac_state
+        )
+    # Chain should be valid
+    is_valid, msg = verify_audit_chain(log_path=tmp_log)
+    assert is_valid is True, f"HMAC chain invalid: {msg}"
 
 def test_rogue_subprocess_monitor():
     """Verify rogue subprocess monitor returns active child processes (SEC-23)."""

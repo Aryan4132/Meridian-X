@@ -48,12 +48,17 @@ def _get_last_hmac_from_file(log_path: str) -> str:
             pass
     return "0" * 64
 
-def verify_audit_chain() -> tuple[bool, str]:
-    """Verifies HMAC chain integrity of audit.log (SEC-20)."""
-    log_path = get_audit_log_path()
+def verify_audit_chain(log_path: str = "") -> tuple[bool, str]:
+    """Verifies HMAC chain integrity of audit.log (SEC-20).
+
+    Args:
+        log_path: Optional override path for the audit log (used in tests).
+    """
+    if not log_path:
+        log_path = get_audit_log_path()
     if not os.path.exists(log_path):
         return True, "Audit log file does not exist yet."
-        
+
     prev_hash = "0" * 64
     with open(log_path, "r", encoding="utf-8") as f:
         for i, line in enumerate(f):
@@ -66,7 +71,7 @@ def verify_audit_chain() -> tuple[bool, str]:
             data_no_hmac = {k: v for k, v in data.items() if k != "hmac"}
             calc_hmac = _compute_hmac(json.dumps(data_no_hmac, sort_keys=True), prev_hash)
             if record_hmac != calc_hmac:
-                # Re-sync hash if this is the first chained entry encountered or process restart break
+                # Re-sync hash if this is a chain-restart point (new process boot)
                 calc_first = _compute_hmac(json.dumps(data_no_hmac, sort_keys=True), "0" * 64)
                 if record_hmac == calc_first:
                     prev_hash = record_hmac
@@ -90,19 +95,35 @@ def monitor_rogue_subprocesses() -> list:
         pass
     return rogue
 
-def log_sensitive_action(category: str, action: str, details: dict, status: str = "SUCCESS"):
+def log_sensitive_action(
+    category: str,
+    action: str,
+    details: dict,
+    status: str = "SUCCESS",
+    _log_path: str = "",
+    _hmac_state: list = [],
+):
     """
     Log sensitive operations to audit.log in a structured JSON lines format.
     Categories: SHELL_EXECUTION, FILE_WRITE, FILE_DELETE, GUI_INPUT
     Thread-safe and persistent across daemon restarts.
+
+    Args:
+        _log_path: Optional override path (used in tests for isolation).
+        _hmac_state: Optional mutable list holding [last_hmac] for test isolation.
     """
     global _last_hmac
-    log_path = get_audit_log_path()
-    
+    log_path = _log_path or get_audit_log_path()
+
     with _audit_lock:
-        if _last_hmac is None:
-            _last_hmac = _get_last_hmac_from_file(log_path)
-            
+        # Use caller-supplied HMAC state when provided (test isolation)
+        if _hmac_state:
+            current_hmac = _hmac_state[0]
+        else:
+            if _last_hmac is None:
+                _last_hmac = _get_last_hmac_from_file(log_path)
+            current_hmac = _last_hmac
+
         entry = {
             "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
             "epoch": time.time(),
@@ -117,12 +138,17 @@ def log_sensitive_action(category: str, action: str, details: dict, status: str 
                 "pid": os.getpid()
             }
         }
-        
+
         entry_str = json.dumps(entry, sort_keys=True)
-        entry_hmac = _compute_hmac(entry_str, _last_hmac)
-        _last_hmac = entry_hmac
+        entry_hmac = _compute_hmac(entry_str, current_hmac)
         entry["hmac"] = entry_hmac
-        
+
+        # Persist HMAC state
+        if _hmac_state:
+            _hmac_state[0] = entry_hmac
+        else:
+            _last_hmac = entry_hmac
+
         try:
             # Write as single-line JSON to log file
             with open(log_path, "a", encoding="utf-8") as f:

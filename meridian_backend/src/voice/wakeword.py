@@ -1,6 +1,7 @@
 import threading
 import time
 import os
+import sys
 import numpy as np
 import sounddevice as sd
 from src.core.proactive import publish_nudge_sync
@@ -105,7 +106,7 @@ def _listen_loop():
         return
         
     try:
-        from openwakeword.model import Model
+        from openwakeword.model import Model  # type: ignore
         oww_model = Model(wakeword_models=[onnx_path])
     except Exception as e:
         print(f"[Wake Word] Failed to load openwakeword model: {e}")
