@@ -5,7 +5,9 @@ execution state tracking, and JSON-RPC response formatting.
 """
 
 import asyncio
+import json
 import logging
+
 from typing import Dict, Any, List, Optional
 try:
     from src.core.mcp_client import McpClient

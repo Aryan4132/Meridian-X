@@ -92,7 +92,8 @@ async def generate_completion_stream(
   retries = 3
   timeout_config = httpx.Timeout(30.0, connect=5.0, read=30.0)
 
-  async def stream_with_retries(url: str, method: str = "POST", headers: dict = None, json_payload: dict = None) -> AsyncGenerator[bytes, None]:
+  async def stream_with_retries(url: str, method: str = "POST", headers: Optional[dict] = None, json_payload: Optional[dict] = None) -> AsyncGenerator[bytes, None]:
+
     delay = 1.0
     for attempt in range(retries):
       try:

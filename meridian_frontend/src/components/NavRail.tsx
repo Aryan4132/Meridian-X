@@ -59,7 +59,8 @@ export default function NavRail() {
         style={{ marginBottom: 16, padding: 4, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
         title="Meridian-X Mascot (Click to summon companion)"
       >
-        <MascotCharacter state="default" />
+        <MascotCharacter state="default" accentColor="var(--accent)" />
+
       </div>
 
       {/* Nav items */}
