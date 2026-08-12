@@ -26,7 +26,7 @@ const BOOT_LINES: BootLine[] = [
 const TITLE = 'MERIDIAN-X';
 const SUBTITLE = 'v0.4.0  ·  agentic intelligence core';
 
-/* Interactive Cybernetic Canvas Backdrop */
+/* Interactive Cybernetic Canvas Backdrop matching active CSS theme */
 function RadarParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -69,8 +69,8 @@ function RadarParticleCanvas() {
       sweepAngle += 0.015;
 
       const sweepGradient = ctx.createConicGradient(sweepAngle, cx, cy);
-      sweepGradient.addColorStop(0, 'rgba(0, 240, 255, 0.08)');
-      sweepGradient.addColorStop(0.1, 'rgba(0, 240, 255, 0.01)');
+      sweepGradient.addColorStop(0, 'rgba(232, 160, 32, 0.08)');
+      sweepGradient.addColorStop(0.1, 'rgba(232, 160, 32, 0.01)');
       sweepGradient.addColorStop(1, 'transparent');
 
       ctx.fillStyle = sweepGradient;
@@ -84,7 +84,7 @@ function RadarParticleCanvas() {
         if (p.x < 0 || p.x > width) p.dx *= -1;
         if (p.y < 0 || p.y > height) p.dy *= -1;
 
-        ctx.fillStyle = `rgba(0, 217, 255, ${p.alpha})`;
+        ctx.fillStyle = `rgba(232, 160, 32, ${p.alpha})`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fill();
@@ -101,14 +101,13 @@ function RadarParticleCanvas() {
     };
   }, []);
 
-  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.8 }} />;
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', opacity: 0.6 }} />;
 }
 
-/* Mascot Loading Animation Orb & Circular Progress Gauge */
+/* Mascot Loading Core & Dynamic Theme Gauge */
 function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootPhase }) {
   const visible = phase >= 1;
   
-  // Resolve dynamic mascot emotion state based on loading progress
   const mascotState = 
     progress >= 100 ? 'happy' :
     progress > 65 ? 'typing' :
@@ -126,7 +125,7 @@ function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootP
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           style={{ position: 'relative', width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}
         >
-          {/* Ambient Pulsing Glow Background */}
+          {/* Ambient Pulsing Glow Halo */}
           <motion.div
             animate={{ scale: [1, 1.25, 1], opacity: [0.3, 0.6, 0.3] }}
             transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
@@ -135,27 +134,23 @@ function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootP
               width: 140,
               height: 140,
               borderRadius: '50%',
-              background: progress >= 100 
-                ? 'radial-gradient(circle, #00D97E 0%, transparent 70%)' 
-                : 'radial-gradient(circle, #00F0FF 0%, #6366F1 50%, transparent 75%)',
+              background: 'radial-gradient(circle, var(--accent) 0%, var(--accent-2) 50%, transparent 75%)',
               filter: 'blur(22px)',
             }}
           />
 
-          {/* SVG Circular Orbit Progress Gauge (Replaces Bar) */}
+          {/* SVG Circular Orbit Progress Gauge */}
           <svg width="150" height="150" viewBox="0 0 120 120" style={{ position: 'absolute', transform: 'rotate(-90deg)' }}>
-            {/* Track Circle */}
             <circle
               cx="60" cy="60" r="52"
               fill="none"
-              stroke="rgba(255, 255, 255, 0.08)"
+              stroke="var(--border-subtle)"
               strokeWidth="4"
             />
-            {/* Animated Dynamic Progress Circle */}
             <circle
               cx="60" cy="60" r="52"
               fill="none"
-              stroke={progress >= 100 ? '#00D97E' : '#00F0FF'}
+              stroke="var(--accent)"
               strokeWidth="5"
               strokeDasharray="326.72"
               strokeDashoffset={strokeDashoffset}
@@ -164,7 +159,7 @@ function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootP
             />
           </svg>
 
-          {/* Outer Rotating Cyber Marks */}
+          {/* Outer Rotating Cyber Ring */}
           <motion.svg
             width="170" height="170"
             viewBox="0 0 170 170"
@@ -172,32 +167,32 @@ function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootP
             transition={{ duration: 16, repeat: Infinity, ease: 'linear' }}
             style={{ position: 'absolute', transformOrigin: 'center' }}
           >
-            <circle cx="85" cy="85" r="80" fill="none" stroke="#00F0FF" strokeWidth="1.2" strokeDasharray="6 12" strokeOpacity="0.4" />
-            <circle cx="85" cy="5" r="3.5" fill="#00F0FF" />
+            <circle cx="85" cy="85" r="80" fill="none" stroke="var(--accent)" strokeWidth="1.2" strokeDasharray="6 12" strokeOpacity="0.4" />
+            <circle cx="85" cy="5" r="3.5" fill="var(--accent)" />
           </motion.svg>
 
           {/* Center Mascot Companion Character */}
           <div style={{ position: 'relative', zIndex: 10, transform: 'scale(2.4)' }}>
             <MascotCharacter
               state={mascotState}
-              accentColor={progress >= 100 ? '#00D97E' : '#00F0FF'}
+              accentColor="var(--accent)"
               speechAmplitude={0.4}
             />
           </div>
 
-          {/* Progress Percentage Overlay Badge */}
+          {/* Progress Percentage Badge */}
           <div style={{
             position: 'absolute',
             bottom: -8,
-            background: 'rgba(3, 7, 18, 0.85)',
-            border: '1px solid rgba(0, 240, 255, 0.3)',
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-active)',
             borderRadius: 99,
             padding: '2px 10px',
             fontSize: 11,
             fontWeight: 800,
-            color: progress >= 100 ? '#00D97E' : '#00F0FF',
-            fontFamily: "'JetBrains Mono', monospace",
-            boxShadow: '0 0 12px rgba(0, 240, 255, 0.3)'
+            color: 'var(--accent)',
+            fontFamily: 'var(--font-main)',
+            boxShadow: 'var(--card-shadow)'
           }}>
             {Math.round(progress)}%
           </div>
@@ -207,7 +202,7 @@ function MascotLoadingCore({ progress, phase }: { progress: number; phase: BootP
   );
 }
 
-/* Kinetic Logotype Header */
+/* Kinetic Logotype Header matching theme font and colors */
 function KineticLogotype({ phase }: { phase: BootPhase }) {
   const visible = phase >= 1;
   return (
@@ -228,11 +223,11 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
                 style={{
                   fontSize: ch === '-' ? 32 : 36,
                   fontWeight: 800,
-                  fontFamily: "'Orbitron', 'Inter', sans-serif",
-                  color: ch === '-' ? '#00F0FF' : '#F8FAFC',
+                  fontFamily: 'var(--font-heading)',
+                  color: ch === '-' ? 'var(--accent)' : 'var(--text-bright)',
                   letterSpacing: '0.2em',
                   lineHeight: 1,
-                  textShadow: ch === '-' ? '0 0 16px #00F0FF' : '0 0 12px rgba(255, 255, 255, 0.2)',
+                  textShadow: ch === '-' ? '0 0 16px var(--accent)' : 'none',
                 }}
               >
                 {ch === ' ' ? '\u00A0' : ch}
@@ -245,8 +240,8 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
             transition={{ delay: 0.5, duration: 0.4 }}
             style={{
               fontSize: 11,
-              color: '#94A3B8',
-              fontFamily: "'JetBrains Mono', monospace",
+              color: 'var(--text-dim)',
+              fontFamily: 'var(--font-main)',
               letterSpacing: '0.14em',
               marginTop: 8,
               textTransform: 'uppercase',
@@ -260,7 +255,7 @@ function KineticLogotype({ phase }: { phase: BootPhase }) {
   );
 }
 
-/* Boot Progress & System Check Log Container (Clean Check List without progress bar) */
+/* Boot Progress Log matching active theme variables */
 function BootLog({ lines, phase }: { lines: BootLine[]; phase: BootPhase }) {
   const visible = phase >= 2;
   return (
@@ -273,24 +268,24 @@ function BootLog({ lines, phase }: { lines: BootLine[]; phase: BootPhase }) {
           style={{
             marginTop: 12,
             width: 480,
-            background: 'rgba(10, 15, 26, 0.85)',
+            background: 'var(--bg-panel)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid rgba(0, 240, 255, 0.2)',
-            borderRadius: 14,
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)',
             padding: '16px 20px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 240, 255, 0.1)',
+            boxShadow: 'var(--card-shadow)',
             position: 'relative'
           }}
         >
-          {/* HUD Corner Tech Brackets */}
-          <div style={{ position: 'absolute', top: 4, left: 4, width: 8, height: 8, borderTop: '2px solid #00F0FF', borderLeft: '2px solid #00F0FF' }} />
-          <div style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderTop: '2px solid #00F0FF', borderRight: '2px solid #00F0FF' }} />
-          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderLeft: '2px solid #00F0FF' }} />
-          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 8, height: 8, borderBottom: '2px solid #00F0FF', borderRight: '2px solid #00F0FF' }} />
+          {/* HUD Corner Brackets matching theme accent */}
+          <div style={{ position: 'absolute', top: 4, left: 4, width: 8, height: 8, borderTop: '2px solid var(--accent)', borderLeft: '2px solid var(--accent)' }} />
+          <div style={{ position: 'absolute', top: 4, right: 4, width: 8, height: 8, borderTop: '2px solid var(--accent)', borderRight: '2px solid var(--accent)' }} />
+          <div style={{ position: 'absolute', bottom: 4, left: 4, width: 8, height: 8, borderBottom: '2px solid var(--accent)', borderLeft: '2px solid var(--accent)' }} />
+          <div style={{ position: 'absolute', bottom: 4, right: 4, width: 8, height: 8, borderBottom: '2px solid var(--accent)', borderRight: '2px solid var(--accent)' }} />
 
           {/* Header Status */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-ghost)', fontFamily: 'var(--font-main)', textTransform: 'uppercase', letterSpacing: '0.12em' }}>
               AGENTIC SYSTEM INITIALIZATION
             </span>
           </div>
@@ -307,19 +302,19 @@ function BootLog({ lines, phase }: { lines: BootLine[]; phase: BootPhase }) {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  fontFamily: "'JetBrains Mono', monospace",
+                  fontFamily: 'var(--font-main)',
                   fontSize: 11,
                 }}
               >
-                <span style={{ color: '#E2E8F0', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ color: '#00F0FF', fontSize: 9, fontWeight: 800 }}>[SYS_INIT]</span>
+                <span style={{ color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ color: 'var(--accent)', fontSize: 9, fontWeight: 800 }}>[SYS_INIT]</span>
                   {line.label}...
                 </span>
                 <span style={{
-                  color: line.status === 'ok' ? '#00D97E'
-                       : line.status === 'warn' ? '#F59E0B'
-                       : line.status === 'fail' ? '#EF4444'
-                       : '#64748B',
+                  color: line.status === 'ok' ? 'var(--success)'
+                       : line.status === 'warn' ? 'var(--warning)'
+                       : line.status === 'fail' ? 'var(--danger)'
+                       : 'var(--text-dim)',
                   fontWeight: 700,
                   fontSize: 12,
                 }}>
@@ -417,7 +412,7 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: '#030712',
+        background: 'var(--bg-void)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -429,20 +424,20 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
       }}
       onClick={() => phase >= 2 && doExit()}
     >
-      {/* Radar Particle Background Canvas */}
+      {/* Radar Canvas matching Theme */}
       <RadarParticleCanvas />
 
       {/* Screen HUD Overlay Corners */}
-      <div style={{ position: 'absolute', top: 24, left: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+      <div style={{ position: 'absolute', top: 24, left: 24, fontSize: 10, fontFamily: 'var(--font-main)', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         SYSTEM: MERIDIAN_OS // RE_ACT_HYBRID
       </div>
-      <div style={{ position: 'absolute', top: 24, right: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+      <div style={{ position: 'absolute', top: 24, right: 24, fontSize: 10, fontFamily: 'var(--font-main)', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         VAULT: AES_GCM_256 // OAUTH_ACTIVE
       </div>
-      <div style={{ position: 'absolute', bottom: 24, left: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+      <div style={{ position: 'absolute', bottom: 24, left: 24, fontSize: 10, fontFamily: 'var(--font-main)', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         LATENCY: 0.4MS // ADAPTIVE_INFRASTRUCTURE
       </div>
-      <div style={{ position: 'absolute', bottom: 24, right: 24, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: '#475569', letterSpacing: '0.1em' }}>
+      <div style={{ position: 'absolute', bottom: 24, right: 24, fontSize: 10, fontFamily: 'var(--font-main)', color: 'var(--text-dim)', letterSpacing: '0.1em' }}>
         NODE: 0x4132 // PORT_ACTIVE
       </div>
 
@@ -464,15 +459,15 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
                 marginTop: 20,
                 fontSize: 12,
                 fontWeight: 800,
-                fontFamily: "'JetBrains Mono', monospace",
-                color: '#00D97E',
+                fontFamily: 'var(--font-main)',
+                color: 'var(--success)',
                 letterSpacing: '0.28em',
                 textTransform: 'uppercase',
-                background: 'rgba(0, 217, 126, 0.12)',
+                background: 'var(--accent-muted)',
                 padding: '8px 20px',
                 borderRadius: 99,
-                border: '1px solid #00D97E',
-                boxShadow: '0 0 24px rgba(0, 217, 126, 0.4)',
+                border: '1px solid var(--border-active)',
+                boxShadow: 'var(--card-shadow)',
               }}
             >
               ⚡ SYSTEM ONLINE
@@ -488,7 +483,7 @@ export default function BootSequence({ onComplete }: BootSequenceProps) {
               animate={{ opacity: 0.4 }}
               exit={{ opacity: 0 }}
               transition={{ delay: 0.4 }}
-              style={{ marginTop: 24, fontSize: 10, color: '#94A3B8', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.08em' }}
+              style={{ marginTop: 24, fontSize: 10, color: 'var(--text-dim)', fontFamily: 'var(--font-main)', letterSpacing: '0.08em' }}
             >
               [PRESS ANY KEY TO SKIP]
             </motion.p>
