@@ -67,8 +67,16 @@ export const WorkflowBuilder: React.FC = () => {
     fetchOAuthStatus();
   }, []);
 
-  const openExternalUrl = (url: string) => {
-    window.open(url, '_blank', 'width=800,height=700,resizable=yes,scrollbars=yes');
+  const openExternalUrl = async (url: string) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/utils/open-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+    } catch {
+      window.open(url, '_blank');
+    }
   };
 
   const handleOpenOAuthModal = (provider: { id: string; name: string; icon: string }) => {
@@ -120,11 +128,7 @@ export const WorkflowBuilder: React.FC = () => {
       const data = await resp.json();
 
       if (data.auth_url) {
-        window.open(
-          data.auth_url,
-          '_blank',
-          'width=600,height=700,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no'
-        );
+        await openExternalUrl(data.auth_url);
       }
     } catch (e) {
       console.error('OAuth popup launch failed:', e);
@@ -132,6 +136,7 @@ export const WorkflowBuilder: React.FC = () => {
       setIsConnecting(false);
     }
   };
+
 
   const handleSaveClientId = async () => {
     if (!activeModalProvider || !clientIdInput.trim()) return;

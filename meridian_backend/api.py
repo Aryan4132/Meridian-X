@@ -3409,6 +3409,26 @@ async def disconnect_oauth_service_api(provider: str):
     return {"status": "success", "disconnected": provider, "cleared": res}
 
 
+class OpenUrlRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/utils/open-url")
+async def open_external_url_api(payload: OpenUrlRequest):
+    """Opens an external URL in the user's system default web browser."""
+    import webbrowser
+    target_url = payload.url.strip()
+    try:
+        if os.name == "nt":
+            os.system(f'start "" "{target_url}"')
+        else:
+            webbrowser.open(target_url)
+        return {"status": "success", "url": target_url}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+
 
 @app.get("/api/workflows/list")
 async def list_workflows_api():
