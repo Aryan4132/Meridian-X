@@ -20,7 +20,8 @@ const BOOT_LINES: BootLine[] = [
   { label: 'Mounting SQLite + Turbovec vectors',  endpoint: `${API_BASE_URL}/api/health`, status: 'pending' },
   { label: 'Binding P2P swarm daemon & OAuth vault', status: 'pending' },
   { label: 'Checking Ollama inference endpoint',  endpoint: `${API_BASE_URL}/api/ollama-models`, status: 'pending' },
-  { label: 'Loading Mascot companion core & n8n engine', status: 'pending' },
+  { label: 'Loading Mascot companion core & workflow engine', status: 'pending' },
+
 ];
 
 const TITLE = 'MERIDIAN-X';

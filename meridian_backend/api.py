@@ -3352,7 +3352,7 @@ async def get_oauth_connections_status_api():
 
 @app.get("/api/workflows/list")
 async def list_workflows_api():
-    """WKF-01: Lists all configured n8n-style automation workflows."""
+    """WKF-01: Lists all configured Meridian-X automation workflows."""
     from src.core.workflow_engine import list_workflows
     return {"status": "success", "workflows": list_workflows()}
 
@@ -3362,7 +3362,7 @@ class AIWorkflowRequest(BaseModel):
 
 @app.post("/api/workflows/ai-create")
 async def create_ai_workflow_api(payload: AIWorkflowRequest):
-    """WKF-01: Generates an n8n-style workflow DAG automatically from natural language prompt."""
+    """WKF-01: Generates a Meridian-X workflow DAG automatically from natural language prompt."""
     from src.core.workflow_engine import create_ai_workflow
     wf = create_ai_workflow(payload.goal)
     return {"status": "success", "workflow": wf}
@@ -3370,10 +3370,11 @@ async def create_ai_workflow_api(payload: AIWorkflowRequest):
 
 @app.post("/api/workflows/create")
 async def create_workflow_api(payload: WorkflowCreateRequest):
-    """WKF-01: Creates a new n8n-style node workflow definition."""
+    """WKF-01: Creates a new Meridian-X node workflow definition."""
     from src.core.workflow_engine import create_workflow
     wf = create_workflow(payload.name, payload.nodes, payload.edges, payload.active or True)
     return {"status": "success", "workflow": wf}
+
 
 
 
