@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  MessageSquare, Zap, Clipboard, Timer, Bot, Settings2,
+  MessageSquare, Zap, Clipboard, Timer, Bot, Settings2, Network,
   Eye, Minus, Square, X
 } from 'lucide-react';
 import { useApp, TabId } from '../AppContext';
@@ -16,8 +16,10 @@ const NAV_ITEMS: { id: TabId; icon: React.ElementType; label: string }[] = [
   { id: 'clipboard',   icon: Clipboard,     label: 'Clipboard History' },
   { id: 'productivity',icon: Timer,         label: 'Productivity HUD' },
   { id: 'lobby',       icon: Bot,           label: 'Swarm Debate' },
+  { id: 'workflows',   icon: Network,       label: 'Workflow Automation' },
   { id: 'settings',    icon: Settings2,     label: 'Settings & Hardware' },
 ];
+
 
 export default function NavRail() {
   const { activeTab, setActiveTab } = useApp();

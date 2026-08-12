@@ -30,7 +30,8 @@ export const attachApiKeyToFetch = () => {
   if (typeof window === 'undefined') return;
 
   const apiKey = getApiKey();
-  if (!apiKey) return;
+  const oauthToken = window.localStorage.getItem('MERIDIAN_OAUTH_TOKEN');
+  if (!apiKey && !oauthToken) return;
 
   const originalFetch = window.fetch.bind(window);
   (window as any).fetch = (input: RequestInfo | URL, init?: RequestInit) => {
@@ -40,17 +41,18 @@ export const attachApiKeyToFetch = () => {
         ? input.toString()
         : input.url;
 
-    const isApiRequest = target.includes('/api/') || target.includes('api/');
-    const isLocalRequest = target.startsWith('/') || target.startsWith('http://localhost') || target.startsWith('http://127.0.0.1') || target.startsWith('http://[::1]') || target.includes(':4132');
-
-    if (isApiRequest && isLocalRequest) {
-      const headers = new Headers(init?.headers || {});
-      if (!headers.has('X-API-Key')) {
+    if (target.includes(`:${API_PORT}`)) {
+      const nextInit: RequestInit = init ? { ...init } : {};
+      const headers = new Headers(nextInit.headers || {});
+      if (apiKey && !headers.has('X-API-Key')) {
         headers.set('X-API-Key', apiKey);
       }
-      return originalFetch(input, { ...init, headers });
+      if (oauthToken && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${oauthToken}`);
+      }
+      nextInit.headers = headers;
+      return originalFetch(input, nextInit);
     }
-
     return originalFetch(input, init);
   };
 };
