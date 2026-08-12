@@ -36,7 +36,9 @@ export const WorkflowBuilder: React.FC = () => {
   // Interactive OAuth Modal state
   const [activeModalProvider, setActiveModalProvider] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [manualTokenInput, setManualTokenInput] = useState('');
+  const [clientIdInput, setClientIdInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showDevConfig, setShowDevConfig] = useState(false);
 
   const fetchWorkflows = async () => {
     try {
@@ -66,6 +68,8 @@ export const WorkflowBuilder: React.FC = () => {
   const handleOpenOAuthModal = (provider: { id: string; name: string; icon: string }) => {
     setActiveModalProvider(provider);
     setManualTokenInput('');
+    setClientIdInput('');
+    setShowDevConfig(false);
   };
 
   const handleOAuthDisconnect = async (providerId: string) => {
@@ -81,7 +85,7 @@ export const WorkflowBuilder: React.FC = () => {
     if (!activeModalProvider) return;
     setIsConnecting(true);
 
-    // 1. Open blank window synchronously to prevent browser popup blockers
+    // 1. Open blank window synchronously on user click event
     const popupWindow = window.open('about:blank', '_blank', 'width=600,height=700');
 
     try {
@@ -106,6 +110,21 @@ export const WorkflowBuilder: React.FC = () => {
       if (popupWindow) popupWindow.close();
     } finally {
       setIsConnecting(false);
+    }
+  };
+
+  const handleSaveClientId = async () => {
+    if (!activeModalProvider || !clientIdInput.trim()) return;
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/oauth/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: activeModalProvider.id, client_id: clientIdInput.trim() })
+      });
+      alert(`OAuth Client ID for ${activeModalProvider.name} saved successfully!`);
+      setShowDevConfig(false);
+    } catch (e) {
+      console.error('Failed to save Client ID:', e);
     }
   };
 
@@ -303,10 +322,10 @@ export const WorkflowBuilder: React.FC = () => {
               Sign in via browser OAuth window or paste your account API key / access token to bind credentials securely in your encrypted vault.
             </p>
 
-            <div className="space-y-4 pt-1">
+            <div className="space-y-3 pt-1">
               <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
                 <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Login</label>
-                <p className="text-[11px] text-slate-400">Launches authorization window directly for {activeModalProvider.name}.</p>
+                <p className="text-[11px] text-slate-400">Launches authorization popup window for {activeModalProvider.name}.</p>
                 <button
                   onClick={handleOpenBrowserLogin}
                   disabled={isConnecting}
@@ -333,6 +352,37 @@ export const WorkflowBuilder: React.FC = () => {
                 >
                   {isConnecting ? 'Saving...' : 'Connect with Token'}
                 </button>
+              </div>
+
+              {/* Developer Client ID Setup Accordion */}
+              <div className="border-t border-slate-800 pt-2">
+                <button
+                  onClick={() => setShowDevConfig(!showDevConfig)}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+                >
+                  <span>{showDevConfig ? '▼' : '▶'}</span>
+                  <span>⚡ Developer Settings: Configure Client ID</span>
+                </button>
+
+                {showDevConfig && (
+                  <div className="mt-2 p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
+                    <label className="text-[10px] uppercase font-bold text-indigo-300 block">OAuth Client ID</label>
+                    <input
+                      type="text"
+                      placeholder={`e.g. 123456.apps.googleusercontent.com`}
+                      value={clientIdInput}
+                      onChange={(e) => setClientIdInput(e.target.value)}
+                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    />
+                    <button
+                      onClick={handleSaveClientId}
+                      disabled={!clientIdInput.trim()}
+                      className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-xs rounded transition"
+                    >
+                      Save Client ID to Vault
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
