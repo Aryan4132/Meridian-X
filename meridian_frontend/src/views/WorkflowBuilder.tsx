@@ -36,6 +36,8 @@ export const WorkflowBuilder: React.FC = () => {
   // Interactive OAuth Modal state
   const [activeModalProvider, setActiveModalProvider] = useState<{ id: string; name: string; icon: string } | null>(null);
   const [manualTokenInput, setManualTokenInput] = useState('');
+  const [gmailEmailInput, setGmailEmailInput] = useState('');
+  const [gmailAppPassInput, setGmailAppPassInput] = useState('');
   const [clientIdInput, setClientIdInput] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
   const [showDevConfig, setShowDevConfig] = useState(false);
@@ -68,6 +70,8 @@ export const WorkflowBuilder: React.FC = () => {
   const handleOpenOAuthModal = (provider: { id: string; name: string; icon: string }) => {
     setActiveModalProvider(provider);
     setManualTokenInput('');
+    setGmailEmailInput('');
+    setGmailAppPassInput('');
     setClientIdInput('');
     setShowDevConfig(false);
   };
@@ -78,6 +82,24 @@ export const WorkflowBuilder: React.FC = () => {
       fetchOAuthStatus();
     } catch (e) {
       console.error('OAuth disconnect failed:', e);
+    }
+  };
+
+  const handleSaveGmailAppPassword = async () => {
+    if (!gmailEmailInput.trim() || !gmailAppPassInput.trim()) return;
+    setIsConnecting(true);
+    try {
+      await fetch(`${API_BASE_URL}/api/auth/google/app-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: gmailEmailInput.trim(), app_password: gmailAppPassInput.trim() })
+      });
+      await fetchOAuthStatus();
+      setActiveModalProvider(null);
+    } catch (e) {
+      console.error('Gmail app password save failed:', e);
+    } finally {
+      setIsConnecting(false);
     }
   };
 
@@ -100,7 +122,6 @@ export const WorkflowBuilder: React.FC = () => {
           'width=600,height=700,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no'
         );
       }
-
     } catch (e) {
       console.error('OAuth popup launch failed:', e);
     } finally {
@@ -313,14 +334,52 @@ export const WorkflowBuilder: React.FC = () => {
               </button>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Sign in via browser OAuth window or paste your account API key / access token to bind credentials securely in your encrypted vault.
-            </p>
+            <div className="space-y-3">
+              {/* Special Gmail App Password Option for Google */}
+              {activeModalProvider.id === 'google' ? (
+                <div className="bg-emerald-950/40 border border-emerald-500/40 p-3.5 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-emerald-300 uppercase block">⭐ Option 1: Gmail App Password (Zero Verification!)</label>
+                    <a
+                      href="https://myaccount.google.com/apppasswords"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] font-semibold text-emerald-400 hover:underline"
+                    >
+                      Generate App Password ↗
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Use your 16-character Google App Password for instant 100% Gmail & Calendar automation without Google verification.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="your_email@gmail.com"
+                    value={gmailEmailInput}
+                    onChange={(e) => setGmailEmailInput(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  />
+                  <input
+                    type="password"
+                    placeholder="16-character App Password (e.g. abcd efgh ijkl mnop)"
+                    value={gmailAppPassInput}
+                    onChange={(e) => setGmailAppPassInput(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={handleSaveGmailAppPassword}
+                    disabled={!gmailEmailInput.trim() || !gmailAppPassInput.trim() || isConnecting}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
+                  >
+                    {isConnecting ? 'Saving...' : 'Connect Gmail via App Password'}
+                  </button>
+                </div>
+              ) : null}
 
-            <div className="space-y-3 pt-1">
+              {/* Standard OAuth Browser Popup */}
               <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Login</label>
-                <p className="text-[11px] text-slate-400">Launches authorization popup window for {activeModalProvider.name}.</p>
+                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Popup</label>
+                <p className="text-[11px] text-slate-400">Launches floating authorization popup for {activeModalProvider.name}.</p>
                 <button
                   onClick={handleOpenBrowserLogin}
                   disabled={isConnecting}
@@ -330,8 +389,9 @@ export const WorkflowBuilder: React.FC = () => {
                 </button>
               </div>
 
+              {/* Personal Access Token / API Key */}
               <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-teal-400 uppercase block">Option B: Enter API Key / Personal Access Token</label>
+                <label className="text-xs font-bold text-teal-400 uppercase block">Option B: Enter Personal Access Token / API Key</label>
                 <p className="text-[11px] text-slate-400">Instant connection via personal access token / service key.</p>
                 <input
                   type="password"
