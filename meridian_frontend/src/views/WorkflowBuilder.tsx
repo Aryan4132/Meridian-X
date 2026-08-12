@@ -85,9 +85,6 @@ export const WorkflowBuilder: React.FC = () => {
     if (!activeModalProvider) return;
     setIsConnecting(true);
 
-    // 1. Open blank window synchronously on user click event
-    const popupWindow = window.open('about:blank', '_blank', 'width=600,height=700');
-
     try {
       const resp = await fetch(`${API_BASE_URL}/api/auth/oauth/authorize`, {
         method: 'POST',
@@ -97,17 +94,15 @@ export const WorkflowBuilder: React.FC = () => {
       const data = await resp.json();
 
       if (data.auth_url) {
-        if (popupWindow) {
-          popupWindow.location.href = data.auth_url;
-        } else {
-          window.location.href = data.auth_url;
-        }
-      } else if (popupWindow) {
-        popupWindow.close();
+        window.open(
+          data.auth_url,
+          '_blank',
+          'width=600,height=700,resizable=yes,scrollbars=yes,status=no,location=no,toolbar=no,menubar=no'
+        );
       }
+
     } catch (e) {
       console.error('OAuth popup launch failed:', e);
-      if (popupWindow) popupWindow.close();
     } finally {
       setIsConnecting(false);
     }
