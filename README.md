@@ -6,7 +6,7 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.4.2-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -247,15 +247,22 @@ flowchart TD
 
 ## 🛠️ Getting Started & Installation
 
-### ⚡ One-Line Setup (Windows)
+### ⚡ One-Line Quick Install
 
+#### 🪟 Windows (PowerShell)
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.ps1 | iex"
 ```
 
-Or download the installer from [GitHub Releases](https://github.com/Aryan4132/Meridian-X/releases):
-- `meridian-x_0.4.0_x64-setup.exe` — NSIS wizard
-- `meridian-x_0.4.0_x64_en-US.msi` — MSI package
+#### 🐧 Linux & 🍎 macOS (Terminal)
+```bash
+curl -fsSL https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.sh | bash
+```
+
+Or download pre-compiled installers directly from [GitHub Releases](https://github.com/Aryan4132/Meridian-X/releases):
+- **Windows**: `meridian-x_0.4.0_x64-setup.exe` / `.msi`
+- **macOS**: `meridian-x_0.4.0_aarch64.dmg` / `.app`
+- **Linux**: `meridian-x_0.4.0_amd64.AppImage` / `.deb`
 
 ---
 

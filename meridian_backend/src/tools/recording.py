@@ -4,7 +4,10 @@ import glob
 import threading
 import json
 import mss
-import pyautogui
+try:
+    import pyautogui
+except Exception:
+    pyautogui = None
 import ollama
 from typing import List, Dict, Any
 from database import get_ollama_client_host
@@ -147,6 +150,9 @@ def replay_workflow(name: str) -> str:
         if not plan:
             return f"Workflow '{name}' contains no steps."
             
+        if pyautogui is None:
+            return "Error: PyAutoGUI is unavailable on this platform."
+
         # Temporarily enable PyAutoGUI safety fail-safe
         pyautogui.FAILSAFE = True
         

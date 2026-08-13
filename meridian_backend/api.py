@@ -3080,7 +3080,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.4.0"
+CURRENT_VERSION = "0.4.2"
 _auto_download_in_progress = False
 _auto_download_ready = False
 

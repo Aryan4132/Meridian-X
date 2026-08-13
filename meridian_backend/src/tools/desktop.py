@@ -1,11 +1,12 @@
 import os
 import mss
-import pyautogui
+try:
+    import pyautogui
+    pyautogui.FAILSAFE = True
+except Exception:
+    pyautogui = None
 from typing import Dict, Any, List
 from src.core.audit_logger import log_sensitive_action
-
-# Set fail-safe to prevent locked GUI
-pyautogui.FAILSAFE = True
 
 def screenshot(output_path: str) -> str:
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
@@ -54,6 +55,8 @@ def find_on_screen(image_path: str, target_desc: str) -> str:
     return vision_analyze(image_path, prompt)
 
 def gui_click(x: int, y: int) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.click(x, y)
         log_sensitive_action("GUI_INPUT", "click", {"x": x, "y": y}, "SUCCESS")
@@ -63,6 +66,8 @@ def gui_click(x: int, y: int) -> str:
         raise e
 
 def gui_right_click(x: int, y: int) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.rightClick(x, y)
         log_sensitive_action("GUI_INPUT", "right_click", {"x": x, "y": y}, "SUCCESS")
@@ -72,6 +77,8 @@ def gui_right_click(x: int, y: int) -> str:
         raise e
 
 def gui_double_click(x: int, y: int) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.doubleClick(x, y)
         log_sensitive_action("GUI_INPUT", "double_click", {"x": x, "y": y}, "SUCCESS")
@@ -81,6 +88,8 @@ def gui_double_click(x: int, y: int) -> str:
         raise e
 
 def gui_drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.moveTo(x1, y1)
         pyautogui.dragTo(x2, y2, duration=duration)
@@ -91,6 +100,8 @@ def gui_drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
         raise e
 
 def gui_type(text: str, interval: float = 0.05) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.write(text, interval=interval)
         # Avoid logging the exact keystroke content for security/passwords unless requested, or mask it
@@ -102,6 +113,8 @@ def gui_type(text: str, interval: float = 0.05) -> str:
         raise e
 
 def gui_hotkey(keys: List[str]) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.hotkey(*keys)
         log_sensitive_action("GUI_INPUT", "hotkey", {"keys": keys}, "SUCCESS")
@@ -111,6 +124,8 @@ def gui_hotkey(keys: List[str]) -> str:
         raise e
 
 def gui_scroll(x: int, y: int, clicks: int) -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     try:
         pyautogui.moveTo(x, y)
         pyautogui.scroll(clicks)
@@ -121,6 +136,8 @@ def gui_scroll(x: int, y: int, clicks: int) -> str:
         raise e
 
 def get_mouse_position() -> str:
+    if pyautogui is None:
+        return "Error: PyAutoGUI is unavailable on this platform."
     pos = pyautogui.position()
     return f"Current Mouse Position: x={pos.x}, y={pos.y}"
 
