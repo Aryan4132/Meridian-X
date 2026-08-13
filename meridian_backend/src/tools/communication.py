@@ -102,14 +102,16 @@ def send_native_toast_notification(title: str, message: str) -> str:
     log_sensitive_action("TOAST_NOTIFICATION", "send_native_toast_notification", {"title": title, "message": message}, "SUCCESS")
     try:
         if os.name == "nt":
+            clean_msg = message.replace('"', "'")
+            clean_title = title.replace('"', "'")
             # PowerShell Balloon / Toast notification
             ps_script = f"""
             [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
             $objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon
             $objNotifyIcon.Icon = [System.Drawing.SystemIcons]::Information
             $objNotifyIcon.BalloonTipIcon = "Info"
-            $objNotifyIcon.BalloonTipText = "{message.replace('"', '\'')}"
-            $objNotifyIcon.BalloonTipTitle = "{title.replace('"', '\'')}"
+            $objNotifyIcon.BalloonTipText = "{clean_msg}"
+            $objNotifyIcon.BalloonTipTitle = "{clean_title}"
             $objNotifyIcon.Visible = $True
             $objNotifyIcon.ShowBalloonTip(5000)
             """
