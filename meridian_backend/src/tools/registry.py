@@ -25,7 +25,8 @@ from src.tools.developer import (
     scaffold_project, run_tests, install_package, lint_file, format_file,
     lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
 )
-from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails
+from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails, send_native_toast_notification
+from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats
 
 # Import newly implemented advanced capability tools
 from src.tools.vault import vault_set, vault_get, vault_list, vault_delete
@@ -189,6 +190,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     
     # Communication
     "send_notification": {"tier": 1, "func": send_notification},
+    "send_native_toast_notification": {"tier": 1, "func": send_native_toast_notification},
     "send_proactive_notification": {
         "tier": 1,
         "func": lambda title, message, priority="medium", category="general": __import__("src.core.proactive", fromlist=["dispatch_notification"]).dispatch_notification(title, message, priority, category)
@@ -196,6 +198,9 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "send_email": {"tier": 2, "func": send_email},
     "read_emails": {"tier": 0, "func": read_emails},
     "send_whatsapp_message": {"tier": 2, "func": send_whatsapp_message},
+    "manage_whatsapp_contacts": {"tier": 1, "func": manage_whatsapp_contacts},
+    "read_whatsapp_messages": {"tier": 0, "func": read_whatsapp_messages},
+    "list_whatsapp_chats": {"tier": 0, "func": list_whatsapp_chats},
     "triage_and_read_emails": {"tier": 1, "func": triage_and_read_emails},
 
 
