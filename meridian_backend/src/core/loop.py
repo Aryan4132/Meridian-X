@@ -6,9 +6,20 @@ import uuid
 import time
 import random
 import threading
-from typing import Dict, Any, List, AsyncGenerator, Tuple
+from typing import Dict, Any, List, AsyncGenerator, Tuple, Optional
 import ollama
-from typing import Optional
+active_confirmations: Dict[str, Any] = {}
+
+def check_approval_gate(tool_name: str, kwargs: Dict[str, Any]) -> Tuple[bool, str]:
+    """Evaluates whether a tool execution requires human approval gate (PL-12)."""
+    if tool_name in ("delete_file", "db_execute", "kill_process"):
+        return True, f"Action '{tool_name}' requires explicit user confirmation."
+    if tool_name in ("run_command", "nl_run"):
+        cmd = str(kwargs.get("command", "") or kwargs.get("natural_language", "")).lower()
+        dangerous = ["rm ", "rmdir", "format ", "drop ", "del /", "kill ", "sudo "]
+        if any(d in cmd for d in dangerous):
+            return True, f"Potentially dangerous command detected ('{cmd}'). Explicit confirmation required."
+    return False, ""
 
 _cached_openai_clients: Dict[str, Any] = {}
 _cached_anthropic_clients: Dict[str, Any] = {}
