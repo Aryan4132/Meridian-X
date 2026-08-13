@@ -52,8 +52,7 @@ from src.core.loop_parser import resolve_local_model_name, process_final_respons
 from src.core.loop_dispatcher import dispatch_tool_batch, check_and_increment_retry, reset_tool_retry_budget
 from src.core.loop_stream import format_sse_event, request_stream_cancellation, is_cancellation_requested, trim_history_to_token_budget
 
-# Map active confirmations globally
-active_confirmations: Dict[str, Dict[str, Any]] = {}
+# Map active confirmations globally (defined above)
 
 # Tools exempt from consecutive loop repetition checks (read-only, diagnostic, visual poll, search)
 EXEMPT_TOOLS = {

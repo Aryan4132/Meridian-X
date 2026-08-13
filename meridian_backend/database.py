@@ -349,7 +349,7 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
         cursor.execute("SELECT COUNT(*) FROM semantic_cache")
         count = cursor.fetchone()[0]
         
-        if count > 0:
+        if count > 0 and cache_index is not None:
             vector = get_embedding(query_text)
             vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
             
@@ -405,7 +405,7 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 
             conn.close()
             
     # Add to Turbovec index outside the connection scope
-    if inserted_id is not None:
+    if inserted_id is not None and cache_index is not None:
         try:
             vector = get_embedding(query_text)
             vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
@@ -552,7 +552,7 @@ def add_to_conversations(role: str, content: str, summary: str = ""):
             conn.close()
             
     # Index the vector in Turbovec outside the connection scope
-    if inserted_id is not None:
+    if inserted_id is not None and conv_index is not None:
         try:
             vector = get_embedding(content)
             vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
@@ -672,7 +672,7 @@ def ingest_into_knowledge_base(source: str, text: str, metadata: dict = None):
                 conn.close()
         
         # Add to Turbovec index
-        if ids_to_add:
+        if ids_to_add and kb_index is not None:
             ids_np = np.array(ids_to_add, dtype=np.uint64)
             vectors_np = np.array(vectors_to_add, dtype=np.float32)
             with _turbovec_lock:
@@ -695,7 +695,9 @@ def search_knowledge_base(query: str, limit: int = 2) -> List[Dict[str, Any]]:
         vector = get_embedding(query)
         vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
         
-        # Search Turbovec
+        # Search Turbovec if available
+        if kb_index is None:
+            return []
         k_search = min(limit + 5, count)
         scores, ids = kb_index.search(vector_np, k=k_search)
         
