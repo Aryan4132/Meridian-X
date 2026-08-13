@@ -26,7 +26,7 @@ from src.tools.developer import (
     lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
 )
 from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails, send_native_toast_notification
-from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats
+from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session
 
 # Import newly implemented advanced capability tools
 from src.tools.vault import vault_set, vault_get, vault_list, vault_delete
@@ -201,6 +201,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "manage_whatsapp_contacts": {"tier": 1, "func": manage_whatsapp_contacts},
     "read_whatsapp_messages": {"tier": 0, "func": read_whatsapp_messages},
     "list_whatsapp_chats": {"tier": 0, "func": list_whatsapp_chats},
+    "login_whatsapp_session": {"tier": 1, "func": login_whatsapp_session},
     "triage_and_read_emails": {"tier": 1, "func": triage_and_read_emails},
 
 

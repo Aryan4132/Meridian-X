@@ -40,12 +40,17 @@ def test_whatsapp_manager_tool_wrapper():
     res_resolve = manage_whatsapp_contacts(action="resolve", name="Manager")
     assert "Resolved contact" in res_resolve
 
+from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session
+
 def test_whatsapp_read_and_list_tools():
     read_res = read_whatsapp_messages(contact="Mom", limit=3)
     assert "WhatsApp Message Puller" in read_res or "Recent WhatsApp messages" in read_res
 
     list_res = list_whatsapp_chats()
     assert "Mom" in list_res or "Active WhatsApp Contact Directory" in list_res
+
+def test_login_whatsapp_session_import():
+    assert callable(login_whatsapp_session)
 
 def test_send_whatsapp_message_resolution():
     msg_res = send_whatsapp_message(contact="Mom", message="Hello Mom!")
