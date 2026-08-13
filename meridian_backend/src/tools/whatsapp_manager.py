@@ -101,30 +101,36 @@ def list_whatsapp_chats() -> str:
     return "No active WhatsApp chats found in database."
 
 def login_whatsapp_session() -> str:
-    """Launches a browser window to scan the WhatsApp Web QR code and pair your session."""
+    """Launches a visible desktop browser window to scan the WhatsApp Web QR code and pair your session."""
     user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "meridian_memory", "whatsapp_session"))
     os.makedirs(user_data_dir, exist_ok=True)
     
+    # Send desktop toast notification
     try:
-        from playwright.sync_api import sync_playwright
         from src.tools.communication import send_native_toast_notification
-        
         send_native_toast_notification(
             title="WhatsApp Web Pairing",
-            message="A browser window is opening. Scan the QR code on your phone (WhatsApp -> Linked Devices)."
+            message="Opening browser window... Scan the QR code with WhatsApp on your phone."
         )
-        
+    except Exception:
+        pass
+
+    # 1. Try Playwright interactive Chromium window
+    try:
+        from playwright.sync_api import sync_playwright
         with sync_playwright() as p:
             browser = p.chromium.launch_persistent_context(
                 user_data_dir=user_data_dir,
                 headless=False,
-                args=["--no-sandbox", "--disable-setuid-sandbox"]
+                viewport={"width": 1024, "height": 768},
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--start-maximized"]
             )
             page = browser.pages[0] if browser.pages else browser.new_page()
             page.goto("https://web.whatsapp.com", timeout=30000)
+            page.bring_to_front()
             
-            print("[WhatsApp] Browser window launched. Waiting for QR scan / login completion...")
-            # Wait up to 90 seconds for chat search bar to appear after QR scan
+            print("[WhatsApp] Interactive browser window opened. Scan QR code on screen...")
+            # Poll up to 90 seconds for successful QR scan (chat search bar appearance)
             logged_in = False
             for _ in range(45):
                 time.sleep(2)
@@ -135,9 +141,14 @@ def login_whatsapp_session() -> str:
             browser.close()
             if logged_in:
                 return "WhatsApp Web pairing complete! Session saved to local memory."
-            return "WhatsApp Web pairing timed out or browser closed before QR scan."
+            return "WhatsApp Web pairing window closed or timed out."
     except Exception as e:
-        logger.error(f"[WhatsApp] QR pairing error: {e}")
+        logger.warning(f"[WhatsApp] Playwright window launch fallback: {e}")
+
+    # 2. Fallback: Launch default system browser window (Chrome / Edge / Firefox)
+    try:
         import webbrowser
         webbrowser.open("https://web.whatsapp.com")
-        return f"Opened default browser to 'https://web.whatsapp.com' for QR scan ({e})."
+        return "Opened default system browser window to 'https://web.whatsapp.com' for QR scan."
+    except Exception as ex:
+        return f"Error launching browser window: {ex}"
