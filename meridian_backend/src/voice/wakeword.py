@@ -3,7 +3,10 @@ import time
 import os
 import sys
 import numpy as np
-import sounddevice as sd
+try:
+    import sounddevice as sd
+except Exception:
+    sd = None
 from src.core.proactive import publish_nudge_sync
 
 WAKEWORD_ACTIVE = False
@@ -50,6 +53,9 @@ def get_continuous_window_remaining() -> float:
 def start_wakeword_monitoring():
     """Starts the background wake word monitoring thread."""
     global WAKEWORD_ACTIVE, _thread
+    if sd is None:
+        print("[Wake Word] sounddevice unavailable on this platform. Monitoring disabled.")
+        return
     if WAKEWORD_ACTIVE:
         return
     WAKEWORD_ACTIVE = True

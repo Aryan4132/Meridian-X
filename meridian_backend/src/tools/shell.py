@@ -1,4 +1,5 @@
 import os
+import platform
 import subprocess
 import time
 import ollama
@@ -12,12 +13,13 @@ def _get_active_model() -> str:
     return get_brain_model()
 
 def nl_to_shell(natural_language: str) -> str:
-    """Translate a natural language description into a valid Windows PowerShell command."""
+    """Translate a natural language description into a valid shell command."""
     try:
         client = ollama.Client(host=get_ollama_client_host())
+        shell_name = "Windows PowerShell" if platform.system() == "Windows" else "bash/zsh shell"
         prompt = (
             "You are a command-line translator. Translate the following plain-English command description "
-            "into a single valid Windows PowerShell command line. Respond with ONLY the raw command string. "
+            f"into a single valid {shell_name} command line. Respond with ONLY the raw command string. "
             "Do not include any explanation, code fences, markdown, or text wrapping.\n\n"
             f"Description: {natural_language}"
         )
@@ -96,13 +98,18 @@ def nl_run(natural_language: str) -> str:
         
     print(f"[NL Shell] Running translated command: '{command}'")
     try:
-        # Run PowerShell command
+        # Run shell command dynamically based on OS platform
+        if platform.system() == "Windows":
+            cmd_args = ["powershell", "-Command", command]
+        else:
+            cmd_args = ["/bin/sh", "-c", command]
+
         res = subprocess.run(
-            ["powershell", "-Command", command],
+            cmd_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=True
+            shell=(platform.system() == "Windows")
         )
         status = "SUCCESS" if res.returncode == 0 else "FAILED"
         log_sensitive_action(

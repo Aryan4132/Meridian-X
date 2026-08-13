@@ -3,22 +3,31 @@ import time
 import subprocess
 import psutil
 import pyperclip
-import pygetwindow
+try:
+    import pygetwindow
+except Exception:
+    pygetwindow = None
 
 # ----------------- WINDOW MANAGEMENT -----------------
 
 def list_windows() -> str:
+    if pygetwindow is None:
+        return "Window management is unavailable on this platform (Linux/macOS)."
     titles = pygetwindow.getAllTitles()
     clean_titles = [t.strip() for t in titles if t.strip()]
     return "\n".join(clean_titles) if clean_titles else "No open windows found"
 
 def _find_window(title: str):
+    if pygetwindow is None:
+        raise NotImplementedError("Window management is unavailable on this platform (Linux/macOS).")
     wins = pygetwindow.getWindowsWithTitle(title)
     if not wins:
         raise ValueError(f"No window found matching title: '{title}'")
     return wins[0]
 
 def focus_window(title: str) -> str:
+    if pygetwindow is None:
+        return "Window focusing is unavailable on this platform (Linux/macOS)."
     win = _find_window(title)
     win.activate()
     return f"Focused window: '{win.title}'"

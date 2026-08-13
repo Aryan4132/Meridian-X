@@ -3,7 +3,11 @@ import time
 import json
 import sqlite3
 import numpy as np
-from turbovec import IdMapIndex
+try:
+    from turbovec import IdMapIndex
+except ImportError:
+    IdMapIndex = None
+
 from database import get_sqlite_conn, get_embedding, normalize_vector, db_dir, _turbovec_lock
 
 DOCS_INDEX_PATH = os.path.join(db_dir, "docs_index.tq")
@@ -11,7 +15,7 @@ docs_index = None
 
 def init_docs_index():
     global docs_index
-    if docs_index is not None:
+    if docs_index is not None or IdMapIndex is None:
         return
     
     # Initialize SQLite table for docs metadata
@@ -50,16 +54,17 @@ def init_docs_index():
     except Exception as e:
         print("[Docs Indexer] SQLite initialization failed:", e)
 
-    # Initialize Turbovec index
-    if os.path.exists(DOCS_INDEX_PATH):
-        try:
-            docs_index = IdMapIndex.load(DOCS_INDEX_PATH)
-            print("[Docs Indexer] Loaded existing docset index.")
-        except Exception as e:
-            print("[Docs Indexer] Failed to load index, creating new:", e)
+    # Initialize Turbovec index if available
+    if IdMapIndex is not None:
+        if os.path.exists(DOCS_INDEX_PATH):
+            try:
+                docs_index = IdMapIndex.load(DOCS_INDEX_PATH)
+                print("[Docs Indexer] Loaded existing docset index.")
+            except Exception as e:
+                print("[Docs Indexer] Failed to load index, creating new:", e)
+                docs_index = IdMapIndex(dim=768, bit_width=4)
+        else:
             docs_index = IdMapIndex(dim=768, bit_width=4)
-    else:
-        docs_index = IdMapIndex(dim=768, bit_width=4)
 
 def index_docs_directory(docs_dir: str):
     """Scans and incrementally indexes all markdown (.md) documents in a directory."""
@@ -160,33 +165,36 @@ def index_docs_directory(docs_dir: str):
         if any_changed:
             conn.commit()
             
-            # Rebuild the entire Turbovec docs index from stored SQLite vectors
-            print("[Docs Indexer] Rebuilding Turbovec docs index...")
-            cursor.execute("SELECT id, embedding FROM offline_docs")
-            all_rows = cursor.fetchall()
-            
-            new_index = IdMapIndex(dim=768, bit_width=4)
-            ids_to_add = []
-            vectors_to_add = []
-            
-            for r in all_rows:
-                if r["embedding"]:
-                    try:
-                        vector = json.loads(r["embedding"])
-                        ids_to_add.append(r["id"])
-                        vectors_to_add.append(normalize_vector(vector))
-                    except Exception:
-                        pass
-                        
-            if ids_to_add:
-                ids_np = np.array(ids_to_add, dtype=np.uint64)
-                vectors_np = np.array(vectors_to_add, dtype=np.float32)
-                new_index.add_with_ids(vectors_np, ids=ids_np)
+            # Rebuild the entire Turbovec docs index if available
+            if IdMapIndex is not None:
+                print("[Docs Indexer] Rebuilding Turbovec docs index...")
+                cursor.execute("SELECT id, embedding FROM offline_docs")
+                all_rows = cursor.fetchall()
                 
-            with _turbovec_lock:
-                docs_index = new_index
-                docs_index.write(DOCS_INDEX_PATH)
-            print("[Docs Indexer] Rebuild complete.")
+                new_index = IdMapIndex(dim=768, bit_width=4)
+                ids_to_add = []
+                vectors_to_add = []
+                
+                for r in all_rows:
+                    if r["embedding"]:
+                        try:
+                            vector = json.loads(r["embedding"])
+                            ids_to_add.append(r["id"])
+                            vectors_to_add.append(normalize_vector(vector))
+                        except Exception:
+                            pass
+                            
+                if ids_to_add:
+                    ids_np = np.array(ids_to_add, dtype=np.uint64)
+                    vectors_np = np.array(vectors_to_add, dtype=np.float32)
+                    new_index.add_with_ids(vectors_np, ids=ids_np)
+                    
+                with _turbovec_lock:
+                    docs_index = new_index
+                    docs_index.write(DOCS_INDEX_PATH)
+                print("[Docs Indexer] Rebuild complete.")
+            else:
+                print("[Docs Indexer] SQLite metadata updated (Turbovec disabled on this platform).")
         else:
             print("[Docs Indexer] All documents are up to date (0 files changed).")
     finally:
@@ -207,32 +215,62 @@ def search_offline_docs(query: str, limit: int = 5):
             return []
             
         vector = get_embedding(query)
-        vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
         
-        k_search = min(limit, count)
-        scores, ids = docs_index.search(vector_np, k=k_search)
-        
-        clean_results = []
-        if ids.size > 0 and ids[0].size > 0:
-            placeholders = ",".join("?" for _ in ids[0])
-            cursor.execute(
-                f"SELECT id, file_path, section, content FROM offline_docs WHERE id IN ({placeholders})",
-                [int(x) for x in ids[0]]
-            )
-            rows = {row["id"]: row for row in cursor.fetchall()}
+        # Turbovec search path
+        if IdMapIndex is not None and docs_index is not None:
+            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+            k_search = min(limit, count)
+            scores, ids = docs_index.search(vector_np, k=k_search)
             
-            for score, id_val in zip(scores[0], ids[0]):
-                id_int = int(id_val)
-                if id_int in rows:
-                    res = rows[id_int]
-                    clean_results.append({
-                        "id": res["id"],
-                        "file_path": res["file_path"],
-                        "section": res["section"],
-                        "content": res["content"],
-                        "score": float(score)
-                    })
+            clean_results = []
+            if ids.size > 0 and ids[0].size > 0:
+                placeholders = ",".join("?" for _ in ids[0])
+                cursor.execute(
+                    f"SELECT id, file_path, section, content FROM offline_docs WHERE id IN ({placeholders})",
+                    [int(x) for x in ids[0]]
+                )
+                rows = {row["id"]: row for row in cursor.fetchall()}
+                
+                for score, id_val in zip(scores[0], ids[0]):
+                    id_int = int(id_val)
+                    if id_int in rows:
+                        res = rows[id_int]
+                        clean_results.append({
+                            "id": res["id"],
+                            "file_path": res["file_path"],
+                            "section": res["section"],
+                            "content": res["content"],
+                            "score": float(score)
+                        })
+            conn.close()
+            return clean_results
+
+        # Fallback numpy cosine similarity search when Turbovec is unavailable
+        query_vec = np.array(normalize_vector(vector), dtype=np.float32)
+        cursor.execute("SELECT id, file_path, section, content, embedding FROM offline_docs")
+        all_rows = cursor.fetchall()
+        scored = []
+        for r in all_rows:
+            if r["embedding"]:
+                try:
+                    doc_v = np.array(normalize_vector(json.loads(r["embedding"])), dtype=np.float32)
+                    score = float(np.dot(query_vec, doc_v))
+                    scored.append((score, r))
+                except Exception:
+                    pass
+        scored.sort(key=lambda x: x[0], reverse=True)
         conn.close()
+
+        clean_results = [
+            {
+                "id": r["id"],
+                "file_path": r["file_path"],
+                "section": r["section"],
+                "content": r["content"],
+                "score": score
+            }
+            for score, r in scored[:limit]
+        ]
         return clean_results
     except Exception as e:
         print("[Docs Indexer] Search failed:", e)
