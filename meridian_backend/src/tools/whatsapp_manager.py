@@ -99,3 +99,45 @@ def list_whatsapp_chats() -> str:
         summary = [f"- {c['name']} ({c['phone_number']})" for c in contacts]
         return "Active WhatsApp Contact Directory:\n" + "\n".join(summary)
     return "No active WhatsApp chats found in database."
+
+def login_whatsapp_session() -> str:
+    """Launches a browser window to scan the WhatsApp Web QR code and pair your session."""
+    user_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "meridian_memory", "whatsapp_session"))
+    os.makedirs(user_data_dir, exist_ok=True)
+    
+    try:
+        from playwright.sync_api import sync_playwright
+        from src.tools.communication import send_native_toast_notification
+        
+        send_native_toast_notification(
+            title="WhatsApp Web Pairing",
+            message="A browser window is opening. Scan the QR code on your phone (WhatsApp -> Linked Devices)."
+        )
+        
+        with sync_playwright() as p:
+            browser = p.chromium.launch_persistent_context(
+                user_data_dir=user_data_dir,
+                headless=False,
+                args=["--no-sandbox", "--disable-setuid-sandbox"]
+            )
+            page = browser.pages[0] if browser.pages else browser.new_page()
+            page.goto("https://web.whatsapp.com", timeout=30000)
+            
+            print("[WhatsApp] Browser window launched. Waiting for QR scan / login completion...")
+            # Wait up to 90 seconds for chat search bar to appear after QR scan
+            logged_in = False
+            for _ in range(45):
+                time.sleep(2)
+                if page.locator("div[contenteditable='true']").is_visible():
+                    logged_in = True
+                    break
+            
+            browser.close()
+            if logged_in:
+                return "WhatsApp Web pairing complete! Session saved to local memory."
+            return "WhatsApp Web pairing timed out or browser closed before QR scan."
+    except Exception as e:
+        logger.error(f"[WhatsApp] QR pairing error: {e}")
+        import webbrowser
+        webbrowser.open("https://web.whatsapp.com")
+        return f"Opened default browser to 'https://web.whatsapp.com' for QR scan ({e})."
