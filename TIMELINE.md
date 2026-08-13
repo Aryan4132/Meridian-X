@@ -25,7 +25,16 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 3 — Security Approval Gates, Sandbox & System Defense (🔴 High Priority)
+## 📅 Day 3 — WhatsApp Integration, Security Approval Gates & Sandbox (🔴 High Priority)
+- **`WAP-01` — Local WhatsApp Contact Directory & Auto-Resolver**
+  - *Target*: `whatsapp_manager.py`, `database.py`
+  - *Deliverable*: Local MongoDB contact store (`whatsapp_contacts`), contact resolution engine ("Mom" $\rightarrow$ `+1234567890`).
+- **`WAP-02` — Playwright WhatsApp Web Session & Message Puller**
+  - *Target*: `whatsapp_manager.py`, `registry.py`
+  - *Deliverable*: Persistent WhatsApp Web session (`/meridian_memory/whatsapp_session`), message pulling (`read_whatsapp_messages`), and unread chat list (`list_whatsapp_chats`).
+- **`WAP-03` — Cross-Platform Smart WhatsApp Sender**
+  - *Target*: `communication.py`
+  - *Deliverable*: Upgrade `send_whatsapp_message()` with contact resolution, multiline text, and web URL/Desktop app fallbacks across Windows, macOS, and Linux.
 - **`PL-12` — Interactive Approval Gates for Destructive Actions**
   - *Target*: `loop.py`
   - *Deliverable*: HITL UI approval modal for dangerous shell and database operations.
