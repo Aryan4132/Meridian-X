@@ -1,7 +1,9 @@
 import os
 import re
 import json
+import ast
 import asyncio
+
 import uuid
 import time
 import random
@@ -619,9 +621,11 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 code_to_validate = content
                 code_type = "json"
 
+            if not code_to_validate:
+                return True, args_str, ""
+
             if code_type == "python":
                 try:
-                    import ast
                     ast.parse(code_to_validate)
                 except SyntaxError as se:
                     if model_source == "cloud":
@@ -671,6 +675,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 except Exception as e:
                     if model_source == "cloud":
                         return False, args_str, f"JSON content syntax error: {e}"
+
                     # Invalid JSON content: correct via LLM for local models
                     prompt = (
                         f"You are a syntax recovery engine. Correct the following invalid JSON content to make it well-formed.\n"
@@ -831,7 +836,7 @@ def detect_complex_prompt(prompt: str) -> bool:
     complex_words = ["build", "setup", "implement", "deploy", "architecture", "design and create", "create a complete", "pipeline", "scaffold"]
     return len(prompt) > 200 or any(w in p for w in complex_words)
 
-async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model: str = None) -> List[Dict[str, Any]]:
+async def decompose_goal_to_checklist(prompt: str, client: Any = None, model: Optional[str] = None) -> List[Dict[str, Any]]:
     if model is None:
         try:
             from database import get_brain_model
@@ -845,11 +850,12 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model:
         "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
     )
     try:
-        res = await asyncio.wait_for(
-            asyncio.to_thread(client.generate, model=model, prompt=decomp_prompt),
+        from src.core.llm_provider import call_llm
+        text = await asyncio.wait_for(
+            call_llm([{"role": "user", "content": decomp_prompt}], model=model),
             timeout=10.0
         )
-        text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+        text = text.strip()
         if text.startswith("```"):
             text = text.strip("`").replace("json\n", "").strip()
         tasks = json.loads(text)
@@ -859,7 +865,7 @@ async def decompose_goal_to_checklist(prompt: str, client: ollama.Client, model:
         print("[HTP] Failed to decompose goal, falling back to single loop:", e)
     return []
 
-async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> float:
+async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: Any = None, model: Optional[str] = None) -> float:
     if model is None:
         try:
             from database import get_brain_model
@@ -873,14 +879,16 @@ async def score_candidate_branch(tool_name: str, args_str: str, history: List[Di
         f"Output ONLY the numeric score (e.g. 0.85). Do not include any text or commentary."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=model, prompt=prompt)
-        val_str = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+        from src.core.llm_provider import call_llm
+        val_str = await call_llm([{"role": "user", "content": prompt}], model=model)
+        val_str = val_str.strip()
         score = float(re.findall(r"[-+]?\d*\.\d+|\d+", val_str)[0])
         return min(max(score, 0.0), 1.0)
     except Exception:
         return 0.5
 
-async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: ollama.Client, model: str = None) -> Tuple[bool, str]:
+async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: Any = None, model: Optional[str] = None) -> Tuple[bool, str]:
+
     if model is None:
         try:
             from database import get_brain_model
@@ -894,13 +902,15 @@ async def run_self_question_check(goal: str, history: List[Dict[str, str]], clie
         "Answer ONLY 'YES' if they are verified, or 'NO' if they are not verified."
     )
     try:
-        res = await asyncio.to_thread(client.generate, model=model, prompt=check_prompt)
-        ans = (res.response if hasattr(res, "response") else res.get("response", "")).strip().upper()
+        from src.core.llm_provider import call_llm
+        ans = await call_llm([{"role": "user", "content": check_prompt}], model=model)
+        ans = ans.strip().upper()
         if "NO" in ans:
             return False, "You do not have verified information. You MUST run search or observation commands first (e.g. read_file, dir_list, grep_search) to inspect paths and verify details before making assumptions."
         return True, ""
     except Exception:
         return True, ""
+
 
 def route_model_by_complexity(prompt: str, brain_model: str, model_source: str = "local") -> str:
     """Assess task complexity and route to a lightweight model for simple requests, or standard brain model for complex reasoning."""
@@ -1059,10 +1069,13 @@ async def run_react_agent_loop(
             )
             try:
                 res_sys = await asyncio.to_thread(client.chat, model=brain_model, messages=[{"role": "user", "content": synthesis_prompt}])
-                text_sys = (res_sys.message.content if hasattr(res_sys, "message") and hasattr(res_sys.message, "content") else res_sys.get("message", {}).get("content", "")).strip()
+                raw_content = (res_sys.message.content if hasattr(res_sys, "message") and hasattr(res_sys.message, "content") else (res_sys.get("message", {}).get("content", "") if isinstance(res_sys, dict) else ""))
+                text_sys = (raw_content or "").strip()
                 if text_sys.startswith("```"):
                     text_sys = text_sys.strip("`").replace("json\n", "").strip()
                 yield sse_event("text", text_sys)
+
+
             except Exception as se:
                 yield sse_event("text", json.dumps({"chat": "All tasks completed.", "speech": "All tasks completed.", "lang": "en"}))
             return
@@ -1335,21 +1348,34 @@ async def run_react_agent_loop(
                         temp_sys_idx = -1
                     yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                     return
+                content = ""
                 if model_source == "local" or (api_provider or "").lower() == "ollama":
                     # Ollama streaming chunks are ChatResponse objects, not dicts
                     if hasattr(chunk, "message") and hasattr(chunk.message, "content"):
                         content = chunk.message.content or ""
+                    elif isinstance(chunk, dict):
+                        content = chunk.get("message", {}).get("content", "") if isinstance(chunk.get("message"), dict) else ""
                     else:
-                        content = chunk.get("message", {}).get("content", "")  # fallback for older ollama lib
+                        content = ""
 
                 else:
                     if api_provider == "anthropic":
-                        if chunk.type == "content_block_delta":
-                            content = chunk.delta.text
+                        if getattr(chunk, "type", None) == "content_block_delta" or (isinstance(chunk, dict) and chunk.get("type") == "content_block_delta"):
+                            delta = getattr(chunk, "delta", None) or (chunk.get("delta") if isinstance(chunk, dict) else None)
+                            content = getattr(delta, "text", "") if delta else (delta.get("text", "") if isinstance(delta, dict) else "")
                         else:
                             content = ""
                     else:
-                        content = chunk.choices[0].delta.content or ""
+                        choices = getattr(chunk, "choices", None) or (chunk.get("choices") if isinstance(chunk, dict) else None)
+                        if choices and len(choices) > 0:
+                            first_choice = choices[0]
+                            delta = getattr(first_choice, "delta", None) or (first_choice.get("delta") if isinstance(first_choice, dict) else None)
+                            if delta:
+                                content = getattr(delta, "content", "") or (delta.get("content", "") if isinstance(delta, dict) else "")
+                        else:
+                            content = ""
+
+
                 if not content:
                     continue
                     

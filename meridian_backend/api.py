@@ -1881,9 +1881,10 @@ def profile_get_all():
     try:
         keys = [
             "tavily_key", "discord_token", "telegram_token", "telegram_chat_id",
-            "meridian_model", "meridian_vision_model",
-            "openai_key", "anthropic_key", "gemini_key", "deepseek_key",
+            "meridian_model", "meridian_vision_model", "meridian_model_source",
+            "openai_key", "anthropic_key", "gemini_key", "deepseek_key", "groq_key", "openrouter_key", "mistral_key",
             "meridian_provider", "ollama_host", "first_run_completed",
+
             "meridian_auditor_model", "meridian_voice", "wakeword_threshold",
             "wakeword_model_filename", "wakeword_phrase", "stt_model_size",
             "stt_silence_timeout", "stt_vad_threshold", "stt_max_duration",

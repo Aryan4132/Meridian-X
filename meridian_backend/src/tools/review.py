@@ -1,9 +1,8 @@
 import os
 import glob
 import subprocess
-import ollama
 from typing import List, Dict, Any
-from database import get_ollama_client_host
+from src.core.llm_provider import call_llm_sync, scan_and_redact_secrets
 
 REVIEW_SYSTEM_PROMPT = """You are Meridian's code auditor and reviewer. Switched to REVIEWER mode.
 Analyze the provided code or diff thoroughly across the 5 Review Pillars:
@@ -25,53 +24,54 @@ def _get_active_model() -> str:
 
 def review_file(path: str) -> str:
     """Perform a structured 5-pillar code review of a single file."""
-    if not os.path.exists(path):
-        return f"Error: File '{path}' not found."
+    path = os.path.abspath(path)
+    if not os.path.exists(path) or not os.path.isfile(path):
+        return f"Error: File '{path}' not found or is not a valid file."
     try:
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             code = f.read()
             
-        client = ollama.Client(host=get_ollama_client_host())
-        prompt = f"Please review this file located at '{path}':\n\n```\n{code}\n```"
+        sanitized_code = scan_and_redact_secrets(code)
+        prompt = f"Please review this file located at '{path}':\n\n```\n{sanitized_code}\n```"
         
-        res = client.chat(
-            model=_get_active_model(),
-            messages=[
-                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        if hasattr(res, "message") and hasattr(res.message, "content"):
-            return res.message.content
-        return res.get("message", {}).get("content", "Failed to generate code review.")
+        messages = [
+            {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ]
+        return call_llm_sync(messages)
     except Exception as e:
         return f"Error reviewing file: {e}"
 
 def review_diff(repo_path: str) -> str:
     """Review git diff HEAD of the specified repository path."""
+    repo_path = os.path.abspath(repo_path)
+    if not os.path.exists(repo_path):
+        return f"Error: Repository path '{repo_path}' not found."
     try:
-        diff_out = subprocess.check_output("git diff HEAD", cwd=repo_path, shell=True, stderr=subprocess.STDOUT).decode('utf-8')
+        cmd = ["git", "diff", "HEAD"]
+        try:
+            diff_out = subprocess.check_output(cmd, cwd=repo_path, stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
+        except subprocess.CalledProcessError:
+            diff_out = subprocess.check_output(["git", "diff"], cwd=repo_path, stderr=subprocess.STDOUT).decode('utf-8', errors='ignore')
+
         if not diff_out.strip():
             return "No git diff changes detected against HEAD to review."
+
             
-        client = ollama.Client(host=get_ollama_client_host())
-        prompt = f"Please review this git diff in repository '{repo_path}':\n\n```diff\n{diff_out}\n```"
+        sanitized_diff = scan_and_redact_secrets(diff_out)
+        prompt = f"Please review this git diff in repository '{repo_path}':\n\n```diff\n{sanitized_diff}\n```"
         
-        res = client.chat(
-            model=_get_active_model(),
-            messages=[
-                {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        if hasattr(res, "message") and hasattr(res.message, "content"):
-            return res.message.content
-        return res.get("message", {}).get("content", "Failed to generate diff review.")
+        messages = [
+            {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ]
+        return call_llm_sync(messages)
     except Exception as e:
         return f"Error reviewing git diff: {e}"
 
 def review_directory(path: str, glob_pattern: str = "**/*.py") -> str:
     """Review all files matching a glob pattern in the directory and compile an aggregated review report."""
+    path = os.path.abspath(path)
     if not os.path.exists(path):
         return f"Error: Directory '{path}' not found."
     try:
@@ -99,10 +99,13 @@ def review_directory(path: str, glob_pattern: str = "**/*.py") -> str:
 def export_review(output_path: str, code_path: str) -> str:
     """Generate a code review for code_path and export the report to output_path."""
     try:
+        output_path = os.path.abspath(output_path)
+        code_path = os.path.abspath(code_path)
         report = review_file(code_path) if os.path.isfile(code_path) else review_directory(code_path)
-        os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(report)
         return f"Successfully exported code review report to '{output_path}'."
     except Exception as e:
         return f"Failed to export review: {e}"
+

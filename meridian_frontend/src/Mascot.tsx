@@ -484,10 +484,11 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
       setVoiceLogs(prev => [...prev.slice(-3), transcription]);
       setVoiceState('thinking');
 
-      const provider = localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama';
-      const brainModel = localStorage.getItem('MERIDIAN_MODEL') || '';
-      const configuredSource = localStorage.getItem('MERIDIAN_MODEL_SOURCE');
-      const modelSource = configuredSource || (provider === 'ollama' ? 'local' : 'api');
+      const provider = localStorage.getItem('MERIDIAN_PROVIDER') || localStorage.getItem('meridian_provider') || 'ollama';
+      const brainModel = localStorage.getItem('MERIDIAN_MODEL') || localStorage.getItem('meridian_model') || '';
+      const configuredSource = localStorage.getItem('meridian_model_source') || localStorage.getItem('MERIDIAN_MODEL_SOURCE');
+      const modelSource = configuredSource || (provider === 'ollama' ? 'local' : 'cloud');
+
       const openaiKey = localStorage.getItem('OPENAI_API_KEY') || '';
       const anthropicKey = localStorage.getItem('ANTHROPIC_API_KEY') || '';
       const geminiKey = localStorage.getItem('GEMINI_API_KEY') || '';
