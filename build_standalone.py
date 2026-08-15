@@ -97,11 +97,20 @@ def main():
         subprocess.run("killall app >/dev/null 2>&1", shell=True)
         subprocess.run("killall api >/dev/null 2>&1", shell=True)
     
+    # Clear old bundle output directory to avoid duplicating past version packages
+    bundle_dir = os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle")
+    if os.path.exists(bundle_dir):
+        print("Clearing old installer bundle directory...")
+        shutil.rmtree(bundle_dir)
+
     run_cmd("npm run tauri build", cwd=frontend_dir)
     
     # 5. Move installers to executables/
     print("\n=== Step 5: Copying compiled installers to executables/ ===")
     executables_dir = os.path.join(root_dir, "executables")
+    if os.path.exists(executables_dir):
+        print("Clearing old executables directory...")
+        shutil.rmtree(executables_dir)
     os.makedirs(executables_dir, exist_ok=True)
     
     import glob
@@ -113,6 +122,7 @@ def main():
         "Linux DEB Package": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "deb", "*.deb"),
         "Linux AppImage": os.path.join(frontend_dir, "src-tauri", "target", "release", "bundle", "appimage", "*.AppImage"),
     }
+
     
     found_any = False
     for label, pattern in patterns.items():
