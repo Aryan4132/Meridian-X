@@ -95,8 +95,15 @@ jobs:
       shell: pwsh
       run: choco install nsis -y
 
+    # --- Clean Stale Bundles ---
+    - name: Clean Previous Release Bundles
+      shell: bash
+      run: |
+        rm -rf meridian_frontend/src-tauri/target/release/bundle
+
     # --- Build Tauri App & Publish Release ---
     - name: Build Tauri App & Upload Release
+
       uses: tauri-apps/tauri-action@v0
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
