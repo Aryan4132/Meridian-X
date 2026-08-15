@@ -377,3 +377,62 @@ async def generate_completion_stream(
       # If we yielded nothing and encountered an error, raise the error
       logger.error(f"Remote provider {provider} stream call failed: {err_msg}")
       yield f"Error: Remote provider {provider} call failed: {err_msg}"
+
+
+async def call_llm(
+  messages: List[Dict[str, str]],
+  provider: Optional[str] = None,
+  model: Optional[str] = None,
+  temperature: float = 0.7
+) -> str:
+  """
+  Unified non-streaming completion call for any provider.
+  Automatically redacts sensitive secrets in messages.
+  Resolves provider/model defaults from database if not supplied.
+  """
+  sanitized_messages = []
+  for msg in messages:
+    content = msg.get("content", "")
+    sanitized_messages.append({
+      **msg,
+      "content": scan_and_redact_secrets(content)
+    })
+  
+  if not provider or not model:
+    try:
+      from database import get_brain_model, get_model_source
+      if not model:
+        model = get_brain_model()
+      if not provider:
+        source = get_model_source()
+        provider = "ollama" if source == "local" else "openrouter"
+    except Exception:
+      provider = provider or "ollama"
+      model = model or "llama3.2:3b"
+      
+  chunks = []
+  async for chunk in generate_completion_stream(sanitized_messages, provider=provider, model=model, temperature=temperature):
+    chunks.append(chunk)
+  return "".join(chunks)
+
+def call_llm_sync(
+  messages: List[Dict[str, str]],
+  provider: Optional[str] = None,
+  model: Optional[str] = None,
+  temperature: float = 0.7
+) -> str:
+  """
+  Synchronous wrapper for call_llm.
+  """
+  try:
+    loop = asyncio.get_running_loop()
+  except RuntimeError:
+    loop = None
+
+  if loop and loop.is_running():
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+      return pool.submit(asyncio.run, call_llm(messages, provider, model, temperature)).result()
+  else:
+    return asyncio.run(call_llm(messages, provider, model, temperature))
+

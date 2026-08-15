@@ -8,9 +8,10 @@ import pymongo
 import threading
 import numpy as np
 try:
-    from turbovec import IdMapIndex
+    from turbovec import IdMapIndex  # type: ignore # pyright: ignore[reportMissingImports]
 except ImportError:
     IdMapIndex = None
+
 from typing import Optional, List, Dict, Any, TypedDict
 
 class UserProfile(TypedDict, total=False):
@@ -89,7 +90,8 @@ def get_embedding(text: str) -> List[float]:
         # Use attribute access first, fall back to dict .get() for older lib versions.
         embedding = res.embedding if hasattr(res, "embedding") else res.get("embedding")
         if embedding:
-            return embedding
+            return list(embedding)
+
     except Exception as e:
         print("Failed to get embedding:", e)
     # Default fallback embedding if Ollama is unreachable/missing
@@ -628,7 +630,8 @@ def clear_conversations():
 
 # ----------------- KNOWLEDGE BASE RAG HELPERS -----------------
 
-def ingest_into_knowledge_base(source: str, text: str, metadata: dict = None):
+def ingest_into_knowledge_base(source: str, text: str, metadata: Optional[dict] = None):
+
     try:
         # Split text into ~200-word windows with 30-word overlap
         words = text.split()
@@ -745,7 +748,7 @@ def get_mongo_db() -> Optional[pymongo.database.Database]:
     global _mongo_client, _mongo_online, _last_mongo_check
     now = time.time()
     if _mongo_online is not None and (now - _last_mongo_check < 30):
-        if not _mongo_online:
+        if not _mongo_online or _mongo_client is None:
             return None
         return _mongo_client["meridian_kg"]
         
@@ -761,9 +764,10 @@ def get_mongo_db() -> Optional[pymongo.database.Database]:
     finally:
         _last_mongo_check = now
         
-    if _mongo_online:
+    if _mongo_online and _mongo_client is not None:
         return _mongo_client["meridian_kg"]
     return None
+
 
 def add_knowledge_fact(entity: str, relation: str, target: str):
     db_conn = get_mongo_db()
@@ -933,6 +937,12 @@ def get_model_source() -> str:
     except Exception:
         pass
     return os.environ.get("MERIDIAN_MODEL_SOURCE", "").strip()
+
+def set_model_source(source: str) -> None:
+    save_user_profile("meridian_model_source", source)
+    os.environ["MERIDIAN_MODEL_SOURCE"] = source
+
+
 
 def get_brain_model() -> str:
     try:

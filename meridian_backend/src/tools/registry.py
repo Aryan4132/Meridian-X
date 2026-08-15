@@ -2,7 +2,8 @@ from src.core.mcp_client import mcp_manager
 import os
 import inspect
 import asyncio
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+
 
 # Import existing core tool functions
 from src.tools.filesystem import read_file, write_file, list_directory, search_files, move_file, delete_file
@@ -34,6 +35,8 @@ from src.tools.knowledge import kg_add_entity, kg_add_relation, kg_query, kg_sea
 from src.tools.scheduler import schedule_task, schedule_once, list_scheduled, cancel_task
 from src.tools.watcher import watch_log, unwatch_log, list_log_watchers, tail_log, search_log, log_stats, watch_folder, unwatch_folder, list_watchers
 from src.tools.review import review_file, review_diff, review_directory, export_review
+from src.tools.auto_reviewer import generate_unit_tests, review_git_changes
+
 from src.tools.shell import nl_to_shell, nl_run, shell_history, monitor_process
 from src.tools.db_query import db_connect, db_query, db_execute, db_schema, db_nl_query, db_disconnect
 from src.tools.exporter import export_session, export_goal, list_sessions, export_finetune_data, finetune_stats, mark_correction
@@ -245,6 +248,9 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "review_diff": {"tier": 0, "func": review_diff},
     "review_directory": {"tier": 0, "func": review_directory},
     "export_review": {"tier": 1, "func": export_review},
+    "generate_unit_tests": {"tier": 1, "func": generate_unit_tests},
+    "review_git_changes": {"tier": 0, "func": review_git_changes},
+
 
     # NL Shell
     "nl_to_shell": {"tier": 0, "func": nl_to_shell},
@@ -360,7 +366,8 @@ def run_agent_swarm_wrapper(goal: str, roles: str = "researcher,auditor") -> str
         return f"Swarm execution failed: {e}"
 
 
-def run_autonomous_bug_fixer_wrapper(target_path: str = None) -> str:
+def run_autonomous_bug_fixer_wrapper(target_path: Optional[str] = None) -> str:
+
     """DEV-01: Autonomous Background Bug Fixer & Auto-PR Agent."""
     import json
     try:
