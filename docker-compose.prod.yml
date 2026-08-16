@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  meridian-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meridian-backend
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4132
+      - OLLAMA_HOST=http://ollama:11434
+      - AUTH_ENABLED=true
+    volumes:
+      - meridian_data:/root/.meridian
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: meridian-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: meridian-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - DOMAIN=${DOMAIN:-api.your-domain.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - meridian-backend
+    restart: unless-stopped
+
+volumes:
+  meridian_data:
+  ollama_data:
+  caddy_data:
+  caddy_config:
