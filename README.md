@@ -24,70 +24,88 @@
 ## ✨ Key Features
 
 ### 🧠 ReAct Reasoning Agent
+
 Asynchronous **Reason → Act → Observe** loop powered by user-selected local or cloud models (Ollama, OpenAI, Anthropic, Gemini, Groq, OpenRouter, DeepSeek), streaming live reasoning timelines to the UI via SSE.
+
 - **Self-Correction**: Intercepts tool calls and heals parameter mismatches against the `TOOL_REGISTRY`.
 - **Syntax & Logic Validation**: Validates Python/JSON before execution; an auditor model catches logic bugs before they run.
 
 ### 🔐 Encrypted Secret Vault
+
 AES-GCM encrypted credential store for all third-party secrets:
+
 - **LLM Providers**: Groq, OpenRouter, Mistral, OpenAI, Anthropic, Gemini, DeepSeek.
 - **Voice**: ElevenLabs, Deepgram. **Search**: Tavily.
 - Machine-bound HMAC-SHA256 passphrase derivation tied to `hostname + username`.
 
 ### 🔌 MCP Server Registry
+
 - **1-Click Marketplace**: Install and register MCP servers (GitHub, PostgreSQL, Slack, Linear).
 - **Direct Tool Injection**: Connected MCP servers inject tools directly into the agent reasoning loop.
 
 ### 🦊 Interactive Mascot & Dynamic Island
+
 A 3D orbital-ring companion floating over your desktop that reflects cognitive state in real time.
+
 - **State Colors** (locked, never changes with theme): Blue = Idle · Amber = Working · Red = Failed · Green = Success.
 - **Ring Dynamics**: Slow spin (idle) → Fast spin (working) → Frozen (failed).
 - **Island Mode**: Closing the dashboard compresses Meridian-X into a sleek floating island.
 - **6 Anchor Positions**: Top/Bottom × Left/Center/Right.
 
 ### 🎮 Frameless Overlay & Global Hotkeys
+
 Sub-10ms frameless HUD and global hotkey engine — toggle workspace, mascot island, or voice input without leaving full-screen games or apps.
 
 | Global Hotkey | Action Target | Description |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | **`Alt + M`** | 💬 Main Workspace Window | Hides/shows the main desktop workspace shell |
 | **`Alt + Shift + M`** | 🦊 Mascot / Frameless Overlay | Toggles between full dashboard and compact floating mascot HUD |
 | **`Alt + V`** | 🎙️ Push-to-Talk Voice Input | Triggers instant voice dictation from anywhere |
 
 ### ⚡ Speculative Concurrency Filtering
+
 Dual-lane tool execution for maximum throughput with safety guarantees:
+
 - **Tier 0 (Read-Only)**: `read_file`, `list_directory`, `search_web` — concurrent via `asyncio.gather()`.
 - **Tier ≥ 1 (Mutating)**: `write_file`, `run_python`, `gui_click` — sequential transaction enforcement.
 
 ### 🛡️ Enterprise Security (`SEC-01`–`SEC-26`)
+
 - Global `X-API-Key` auth middleware with explicit public whitelist.
 - Per-endpoint rate limiting via `slowapi` (20/min chat, 10/min vault).
 - Prompt injection sanitizer stripping jailbreak directives and zero-width unicode attacks.
 - `MERIDIAN_ALLOW_HOST_CODE_EXEC` sandbox gate blocking un-sandboxed execution.
 
 ### 🛡️ Focus Distraction Blocker
+
 Block distracting websites (`YouTube`, `Reddit`, `Twitter/X`, `Twitch`) and background processes (`discord.exe`, `steam.exe`) during Pomodoro focus blocks with active shield status.
 
 ### 📋 50-Slot Clipboard Surveillance & Multi-Column Grid
+
 Real-time pastebuffer monitoring with 50 persistent slots, automatic URL/Code classification, 1-click prompt analysis, and SQLite WAL database persistence fallback.
 
 ### 🔊 Supertonic Speech & Voice Engine
+
 Local text-to-speech engine featuring 10 distinct speaker voices (Male M1–M5, Female F1–F5), dynamic speech volume control, and audio state-change sound FX.
 
 ### 📈 Developer Productivity & Real Stats Engine
+
 Queries live SQLite task logs and Git repository commits to calculate real metrics: `Success Rate`, `Heals Applied`, `Git Commits/Snapshots`, and `Pomodoros Completed`.
 
 ### 🌌 Ambient Particle Canvas & Low RAM Optimizer
+
 Dynamic background particle renderer (`AmbientParticles.tsx`) with floating nodes & accent connections, featuring a 1-click **Low RAM Mode** toggle in Settings to conserve memory.
 
 ### ⚡ On-Device Turbovec Vector RAG & Knowledge Graph
+
 Local semantic vector store (`Turbovec`) combined with entity-relationship knowledge graph memory for instant sub-millisecond retrieval without sending context to third parties.
 
 ### 🎨 11 Selectable Design Styles
+
 Switch themes in **Settings → Mascot & Style** with live visual swatch previews & category filters (`All`, `Dark`, `Light`):
 
 | Theme | Type | Key Accent | Typography |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 🪐 Classic Cyber Slate | Dark | Solar Amber `#E8A020` | IBM Plex Mono |
 | 🏛️ Art Deco Luxury | Dark | Metallic Gold `#D4AF37` | Playfair Display (Serif) |
 | ⚡ Neobrutalism | **Light** | Canary Yellow `#FFDE59` | Space Grotesk |
@@ -215,7 +233,7 @@ flowchart TD
 ### Architectural Layer Breakdown
 
 | Layer | Technologies | Core Responsibility |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | **Presentation** | Tauri v2, React 18, Three.js, Lucide, Anime.js | Multi-window shell, 11-style theme switcher, responsive card grids, floating mascot island & HUD |
 | **Orchestration** | FastAPI, asyncio, Pydantic v2 | ReAct agent loop, tool parameter auto-correction, speculative concurrency, SSE streaming |
 | **Surveillance & Productivity** | Pyperclip, Watchdog, Distraction Shield | 50-slot persistent pastebuffer surveillance, website/process distraction blocker, Pomodoro HUD |
@@ -224,20 +242,26 @@ flowchart TD
 | **Inference & Voice** | Local / Cloud LLMs, Supertonic TTS | User-selected AI agents (Ollama, OpenAI, Anthropic, Gemini, Groq, OpenRouter) + local 10-voice speech synthesizer |
 
 ### 🚀 Non-Techie Onboarding Wizard
+
 Plug-and-play guided setup for users with zero technical or LLM knowledge:
+
 - **Hardware Spec Detection**: Automatically checks system RAM, CPU cores, and GPU VRAM to recommend the optimal offline model size (`Llama 3.2 1B`, `3B`, or `8B`).
 - **Ollama Auto-Discovery & Port Probe**: Probes default `11434` port, alternative ports (`11435`, `8080`, `5000`), and process trees without manual user configuration.
 - **1-Click Model Downloader**: Streams real-time download percentage and progress via SSE directly inside the setup modal.
 
 ### 🌐 Self-Hosting & Remote Backend Support
+
 Deploy Meridian-X backend on a remote VPS or home server while running the desktop/web client anywhere:
+
 - **Docker Compose Stack**: 1-command server spinup (`docker-compose up -d`) with isolated backend and Ollama containers.
 - **Remote Server Switcher**: Configure custom API endpoint (e.g., `https://api.my-server.com`) and secure API Key in frontend settings.
 
 ---
 
 ### 🌐 Website Project Context
+
 The official landing page and documentation portal for Meridian-X is maintained in the sister directory [`../meridian_website`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/meridian_website):
+
 - Built with **React + Vite + Tailwind CSS**.
 - Showcases interactive feature demos, documentation, downloadable binaries, and self-hosting guides.
 
@@ -246,7 +270,7 @@ The official landing page and documentation portal for Meridian-X is maintained 
 ## 💻 System Requirements
 
 | Component | Minimum | Recommended |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | **CPU** | Intel i5 / Ryzen 5 (AVX2) | Intel i7 / Ryzen 7+ (8+ cores) |
 | **RAM** | 8 GB | 16–32 GB DDR5 |
 | **GPU / VRAM** | Intel Iris Xe / Radeon Vega | NVIDIA RTX 3060+ (8 GB+ VRAM) |
@@ -256,7 +280,7 @@ The official landing page and documentation portal for Meridian-X is maintained 
 > **No GPU?** Add a cloud API key (Gemini, OpenAI, Groq, etc.) in Settings to offload inference. Only audio preprocessing, DB indexing, and orchestration run locally — making even CPU-only hardware sufficient.
 
 | OS | Status |
-|:---|:---|
+| :--- | :--- |
 | **Windows 11** (64-bit) | ✅ Fully Supported |
 | **macOS** (12+ Apple Silicon / Intel) | ✅ Fully Supported |
 | **Linux** (Ubuntu / Debian / Arch / Fedora) | ✅ Fully Supported |
@@ -268,16 +292,19 @@ The official landing page and documentation portal for Meridian-X is maintained 
 ### ⚡ One-Line Quick Install
 
 #### 🪟 Windows (PowerShell)
+
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.ps1 | iex"
 ```
 
 #### 🐧 Linux & 🍎 macOS (Terminal)
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.sh | bash
 ```
 
 Or download pre-compiled installers directly from [GitHub Releases](https://github.com/Aryan4132/Meridian-X/releases):
+
 - **Windows**: `meridian-x_0.4.0_x64-setup.exe` / `.msi`
 - **macOS**: `meridian-x_0.4.0_aarch64.dmg` / `.app`
 - **Linux**: `meridian-x_0.4.0_amd64.AppImage` / `.deb`
@@ -345,6 +372,7 @@ Update `OLLAMA_HOST` in `.env` if using a non-default port.
 ollama pull nomic-embed-text
 ollama pull qwen2.5-coder:7b-instruct-q4_K_M
 ```
+
 </details>
 
 <details>
@@ -355,6 +383,7 @@ WAL mode is enabled automatically. If `sqlite3.OperationalError: database is loc
 ```powershell
 Get-Process -Name python | Stop-Process -Force
 ```
+
 </details>
 
 <details>
@@ -363,10 +392,11 @@ Get-Process -Name python | Stop-Process -Force
 Switch to a smaller model in **Settings** or `.env`:
 
 | Hardware | Brain Model | Vision Model |
-|:---|:---|:---|
+| :--- | :--- | :--- |
 | 8 GB / No GPU | `qwen2.5-coder:1.5b` | `moondream:1.8b` |
 | 16 GB / 6 GB VRAM | `qwen2.5-coder:7b-q4` | `moondream:1.8b` |
 | 32 GB+ / 12 GB+ VRAM | `qwen2.5-coder:14b` | `llama3.2-vision:11b` |
+
 </details>
 
 <details>
@@ -375,6 +405,7 @@ Switch to a smaller model in **Settings** or `.env`:
 1. Check OS mic permissions: **Settings → Privacy → Microphone**.
 2. Run `python verify_system.py` to inspect audio devices.
 3. Set input to `1 channel, 16-bit, 16000 Hz` in OS audio settings.
+
 </details>
 
 <details>
@@ -384,6 +415,7 @@ Meridian-X gracefully degrades — core functions continue without MongoDB; only
 
 - **Windows**: `services.msc` → Start `MongoDB Server`
 - **Linux/macOS**: `sudo systemctl start mongod`
+
 </details>
 
 ---

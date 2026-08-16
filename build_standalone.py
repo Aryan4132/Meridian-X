@@ -142,46 +142,7 @@ def main():
     if not found_any:
         print("[Warning] No compiled installer packages were found in bundle output!")
 
-    # 6. Package Separate Backend & Web Frontend Standalone Zips
-    print("\n=== Step 6: Packaging Separate Backend & Frontend Releases ===")
-    import zipfile
-    version = "0.4.4"
-    try:
-        tauri_json = os.path.join(frontend_dir, "src-tauri", "tauri.conf.json")
-        if os.path.exists(tauri_json):
-            import json
-            with open(tauri_json, "r", encoding="utf-8") as f:
-                version = json.load(f).get("version", "0.4.4")
-    except Exception:
-        pass
-
-    # 6a. Standalone Backend Zip
-    backend_dist_path = os.path.join(backend_dir, "dist", "api")
-    if os.path.exists(backend_dist_path):
-        backend_zip_path = os.path.join(executables_dir, f"meridian-backend_{version}_x64.zip")
-        print(f"Zipping Standalone Backend -> {backend_zip_path}...")
-        with zipfile.ZipFile(backend_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(backend_dist_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, backend_dist_path)
-                    zipf.write(file_path, arcname)
-        print(f"  [OK] Created {os.path.basename(backend_zip_path)}")
-
-    # 6b. Standalone Web Frontend Zip
-    web_dist_path = os.path.join(frontend_dir, "dist")
-    if os.path.exists(web_dist_path):
-        web_zip_path = os.path.join(executables_dir, f"meridian-web-frontend_{version}.zip")
-        print(f"Zipping Standalone Web Frontend -> {web_zip_path}...")
-        with zipfile.ZipFile(web_zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, dirs, files in os.walk(web_dist_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, web_dist_path)
-                    zipf.write(file_path, arcname)
-        print(f"  [OK] Created {os.path.basename(web_zip_path)}")
-
-    print("\n[Success] All standalone bundles and separate releases created in executables/!")
+    print("\n[Success] Standalone build process complete!")
 
 if __name__ == "__main__":
     main()
