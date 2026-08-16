@@ -6,7 +6,7 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.4.2-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.4.4-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -222,6 +222,24 @@ flowchart TD
 | **Security & Vault** | AES-256-GCM, Cryptography, SlowAPI | Machine-bound passphrase derivation, prompt injection sanitizer (SEC-16), rate limiting, host execution gates |
 | **Storage & Memory** | Turbovec, SQLite WAL, MongoDB | On-device vector embeddings, persistent task histories, entity-relationship memory graph |
 | **Inference & Voice** | Local / Cloud LLMs, Supertonic TTS | User-selected AI agents (Ollama, OpenAI, Anthropic, Gemini, Groq, OpenRouter) + local 10-voice speech synthesizer |
+
+### 🚀 Non-Techie Onboarding Wizard
+Plug-and-play guided setup for users with zero technical or LLM knowledge:
+- **Hardware Spec Detection**: Automatically checks system RAM, CPU cores, and GPU VRAM to recommend the optimal offline model size (`Llama 3.2 1B`, `3B`, or `8B`).
+- **Ollama Auto-Discovery & Port Probe**: Probes default `11434` port, alternative ports (`11435`, `8080`, `5000`), and process trees without manual user configuration.
+- **1-Click Model Downloader**: Streams real-time download percentage and progress via SSE directly inside the setup modal.
+
+### 🌐 Self-Hosting & Remote Backend Support
+Deploy Meridian-X backend on a remote VPS or home server while running the desktop/web client anywhere:
+- **Docker Compose Stack**: 1-command server spinup (`docker-compose up -d`) with isolated backend and Ollama containers.
+- **Remote Server Switcher**: Configure custom API endpoint (e.g., `https://api.my-server.com`) and secure API Key in frontend settings.
+
+---
+
+### 🌐 Website Project Context
+The official landing page and documentation portal for Meridian-X is maintained in the sister directory [`../meridian_website`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/meridian_website):
+- Built with **React + Vite + Tailwind CSS**.
+- Showcases interactive feature demos, documentation, downloadable binaries, and self-hosting guides.
 
 ---
 

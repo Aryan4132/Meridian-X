@@ -389,6 +389,9 @@ app.add_middleware(
 )
 
 from pydantic import Field
+from fastapi.responses import StreamingResponse
+from src.core.hardware_detector import detect_hardware_specs
+from src.core.ollama_manager import detect_ollama, stream_pull_model
 
 class DebugLog(BaseModel):
     message: str = Field(..., max_length=5000)
@@ -398,6 +401,25 @@ class DebugLog(BaseModel):
 def post_debug_log(log: DebugLog):
     print(f"[FRONTEND DEBUG {log.level.upper()}] {log.message}")
     return {"status": "logged"}
+
+@app.get("/api/onboarding/hardware-spec")
+def get_hardware_spec():
+    return detect_hardware_specs()
+
+@app.get("/api/onboarding/ollama-status")
+async def get_ollama_status():
+    return await detect_ollama()
+
+class PullModelRequest(BaseModel):
+    model_name: str
+    base_url: Optional[str] = None
+
+@app.post("/api/onboarding/models/pull")
+async def pull_model_endpoint(req: PullModelRequest):
+    async def sse_event_generator():
+        async for chunk in stream_pull_model(req.model_name, req.base_url):
+            yield f"data: {json.dumps(chunk)}\n\n"
+    return StreamingResponse(sse_event_generator(), media_type="text/event-stream")
 
 @app.get("/api/mcp/v1/tools")
 def get_mcp_reverse_tools():
@@ -3081,7 +3103,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.4.3"
+CURRENT_VERSION = "0.4.4"
 
 _auto_download_in_progress = False
 _auto_download_ready = False

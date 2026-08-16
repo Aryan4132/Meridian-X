@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  meridian-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: meridian-backend
+    ports:
+      - "4132:4132"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4132
+      - OLLAMA_HOST=http://ollama:11434
+      - AUTH_ENABLED=true
+    volumes:
+      - meridian_data:/root/.meridian
+    depends_on:
+      - ollama
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: meridian-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  meridian_data:
+  ollama_data:

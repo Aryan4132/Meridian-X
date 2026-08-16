@@ -10,12 +10,25 @@ export const API_PORT = typeof window !== 'undefined' && (window as any).__MERID
 
 const metaEnv = (import.meta as any).env;
 
-export const API_BASE_URL = metaEnv?.VITE_API_BASE_URL
-  ? metaEnv.VITE_API_BASE_URL
-  : `http://${API_HOST}:${API_PORT}`;
+export const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const customUrl = window.localStorage.getItem('MERIDIAN_REMOTE_BACKEND_URL');
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim().replace(/\/+$/, '');
+    }
+  }
+  return metaEnv?.VITE_API_BASE_URL
+    ? metaEnv.VITE_API_BASE_URL
+    : `http://${API_HOST}:${API_PORT}`;
+};
+
+export const API_BASE_URL = getApiBaseUrl();
 
 export const getApiKey = (): string => {
   if (typeof window === 'undefined') return '';
+
+  const customKey = window.localStorage.getItem('MERIDIAN_REMOTE_API_KEY');
+  if (customKey && customKey.trim()) return customKey.trim();
 
   const fromWindow = (window as any).__MERIDIAN_API_KEY__;
   if (fromWindow) return String(fromWindow);

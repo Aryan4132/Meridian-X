@@ -47,112 +47,118 @@ graph TD
     N41["prompt_injection.py [meridian_backend/src/core]"]
     N42["prompt_templates.py [meridian_backend/src/core]"]
     N43["rag_optimizer.py [meridian_backend/src/core]"]
-    N44["scheduler.py [meridian_backend/src/core]"]
-    N45["security_middleware.py [meridian_backend/src/core]"]
-    N46["speculative.py [meridian_backend/src/core]"]
-    N47["swarm.py [meridian_backend/src/core]"]
-    N48["telegram_bridge.py [meridian_backend/src/core]"]
-    N49["temporal_memory.py [meridian_backend/src/core]"]
-    N50["triggers.py [meridian_backend/src/core]"]
-    N51["vault.py [meridian_backend/src/core]"]
-    N52["vision.py [meridian_backend/src/core]"]
-    N53["watcher.py [meridian_backend/src/core]"]
-    N54["workflow_engine.py [meridian_backend/src/core]"]
-    N55["browser_agent.py [meridian_backend/src/tools]"]
-    N56["clipboard.py [meridian_backend/src/tools]"]
-    N57["communication.py [meridian_backend/src/tools]"]
-    N58["db_query.py [meridian_backend/src/tools]"]
-    N59["desktop.py [meridian_backend/src/tools]"]
-    N60["developer.py [meridian_backend/src/tools]"]
-    N61["documents.py [meridian_backend/src/tools]"]
-    N62["dynamic_manager.py [meridian_backend/src/tools]"]
-    N63["exporter.py [meridian_backend/src/tools]"]
-    N64["external_connectors.py [meridian_backend/src/tools]"]
-    N65["filesystem.py [meridian_backend/src/tools]"]
-    N66["geo_location.py [meridian_backend/src/tools]"]
-    N67["knowledge.py [meridian_backend/src/tools]"]
-    N68["mcp_marketplace.py [meridian_backend/src/tools]"]
-    N69["ollama_manager.py [meridian_backend/src/tools]"]
-    N70["recording.py [meridian_backend/src/tools]"]
-    N71["registry.py [meridian_backend/src/tools]"]
-    N72["review.py [meridian_backend/src/tools]"]
-    N73["scheduler.py [meridian_backend/src/tools]"]
-    N74["security_auditor.py [meridian_backend/src/tools]"]
-    N75["shell.py [meridian_backend/src/tools]"]
-    N76["system.py [meridian_backend/src/tools]"]
-    N77["task_scheduler.py [meridian_backend/src/tools]"]
-    N78["vault.py [meridian_backend/src/tools]"]
-    N79["voice.py [meridian_backend/src/tools]"]
-    N80["watcher.py [meridian_backend/src/tools]"]
-    N81["web.py [meridian_backend/src/tools]"]
-    N82["web_browser.py [meridian_backend/src/tools]"]
-    N83["duplex.py [meridian_backend/src/voice]"]
-    N84["stt.py [meridian_backend/src/voice]"]
-    N85["tts.py [meridian_backend/src/voice]"]
-    N86["wakeword.py [meridian_backend/src/voice]"]
-    N87["run_tests.py [meridian_backend/tests]"]
-    N88["test_auto_bug_fixer.py [meridian_backend/tests]"]
-    N89["test_backlog_features.py [meridian_backend/tests]"]
-    N90["test_backlog_sprint.py [meridian_backend/tests]"]
-    N91["test_bridges.py [meridian_backend/tests]"]
-    N92["test_config.py [meridian_backend/tests]"]
-    N93["test_context_budget.py [meridian_backend/tests]"]
-    N94["test_database.py [meridian_backend/tests]"]
-    N95["test_document_tools.py [meridian_backend/tests]"]
-    N96["test_geo_location.py [meridian_backend/tests]"]
-    N97["test_llm_provider.py [meridian_backend/tests]"]
-    N98["test_logging.py [meridian_backend/tests]"]
-    N99["test_loop_parser.py [meridian_backend/tests]"]
-    N100["test_loop_submodules.py [meridian_backend/tests]"]
-    N101["test_model_source.py [meridian_backend/tests]"]
-    N102["test_oauth.py [meridian_backend/tests]"]
-    N103["test_p2p.py [meridian_backend/tests]"]
-    N104["test_proactive.py [meridian_backend/tests]"]
-    N105["test_proactive_notifications.py [meridian_backend/tests]"]
-    N106["test_security_features.py [meridian_backend/tests]"]
-    N107["test_sprint2_features.py [meridian_backend/tests]"]
-    N108["test_swarm.py [meridian_backend/tests]"]
-    N109["test_temporal_consensus.py [meridian_backend/tests]"]
-    N110["test_tools.py [meridian_backend/tests]"]
-    N111["test_vault.py [meridian_backend/tests]"]
-    N112["test_wakeword_continuous.py [meridian_backend/tests]"]
-    N113["test_wakeword_onnx.py [meridian_backend/tests]"]
-    N114["test_workflow.py [meridian_backend/tests]"]
-    N115["vite.config.ts [meridian_frontend]"]
-    N116["AppContext.tsx [meridian_frontend/src]"]
-    N117["main.tsx [meridian_frontend/src]"]
-    N118["Mascot.tsx [meridian_frontend/src]"]
-    N119["Mascot3DCharacter.tsx [meridian_frontend/src]"]
-    N120["CommandPalette.tsx [meridian_frontend/src/components]"]
-    N121["NavRail.tsx [meridian_frontend/src/components]"]
-    N122["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N123["Shell.tsx [meridian_frontend/src/components]"]
-    N124["StatusBar.tsx [meridian_frontend/src/components]"]
-    N125["AmbientParticles.tsx [meridian_frontend/src/components/ui]"]
-    N126["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N127["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N128["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N129["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N130["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N131["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
-    N132["oauthService.ts [meridian_frontend/src/services]"]
-    N133["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N134["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N135["Clipboard.tsx [meridian_frontend/src/views]"]
-    N136["GameOverlay.tsx [meridian_frontend/src/views]"]
-    N137["Jobs.tsx [meridian_frontend/src/views]"]
-    N138["LocalStudio.tsx [meridian_frontend/src/views]"]
-    N139["Productivity.tsx [meridian_frontend/src/views]"]
-    N140["SecurityPanel.tsx [meridian_frontend/src/views]"]
-    N141["Settings.tsx [meridian_frontend/src/views]"]
-    N142["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N143["Timeline.tsx [meridian_frontend/src/views]"]
-    N144["WorkflowBuilder.tsx [meridian_frontend/src/views]"]
-    N145["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N146["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N147["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N148["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N149["get_system_platform_info.py [plugins]"]
+    N44["sandbox_runner.py [meridian_backend/src/core]"]
+    N45["scheduler.py [meridian_backend/src/core]"]
+    N46["security_middleware.py [meridian_backend/src/core]"]
+    N47["speculative.py [meridian_backend/src/core]"]
+    N48["swarm.py [meridian_backend/src/core]"]
+    N49["system_defense.py [meridian_backend/src/core]"]
+    N50["telegram_bridge.py [meridian_backend/src/core]"]
+    N51["temporal_memory.py [meridian_backend/src/core]"]
+    N52["triggers.py [meridian_backend/src/core]"]
+    N53["vault.py [meridian_backend/src/core]"]
+    N54["vision.py [meridian_backend/src/core]"]
+    N55["watcher.py [meridian_backend/src/core]"]
+    N56["workflow_engine.py [meridian_backend/src/core]"]
+    N57["auto_reviewer.py [meridian_backend/src/tools]"]
+    N58["browser_agent.py [meridian_backend/src/tools]"]
+    N59["clipboard.py [meridian_backend/src/tools]"]
+    N60["communication.py [meridian_backend/src/tools]"]
+    N61["db_query.py [meridian_backend/src/tools]"]
+    N62["desktop.py [meridian_backend/src/tools]"]
+    N63["developer.py [meridian_backend/src/tools]"]
+    N64["documents.py [meridian_backend/src/tools]"]
+    N65["dynamic_manager.py [meridian_backend/src/tools]"]
+    N66["exporter.py [meridian_backend/src/tools]"]
+    N67["external_connectors.py [meridian_backend/src/tools]"]
+    N68["filesystem.py [meridian_backend/src/tools]"]
+    N69["geo_location.py [meridian_backend/src/tools]"]
+    N70["knowledge.py [meridian_backend/src/tools]"]
+    N71["mcp_marketplace.py [meridian_backend/src/tools]"]
+    N72["ollama_manager.py [meridian_backend/src/tools]"]
+    N73["recording.py [meridian_backend/src/tools]"]
+    N74["registry.py [meridian_backend/src/tools]"]
+    N75["review.py [meridian_backend/src/tools]"]
+    N76["scheduler.py [meridian_backend/src/tools]"]
+    N77["security_auditor.py [meridian_backend/src/tools]"]
+    N78["shell.py [meridian_backend/src/tools]"]
+    N79["system.py [meridian_backend/src/tools]"]
+    N80["task_scheduler.py [meridian_backend/src/tools]"]
+    N81["vault.py [meridian_backend/src/tools]"]
+    N82["voice.py [meridian_backend/src/tools]"]
+    N83["watcher.py [meridian_backend/src/tools]"]
+    N84["web.py [meridian_backend/src/tools]"]
+    N85["web_browser.py [meridian_backend/src/tools]"]
+    N86["whatsapp_manager.py [meridian_backend/src/tools]"]
+    N87["duplex.py [meridian_backend/src/voice]"]
+    N88["stt.py [meridian_backend/src/voice]"]
+    N89["tts.py [meridian_backend/src/voice]"]
+    N90["wakeword.py [meridian_backend/src/voice]"]
+    N91["run_tests.py [meridian_backend/tests]"]
+    N92["test_auto_bug_fixer.py [meridian_backend/tests]"]
+    N93["test_backlog_features.py [meridian_backend/tests]"]
+    N94["test_backlog_sprint.py [meridian_backend/tests]"]
+    N95["test_bridges.py [meridian_backend/tests]"]
+    N96["test_config.py [meridian_backend/tests]"]
+    N97["test_context_budget.py [meridian_backend/tests]"]
+    N98["test_database.py [meridian_backend/tests]"]
+    N99["test_day3_features.py [meridian_backend/tests]"]
+    N100["test_day4_features.py [meridian_backend/tests]"]
+    N101["test_document_tools.py [meridian_backend/tests]"]
+    N102["test_geo_location.py [meridian_backend/tests]"]
+    N103["test_llm_provider.py [meridian_backend/tests]"]
+    N104["test_logging.py [meridian_backend/tests]"]
+    N105["test_loop_parser.py [meridian_backend/tests]"]
+    N106["test_loop_submodules.py [meridian_backend/tests]"]
+    N107["test_model_source.py [meridian_backend/tests]"]
+    N108["test_oauth.py [meridian_backend/tests]"]
+    N109["test_p2p.py [meridian_backend/tests]"]
+    N110["test_proactive.py [meridian_backend/tests]"]
+    N111["test_proactive_notifications.py [meridian_backend/tests]"]
+    N112["test_security_features.py [meridian_backend/tests]"]
+    N113["test_sprint2_features.py [meridian_backend/tests]"]
+    N114["test_swarm.py [meridian_backend/tests]"]
+    N115["test_temporal_consensus.py [meridian_backend/tests]"]
+    N116["test_tools.py [meridian_backend/tests]"]
+    N117["test_vault.py [meridian_backend/tests]"]
+    N118["test_wakeword_continuous.py [meridian_backend/tests]"]
+    N119["test_wakeword_onnx.py [meridian_backend/tests]"]
+    N120["test_workflow.py [meridian_backend/tests]"]
+    N121["vite.config.ts [meridian_frontend]"]
+    N122["AppContext.tsx [meridian_frontend/src]"]
+    N123["main.tsx [meridian_frontend/src]"]
+    N124["Mascot.tsx [meridian_frontend/src]"]
+    N125["Mascot3DCharacter.tsx [meridian_frontend/src]"]
+    N126["CommandPalette.tsx [meridian_frontend/src/components]"]
+    N127["NavRail.tsx [meridian_frontend/src/components]"]
+    N128["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N129["Shell.tsx [meridian_frontend/src/components]"]
+    N130["StatusBar.tsx [meridian_frontend/src/components]"]
+    N131["AmbientParticles.tsx [meridian_frontend/src/components/ui]"]
+    N132["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N133["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N134["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N135["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N136["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N137["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
+    N138["oauthService.ts [meridian_frontend/src/services]"]
+    N139["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N140["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N141["Clipboard.tsx [meridian_frontend/src/views]"]
+    N142["GameOverlay.tsx [meridian_frontend/src/views]"]
+    N143["Jobs.tsx [meridian_frontend/src/views]"]
+    N144["LocalStudio.tsx [meridian_frontend/src/views]"]
+    N145["Productivity.tsx [meridian_frontend/src/views]"]
+    N146["SecurityPanel.tsx [meridian_frontend/src/views]"]
+    N147["Settings.tsx [meridian_frontend/src/views]"]
+    N148["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N149["Timeline.tsx [meridian_frontend/src/views]"]
+    N150["WorkflowBuilder.tsx [meridian_frontend/src/views]"]
+    N151["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N152["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N153["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N154["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N155["get_system_platform_info.py [plugins]"]
 
     N5 --> N10
     N10 --> N11
@@ -168,100 +174,104 @@ graph TD
     N37 --> N11
     N40 --> N11
     N40 --> N10
-    N44 --> N11
-    N48 --> N11
-    N52 --> N11
-    N56 --> N11
-    N58 --> N11
+    N45 --> N11
+    N50 --> N11
+    N54 --> N11
     N59 --> N11
-    N63 --> N11
-    N67 --> N11
-    N69 --> N11
+    N60 --> N11
+    N61 --> N11
+    N62 --> N11
+    N66 --> N11
     N70 --> N11
-    N71 --> N11
     N72 --> N11
+    N73 --> N11
+    N74 --> N11
     N75 --> N11
-    N81 --> N11
-    N82 --> N11
+    N78 --> N11
     N84 --> N11
     N85 --> N11
     N86 --> N11
-    N88 --> N10
+    N88 --> N11
     N89 --> N11
-    N90 --> N10
+    N90 --> N11
+    N92 --> N10
     N93 --> N11
-    N94 --> N11
-    N101 --> N11
-    N103 --> N11
-    N105 --> N10
-    N106 --> N10
-    N107 --> N10
+    N94 --> N10
+    N97 --> N11
+    N98 --> N11
+    N99 --> N11
+    N100 --> N11
+    N107 --> N11
+    N109 --> N11
+    N111 --> N10
     N112 --> N10
     N113 --> N10
-    N116 --> N148
-    N116 --> N17
-    N117 --> N118
-    N117 --> N133
-    N117 --> N134
-    N117 --> N123
-    N117 --> N116
-    N117 --> N17
-    N118 --> N119
-    N121 --> N116
-    N121 --> N118
-    N122 --> N116
-    N122 --> N129
-    N122 --> N126
-    N123 --> N116
-    N123 --> N121
+    N118 --> N10
+    N119 --> N10
+    N122 --> N154
+    N122 --> N17
     N123 --> N124
-    N123 --> N122
-    N123 --> N143
-    N123 --> N137
-    N123 --> N135
     N123 --> N139
-    N123 --> N142
-    N123 --> N144
-    N123 --> N141
-    N123 --> N125
-    N124 --> N116
-    N124 --> N126
-    N125 --> N131
-    N132 --> N17
-    N133 --> N17
-    N133 --> N118
-    N134 --> N128
-    N134 --> N17
-    N135 --> N148
-    N135 --> N116
-    N135 --> N128
-    N135 --> N17
-    N137 --> N148
-    N137 --> N128
-    N137 --> N127
-    N137 --> N17
-    N139 --> N148
-    N139 --> N129
-    N139 --> N128
-    N139 --> N127
+    N123 --> N140
+    N123 --> N129
+    N123 --> N122
+    N123 --> N17
+    N124 --> N125
+    N127 --> N122
+    N127 --> N124
+    N128 --> N122
+    N128 --> N135
+    N128 --> N132
+    N129 --> N122
+    N129 --> N127
+    N129 --> N130
+    N129 --> N128
+    N129 --> N149
+    N129 --> N143
+    N129 --> N141
+    N129 --> N145
+    N129 --> N148
+    N129 --> N150
+    N129 --> N147
+    N129 --> N131
+    N130 --> N122
+    N130 --> N132
+    N131 --> N137
+    N138 --> N17
     N139 --> N17
+    N139 --> N124
+    N140 --> N134
+    N140 --> N17
+    N141 --> N154
+    N141 --> N122
+    N141 --> N134
     N141 --> N17
-    N141 --> N148
-    N141 --> N116
-    N141 --> N131
-    N141 --> N129
-    N141 --> N128
-    N141 --> N127
-    N142 --> N130
-    N142 --> N128
-    N142 --> N17
-    N143 --> N148
-    N143 --> N128
-    N143 --> N127
+    N143 --> N154
+    N143 --> N134
+    N143 --> N133
     N143 --> N17
-    N144 --> N17
-    N147 --> N148
-    N148 --> N147
+    N145 --> N154
+    N145 --> N135
+    N145 --> N134
+    N145 --> N133
+    N145 --> N17
+    N147 --> N17
+    N147 --> N154
+    N147 --> N122
+    N147 --> N137
+    N147 --> N135
+    N147 --> N134
+    N147 --> N133
+    N148 --> N136
+    N148 --> N134
+    N148 --> N17
+    N149 --> N154
+    N149 --> N134
+    N149 --> N133
+    N149 --> N17
+    N150 --> N17
+    N153 --> N154
+    N154 --> N153
 ```
 
 ## Detailed File Index
@@ -343,6 +353,7 @@ graph TD
   - Imports: `pymongo`
   - Imports: `pypdf`
   - Imports: `random`
+  - Imports: `re`
   - Imports: `sqlite3`
   - Imports: `src`
   - Imports: `threading`
@@ -435,6 +446,7 @@ graph TD
   - Imports: `subprocess`
 - **meridian_backend/src/core/llm_provider.py**
   - Imports: `asyncio`
+  - Imports: `concurrent`
   - Imports: `database`
   - Imports: `httpx`
   - Imports: `json`
@@ -589,6 +601,12 @@ graph TD
   - Imports: `math`
   - Imports: `re`
   - Imports: `typing`
+- **meridian_backend/src/core/sandbox_runner.py**
+  - Imports: `logging`
+  - Imports: `os`
+  - Imports: `subprocess`
+  - Imports: `time`
+  - Imports: `typing`
 - **meridian_backend/src/core/scheduler.py**
   - Imports: `apscheduler`
   - Imports: `asyncio`
@@ -622,6 +640,12 @@ graph TD
   - Imports: `src`
   - Imports: `sys`
   - Imports: `time`
+  - Imports: `typing`
+- **meridian_backend/src/core/system_defense.py**
+  - Imports: `gc`
+  - Imports: `logging`
+  - Imports: `os`
+  - Imports: `psutil`
   - Imports: `typing`
 - **meridian_backend/src/core/telegram_bridge.py**
   - Imports: `asyncio`
@@ -678,6 +702,11 @@ graph TD
   - Imports: `time`
   - Imports: `typing`
   - Imports: `uuid`
+- **meridian_backend/src/tools/auto_reviewer.py**
+  - Imports: `os`
+  - Imports: `src`
+  - Imports: `subprocess`
+  - Imports: `typing`
 - **meridian_backend/src/tools/browser_agent.py**
   - Imports: `json`
   - Imports: `os`
@@ -692,6 +721,7 @@ graph TD
   - Imports: `time`
   - Imports: `typing`
 - **meridian_backend/src/tools/communication.py**
+  - Imports: `database`
   - Imports: `logging`
   - Imports: `os`
   - Imports: `pyautogui`
@@ -699,6 +729,8 @@ graph TD
   - Imports: `subprocess`
   - Imports: `time`
   - Imports: `typing`
+  - Imports: `urllib`
+  - Imports: `webbrowser`
 - **meridian_backend/src/tools/db_query.py**
   - Imports: `database`
   - Imports: `ollama`
@@ -807,8 +839,8 @@ graph TD
 - **meridian_backend/src/tools/review.py**
   - Imports: `database`
   - Imports: `glob`
-  - Imports: `ollama`
   - Imports: `os`
+  - Imports: `src`
   - Imports: `subprocess`
   - Imports: `typing`
 - **meridian_backend/src/tools/scheduler.py**
@@ -888,6 +920,16 @@ graph TD
   - Imports: `src`
   - Imports: `time`
   - Imports: `typing`
+- **meridian_backend/src/tools/whatsapp_manager.py**
+  - Imports: `database`
+  - Imports: `json`
+  - Imports: `logging`
+  - Imports: `os`
+  - Imports: `playwright`
+  - Imports: `src`
+  - Imports: `time`
+  - Imports: `typing`
+  - Imports: `webbrowser`
 - **meridian_backend/src/voice/duplex.py**
   - Imports: `asyncio`
   - Imports: `src`
@@ -970,6 +1012,19 @@ graph TD
   - Imports: `os`
   - Imports: `shutil`
   - Imports: `sys`
+  - Imports: `unittest`
+- **meridian_backend/tests/test_day3_features.py**
+  - Imports: `database`
+  - Imports: `pytest`
+  - Imports: `src`
+- **meridian_backend/tests/test_day4_features.py**
+  - Imports: `database`
+  - Imports: `os`
+  - Imports: `pytest`
+  - Imports: `src`
+  - Imports: `subprocess`
+  - Imports: `sys`
+  - Imports: `tempfile`
   - Imports: `unittest`
 - **meridian_backend/tests/test_document_tools.py**
   - Imports: `os`

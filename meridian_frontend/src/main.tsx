@@ -55,7 +55,9 @@ if (typeof window !== 'undefined') {
   };
 }
 
-type AppStage = 'boot' | 'setup' | 'shell';
+import { OnboardingWizard } from './startup/OnboardingWizard';
+
+type AppStage = 'boot' | 'onboarding' | 'setup' | 'shell';
 
 function MainRouter() {
   const [windowType, setWindowType] = useState<'main' | 'mascot'>('main');
@@ -76,31 +78,11 @@ function MainRouter() {
 
   const onBootComplete = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/profile/all');
+      const res = await fetch(`${API_BASE_URL}/api/profile/all`);
       if (res.ok) {
         const profile = await res.json();
         if (profile && (profile.first_run_completed === true || profile.meridian_model)) {
-          // Sync backend profile to localStorage
           localStorage.setItem('firstRunCompleted', 'true');
-          const keyMap: Record<string, string> = {
-            tavily_key: 'TAVILY_API_KEY',
-            discord_token: 'DISCORD_BOT_TOKEN',
-            telegram_token: 'TELEGRAM_BOT_TOKEN',
-            telegram_chat_id: 'TELEGRAM_CHAT_ID',
-            meridian_provider: 'MERIDIAN_PROVIDER',
-            meridian_model: 'MERIDIAN_MODEL',
-            meridian_vision_model: 'MERIDIAN_VISION_MODEL',
-            ollama_host: 'OLLAMA_HOST',
-            openai_key: 'OPENAI_API_KEY',
-            anthropic_key: 'ANTHROPIC_API_KEY',
-            gemini_key: 'GEMINI_API_KEY',
-            deepseek_key: 'DEEPSEEK_API_KEY',
-          };
-          for (const [backendKey, localKey] of Object.entries(keyMap)) {
-            if (profile[backendKey] !== undefined && profile[backendKey] !== null) {
-              localStorage.setItem(localKey, String(profile[backendKey]));
-            }
-          }
           setStage('shell');
           return;
         }
@@ -109,6 +91,16 @@ function MainRouter() {
       console.error('Failed to sync profile from backend:', e);
     }
 
+    const onboarded = localStorage.getItem('MERIDIAN_ONBOARDED') === 'true';
+    if (!onboarded) {
+      setStage('onboarding');
+    } else {
+      const firstRunDone = localStorage.getItem('firstRunCompleted') === 'true';
+      setStage(firstRunDone ? 'shell' : 'setup');
+    }
+  };
+
+  const onOnboardingComplete = () => {
     const firstRunDone = localStorage.getItem('firstRunCompleted') === 'true';
     setStage(firstRunDone ? 'shell' : 'setup');
   };
@@ -121,9 +113,10 @@ function MainRouter() {
 
   return (
     <AppProvider>
-      {stage === 'boot'  && <BootSequence onComplete={onBootComplete} />}
-      {stage === 'setup' && <SetupWizard onComplete={onSetupComplete} />}
-      {stage === 'shell' && <Shell />}
+      {stage === 'boot'       && <BootSequence onComplete={onBootComplete} />}
+      {stage === 'onboarding' && <OnboardingWizard onComplete={onOnboardingComplete} />}
+      {stage === 'setup'      && <SetupWizard onComplete={onSetupComplete} />}
+      {stage === 'shell'      && <Shell />}
     </AppProvider>
   );
 }
