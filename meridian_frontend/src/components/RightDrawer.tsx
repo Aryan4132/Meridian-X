@@ -47,6 +47,7 @@ const DRAWER_TITLES: Record<TabId, string> = {
   productivity: 'Hardware Vitals',
   lobby:        'Agent Legend',
   settings:     'Hardware Vitals',
+  workflows:    'Workflows & Nodes',
 };
 
 export default function RightDrawer({
@@ -59,12 +60,12 @@ export default function RightDrawer({
   const { rightDrawerOpen, setRightDrawerOpen, activeTab, systemUsage } = useApp();
   const title = DRAWER_TITLES[activeTab];
 
-  // Auto-expand drawer when AI starts streaming thoughts
-  React.useEffect(() => {
-    if (thoughtsFeed?.streaming) {
-      setRightDrawerOpen(true);
-    }
-  }, [thoughtsFeed?.streaming]);
+  // Auto-expand drawer when AI starts streaming thoughts (disabled to keep drawer at user-selected state)
+  // React.useEffect(() => {
+  //   if (thoughtsFeed?.streaming) {
+  //     setRightDrawerOpen(true);
+  //   }
+  // }, [thoughtsFeed?.streaming]);
 
   return (
     <>
@@ -137,6 +138,9 @@ export default function RightDrawer({
                         borderRadius: 'var(--radius-sm)',
                         borderLeft: '2px solid var(--accent-dim)',
                         lineHeight: 1.5,
+                        wordBreak: 'break-word',
+                        overflowWrap: 'anywhere',
+                        whiteSpace: 'pre-wrap',
                       }}>
                         <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>{(i + 1).toString().padStart(2, '0')}.</span>
                         {t}

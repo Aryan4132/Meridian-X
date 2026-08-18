@@ -158,7 +158,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!backendAlive) return;
 
-    const eventSource = new EventSource('http://localhost:4132/api/proactive/stream');
+    const eventSource = new EventSource(`${API_BASE_URL}/api/proactive/stream`);
 
     eventSource.addEventListener('nudge', (e) => {
       try {

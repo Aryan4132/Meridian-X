@@ -56,7 +56,22 @@ def transcribe_audio_file(audio_path: str, model_size: Optional[str] = None) -> 
     """Transcribe a local WAV/MP3 audio file using faster-whisper locally."""
     try:
         model = get_whisper_model(model_size)
-        segments, info = model.transcribe(audio_path, beam_size=5)
+        segments, info = model.transcribe(audio_path, beam_size=1)
+        text = " ".join([segment.text for segment in segments])
+        return text.strip()
+    except ImportError:
+        return "Error: 'faster-whisper' package is not installed."
+    except Exception as e:
+        return f"Transcription failed: {e}"
+
+def transcribe_audio_array(audio_data: np.ndarray, model_size: Optional[str] = None) -> str:
+    """Transcribe an in-memory numpy float32 audio array directly without disk WAV write/read I/O."""
+    try:
+        model = get_whisper_model(model_size)
+        # Ensure float32 normalized to [-1.0, 1.0] @ 16kHz
+        if audio_data.dtype != np.float32:
+            audio_data = audio_data.astype(np.float32) / 32768.0
+        segments, info = model.transcribe(audio_data, beam_size=1)
         text = " ".join([segment.text for segment in segments])
         return text.strip()
     except ImportError:
@@ -65,11 +80,10 @@ def transcribe_audio_file(audio_path: str, model_size: Optional[str] = None) -> 
         return f"Transcription failed: {e}"
 
 def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[str] = None) -> str:
-    """Record audio from the microphone and automatically stop when silence is detected using energy VAD."""
+    """Record audio from the microphone and automatically stop when silence is detected using fast energy VAD."""
     try:
         import sounddevice as sd
         import numpy as np
-        import scipy.io.wavfile as wav
         import time
         
         sample_rate = 16000
@@ -82,11 +96,11 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
         speech_detected = False
         silence_start = None
         
-        # Load VAD parameters dynamically from database profile
+        # Load VAD parameters dynamically from database profile with sub-second default timeout (0.3s)
         try:
             from database import get_user_profile
             silence_timeout_val = get_user_profile("stt_silence_timeout")
-            silence_timeout = float(silence_timeout_val) if silence_timeout_val is not None else 1.0
+            silence_timeout = float(silence_timeout_val) if silence_timeout_val is not None else 0.3
             
             threshold_val = get_user_profile("stt_vad_threshold")
             threshold = float(threshold_val) if threshold_val is not None else 300.0
@@ -94,7 +108,7 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
             max_duration_val = get_user_profile("stt_max_duration")
             max_duration_limit = float(max_duration_val) if max_duration_val is not None else 8.0
         except Exception:
-            silence_timeout = 1.0
+            silence_timeout = 0.3
             threshold = 300.0
             max_duration_limit = 8.0
 
@@ -124,7 +138,7 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
                         if silence_start is None:
                             silence_start = time.time()
                         elif time.time() - silence_start > silence_timeout:
-                            print(f"[Voice STT] User finished speaking. Silence timeout reached.")
+                            print(f"[Voice STT] User finished speaking. Silence timeout ({silence_timeout}s) reached.")
                             break
                             
         if not recording:
@@ -135,23 +149,11 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
         # BK-09: Apply spectral RMS noise gate attenuation before Whisper inference
         audio_data = apply_noise_gate(raw_audio, threshold=threshold * 0.5)
         
-        # Save to temp file
-        temp_dir = tempfile.gettempdir()
-        temp_wav = os.path.join(temp_dir, "meridian_stt_temp.wav")
-        wav.write(temp_wav, sample_rate, audio_data)
-        
-        print("[Voice STT] Transcribing audio pipeline...")
-        transcription = transcribe_audio_file(temp_wav, model_size)
-        
-        # Clean up
-        try:
-            os.remove(temp_wav)
-        except Exception:
-            pass
-            
+        print("[Voice STT] Transcribing in-memory audio array (beam_size=1)...")
+        transcription = transcribe_audio_array(audio_data, model_size)
         return transcription
     except ImportError:
-        return "Error: 'sounddevice', 'numpy' or 'scipy' is not installed for recording."
+        return "Error: 'sounddevice' or 'numpy' is not installed for recording."
     except Exception as e:
         return f"Recording and transcription failed: {e}"
 

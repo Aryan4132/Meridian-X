@@ -25,7 +25,7 @@ const BOOT_LINES: BootLine[] = [
 ];
 
 const TITLE = 'MERIDIAN-X';
-const SUBTITLE = 'v0.4.4  ·  agentic intelligence core';
+const SUBTITLE = 'v0.4.5  ·  agentic intelligence core';
 
 
 /* Interactive Cybernetic Canvas Backdrop matching active CSS theme */

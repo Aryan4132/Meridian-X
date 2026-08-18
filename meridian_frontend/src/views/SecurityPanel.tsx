@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Key, RefreshCw, Copy, CheckCircle, AlertTriangle, Lock } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 export const SecurityPanel: React.FC = () => {
   const [apiKey, setApiKey] = useState<string>('meridian_sk_••••••••••••••••3a9b');
@@ -15,7 +16,7 @@ export const SecurityPanel: React.FC = () => {
   const handleRotateKey = async () => {
     setIsRotating(true);
     try {
-      const res = await fetch('/api/security/rotate-key', { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/api/security/rotate-key`, { method: 'POST' });
       const data = await res.json();
       if (data.new_key_prefix) {
         setApiKey(data.new_key_prefix);

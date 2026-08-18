@@ -78,7 +78,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
     setOllamaStatus('idle');
     setOllamaModels([]);
     try {
-      const res = await fetch(`http://localhost:4132/api/ollama-models?host=${encodeURIComponent(ollamaHost)}`).catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/api/ollama-models?host=${encodeURIComponent(ollamaHost)}`).catch(() => null);
       if (res?.ok) {
         const data = await res.json();
         const models = (data.models || []).map((m: any) => m.name || m);

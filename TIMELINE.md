@@ -14,11 +14,11 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 2 — OAuth 2.0, External Connectors & Workflow Automation Engine (🔴 High Priority)
-- **`SEC-25` — OAuth 2.0 Hybrid Auth & External Connector Engine**
+## 📅 Day 2 — OAuth 2.0, External Connectors & Workflow Automation Engine (✅ Completed)
+- [x] **`SEC-25` — OAuth 2.0 Hybrid Auth & External Connector Engine**
   - *Target*: `oauth_manager.py`, `external_connectors.py`
   - *Deliverable*: Dual API key + Bearer JWT auth, PKCE login flow, encrypted OAuth token vault for Gmail, Calendar, Contacts, GitHub, and Cloudflare.
-- **`WKF-01` — Meridian-X Node Workflow & Automation Engine**
+- [x] **`WKF-01` — Meridian-X Node Workflow & Automation Engine**
   - *Target*: `workflow_engine.py`, `WorkflowBuilder.tsx`
   - *Deliverable*: Trigger/Action visual workflow runner (Webhook/Schedule/Email trigger $\rightarrow$ Filter $\rightarrow$ External Service Node $\rightarrow$ LLM step) executing multi-step automation pipelines.
 
@@ -73,14 +73,14 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 5 — Full-Duplex Voice, Biometrics & Conversation Window (🔴 High Priority)
-- **`AST-15` — Full-Duplex Voice & Live Voice Interrupt**
-  - *Target*: `duplex_voice.py`
+## 📅 Day 5 — Full-Duplex Voice, Biometrics & Conversation Window (✅ Completed)
+- [x] **`AST-15` — Full-Duplex Voice & Live Voice Interrupt**
+  - *Target*: `duplex.py`
   - *Deliverable*: Full-duplex WebSocket audio streaming engine supporting instant barge-in voice interruption mid-sentence.
-- **`AST-08` — Continuous Conversation Window**
+- [x] **`AST-08` — Continuous Conversation Window**
   - *Target*: `wakeword.py`
   - *Deliverable*: 10-second active listening window following responses for follow-up speech without wake word.
-- **`JARVIS-03` — Voice Biometric Identity & Speaker Verification**
+- [x] **`JARVIS-03` — Voice Biometric Identity & Speaker Verification**
   - *Target*: `voice_biometrics.py`
   - *Deliverable*: Voiceprint embedding matcher blocking unauthorized background voice commands.
 

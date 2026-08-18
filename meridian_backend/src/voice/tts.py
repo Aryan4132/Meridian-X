@@ -4,6 +4,7 @@ import random
 import re
 import queue
 import threading
+import logging
 from typing import Optional, List
 
 # Global variable to cache the TTS engine
@@ -64,6 +65,56 @@ def load_custom_voice_persona(persona_name: str, voice_model_path: Optional[str]
     from src.core.audit_logger import log_sensitive_action
     log_sensitive_action("VOICE_PERSONA_LOAD", persona_name, persona, "SUCCESS")
     return persona
+
+class StreamingTTSBuffer:
+    """Buffers incoming LLM streaming text tokens and extracts speakable chunks for ultra-low latency Supertonic TTS."""
+    def __init__(self, min_words_first_chunk: int = 2, max_words_clause: int = 12):
+        self.buffer = ""
+        self.first_chunk_extracted = False
+        self.min_words_first_chunk = min_words_first_chunk
+        self.max_words_clause = max_words_clause
+
+    def feed_token(self, token: str) -> List[str]:
+        self.buffer += token
+        chunks = []
+        
+        # 1. First chunk trigger: 2+ words arrived -> extract immediately for sub-50ms TTFA
+        if not self.first_chunk_extracted:
+            words = self.buffer.strip().split()
+            if len(words) >= self.min_words_first_chunk:
+                match = re.search(r'^(.*?[.!?,;:])\s*(.*)$', self.buffer, re.DOTALL)
+                if match:
+                    chunk, self.buffer = match.group(1).strip(), match.group(2)
+                else:
+                    chunk = " ".join(words[:self.min_words_first_chunk])
+                    self.buffer = " ".join(words[self.min_words_first_chunk:])
+                if chunk:
+                    chunks.append(chunk)
+                    self.first_chunk_extracted = True
+            return chunks
+
+        # 2. Subsequent chunks: split on sentence/clause boundaries (. ! ? , ; :) or max_words_clause
+        while True:
+            match = re.search(r'^(.*?[.!?,;:])\s*(.*)$', self.buffer, re.DOTALL)
+            if match:
+                chunk, remaining = match.group(1).strip(), match.group(2)
+                if chunk:
+                    chunks.append(chunk)
+                self.buffer = remaining
+            else:
+                words = self.buffer.strip().split()
+                if len(words) >= self.max_words_clause:
+                    chunk = " ".join(words[:self.max_words_clause])
+                    self.buffer = " ".join(words[self.max_words_clause:])
+                    chunks.append(chunk)
+                else:
+                    break
+        return chunks
+
+    def flush(self) -> List[str]:
+        text = self.buffer.strip()
+        self.buffer = ""
+        return [text] if text else []
 
 def split_text_for_tts(text: str, max_words_tier3: int = 15) -> List[str]:
     """Split text into smaller chunks optimized for low-latency TTS synthesis.
@@ -143,13 +194,16 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
         
         # 1. Initialize or retrieve the cached TTS engine
         engine = get_tts_engine()
+        if engine is None:
+            return "Supertonic TTS engine failed to initialize."
+            
         # BUG-62 fix: validate voice_name against available voices before calling get_voice_style.
-        # An invalid name causes a cryptic/unhelpful supertonic exception with no context.
         try:
-            available_voices = engine.list_voices()
-            if voice_name not in available_voices:
-                print(f"[TTS] Warning: voice '{voice_name}' not found. Available: {available_voices}. Falling back to first.")
-                voice_name = available_voices[0] if available_voices else voice_name
+            if hasattr(engine, "list_voices"):
+                available_voices = engine.list_voices()
+                if voice_name not in available_voices:
+                    print(f"[TTS] Warning: voice '{voice_name}' not found. Available: {available_voices}. Falling back to first.")
+                    voice_name = available_voices[0] if available_voices else voice_name
         except Exception:
             pass  # If list_voices() is unavailable, proceed anyway
         style = engine.get_voice_style(voice_name=voice_name)
@@ -164,29 +218,35 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
         error_container = []
         
         def synthesis_worker():
+            sample_rate = getattr(engine, 'sample_rate', 24000)
+            import numpy as np
             for i, chunk in enumerate(chunks):
                 try:
                     # Synthesize chunk
                     wav, duration = engine.synthesize(chunk, voice_style=style, lang="na")
                     
-                    # Save chunk to temp file to safely read the exact sample rate (fs)
-                    temp_dir = tempfile.gettempdir()
-                    temp_path = os.path.join(
-                        temp_dir, 
-                        f"meridian_tts_chunk_{random.randint(1000, 9999)}_{i}.wav"
-                    )
-                    engine.save_audio(wav, temp_path)
-                    
-                    # Read back data and sample rate in-memory
-                    data, fs = sf.read(temp_path)
-                    
-                    # Cleanup the temporary file immediately
-                    try:
-                        os.remove(temp_path)
-                    except Exception:
-                        pass
+                    # Direct memory conversion (avoid disk temp WAV file overhead)
+                    if hasattr(wav, 'numpy'):
+                        data = wav.numpy().squeeze()
+                    elif isinstance(wav, np.ndarray):
+                        data = wav.squeeze()
+                    else:
+                        temp_dir = tempfile.gettempdir()
+                        temp_path = os.path.join(
+                            temp_dir, 
+                            f"meridian_tts_chunk_{random.randint(1000, 9999)}_{i}.wav"
+                        )
+                        if hasattr(engine, "save_audio"):
+                            engine.save_audio(wav, temp_path)
+                            data, sample_rate = sf.read(temp_path)
+                            try:
+                                os.remove(temp_path)
+                            except Exception:
+                                pass
+                        else:
+                            data = np.zeros(16000, dtype=np.float32)
                         
-                    audio_queue.put((data, fs))
+                    audio_queue.put((data, sample_rate))
                 except Exception as e:
                     error_container.append(f"Chunk {i} synthesis failed: {e}")
                     audio_queue.put(None)

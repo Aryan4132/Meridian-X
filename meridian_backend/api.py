@@ -130,6 +130,7 @@ ENV_KEY_MAP = {
     "meridian_model": "MERIDIAN_MODEL",
     "meridian_vision_model": "MERIDIAN_VISION_MODEL",
     "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
+    "embedding_model": "EMBEDDING_MODEL",
     "meridian_voice": "MERIDIAN_VOICE",
     "wakeword_threshold": "WAKEWORD_THRESHOLD",
     "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
@@ -1327,10 +1328,26 @@ def chat_stream(request: ChatRequest):
         pass
 
     async def run_react_agent_loop_wrapped(*args, **kwargs):
+        from src.core.loop_stream import reset_cancel_flag
+        reset_cancel_flag()
         try:
-            async for event in run_react_agent_loop(*args, **kwargs):
-                yield event
+            generator = run_react_agent_loop(*args, **kwargs).__aiter__()
+            while True:
+                try:
+                    # 60s token inactivity timeout guard to prevent infinite stream hanging
+                    event = await asyncio.wait_for(generator.__anext__(), timeout=60.0)
+                    yield event
+                except StopAsyncIteration:
+                    break
+                except asyncio.TimeoutError:
+                    err_msg = json.dumps({"chat": "\n[Stream Error: LLM response timed out after 60s of inactivity.]\n", "speech": "", "lang": "en"})
+                    yield f"event: text\ndata: {err_msg}\n\n"
+                    break
+        except Exception as e:
+            err_msg = json.dumps({"chat": f"\n[Stream Error: {str(e)}]\n", "speech": "", "lang": "en"})
+            yield f"event: text\ndata: {err_msg}\n\n"
         finally:
+            reset_cancel_flag()
             try:
                 from src.voice.wakeword import resume_wakeword
                 resume_wakeword()
@@ -1351,6 +1368,8 @@ def chat_stream(request: ChatRequest):
 @app.post("/api/chat/clear")
 def chat_clear():
     from database import clear_conversations
+    from src.core.loop_stream import reset_cancel_flag
+    reset_cancel_flag()
     clear_conversations()
     return {"status": "success", "message": "Conversation history cleared."}
 
@@ -1740,7 +1759,7 @@ async def rag_ingest_file_upload(file: UploadFile = File(...)):
                 raise ValueError("No extractable text content found. The file may be empty, scanned, or password-protected.")
             ingest_into_knowledge_base(fname, text)
             add_to_task_log("ingest_file", 1, "success")
-            return {"status": "success", "message": f"Successfully parsed and ingested '{fname}' into Turbovec RAG."}
+            return {"status": "success", "filename": fname, "name": fname, "message": f"Successfully parsed and ingested '{fname}' into Turbovec RAG."}
         finally:
             # Always clean up the temp file
             if os.path.exists(tmp_path):
@@ -1810,6 +1829,7 @@ class ProfileSaveRequest(BaseModel):
     imap_server: Optional[str] = None
     mongodb_uri: Optional[str] = None
     meridian_log_level: Optional[str] = None
+    embedding_model: Optional[str] = None
 
 ENV_KEY_MAP = {
     "ollama_host": "OLLAMA_HOST",
@@ -1829,6 +1849,7 @@ ENV_KEY_MAP = {
     "meridian_model": "MERIDIAN_MODEL",
     "meridian_vision_model": "MERIDIAN_VISION_MODEL",
     "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
+    "embedding_model": "EMBEDDING_MODEL",
     "meridian_voice": "MERIDIAN_VOICE",
     "wakeword_threshold": "WAKEWORD_THRESHOLD",
     "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
@@ -2563,13 +2584,17 @@ def toggle_power_save(request: PowerSaveRequest):
         if request.active:
             from database import get_auditor_model
 
-            os.environ["MERIDIAN_MODEL"] = get_auditor_model()
+            auditor_model = get_auditor_model()
+            os.environ["MERIDIAN_MODEL"] = auditor_model
+            os.environ["MERIDIAN_AUDITOR_MODEL"] = auditor_model
             print("[Resource Governor] Power-Saving Mode activated. Model set to lightweight auditor.")
             return {"status": "success", "message": "Power-Saving Mode activated. Using lightweight fallback model."}
         else:
             from database import get_user_profile
             default_model = get_user_profile("meridian_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
             os.environ["MERIDIAN_MODEL"] = default_model
+            auditor_model = get_user_profile("meridian_auditor_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
+            os.environ["MERIDIAN_AUDITOR_MODEL"] = auditor_model
             print(f"[Resource Governor] Power-Saving Mode deactivated. Model restored to {default_model}.")
             return {"status": "success", "message": f"Power-Saving Mode deactivated. Restored default model {default_model}."}
     except Exception as e:
@@ -3103,7 +3128,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.4.4"
+CURRENT_VERSION = "0.4.5"
 
 _auto_download_in_progress = False
 _auto_download_ready = False
@@ -3515,7 +3540,184 @@ async def delete_workflow_api(workflow_id: str):
     return {"status": "success", "message": f"Workflow '{workflow_id}' deleted."}
 
 
+# ---------------------------------------------------------------------------
+# Day 5 — Voice Duplex, Continuous Window, Voice Toggle & Biometrics (AST-15, AST-08, JARVIS-03)
+# ---------------------------------------------------------------------------
+
+@app.post("/api/voice/duplex/start")
+async def start_duplex_session_api():
+    """AST-15: Initializes a real-time full-duplex voice streaming session."""
+    from src.voice.duplex import global_duplex_engine
+    msg = global_duplex_engine.start_duplex_session()
+    return {"status": "success", "message": msg, "duplex_state": global_duplex_engine.get_status()}
+
+
+@app.post("/api/voice/duplex/stop")
+async def stop_duplex_session_api():
+    """AST-15: Stops the active full-duplex voice session."""
+    from src.voice.duplex import global_duplex_engine
+    msg = global_duplex_engine.stop_duplex_session()
+    return {"status": "success", "message": msg, "duplex_state": global_duplex_engine.get_status()}
+
+
+@app.get("/api/voice/duplex/status")
+async def get_duplex_status_api():
+    """AST-15: Returns diagnostic status for real-time duplex voice engine."""
+    from src.voice.duplex import global_duplex_engine
+    return {"status": "success", "duplex_state": global_duplex_engine.get_status()}
+
+
+@app.post("/api/voice/duplex/barge-in")
+async def trigger_duplex_barge_in_api(rms: float = 300.0):
+    """AST-15: Triggers/simulates audio barge-in interruption."""
+    from src.voice.duplex import global_duplex_engine
+    interrupted = global_duplex_engine.check_barge_in(rms)
+    return {"status": "success", "interrupted": interrupted, "rms": rms, "duplex_state": global_duplex_engine.get_status()}
+
+
+@app.get("/api/voice/response/status")
+async def get_voice_response_status_api():
+    """Returns current voice response output toggle state."""
+    from src.voice.duplex import is_voice_response_enabled
+    return {"status": "success", "enabled": is_voice_response_enabled()}
+
+
+@app.post("/api/voice/response/toggle")
+async def toggle_voice_response_api(enabled: bool = True):
+    """Toggles voice response output state (enabled/disabled)."""
+    from src.voice.duplex import set_voice_response_enabled
+    new_state = set_voice_response_enabled(enabled)
+    return {"status": "success", "enabled": new_state}
+
+
+@app.get("/api/voice/continuous-window/status")
+async def get_continuous_window_status_api():
+    """AST-08: Returns status and remaining seconds for continuous conversation window."""
+    from src.voice.wakeword import is_continuous_window_active, get_continuous_window_remaining
+    return {
+        "status": "success",
+        "active": is_continuous_window_active(),
+        "remaining_seconds": round(get_continuous_window_remaining(), 2)
+    }
+
+
+@app.post("/api/voice/continuous-window/start")
+async def start_continuous_window_api(duration: float = 10.0):
+    """AST-08: Activates continuous follow-up listening window for duration seconds."""
+    from src.voice.wakeword import trigger_continuous_window, get_continuous_window_remaining
+    trigger_continuous_window(duration)
+    return {
+        "status": "success",
+        "message": f"Continuous window activated for {duration} seconds.",
+        "remaining_seconds": round(get_continuous_window_remaining(), 2)
+    }
+
+
+@app.post("/api/voice/continuous-window/cancel")
+async def cancel_continuous_window_api():
+    """AST-08: Cancels continuous conversation window immediately."""
+    from src.voice.wakeword import cancel_continuous_window
+    cancel_continuous_window()
+    return {"status": "success", "message": "Continuous listening window cancelled."}
+
+
+class BiometricRegisterRequest(BaseModel):
+    user_id: Optional[str] = "default_user"
+    audio_base64: str
+
+
+class BiometricVerifyRequest(BaseModel):
+    user_id: Optional[str] = "default_user"
+    audio_base64: str
+
+
+@app.post("/api/voice/biometrics/register")
+async def register_voice_biometric_api(payload: BiometricRegisterRequest):
+    """JARVIS-03: Registers speaker voiceprint from reference audio payload."""
+    import base64
+    from src.voice.voice_biometrics import global_biometrics_engine
+    try:
+        audio_bytes = base64.b64decode(payload.audio_base64)
+    except Exception:
+        audio_bytes = payload.audio_base64.encode("utf-8")
+
+    res = global_biometrics_engine.register_speaker(payload.user_id or "default_user", audio_bytes)
+    return {"status": "success", "enrollment": res}
+
+
+@app.post("/api/voice/biometrics/verify")
+async def verify_voice_biometric_api(payload: BiometricVerifyRequest):
+    """JARVIS-03: Verifies speaker voice sample against enrolled user voiceprint."""
+    import base64
+    from src.voice.voice_biometrics import global_biometrics_engine
+    try:
+        audio_bytes = base64.b64decode(payload.audio_base64)
+    except Exception:
+        audio_bytes = payload.audio_base64.encode("utf-8")
+
+    verified, score = global_biometrics_engine.verify_speaker(audio_bytes, payload.user_id or "default_user")
+    return {
+        "status": "success",
+        "verified": verified,
+        "similarity_score": score,
+        "threshold": global_biometrics_engine.threshold
+    }
+
+
+@app.get("/api/voice/biometrics/status")
+async def get_biometric_status_api():
+    """JARVIS-03: Returns biometric speaker verification engine status."""
+    from src.voice.voice_biometrics import global_biometrics_engine
+    return {"status": "success", "biometrics": global_biometrics_engine.get_status()}
+
+
+@app.delete("/api/voice/biometrics/reset")
+async def reset_biometric_voiceprints_api(user_id: Optional[str] = None):
+    """JARVIS-03: Clears enrolled speaker voiceprints."""
+    from src.voice.voice_biometrics import global_biometrics_engine
+    res = global_biometrics_engine.reset_biometrics(user_id)
+    return {"status": "success", "result": res}
+
+
+class CustomLLMConfigRequest(BaseModel):
+    base_url: str
+    api_key: Optional[str] = ""
+    model: Optional[str] = "custom-model"
+
+
+@app.get("/api/llm/providers/custom")
+async def get_custom_llm_config_api():
+    """Returns configured custom AI model endpoint settings."""
+    from database import get_user_profile
+    return {
+        "status": "success",
+        "base_url": get_user_profile("custom_llm_base_url") or os.getenv("CUSTOM_LLM_BASE_URL") or "http://localhost:8000/v1",
+        "model": get_user_profile("custom_llm_model") or os.getenv("CUSTOM_LLM_MODEL") or "custom-model",
+        "api_key_configured": bool(get_user_profile("custom_llm_api_key") or os.getenv("CUSTOM_LLM_API_KEY"))
+    }
+
+
+@app.post("/api/llm/providers/custom")
+async def save_custom_llm_config_api(payload: CustomLLMConfigRequest):
+    """Saves user custom AI model endpoint (llama.cpp, LocalAI, vLLM, HuggingFace, LM Studio)."""
+    from database import save_user_profile
+    save_user_profile("custom_llm_base_url", payload.base_url)
+    if payload.model:
+        save_user_profile("custom_llm_model", payload.model)
+    if payload.api_key:
+        save_user_profile("custom_llm_api_key", payload.api_key)
+        
+    return {
+        "status": "success",
+        "message": "Custom AI model provider endpoint saved successfully.",
+        "base_url": payload.base_url,
+        "model": payload.model
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4132)
+
+
 
