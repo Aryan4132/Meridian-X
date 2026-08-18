@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'motion/react';
 import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, getApiBaseUrl, getApiKey } from '../config';
 import { SystemUsage } from '../types';
 import { useApp } from '../AppContext';
 import { useLowRamMode } from '../hooks/useMemoryOptimizer';
@@ -28,6 +28,7 @@ const PROVIDERS = [
   { id: 'anthropic', label: 'Anthropic', sub: 'Cloud · API Key', color: '#CC785C' },
   { id: 'gemini', label: 'Gemini', sub: 'Cloud · API Key', color: '#4285F4' },
   { id: 'deepseek', label: 'DeepSeek', sub: 'Cloud · API Key', color: '#7C3AED' },
+  { id: 'custom', label: 'Custom Endpoint', sub: 'llama.cpp · vLLM · HF', color: '#E8A020' },
 ];
 
 const PROVIDER_MODELS: Record<string, string[]> = {
@@ -96,6 +97,7 @@ export default function Settings() {
   const [ollamaHost, setOllamaHost] = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
   const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
   const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
+  const [embeddingModel, setEmbeddingModel] = useState(() => localStorage.getItem('EMBEDDING_MODEL') || localStorage.getItem('embedding_model') || 'nomic-embed-text');
   const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
   const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
   const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
@@ -106,6 +108,9 @@ export default function Settings() {
   const [anthropicKey, setAnthropicKey] = useState(() => localStorage.getItem('ANTHROPIC_API_KEY') || '');
   const [geminiKey, setGeminiKey] = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
   const [deepseekKey, setDeepseekKey] = useState(() => localStorage.getItem('DEEPSEEK_API_KEY') || '');
+  const [customBaseUrl, setCustomBaseUrl] = useState(() => localStorage.getItem('CUSTOM_LLM_BASE_URL') || 'http://localhost:8000/v1');
+  const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem('CUSTOM_LLM_API_KEY') || '');
+  const [customModel, setCustomModel] = useState(() => localStorage.getItem('CUSTOM_LLM_MODEL') || 'custom-model');
   const [elevenlabsKey, setElevenlabsKey] = useState(() => localStorage.getItem('ELEVENLABS_API_KEY') || '');
   const [deepgramKey, setDeepgramKey] = useState(() => localStorage.getItem('DEEPGRAM_API_KEY') || '');
   const [tavilyKey, setTavilyKey] = useState(() => localStorage.getItem('TAVILY_API_KEY') || '');
@@ -113,6 +118,12 @@ export default function Settings() {
   const [telegramToken, setTelegramToken] = useState(() => localStorage.getItem('TELEGRAM_BOT_TOKEN') || '');
   const [telegramChatId, setTelegramChatId] = useState(() => localStorage.getItem('TELEGRAM_CHAT_ID') || '');
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'fail'>('idle');
+
+  // Backend Integration state
+  const [backendUrl, setBackendUrl] = useState(() => localStorage.getItem('MERIDIAN_REMOTE_BACKEND_URL') || getApiBaseUrl());
+  const [backendApiKey, setBackendApiKey] = useState(() => localStorage.getItem('MERIDIAN_REMOTE_API_KEY') || getApiKey());
+  const [backendStatusMsg, setBackendStatusMsg] = useState<{ text: string; isError: boolean } | null>(null);
+  const [isTestingBackend, setIsTestingBackend] = useState(false);
 
   const [audioFxEnabled, setAudioFxEnabled] = useState(() => localStorage.getItem('meridian_mascot_audio_fx') !== 'false');
   const [ttsVoice, setTtsVoice] = useState(() => localStorage.getItem('meridian_tts_voice') || 'M1');
@@ -133,9 +144,75 @@ export default function Settings() {
   const [newServerArgs, setNewServerArgs] = useState('');
   const [newServerEnv, setNewServerEnv] = useState('');
 
+  // Day 5 Voice features state
+  const [voiceResponseEnabled, setVoiceResponseState] = useState(true);
+  const [duplexActive, setDuplexActive] = useState(false);
+  const [continuousActive, setContinuousActive] = useState(false);
+  const [continuousRemaining, setContinuousRemaining] = useState(0);
+  const [biometricsCount, setBiometricsCount] = useState(0);
+
+  const fetchVoiceStatus = async () => {
+    try {
+      const resResp = await fetch(`${API_BASE_URL}/api/voice/response/status`);
+      if (resResp.ok) {
+        const data = await resResp.json();
+        if (typeof data.enabled === 'boolean') setVoiceResponseState(data.enabled);
+      }
+      const resDup = await fetch(`${API_BASE_URL}/api/voice/duplex/status`);
+      if (resDup.ok) {
+        const data = await resDup.json();
+        if (data.duplex_state?.active) setDuplexActive(data.duplex_state.active);
+      }
+      const resWin = await fetch(`${API_BASE_URL}/api/voice/continuous-window/status`);
+      if (resWin.ok) {
+        const data = await resWin.json();
+        setContinuousActive(data.active);
+        setContinuousRemaining(data.remaining_seconds || 0);
+      }
+      const resBio = await fetch(`${API_BASE_URL}/api/voice/biometrics/status`);
+      if (resBio.ok) {
+        const data = await resBio.json();
+        setBiometricsCount(data.biometrics?.enrolled_count || 0);
+      }
+    } catch { /* noop */ }
+  };
+
+  const handleToggleVoiceResponse = async () => {
+    const nextState = !voiceResponseEnabled;
+    setVoiceResponseState(nextState);
+    try {
+      await fetch(`${API_BASE_URL}/api/voice/response/toggle?enabled=${nextState}`, { method: 'POST' });
+    } catch { }
+  };
+
+  const handleToggleDuplex = async () => {
+    const endpoint = duplexActive ? 'stop' : 'start';
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/voice/duplex/${endpoint}`, { method: 'POST' });
+      if (res.ok) setDuplexActive(!duplexActive);
+    } catch { }
+  };
+
+  const handleTriggerContinuousWindow = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/voice/continuous-window/start?duration=10.0`, { method: 'POST' });
+      if (res.ok) {
+        setContinuousActive(true);
+        setContinuousRemaining(10.0);
+      }
+    } catch { }
+  };
+
+  const handleResetBiometrics = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/voice/biometrics/reset`, { method: 'DELETE' });
+      if (res.ok) setBiometricsCount(0);
+    } catch { }
+  };
+
   const fetchCustomMcpServers = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/mcp/custom');
+      const res = await fetch(`${API_BASE_URL}/api/mcp/custom`);
       const data = await res.json();
       if (data.servers) {
         setMcpServers(data.servers);
@@ -144,18 +221,19 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    fetch('http://localhost:4132/api/mcp/servers')
+    fetch(`${API_BASE_URL}/api/mcp/servers`)
       .then(res => res.json())
       .then(data => {
         if (data.servers && data.servers.length > 0) setMcpCatalog(data.servers);
       })
       .catch(() => { });
     fetchCustomMcpServers();
+    fetchVoiceStatus();
   }, []);
 
   const handleInstallMcp = async (serverId: string) => {
     try {
-      const res = await fetch('http://localhost:4132/api/mcp/install', {
+      const res = await fetch(`${API_BASE_URL}/api/mcp/install`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ server_id: serverId })
@@ -181,7 +259,7 @@ export default function Settings() {
         if (k && v) envObj[k.trim()] = v.trim();
       });
 
-      const res = await fetch('http://localhost:4132/api/mcp/custom', {
+      const res = await fetch(`${API_BASE_URL}/api/mcp/custom`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -279,7 +357,7 @@ export default function Settings() {
   const fetchScannedOnnxModels = async () => {
     setIsScanningOnnx(true);
     try {
-      const res = await fetch('http://localhost:4132/api/voice/onnx-models');
+      const res = await fetch(`${API_BASE_URL}/api/voice/onnx-models`);
       if (res.ok) {
         const data = await res.json();
         if (data.models) setScannedOnnxModels(data.models);
@@ -324,7 +402,7 @@ export default function Settings() {
 
   const fetchVaultKeys = async (showFull = showVaultSecrets) => {
     try {
-      const res = await fetch(`http://localhost:4132/api/vault/keys?include_secrets=${showFull}`);
+      const res = await fetch(`${API_BASE_URL}/api/vault/keys?include_secrets=${showFull}`);
       if (res.ok) {
         const data = await res.json();
         if (data.keys) setVaultKeys(data.keys);
@@ -337,7 +415,7 @@ export default function Settings() {
   const handleAddVaultKey = async () => {
     if (!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()) return;
     try {
-      const res = await fetch('http://localhost:4132/api/vault/keys', {
+      const res = await fetch(`${API_BASE_URL}/api/vault/keys`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -362,11 +440,57 @@ export default function Settings() {
 
   const handleDeleteVaultKey = async (env_var: string) => {
     try {
-      const res = await fetch(`http://localhost:4132/api/vault/keys/${env_var}`, { method: 'DELETE' });
+      const res = await fetch(`${API_BASE_URL}/api/vault/keys/${env_var}`, { method: 'DELETE' });
       if (res.ok) fetchVaultKeys();
     } catch (e) {
       console.error("Failed to delete vault key:", e);
     }
+  };
+
+  const handleTestBackendConnection = async () => {
+    setIsTestingBackend(true);
+    setBackendStatusMsg(null);
+    const targetUrl = backendUrl.trim().replace(/\/+$/, '');
+    try {
+      const headers: Record<string, string> = {};
+      if (backendApiKey.trim()) {
+        headers['X-API-Key'] = backendApiKey.trim();
+      }
+      const res = await fetch(`${targetUrl}/api/health`, { headers });
+      if (res.ok) {
+        setBackendStatusMsg({ text: '✅ Connected successfully!', isError: false });
+      } else {
+        setBackendStatusMsg({ text: `⚠️ Server returned status ${res.status}`, isError: true });
+      }
+    } catch (err: any) {
+      setBackendStatusMsg({ text: `❌ Connection failed: ${err.message || 'Network error'}`, isError: true });
+    } finally {
+      setIsTestingBackend(false);
+    }
+  };
+
+  const handleSaveBackendConfig = () => {
+    if (backendUrl.trim()) {
+      localStorage.setItem('MERIDIAN_REMOTE_BACKEND_URL', backendUrl.trim());
+    } else {
+      localStorage.removeItem('MERIDIAN_REMOTE_BACKEND_URL');
+    }
+
+    if (backendApiKey.trim()) {
+      localStorage.setItem('MERIDIAN_REMOTE_API_KEY', backendApiKey.trim());
+    } else {
+      localStorage.removeItem('MERIDIAN_REMOTE_API_KEY');
+    }
+
+    window.location.reload();
+  };
+
+  const handleResetBackendConfig = () => {
+    localStorage.removeItem('MERIDIAN_REMOTE_BACKEND_URL');
+    localStorage.removeItem('MERIDIAN_REMOTE_API_KEY');
+    setBackendUrl(getApiBaseUrl());
+    setBackendApiKey('');
+    window.location.reload();
   };
 
   useEffect(() => {
@@ -375,7 +499,7 @@ export default function Settings() {
 
   // Fetch profile configurations on mount to hydrate local storage & states
   useEffect(() => {
-    fetch('http://localhost:4132/api/profile/all')
+    fetch(`${API_BASE_URL}/api/profile/all`)
       .then(r => r.json())
       .then(data => {
         if (data) {
@@ -425,7 +549,7 @@ export default function Settings() {
 
   // Fetch MCP config on mount
   useEffect(() => {
-    fetch('http://localhost:4132/api/mcp/config')
+    fetch(`${API_BASE_URL}/api/mcp/config`)
       .then(r => r.json())
       .then(data => {
         if (data && data.mcpServers) {
@@ -437,7 +561,7 @@ export default function Settings() {
 
   const saveMcpConfig = async (servers: Record<string, any>) => {
     try {
-      await fetch('http://localhost:4132/api/mcp/config', {
+      await fetch(`${API_BASE_URL}/api/mcp/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mcpServers: servers })
@@ -496,12 +620,12 @@ export default function Settings() {
 
   // Query startup status and workspace config on mount
   useEffect(() => {
-    fetch('http://localhost:4132/api/system/startup')
+    fetch(`${API_BASE_URL}/api/system/startup`)
       .then(r => r.json())
       .then(data => { if (typeof data.enabled === 'boolean') setStartupEnabled(data.enabled); })
       .catch(() => { });
 
-    fetch('http://localhost:4132/api/workspace/config')
+    fetch(`${API_BASE_URL}/api/workspace/config`)
       .then(r => r.json())
       .then(data => {
         if (data.status === 'success' && data.config) {
@@ -516,7 +640,7 @@ export default function Settings() {
   const handleToggleStartup = async (checked: boolean) => {
     setStartupEnabled(checked);
     try {
-      await fetch('http://localhost:4132/api/system/startup', {
+      await fetch(`${API_BASE_URL}/api/system/startup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: checked })
@@ -542,7 +666,7 @@ export default function Settings() {
 
   // Fetch Ollama models for Vision and Auditor
   useEffect(() => {
-    fetch(`http://localhost:4132/api/provider-models?provider=ollama&host=${encodeURIComponent(ollamaHost)}`).catch(() => null)
+    fetch(`${API_BASE_URL}/api/provider-models?provider=ollama&host=${encodeURIComponent(ollamaHost)}`).catch(() => null)
       .then(r => r?.json())
       .then(d => {
         if (d?.models) {
@@ -560,7 +684,7 @@ export default function Settings() {
     else if (provider === 'gemini') key = geminiKey;
     else if (provider === 'deepseek') key = deepseekKey;
 
-    const url = `http://localhost:4132/api/provider-models?provider=${provider}&host=${encodeURIComponent(ollamaHost)}&api_key=${encodeURIComponent(key)}`;
+    const url = `${API_BASE_URL}/api/provider-models?provider=${provider}&host=${encodeURIComponent(ollamaHost)}&api_key=${encodeURIComponent(key)}`;
     fetch(url).catch(() => null)
       .then(r => r?.json())
       .then(d => {
@@ -628,11 +752,14 @@ export default function Settings() {
       GROQ_API_KEY: groqKey, OPENROUTER_API_KEY: openrouterKey, MISTRAL_API_KEY: mistralKey,
       OPENAI_API_KEY: openaiKey, ANTHROPIC_API_KEY: anthropicKey,
       GEMINI_API_KEY: geminiKey, DEEPSEEK_API_KEY: deepseekKey,
+      CUSTOM_LLM_BASE_URL: customBaseUrl, CUSTOM_LLM_API_KEY: customApiKey, CUSTOM_LLM_MODEL: customModel,
       ELEVENLABS_API_KEY: elevenlabsKey, DEEPGRAM_API_KEY: deepgramKey,
       TAVILY_API_KEY: tavilyKey, DISCORD_BOT_TOKEN: discordToken,
       TELEGRAM_BOT_TOKEN: telegramToken, TELEGRAM_CHAT_ID: telegramChatId,
       GAME_MODE: gameMode ? 'true' : 'false',
       meridian_auditor_model: auditorModel,
+      EMBEDDING_MODEL: embeddingModel,
+      embedding_model: embeddingModel,
       meridian_tts_voice: ttsVoice,
       wakeword_threshold: String(wakewordThreshold),
       wakeword_model_filename: wakewordModel,
@@ -665,7 +792,7 @@ export default function Settings() {
       .filter(s => s.length > 0);
 
     try {
-      const res = await fetch('http://localhost:4132/api/profile/save', {
+      const res = await fetch(`${API_BASE_URL}/api/profile/save`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           meridian_provider: provider, meridian_model_source: modelSource, ollama_host: ollamaHost,
@@ -673,9 +800,11 @@ export default function Settings() {
           groq_key: groqKey, openrouter_key: openrouterKey, mistral_key: mistralKey,
           openai_key: openaiKey, anthropic_key: anthropicKey,
           gemini_key: geminiKey, deepseek_key: deepseekKey,
+          custom_llm_base_url: customBaseUrl, custom_llm_api_key: customApiKey, custom_llm_model: customModel,
           tavily_key: tavilyKey, discord_token: discordToken,
           telegram_token: telegramToken, telegram_chat_id: telegramChatId,
           meridian_auditor_model: auditorModel,
+          embedding_model: embeddingModel,
           context_token_limit: contextTokenLimit,
           meridian_voice: ttsVoice,
           wakeword_threshold: wakewordThreshold,
@@ -702,7 +831,7 @@ export default function Settings() {
       });
       if (res.ok) {
         try {
-          await fetch('http://localhost:4132/api/workspace/config', {
+          await fetch(`${API_BASE_URL}/api/workspace/config`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -816,6 +945,41 @@ export default function Settings() {
                         </label>
                         <input type="text" value={ollamaHost} onChange={e => setOllamaHost(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                       </div>
+                    ) : provider === 'custom' ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div>
+                          <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Custom Endpoint Base URL (llama.cpp / vLLM / LocalAI / HuggingFace)
+                          </label>
+                          <input
+                            type="text"
+                            value={customBaseUrl}
+                            onChange={e => setCustomBaseUrl(e.target.value)}
+                            placeholder="http://localhost:8000/v1 or https://api-inference.huggingface.co/v1"
+                            className="input-base"
+                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                            Custom Model ID / Name
+                          </label>
+                          <input
+                            type="text"
+                            value={customModel}
+                            onChange={e => setCustomModel(e.target.value)}
+                            placeholder="mistralai/Mistral-7B-Instruct-v0.1 or custom-model"
+                            className="input-base"
+                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
+                          />
+                        </div>
+                        <PasswordInput
+                          label="Custom API Key / Token (Optional for Local Servers)"
+                          value={customApiKey}
+                          onChange={setCustomApiKey}
+                          placeholder="hf_... or leave blank for local servers"
+                        />
+                      </div>
                     ) : (() => {
                       const cfg = apiKeyForProvider();
                       if (!cfg) return null;
@@ -886,6 +1050,20 @@ export default function Settings() {
                         </select>
                       ) : (
                         <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
+                      )}
+                    </div>
+
+                    {/* Embedding Model */}
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Embedding Model (Ollama Vector RAG)
+                      </label>
+                      {availableOllamaModels.length > 0 ? (
+                        <select value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} className="select-base">
+                          {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      ) : (
+                        <input type="text" value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} placeholder="e.g. nomic-embed-text" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
                       )}
                     </div>
 
@@ -1069,6 +1247,85 @@ export default function Settings() {
           {/* Category: Integrations */}
           {activeCategory === 'integrations' && (
             <>
+              {/* Frontend & Backend Server Integration */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <div className="section-label" style={{ margin: 0 }}>🌐 Core Frontend & Backend Integration</div>
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
+                    Active Endpoint: {API_BASE_URL}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      Backend Server URL
+                    </label>
+                    <input
+                      type="text"
+                      value={backendUrl}
+                      onChange={(e) => setBackendUrl(e.target.value)}
+                      placeholder="http://127.0.0.1:4132 or https://my-backend-server.com"
+                      className="input-base"
+                      style={{ width: '100%', fontSize: 12 }}
+                    />
+                  </div>
+
+                  <PasswordInput
+                    label="Backend API Key (Required for Remote/Protected Server)"
+                    value={backendApiKey}
+                    onChange={setBackendApiKey}
+                    placeholder="Enter Meridian secret API key"
+                  />
+
+                  {backendStatusMsg && (
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: 11,
+                      fontFamily: 'JetBrains Mono',
+                      background: backendStatusMsg.isError ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      border: backendStatusMsg.isError ? '1px solid rgba(244, 63, 94, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                      color: backendStatusMsg.isError ? '#f87171' : '#34d399'
+                    }}>
+                      {backendStatusMsg.text}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                    <HoloButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleTestBackendConnection}
+                      disabled={isTestingBackend}
+                    >
+                      {isTestingBackend ? <Loader2 className="animate-spin" size={12} /> : <RefreshCw size={12} />}
+                      {isTestingBackend ? 'Testing...' : 'Test Connection'}
+                    </HoloButton>
+
+                    <HoloButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={handleSaveBackendConfig}
+                    >
+                      <Save size={12} />
+                      Save & Connect
+                    </HoloButton>
+
+                    <HoloButton
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleResetBackendConfig}
+                    >
+                      Reset Defaults
+                    </HoloButton>
+                  </div>
+                </div>
+              </GlowCard>
+
               {/* Integrations */}
               <GlowCard className="glass" style={{ padding: 16 }}>
                 <div className="section-label">Integrations & Tokens</div>
@@ -1319,6 +1576,98 @@ export default function Settings() {
           {/* Category: Voice */}
           {activeCategory === 'voice' && (
             <>
+              {/* Day 5 — Real-Time Voice Duplex & Biometrics Control Center */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Real-Time Voice Controls & Biometrics (AST-15, AST-08, JARVIS-03)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  
+                  {/* Voice Output Response Toggle */}
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Voice Assistant Speech Output</span>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: voiceResponseEnabled ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: voiceResponseEnabled ? 'var(--success)' : 'var(--danger)' }}>
+                        {voiceResponseEnabled ? 'ENABLED' : 'MUTED'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      Toggles synthesized voice responses. Turn OFF to keep responses text-only.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleVoiceResponse}
+                      className="btn-secondary"
+                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer', border: voiceResponseEnabled ? '1px solid var(--danger)' : '1px solid var(--success)', color: voiceResponseEnabled ? 'var(--danger)' : 'var(--success)' }}
+                    >
+                      {voiceResponseEnabled ? '🔇 Mute Voice Output' : '🔊 Enable Voice Output'}
+                    </button>
+                  </div>
+
+                  {/* Full-Duplex Real-Time Voice Streaming */}
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Full-Duplex Voice Engine</span>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: duplexActive ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: duplexActive ? 'var(--success)' : 'var(--text-dim)' }}>
+                        {duplexActive ? 'ACTIVE (50ms VAD)' : 'IDLE'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      Sub-100ms VAD barge-in speech interruption mid-sentence.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleToggleDuplex}
+                      className="btn-secondary"
+                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
+                    >
+                      {duplexActive ? 'Stop Duplex Session' : '🎙️ Start Duplex Session'}
+                    </button>
+                  </div>
+
+                  {/* Continuous Conversation Window */}
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Continuous Listening Window</span>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: continuousActive ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255,255,255,0.06)', color: continuousActive ? '#60A5FA' : 'var(--text-dim)' }}>
+                        {continuousActive ? `LISTENING (${continuousRemaining}s)` : 'OFF'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      10-second active follow-up listening window without wake word.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleTriggerContinuousWindow}
+                      className="btn-secondary"
+                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
+                    >
+                      ⚡ Trigger 10s Continuous Window
+                    </button>
+                  </div>
+
+                  {/* Voice Biometric Identity Verification */}
+                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>Voice Biometrics & Identity</span>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: biometricsCount > 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: biometricsCount > 0 ? 'var(--success)' : 'var(--text-dim)' }}>
+                        {biometricsCount > 0 ? `${biometricsCount} ENROLLED` : 'NO VOICEPRINTS'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                      128-dim acoustic vector verification blocking background voices.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetBiometrics}
+                      className="btn-secondary"
+                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
+                    >
+                      🗑️ Reset Enrolled Voiceprints
+                    </button>
+                  </div>
+
+                </div>
+              </GlowCard>
+
               {/* Voice & Wake Word Advanced Config */}
               <GlowCard className="glass" style={{ padding: 16 }}>
                 <div className="section-label">Voice & Wake Word Settings</div>
@@ -2041,7 +2390,7 @@ export default function Settings() {
               <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>
                 Disables canvas background particles to optimize memory footprint.
               </div>
-              <HoloButton type="button" variant={isLowRam ? "secondary" : "primary"} size="sm" onClick={toggleLowRamMode}>
+              <HoloButton type="button" variant={isLowRam ? "ghost" : "primary"} size="sm" onClick={toggleLowRamMode}>
                 {isLowRam ? 'Disable Low-RAM Mode' : '⚡ Enable Low-RAM Mode'}
               </HoloButton>
             </div>

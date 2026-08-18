@@ -26,6 +26,10 @@ def clear_cancellation_signal(session_id: str) -> None:
     """Clears cancel flag on session startup or completion."""
     _cancel_signals.pop(session_id, None)
 
+def reset_cancel_flag(session_id: str = "default") -> None:
+    """Clears cancel flag on session startup or completion."""
+    clear_cancellation_signal(session_id)
+
 
 def format_sse_event(event_type: str, data: Any) -> str:
     """Formats payload as standard Server-Sent Event string."""

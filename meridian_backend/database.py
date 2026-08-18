@@ -83,17 +83,27 @@ def get_ollama_client():
 
 # Embedding client helper
 def get_embedding(text: str) -> List[float]:
+    embed_model = os.environ.get("EMBEDDING_MODEL")
+    if not embed_model:
+        try:
+            embed_model = get_user_profile("embedding_model")
+        except Exception:
+            pass
+    if not embed_model:
+        embed_model = "nomic-embed-text"
+
     try:
+        # Truncate text to ~2000 chars (~500 tokens) to prevent context length error from Ollama embedding models
+        if text and len(text) > 2000:
+            text = text[:2000]
         client = get_ollama_client()
-        res = client.embeddings(model="nomic-embed-text", prompt=text)
+        res = client.embeddings(model=embed_model, prompt=text)
         # BUG-2 fix: ollama SDK returns an EmbeddingResponse object, not a dict.
-        # Use attribute access first, fall back to dict .get() for older lib versions.
         embedding = res.embedding if hasattr(res, "embedding") else res.get("embedding")
         if embedding:
             return list(embedding)
-
     except Exception as e:
-        print("Failed to get embedding:", e)
+        print(f"[Embedding] Warning: Failed to get embedding ({embed_model}) for text (len={len(text) if text else 0}): {e}")
     # Default fallback embedding if Ollama is unreachable/missing
     return [0.0] * 768  # nomic-embed-text has 768 dimensions by default
 

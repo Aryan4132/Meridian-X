@@ -76,7 +76,7 @@ export default function Productivity() {
           audits:     data.security_audits  ?? prev.audits,
           heals:      data.successful_heals ?? prev.heals,
           gitCommits: data.git_commits      ?? prev.gitCommits,
-          pomodoros:  data.pomodoros        ?? prev.pomodoros,
+          pomodoros:  data.pomodoros_completed ?? data.pomodoros ?? prev.pomodoros,
         }));
       }
     } catch { /* noop */ }
@@ -84,7 +84,7 @@ export default function Productivity() {
 
   const syncPomodoro = async () => {
     try {
-      const res = await fetch('http://localhost:4132/api/pomodoro/status').catch(() => null);
+      const res = await fetch(`${API_BASE_URL}/api/pomodoro/status`).catch(() => null);
       if (res?.ok) {
         const data = await res.json();
         setActive(data.active);
@@ -109,7 +109,7 @@ export default function Productivity() {
     } else if (secsLeft === 0 && active) {
       setActive(false);
       setSecsLeft(durationMins * 60);
-      fetch('http://localhost:4132/api/profile/pomodoro/increment', { method: 'POST' }).then(() => fetchStats()).catch(() => {});
+      fetch(`${API_BASE_URL}/api/profile/pomodoro/increment`, { method: 'POST' }).then(() => fetchStats()).catch(() => {});
     }
     return () => clearInterval(intervalRef.current);
   }, [active, secsLeft, durationMins]);
@@ -159,11 +159,11 @@ export default function Productivity() {
                 onClick={async () => {
                   try {
                     if (active) {
-                      await fetch('http://localhost:4132/api/pomodoro/stop', { method: 'POST' });
+                      await fetch(`${API_BASE_URL}/api/pomodoro/stop`, { method: 'POST' });
                       setActive(false);
                       setSecsLeft(durationMins * 60);
                     } else {
-                      await fetch('http://localhost:4132/api/pomodoro/start', {
+                      await fetch(`${API_BASE_URL}/api/pomodoro/start`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ work_duration: durationMins * 60, break_duration: 5 * 60 })
@@ -186,7 +186,7 @@ export default function Productivity() {
               <button
                 onClick={async () => {
                   try {
-                    await fetch('http://localhost:4132/api/pomodoro/stop', { method: 'POST' });
+                    await fetch(`${API_BASE_URL}/api/pomodoro/stop`, { method: 'POST' });
                     setActive(false);
                     setSecsLeft(durationMins * 60);
                   } catch { /* noop */ }

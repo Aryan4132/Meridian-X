@@ -300,7 +300,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   };
 
   const clearChat = async () => {
-    try { await fetch('http://localhost:4132/api/chat/clear', { method: 'POST' }); } catch { /* noop */ }
+    try { await fetch(`${API_BASE_URL}/api/chat/clear`, { method: 'POST' }); } catch { /* noop */ }
     setMessages([]);
   };
 
@@ -439,6 +439,16 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               const healData = JSON.parse(payload);
               setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Auto-healing patch proposal:', proposedHeal: healData }]);
             } catch { /* noop */ }
+          } else if (eventType === 'error') {
+            try {
+              const errData = JSON.parse(payload);
+              const errMsg = errData.error || errData.message || payload;
+              finalContent += `\n\n✕ Error: ${errMsg}\n`;
+              setStreaming(finalContent);
+            } catch {
+              finalContent += `\n\n✕ Error: ${payload}\n`;
+              setStreaming(finalContent);
+            }
           }
         }
       }
@@ -545,7 +555,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       const fd = new FormData();
       fd.append('file', fileToUpload);
       try {
-        const res = await fetch('http://localhost:4132/api/rag/ingest-file-upload', { 
+        const res = await fetch(`${API_BASE_URL}/api/rag/ingest-file-upload`, { 
           method: 'POST', 
           body: fd 
         });
@@ -600,7 +610,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     setStreaming('');
     setStreamThoughts([]);
     try {
-      await fetch('http://localhost:4132/api/voice/interrupt', { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/voice/interrupt`, { method: 'POST' });
     } catch (e) {
       console.warn("Failed to send interrupt request:", e);
     }
@@ -608,7 +618,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
 
   const handleConfirm = async (id: string, approved: boolean) => {
     try {
-      await fetch('http://localhost:4132/api/chat/confirm', {
+      await fetch(`${API_BASE_URL}/api/chat/confirm`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, approved }),
       });
@@ -621,7 +631,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
 
   const handleApplyHeal = async (path: string, code: string) => {
     try {
-      await fetch('http://localhost:4132/api/watcher/apply-heal', {
+      await fetch(`${API_BASE_URL}/api/watcher/apply-heal`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ file_path: path, heal_code: code }),
       });

@@ -25,16 +25,24 @@ export default function NavRail() {
   const { activeTab, setActiveTab } = useApp();
 
   const handleMascot = () => {
-    try { invoke('set_mascot_visible', { visible: true }); } catch { /* noop */ }
+    if ((window as any).__TAURI_INTERNALS__) {
+      try { invoke('set_mascot_visible', { visible: true }); } catch { /* noop */ }
+    }
   };
   const handleMinimize = () => {
-    try { getCurrentWindow().minimize(); } catch { /* noop */ }
+    if ((window as any).__TAURI_INTERNALS__) {
+      try { getCurrentWindow().minimize(); } catch { /* noop */ }
+    }
   };
   const handleToggleMaximize = () => {
-    try { getCurrentWindow().toggleMaximize(); } catch { /* noop */ }
+    if ((window as any).__TAURI_INTERNALS__) {
+      try { getCurrentWindow().toggleMaximize(); } catch { /* noop */ }
+    }
   };
   const handleClose = () => {
-    try { invoke('close_application'); } catch { /* noop */ }
+    if ((window as any).__TAURI_INTERNALS__) {
+      try { invoke('close_application'); } catch { /* noop */ }
+    }
   };
 
   return (

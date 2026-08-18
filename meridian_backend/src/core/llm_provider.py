@@ -295,6 +295,29 @@ async def generate_completion_stream(
         "temperature": temperature,
         "stream": True
       }
+    elif provider in ["custom", "custom_openai", "local_openai", "llama_cpp", "vllm", "lmstudio"]:
+      # Universal Custom Provider (llama.cpp, vLLM, LM Studio, LocalAI, OpenRouter, HuggingFace, custom proxies)
+      from database import get_user_profile
+      custom_base = (
+          os.getenv("CUSTOM_LLM_BASE_URL") 
+          or os.getenv(f"{provider.upper()}_BASE_URL")
+          or get_user_profile("custom_llm_base_url") 
+          or "http://localhost:8000/v1"
+      )
+      url = custom_base if custom_base.endswith("/chat/completions") else f"{custom_base.rstrip('/')}/chat/completions"
+      api_key = get_api_key(provider) or os.getenv("CUSTOM_LLM_API_KEY") or get_user_profile("custom_llm_api_key") or "bearer-token-placeholder"
+
+      headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+      }
+      payload = {
+        "model": model or get_user_profile("custom_llm_model") or "default",
+        "messages": messages,
+        "temperature": temperature,
+        "stream": True
+      }
+
     else:
       # Universal Dynamic Vault Provider (Groq, OpenRouter, Mistral, Together, Perplexity, etc.)
       api_key = get_api_key(provider)
@@ -326,7 +349,7 @@ async def generate_completion_stream(
           "stream": True
         }
       else:
-        yield f"Error: Unsupported provider '{provider}'. Please add API key in Settings -> Integrations."
+        yield f"Error: Unsupported provider '{provider}'. Please add API key or set Custom Base URL in Settings."
         return
 
     # Execute remote call

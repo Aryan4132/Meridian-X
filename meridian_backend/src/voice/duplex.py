@@ -1,11 +1,27 @@
 """
-duplex.py — Real-Time Full-Duplex Voice & Barge-In Engine (BK-11)
-Provides low-latency continuous STT/TTS streaming with real-time speech interruption handling.
+duplex.py — Real-Time Full-Duplex Voice & Dynamic Response Engine (BK-11, AST-15)
+Provides ultra-low-latency continuous STT/TTS streaming with real-time speech interruption handling
+and configurable voice response output state.
 """
 
 import time
 import asyncio
 from typing import Dict, Any, Optional, Callable
+
+# Global toggle for voice response state (enabled by default)
+_VOICE_RESPONSE_ENABLED: bool = True
+
+def is_voice_response_enabled() -> bool:
+    """Returns True if voice response output is enabled."""
+    global _VOICE_RESPONSE_ENABLED
+    return _VOICE_RESPONSE_ENABLED
+
+def set_voice_response_enabled(enabled: bool) -> bool:
+    """Sets voice response output state and returns updated value."""
+    global _VOICE_RESPONSE_ENABLED
+    _VOICE_RESPONSE_ENABLED = enabled
+    print(f"[Duplex Voice] Voice response output set to: {enabled}")
+    return _VOICE_RESPONSE_ENABLED
 
 
 class DuplexVoiceEngine:
@@ -14,9 +30,10 @@ class DuplexVoiceEngine:
     def __init__(self, sample_rate: int = 16000, vad_threshold: float = 250.0):
         self.sample_rate = sample_rate
         self.vad_threshold = vad_threshold
-        self.state = "idle" # idle | listening | speaking | interrupted
+        self.state = "idle"  # idle | listening | speaking | interrupted
         self.is_active = False
         self._interrupted_flag = False
+        self.chunk_window_ms = 50  # Low latency 50ms processing window
         self.on_barge_in_callback: Optional[Callable[[], None]] = None
 
     def start_duplex_session(self) -> str:
@@ -40,7 +57,7 @@ class DuplexVoiceEngine:
     def check_barge_in(self, audio_chunk_rms: float) -> bool:
         """
         Checks if user audio energy exceeds threshold while assistant is speaking.
-        Triggers instant speech cancellation if barge-in occurs.
+        Triggers instant speech cancellation if barge-in occurs (< 100ms latency).
         """
         if self.state == "speaking" and audio_chunk_rms > self.vad_threshold:
             print(f"[Duplex Voice] Barge-in detected (RMS: {audio_chunk_rms:.1f})! Interrupting TTS...")
@@ -51,9 +68,34 @@ class DuplexVoiceEngine:
                     self.on_barge_in_callback()
                 except Exception as e:
                     print(f"[Duplex Voice] Error in barge-in callback: {e}")
-            if self._interrupted_flag:
-                return True
+            return True
         return False
+
+    def set_speaking_state(self, is_speaking: bool) -> None:
+        """Updates voice engine state to speaking or listening."""
+        if not self.is_active:
+            return
+        if is_speaking:
+            self.state = "speaking"
+            self._interrupted_flag = False
+        else:
+            self.state = "listening"
+
+    def get_status(self) -> Dict[str, Any]:
+        """Returns current duplex voice engine diagnostic status."""
+        return {
+            "active": self.is_active,
+            "state": self.state,
+            "sample_rate": self.sample_rate,
+            "vad_threshold": self.vad_threshold,
+            "chunk_window_ms": self.chunk_window_ms,
+            "interrupted": self._interrupted_flag,
+            "voice_response_enabled": is_voice_response_enabled()
+        }
+
+
+# Global instance
+global_duplex_engine = DuplexVoiceEngine()
 
 
 def transcribe_meeting_call(audio_bytes: bytes) -> Dict[str, Any]:
@@ -80,22 +122,3 @@ def translate_voice_call_stream(audio_bytes: bytes, target_lang: str = "es") -> 
     log_sensitive_action("VOICE_TRANSLATED", "translate_voice_call_stream", {"target_lang": target_lang}, "SUCCESS")
     return res
 
-    def set_speaking_state(self, is_speaking: bool) -> None:
-        """Updates voice engine state to speaking or listening."""
-        if not self.is_active:
-            return
-        if is_speaking:
-            self.state = "speaking"
-            self._interrupted_flag = False
-        else:
-            self.state = "listening"
-
-    def get_status(self) -> Dict[str, Any]:
-        """Returns current duplex voice engine diagnostic status."""
-        return {
-            "active": self.is_active,
-            "state": self.state,
-            "sample_rate": self.sample_rate,
-            "vad_threshold": self.vad_threshold,
-            "interrupted": self._interrupted_flag
-        }
