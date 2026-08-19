@@ -12,7 +12,7 @@ try:
 except ImportError:
     IdMapIndex = None
 
-from typing import Optional, List, Dict, Any, TypedDict
+from typing import Optional, List, Dict, Any, Tuple, TypedDict
 
 class UserProfile(TypedDict, total=False):
     meridian_model: str
@@ -129,7 +129,7 @@ conv_index = None
 _turbovec_lock = threading.Lock()
 
 def get_sqlite_conn():
-    conn = sqlite3.connect(SQLITE_DB_PATH, timeout=10.0)
+    conn = sqlite3.connect(SQLITE_DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row
     try:
         conn.execute("PRAGMA journal_mode=WAL;")
@@ -336,13 +336,16 @@ db = None
 
 # ----------------- SEMANTIC CACHE HELPERS -----------------
 
-_exact_match_cache = {}
+from collections import OrderedDict
+_exact_match_cache: OrderedDict = OrderedDict()
+_EXACT_CACHE_MAX_SIZE = 500
 
 def check_semantic_cache(query_text: str) -> Optional[str]:
     # Tier-1: Exact Match LRU/Memory cache (0ms, skips embedding generation)
     if query_text in _exact_match_cache:
         val, expires_at = _exact_match_cache[query_text]
         if expires_at > time.time():
+            _exact_match_cache.move_to_end(query_text)
             print(f"[Semantic Cache] Tier-1 Exact Match HIT: '{query_text}'")
             return val
         else:
@@ -393,6 +396,9 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 
     ttl_seconds = ttl_hours * 3600
     expires_at = time.time() + ttl_seconds
     _exact_match_cache[query_text] = (response_text, expires_at)
+    _exact_match_cache.move_to_end(query_text)
+    if len(_exact_match_cache) > _EXACT_CACHE_MAX_SIZE:
+        _exact_match_cache.popitem(last=False)
     
     conn = None
     inserted_id = None
@@ -866,7 +872,11 @@ def get_clipboard_history(limit: int = 50) -> List[Dict[str, Any]]:
         if conn:
             conn.close()
 
+_user_profile_cache: Dict[str, Tuple[Any, float]] = {}
+_PROFILE_CACHE_TTL = 30.0  # 30 seconds cache TTL
+
 def save_user_profile(key: str, value: Any):
+    _user_profile_cache[key] = (value, time.time())
     # 1. Save to SQLite user_profile table
     conn = None
     try:
@@ -900,6 +910,11 @@ def save_user_profile(key: str, value: Any):
             print("[MongoDB User Profile] Save failed:", e)
 
 def get_user_profile(key: str) -> Optional[Any]:
+    if key in _user_profile_cache:
+        val, cached_at = _user_profile_cache[key]
+        if time.time() - cached_at < _PROFILE_CACHE_TTL:
+            return val
+
     # 1. Try SQLite first
     conn = None
     try:
@@ -908,7 +923,9 @@ def get_user_profile(key: str) -> Optional[Any]:
         cursor.execute("SELECT value FROM user_profile WHERE key = ?", (key,))
         res = cursor.fetchone()
         if res:
-            return json.loads(res["value"])
+            parsed = json.loads(res["value"])
+            _user_profile_cache[key] = (parsed, time.time())
+            return parsed
     except Exception as e:
         print(f"[SQLite User Profile] Fetch failed: {e}")
     finally:
@@ -922,7 +939,9 @@ def get_user_profile(key: str) -> Optional[Any]:
             collection = db_conn["user_profile"]
             res = collection.find_one({"key": key})
             if res:
-                return res.get("value")
+                val = res.get("value")
+                _user_profile_cache[key] = (val, time.time())
+                return val
         except Exception as e:
             print("[MongoDB User Profile] Fetch failed:", e)
     return None

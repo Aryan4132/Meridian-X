@@ -454,8 +454,8 @@ def call_llm_sync(
 
   if loop and loop.is_running():
     import concurrent.futures
-    with concurrent.futures.ThreadPoolExecutor() as pool:
-      return pool.submit(asyncio.run, call_llm(messages, provider, model, temperature)).result()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+      return pool.submit(lambda: asyncio.run(call_llm(messages, provider, model, temperature))).result()
   else:
     return asyncio.run(call_llm(messages, provider, model, temperature))
 

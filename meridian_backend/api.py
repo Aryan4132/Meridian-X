@@ -65,31 +65,10 @@ from database import (
     add_clipboard_history,
     get_clipboard_history,
     save_user_profile,
-    get_user_profile
+    get_user_profile,
+    get_ollama_client_host
 )
 from src.core.loop import run_react_agent_loop, active_confirmations
-
-def get_ollama_client_host():
-    host = os.environ.get("OLLAMA_HOST")
-    if not host:
-        try:
-            db_host = get_user_profile("ollama_host")
-            if db_host:
-                host = db_host
-        except Exception:
-            pass
-    if not host:
-        host = "http://127.0.0.1:11434"
-
-    if host == "0.0.0.0":
-        return "http://127.0.0.1:11434"
-    if host.startswith("0.0.0.0:"):
-        return f"http://127.0.0.1:{host.split(':')[1]}"
-    if "0.0.0.0" in host:
-        return host.replace("0.0.0.0", "127.0.0.1")
-    if not host.startswith("http://") and not host.startswith("https://"):
-        return f"http://{host}"
-    return host
 
 def log_finetune_data(prompt: str, response_text: str):
     try:
@@ -1183,7 +1162,7 @@ def sync_model_settings(modelSettings: ModelSettings):
         update_local_env_file("DEEPSEEK_API_KEY", modelSettings.deepseekKey.strip())
 
 @app.post("/api/chat")
-def chat(request: ChatRequest):
+async def chat(request: ChatRequest):
     try:
         # Check voice/hotkey shortcuts first
         shortcut = check_shortcut_command(request.prompt)
@@ -1200,28 +1179,6 @@ def chat(request: ChatRequest):
             pause_wakeword()
         except Exception:
             pass
-            
-        # Check semantic cache first
-        cached = check_semantic_cache(request.prompt)
-        if cached:
-            thoughts = [
-                {"type": "planning", "text": "Semantic Cache Match: returns instantly (<5ms) from LanceDB", "tool": "semantic_cache"}
-            ]
-            add_to_conversations("user", request.prompt)
-            add_to_conversations("assistant", cached)
-            add_to_task_log("semantic_cache", 0, "success")
-            
-            try:
-                from src.voice.wakeword import resume_wakeword
-                resume_wakeword()
-            except Exception:
-                pass
-                
-            return {"text": cached, "thoughts": thoughts}
-
-        # Log conversation and audit trail
-        add_to_conversations("user", request.prompt)
-        add_to_task_log("ollama_api", 2, "started")
 
         # Resolve modelSettings if missing
         modelSettings = request.modelSettings
@@ -1239,14 +1196,33 @@ def chat(request: ChatRequest):
         else:
             sync_model_settings(modelSettings)
 
-        brain_label = modelSettings.brainModel if modelSettings.modelSource == "local" else modelSettings.selectedModel
-        result = get_react_thoughts(request.prompt, brain_label, modelSettings.ocrModel)
-        
-        # Log to caches and logs
-        add_to_conversations("assistant", result.get("text", ""))
-        add_to_semantic_cache(request.prompt, result.get("text", ""))
-        log_finetune_data(request.prompt, result.get("text", ""))
-        add_to_task_log("ollama_api", 2, "success")
+        model_source = modelSettings.modelSource
+        api_provider = modelSettings.apiProvider or get_user_profile("meridian_provider") or "ollama"
+        brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or "llama3.2:3b"
+        ollama_host = get_ollama_client_host()
+
+        accumulated_text = ""
+        thoughts = []
+        async for event_str in run_react_agent_loop(
+            request.prompt,
+            brain_model,
+            ollama_host,
+            model_source=model_source,
+            api_provider=api_provider
+        ):
+            for line in event_str.splitlines():
+                if line.startswith("data: "):
+                    raw_data = line[6:]
+                    try:
+                        parsed = json.loads(raw_data)
+                        if isinstance(parsed, dict):
+                            if "text" in parsed and "type" in parsed:
+                                thoughts.append(parsed)
+                            elif "chat" in parsed:
+                                accumulated_text = parsed["chat"]
+                    except Exception:
+                        if not raw_data.startswith("{"):
+                            accumulated_text += raw_data
 
         try:
             from src.voice.wakeword import resume_wakeword
@@ -1254,7 +1230,7 @@ def chat(request: ChatRequest):
         except Exception:
             pass
 
-        return result
+        return {"text": accumulated_text, "thoughts": thoughts}
     except Exception as e:
         add_to_task_log("ollama_api", 2, "failed", str(e))
         try:
@@ -3128,7 +3104,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.4.5"
+CURRENT_VERSION = "0.5.0"
 
 _auto_download_in_progress = False
 _auto_download_ready = False
@@ -3766,6 +3742,62 @@ async def generate_papercoder_repo_api(payload: PaperCoderRequest):
     engine = PaperCoderEngine()
     result = engine.run_full_pipeline(payload.paper_input)
     return {"status": "success", "result": result}
+
+
+# --- JARVIS PERCEPTION & INTELLIGENCE REST ENDPOINTS ---
+
+@app.get("/api/gaze/status")
+def get_gaze_status_api():
+    """JARVIS-02: Get current gaze tracking status & screen dimming suggestion."""
+    from src.core.gaze_tracker import get_current_gaze
+    return get_current_gaze()
+
+@app.post("/api/gaze/start")
+def start_gaze_api():
+    """JARVIS-02: Start eye-tracking & spatial gaze control."""
+    from src.core.gaze_tracker import start_gaze_tracking
+    return start_gaze_tracking()
+
+@app.post("/api/gaze/stop")
+def stop_gaze_api():
+    """JARVIS-02: Stop eye-tracking."""
+    from src.core.gaze_tracker import stop_gaze_tracking
+    return stop_gaze_tracking()
+
+@app.get("/api/camera/feeds")
+def get_camera_feeds_api():
+    """JARVIS-05: List registered RTSP security camera feeds and recent motion alerts."""
+    from src.core.camera_sentinel import list_camera_feeds, get_recent_alerts
+    return {"status": "success", "feeds": list_camera_feeds(), "recent_alerts": get_recent_alerts()}
+
+@app.get("/api/ar/headsets")
+def get_ar_headsets_api():
+    """JARVIS-08: List connected AR smart glasses & HUD headsets."""
+    from src.core.ar_bridge import list_ar_headsets
+    return {"status": "success", "headsets": list_ar_headsets()}
+
+class PolyglotRequest(BaseModel):
+    transcript: str
+    target_lang: Optional[str] = "en"
+    code_target: Optional[str] = "python"
+
+@app.post("/api/polyglot/translate")
+def translate_polyglot_api(req: PolyglotRequest):
+    """JARVIS-10: Translate multi-lingual speech transcript to executable code."""
+    from src.voice.polyglot import translate_speech_to_code
+    return translate_speech_to_code(req.transcript, target_lang=req.target_lang or "en", code_target=req.code_target or "python")
+
+@app.get("/api/predictive/next-action")
+def get_predictive_next_action_api():
+    """JARVIS-04: Get predictive pre-execution & habit profile."""
+    from src.core.predictive_engine import predict_next_action, get_habit_profile
+    return {"status": "success", "prediction": predict_next_action([]), "habits": get_habit_profile()}
+
+@app.post("/api/presence/briefing")
+def trigger_presence_briefing_api(user_name: Optional[str] = "User"):
+    """JARVIS-06: Trigger workspace room arrival executive voice briefing."""
+    from src.core.presence_briefing import generate_presence_briefing
+    return generate_presence_briefing(user_name=user_name or "User")
 
 
 if __name__ == "__main__":

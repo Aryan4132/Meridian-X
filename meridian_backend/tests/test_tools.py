@@ -3,6 +3,7 @@ import unittest
 import sys
 import json
 import shutil
+from unittest.mock import patch
 
 # Add meridian_backend directory to Python path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -55,7 +56,8 @@ class TestTools(unittest.TestCase):
         from src.core.audit_logger import get_audit_log_path
         
         # Trigger blocked command pattern
-        res = nl_run("format C:")
+        with patch("src.tools.shell.nl_to_shell", return_value="format C:"):
+            res = nl_run("format C:")
         self.assertIn("Blocked execution", res)
         
         audit_path = get_audit_log_path()

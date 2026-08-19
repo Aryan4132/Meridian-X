@@ -87,11 +87,7 @@ def publish_nudge_sync(
             event_bus.publish("proactive_nudge", payload), target_loop
         )
     else:
-        new_loop = asyncio.new_event_loop()
-        try:
-            new_loop.run_until_complete(event_bus.publish("proactive_nudge", payload))
-        finally:
-            new_loop.close()
+        print(f"[Proactive Nudge] ({title}): {message}")
 
 
 def dispatch_notification(

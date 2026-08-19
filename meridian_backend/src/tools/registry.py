@@ -58,6 +58,14 @@ from src.tools.documents import (
     edit_powerpoint_presentation, create_pdf_document, edit_pdf_document
 )
 
+# JARVIS Perception & Intelligence Tools
+from src.core.gaze_tracker import start_gaze_tracking, stop_gaze_tracking, get_current_gaze
+from src.core.camera_sentinel import list_camera_feeds, get_recent_alerts
+from src.core.ar_bridge import list_ar_headsets, push_ar_hud_payload
+from src.voice.polyglot import translate_speech_to_code
+from src.core.predictive_engine import predict_next_action, prewarm_context_for_intent
+from src.core.presence_briefing import generate_presence_briefing
+
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
     from database import extract_text_from_file, ingest_into_knowledge_base
@@ -337,8 +345,17 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "browser_navigate": {"tier": 1, "func": lambda url: browser_navigate_wrapper(url)},
     "browser_interact": {"tier": 2, "func": lambda action, selector, text="": browser_interact_wrapper(action, selector, text)},
     "mcp_list_servers": {"tier": 0, "func": lambda: mcp_list_servers_wrapper()},
-    "mcp_install_server": {"tier": 2, "func": lambda server_id: mcp_install_server_wrapper(server_id)},
-    "run_autonomous_bug_fixer": {"tier": 2, "func": lambda target_path=None: run_autonomous_bug_fixer_wrapper(target_path)}
+    "run_autonomous_bug_fixer": {"tier": 2, "func": lambda target_path=None: run_autonomous_bug_fixer_wrapper(target_path)},
+
+    # JARVIS Intelligence & Perception Tools
+    "get_current_gaze": {"tier": 0, "func": get_current_gaze},
+    "start_gaze_tracking": {"tier": 0, "func": start_gaze_tracking},
+    "stop_gaze_tracking": {"tier": 0, "func": stop_gaze_tracking},
+    "list_camera_feeds": {"tier": 0, "func": list_camera_feeds},
+    "list_ar_headsets": {"tier": 0, "func": list_ar_headsets},
+    "translate_speech_to_code": {"tier": 0, "func": translate_speech_to_code},
+    "predict_next_action": {"tier": 0, "func": predict_next_action},
+    "generate_presence_briefing": {"tier": 0, "func": generate_presence_briefing}
 }
 
 def browser_navigate_wrapper(url: str) -> str:
