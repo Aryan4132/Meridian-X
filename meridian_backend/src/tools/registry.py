@@ -46,6 +46,7 @@ from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_p
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
 from src.tools.geo_location import resolve_location, get_localized_weather, bias_query_spatially
+from src.tools.papercoder import generate_paper2code
 
 # Advanced desktop tools imports
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
@@ -248,6 +249,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "review_diff": {"tier": 0, "func": review_diff},
     "review_directory": {"tier": 0, "func": review_directory},
     "export_review": {"tier": 1, "func": export_review},
+    "generate_paper2code": {"tier": 1, "func": generate_paper2code},
+
     "generate_unit_tests": {"tier": 1, "func": generate_unit_tests},
     "review_git_changes": {"tier": 0, "func": review_git_changes},
 

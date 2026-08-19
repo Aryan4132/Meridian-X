@@ -48,11 +48,21 @@ def format_thought_event(thought_text: str, session_id: str = "default", step_in
 
 
 
+
 def estimate_token_count(text: str) -> int:
-    """Fast token heuristic (1 token ~ 4 characters)."""
-    if not text:
-        return 0
-    return max(1, len(text) // 4)
+    """
+    Content-aware token estimation — delegates to loop_parser for the canonical
+    implementation that handles code, CJK, and prose correctly.
+    Falls back to simple divide-by-4 if import fails.
+    """
+    try:
+        from src.core.loop_parser import estimate_token_count as _smart_estimate
+        return _smart_estimate(text)
+    except Exception:
+        if not text:
+            return 0
+        return max(1, len(text) // 4)
+
 
 
 def trim_history_to_token_budget(messages: list, max_tokens: int = 8000) -> list:

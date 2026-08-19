@@ -3715,7 +3715,61 @@ async def save_custom_llm_config_api(payload: CustomLLMConfigRequest):
     }
 
 
+# ==========================================
+# Day 6 — Codebase AST Graph, Neural RAG & PaperCoder Endpoints
+# ==========================================
+
+@app.get("/api/codegraph/symbols")
+async def get_codegraph_symbols_api(query: str = "", workspace_dir: Optional[str] = None):
+    """DEV-05: AST Codebase Symbol Search."""
+    from src.core.code_graph import search_codebase_symbols
+    results = search_codebase_symbols(query, workspace_dir=workspace_dir)
+    return {"status": "success", "count": len(results), "symbols": results}
+
+
+@app.get("/api/codegraph/trace")
+async def get_codegraph_trace_api(symbol_name: str, trace_type: str = "callers", workspace_dir: Optional[str] = None):
+    """DEV-05: AST Caller/Callee Tracing."""
+    from src.core.code_graph import trace_symbol_callers, trace_symbol_callees
+    if trace_type == "callees":
+        traces = trace_symbol_callees(symbol_name, workspace_dir=workspace_dir)
+    else:
+        traces = trace_symbol_callers(symbol_name, workspace_dir=workspace_dir)
+    return {"status": "success", "symbol_name": symbol_name, "trace_type": trace_type, "count": len(traces), "traces": traces}
+
+
+@app.get("/api/codegraph/impact")
+async def get_codegraph_impact_api(target: str, workspace_dir: Optional[str] = None):
+    """DEV-05: Instant Change Impact Analysis."""
+    from src.core.code_graph import analyze_change_impact
+    impact = analyze_change_impact(target, workspace_dir=workspace_dir)
+    return {"status": "success", "impact": impact}
+
+
+@app.get("/api/neural-rag/intent-graph")
+async def get_neural_rag_intent_graph_api():
+    """JARVIS-09: Subconscious Codebase Memory & Neural RAG Intent Knowledge Graph."""
+    from src.core.neural_rag import get_neural_rag_synthesizer
+    synth = get_neural_rag_synthesizer()
+    graph = synth.get_intent_graph()
+    return {"status": "success", "intent_graph": graph}
+
+
+class PaperCoderRequest(BaseModel):
+    paper_input: str
+
+
+@app.post("/api/papercoder/generate")
+async def generate_papercoder_repo_api(payload: PaperCoderRequest):
+    """DEV-04: 3-Stage Paper-to-Code (PaperCoder) Generator."""
+    from src.tools.papercoder import PaperCoderEngine
+    engine = PaperCoderEngine()
+    result = engine.run_full_pipeline(payload.paper_input)
+    return {"status": "success", "result": result}
+
+
 if __name__ == "__main__":
+
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=4132)
 

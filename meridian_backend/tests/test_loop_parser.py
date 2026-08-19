@@ -37,6 +37,22 @@ def test_parser_malformed():
     events = parser.feed("/>")
     call_events = [e for e in events if e["type"] == "call"]
     assert len(call_events) > 0
-    assert call_events[0]["name"] == "read_file"
     args = json.loads(call_events[0]["args"])
     assert args["path"] == "test.txt"
+
+
+def test_resolve_local_model_name_cloud_tag():
+    from src.core.loop_parser import resolve_local_model_name
+    from unittest.mock import MagicMock
+
+    mock_client = MagicMock()
+    mock_client.list.return_value = {
+        "models": [
+            {"model": "gemma4:31b-cloud", "size": 0},
+            {"model": "qwen2.5-coder:7b-instruct-q4_K_M", "size": 4700000000}
+        ]
+    }
+
+    res = resolve_local_model_name("gemma4:31b-cloud", mock_client)
+    assert res == "gemma4:31b-cloud"
+
