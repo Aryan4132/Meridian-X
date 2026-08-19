@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Command, Mic, Shield, Terminal, Zap, X } from 'lucide-react';
+import { Search, Command, Mic, Shield, Terminal, Zap, X, FileCode, GitBranch, BookOpen } from 'lucide-react';
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -31,7 +31,11 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
     { id: 'vault_keys', label: 'Open Secret Vault Settings', icon: Shield, category: 'Security' },
     { id: 'run_swarm', label: 'Run Multi-Agent Swarm Audit', icon: Zap, category: 'AI Tools' },
     { id: 'open_terminal', label: 'Open Shell Diagnostics', icon: Terminal, category: 'System' },
+    { id: 'codegraph_search', label: 'Search Codebase AST Symbols & Impact', icon: FileCode, category: 'CodeGraph' },
+    { id: 'papercoder_gen', label: 'Generate Codebase from arXiv Paper / PDF (PaperCoder)', icon: BookOpen, category: 'PaperCoder' },
+    { id: 'neural_rag_intent', label: 'Query Subconscious Intent Knowledge Graph', icon: GitBranch, category: 'Neural RAG' },
   ];
+
 
   const filteredActions = actions.filter((a) =>
     a.label.toLowerCase().includes(query.toLowerCase())

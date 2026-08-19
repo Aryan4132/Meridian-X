@@ -17,19 +17,49 @@ class HardwareGovernor:
         self.cpu_limit_pct = cpu_limit_pct
 
     def probe_model_benchmark(self, model_name: str = "qwen2.5-coder") -> Dict[str, Any]:
-        """Runs a lightweight probe query to measure model TTFT and tokens-per-second."""
+        """
+        #4 FIX: Runs a real timed probe query to measure actual model TTFT and tokens-per-second.
+        Previously returned hardcoded constants (ttft_ms=120, tps=42.5) which made the model
+        router unable to make informed decisions. Now times a live Ollama generate() call.
+        """
         start_time = time.time()
-        # Simulate benchmark probe metrics
-        ttft_ms = 120.0 # Time to first token (ms)
-        tokens_per_sec = 42.5
-        probe_duration = round(time.time() - start_time, 3)
+        ttft_ms = -1.0
+        tokens_per_sec = -1.0
+        status = "unknown"
+        try:
+            import ollama
+            from src.core.llm_provider import get_ollama_host
+            host = get_ollama_host()
+            client = ollama.Client(host=host)
+
+            probe_prompt = "Reply with exactly one word: OK"
+            token_count = 0
+            first_token_time = None
+
+            stream = client.generate(model=model_name, prompt=probe_prompt, stream=True)
+            for chunk in stream:
+                if first_token_time is None:
+                    first_token_time = time.time()
+                    ttft_ms = round((first_token_time - start_time) * 1000.0, 1)
+                response_text = chunk.response if hasattr(chunk, "response") else (chunk.get("response", "") if isinstance(chunk, dict) else "")
+                token_count += len(response_text.split())
+
+            probe_duration = round(time.time() - start_time, 3)
+            elapsed_after_first = max(probe_duration - (ttft_ms / 1000.0), 0.001)
+            tokens_per_sec = round(token_count / elapsed_after_first, 1) if token_count > 0 else 0.0
+            status = "healthy"
+
+        except Exception as e:
+            probe_duration = round(time.time() - start_time, 3)
+            status = f"probe_failed: {e}"
+            print(f"[Hardware Governor] Benchmark probe failed for model '{model_name}': {e}")
 
         return {
             "model_name": model_name,
             "ttft_ms": ttft_ms,
             "tokens_per_second": tokens_per_sec,
             "probe_duration_sec": probe_duration,
-            "status": "healthy"
+            "status": status
         }
 
     def check_system_governance(self) -> Dict[str, Any]:

@@ -65,17 +65,54 @@ class SwarmAgent:
         self.allowed_tools = SWARM_ROLE_TOOLS.get(self.role, [])
 
     async def execute(self, goal: str, session_id: str = "default") -> Dict[str, Any]:
-        """Executes the subagent task autonomously in an isolated async worker."""
+        """
+        #1 FIX: Executes the subagent task via the real agent loop.
+        Previously this was a stub returning a hardcoded string. Now it invokes
+        run_react_agent_loop(is_worker=True) with the agent's allowed_tools injected
+        into the system prompt as a HARD restriction so the subagent cannot
+        call tools outside its designated role.
+        """
         start_time = time.time()
         print(f"[Swarm Engine] Starting subagent '{self.name}' (Role: {self.role})...")
-        
+
         try:
-            # Simulate subagent task execution with LLM / tools context
-            # (In production, invokes run_react_agent_loop with filtered tool set)
-            await asyncio.sleep(0.5) # Async yield for parallel scheduling
-            
-            output_summary = f"[{self.name}] Completed analysis for goal: '{goal}'. Role: {self.role.upper()}."
-            
+            from src.core.loop import run_react_agent_loop
+            from database import get_brain_model, get_model_source, get_ollama_client_host
+
+            brain_model = get_brain_model()
+            model_source = get_model_source()
+            ollama_host = get_ollama_client_host()
+
+            # Build a role-scoped worker prompt that includes tool restriction
+            allowed_str = ", ".join(self.allowed_tools) if self.allowed_tools else "all tools"
+            worker_prompt = (
+                f"[SWARM AGENT CONTEXT]\n"
+                f"Role: {self.role.upper()}\n"
+                f"Allowed Tools: {allowed_str}\n"
+                f"System Context: {self.system_prompt}\n\n"
+                f"STRICT RULE: You may ONLY use tools from this list: [{allowed_str}]. "
+                f"Do not invoke any other tools. If a task requires a tool outside your list, "
+                f"report the limitation instead.\n\n"
+                f"GOAL: {goal}"
+            )
+
+            # Collect all streamed text from the worker loop
+            output_parts = []
+            async for sse_event in run_react_agent_loop(
+                prompt=worker_prompt,
+                brain_model=brain_model,
+                ollama_host=ollama_host,
+                model_source=model_source,
+                is_worker=True
+            ):
+                # Extract text from SSE event: "event: text\ndata: ...\n\n"
+                if "event: text" in sse_event:
+                    for line in sse_event.splitlines():
+                        if line.startswith("data: "):
+                            output_parts.append(line[6:])
+
+            output_summary = "".join(output_parts).strip() or f"[{self.name}] No output generated."
+
             return {
                 "agent_name": self.name,
                 "role": self.role,
@@ -94,6 +131,7 @@ class SwarmAgent:
                 "execution_time_sec": round(time.time() - start_time, 2),
                 "error": str(e)
             }
+
 
 
 class SwarmOrchestrator:

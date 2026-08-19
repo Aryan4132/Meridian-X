@@ -41,6 +41,11 @@ async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str 
     """
     Executes a list of tool calls in parallel or sequence based on Tier rules,
     tagging outputs explicitly with tool name and call index for mismatch prevention.
+
+    #7 FIX: Previously used asyncio.to_thread(call_tool, ...) which is WRONG because
+    call_tool is an async function. Wrapping an async fn in to_thread schedules it on a
+    thread-pool executor that lacks the event loop — causing coroutine-was-never-awaited
+    errors or silently swallowed exceptions. Now uses direct `await call_tool()`.
     """
     results = []
     tasks = []
@@ -58,10 +63,10 @@ async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str 
             })
             continue
 
-        # Create explicit tagged execution task
+        # #7 FIX: Direct async await — call_tool is already an async function.
         async def _exec(index: int, name: str, args: dict):
             try:
-                out = await asyncio.to_thread(call_tool, name, args)
+                out = await call_tool(name, args)  # was: await asyncio.to_thread(call_tool, name, args)
                 return {"index": index, "tool": name, "status": "SUCCESS", "result": out}
             except Exception as e:
                 return {"index": index, "tool": name, "status": "ERROR", "result": f"Error executing {name}: {e}"}
