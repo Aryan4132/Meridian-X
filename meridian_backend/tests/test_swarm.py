@@ -2,6 +2,7 @@ import pytest
 import asyncio
 import os
 import sys
+from unittest.mock import MagicMock, patch
 
 # Add project root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -17,19 +18,31 @@ async def test_swarm_agent_execution():
     assert agent.name == "Swarm-ResearcherAgent"
     assert len(agent.allowed_tools) > 0
 
-    res = await agent.execute("Analyze system logs")
-    assert res["status"] == "success"
-    assert res["role"] == "researcher"
-    assert "Completed analysis" in res["output"]
+    mock_client = MagicMock()
+    mock_chunk = MagicMock()
+    mock_chunk.message.content = "Completed analysis of system logs."
+    mock_client.chat.return_value = [mock_chunk]
+
+    with patch("src.core.loop.get_cached_ollama_client", return_value=mock_client):
+        res = await agent.execute("Analyze system logs")
+        assert res["status"] == "success"
+        assert res["role"] == "researcher"
+        assert "Completed analysis" in res["output"]
 
 
 @pytest.mark.asyncio
 async def test_swarm_orchestrator_parallel_run():
+    mock_client = MagicMock()
+    mock_chunk = MagicMock()
+    mock_chunk.message.content = "Completed swarm task."
+    mock_client.chat.return_value = [mock_chunk]
+
     orchestrator = SwarmOrchestrator()
-    res = await orchestrator.run_swarm(
-        goal="Audit codebase security and performance",
-        subagent_roles=["auditor", "researcher", "planner"]
-    )
+    with patch("src.core.loop.get_cached_ollama_client", return_value=mock_client):
+        res = await orchestrator.run_swarm(
+            goal="Audit codebase security and performance",
+            subagent_roles=["auditor", "researcher", "planner"]
+        )
 
     assert res["subagent_count"] == 3
     assert len(res["results"]) == 3

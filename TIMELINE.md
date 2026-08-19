@@ -86,16 +86,17 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 6 — Codebase AST Graph, Neural RAG & PaperCoder (🔴 High Priority)
-- **`DEV-05` — Tree-Sitter Offline Codebase AST Graph**
+## 📅 Day 6 — Codebase AST Graph, Neural RAG & PaperCoder (✅ Completed)
+- [x] **`DEV-05` — Tree-Sitter Offline Codebase AST Graph**
   - *Target*: `code_graph.py`
   - *Deliverable*: AST dependency graph visualizer, symbol search, caller/callee tracing, & instant impact analysis.
-- **`JARVIS-09` — Subconscious Codebase Memory & Neural RAG Synthesizer**
+- [x] **`JARVIS-09` — Subconscious Codebase Memory & Neural RAG Synthesizer**
   - *Target*: `neural_rag.py`
   - *Deliverable*: Background AST semantic synthesizer building real-time project intent knowledge graphs.
-- **`DEV-04` — Paper2Code (PaperCoder) Integration**
+- [x] **`DEV-04` — Paper2Code (PaperCoder) Integration**
   - *Target*: `papercoder.py`, `registry.py`
   - *Deliverable*: 3-stage paper-to-repository multi-agent generator converting arXiv/PDFs into runnable code repos.
+
 
 ---
 

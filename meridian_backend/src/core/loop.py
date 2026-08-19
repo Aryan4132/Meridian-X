@@ -93,6 +93,7 @@ EXEMPT_TOOLS = {
 # Active tree and debate state tables
 active_trees: Dict[str, Dict[str, Any]] = {}
 active_debates: Dict[str, Dict[str, Any]] = {}
+_temporal_graphs: Dict[str, Any] = {}
 
 # BUG-3 fix: use threading.Event instead of a plain bool flag.
 # threading.Event.is_set() / .set() / .clear() are atomic and thread-safe,
@@ -445,7 +446,7 @@ async def run_memory_summarization_background(ollama_host: str):
         for item in distill_set:
             conversation_log += f"{item.get('role', 'user')}: {item.get('content', '')}\n"
             
-        client = ollama.Client(host=ollama_host)
+        client = get_cached_ollama_client(ollama_host)
         prompt = (
             "Analyze the conversation log below. Extract key persistent facts about the user's "
             "preferences, workflows, or project details as a JSON list. "
@@ -1173,10 +1174,8 @@ async def run_react_agent_loop(
     try:
         from src.core.temporal_memory import TemporalMemoryGraph
         import time as _time
-        # Use a module-level session store keyed by session_id to persist across turns
-        if not hasattr(run_react_agent_loop, "_temporal_graphs"):
-            run_react_agent_loop._temporal_graphs = {}
-        _tmg: TemporalMemoryGraph = run_react_agent_loop._temporal_graphs.setdefault(
+        # Use module-level session store keyed by session_id to persist across turns
+        _tmg: TemporalMemoryGraph = _temporal_graphs.setdefault(
             session_id, TemporalMemoryGraph()
         )
         # Query all recent nodes for relevance and pick top-3 by time-decay score
@@ -1430,23 +1429,32 @@ async def run_react_agent_loop(
             }))
             await event_bus.publish("agent_thoughts", {"agent": "Coordinator", "thought": f"Initializing reasoning turn {turn}..."})
 
-            # #11 FIX: Wrap synchronous Ollama response stream in async generator.
-            # Prevents synchronous socket reads from blocking the main asyncio event loop.
             async def async_iter_stream(stream):
-                queue = asyncio.Queue(maxsize=64)
+                queue = asyncio.Queue(maxsize=512)
                 loop = asyncio.get_running_loop()
                 _END = object()
 
                 def _producer():
                     try:
                         for item in stream:
-                            loop.call_soon_threadsafe(queue.put_nowait, item)
+                            while True:
+                                try:
+                                    loop.call_soon_threadsafe(queue.put_nowait, item)
+                                    break
+                                except asyncio.QueueFull:
+                                    time.sleep(0.01)
                     except Exception as exc:
-                        loop.call_soon_threadsafe(queue.put_nowait, {"error": str(exc)})
+                        try:
+                            loop.call_soon_threadsafe(queue.put_nowait, {"error": str(exc)})
+                        except Exception:
+                            pass
                     finally:
-                        loop.call_soon_threadsafe(queue.put_nowait, _END)
+                        try:
+                            loop.call_soon_threadsafe(queue.put_nowait, _END)
+                        except Exception:
+                            pass
 
-                producer_task = asyncio.to_thread(_producer)
+                producer_task = asyncio.create_task(asyncio.to_thread(_producer))
                 try:
                     while True:
                         item = await queue.get()
@@ -1454,7 +1462,12 @@ async def run_react_agent_loop(
                             break
                         yield item
                 finally:
-                    await producer_task
+                    if not producer_task.done():
+                        producer_task.cancel()
+                        try:
+                            await producer_task
+                        except (asyncio.CancelledError, Exception):
+                            pass
 
             async for chunk in async_iter_stream(response_stream):
                 if isinstance(chunk, dict) and "error" in chunk:
@@ -1711,25 +1724,26 @@ async def run_react_agent_loop(
                     # Now scores every proposed tool action before execution. If the score is
                     # below the threshold (0.35), the action is skipped and reasoning is re-directed.
                     try:
-                        mcts_score = await score_candidate_branch(
-                            tool_name=tool_name,
-                            args_str=json.dumps(args),
-                            history=history,
-                            client=client,
-                            model=active_model if model_source == "local" else None
-                        )
-                        if mcts_score < 0.35:
-                            yield sse_event("thought", json.dumps({
-                                "id": f"mcts-reject-{time.time()}",
-                                "type": "warning",
-                                "text": f"[MCTS] Tool '{tool_name}' scored {mcts_score:.2f} (below threshold 0.35). Skipping — low-value branch.",
-                                "status": "failed"
-                            }))
-                            observations.append(
-                                f"<observation:{tool_name}>[MCTS] Skipped low-value action (score={mcts_score:.2f}). "
-                                f"Try a different approach to achieve the goal.</observation:{tool_name}>"
+                        if tier >= 1:
+                            mcts_score = await score_candidate_branch(
+                                tool_name=tool_name,
+                                args_str=json.dumps(args),
+                                history=history,
+                                client=client,
+                                model=active_model if model_source == "local" else None
                             )
-                            continue
+                            if mcts_score < 0.35:
+                                yield sse_event("thought", json.dumps({
+                                    "id": f"mcts-reject-{time.time()}",
+                                    "type": "warning",
+                                    "text": f"[MCTS] Tool '{tool_name}' scored {mcts_score:.2f} (below threshold 0.35). Skipping — low-value branch.",
+                                    "status": "failed"
+                                }))
+                                observations.append(
+                                    f"<observation:{tool_name}>[MCTS] Skipped low-value action (score={mcts_score:.2f}). "
+                                    f"Try a different approach to achieve the goal.</observation:{tool_name}>"
+                                )
+                                continue
                     except Exception as _mcts_err:
                         # Non-fatal: if scorer fails, proceed normally
                         pass
@@ -1793,10 +1807,6 @@ async def run_react_agent_loop(
                     tool_run_id = f"run-{tool_name}-{time.time()}"
                     
                     # Security Auditor local consensus verification
-                    # BUG-4 fix: client.generate() only works with local Ollama models.
-                    # #8 FIX: For Tier 2 tools (which don't need manual user confirmation),
-                    # launch the security audit and tool execution concurrently via asyncio.gather.
-                    # Saves ~300-500ms per Tier 2 tool execution.
                     pre_executed_result = None
                     if tier >= 2 and model_source != "cloud":
                         auditor_model = get_auditor_model()
@@ -1833,13 +1843,7 @@ async def run_react_agent_loop(
                                 except Exception:
                                     return "REASONING: Auditor model unreachable. Failing secure.\nDECISION: REJECTED_UNREACHABLE"
 
-                        if tier == 2:
-                            # Run audit and tool execution concurrently
-                            audit_text, pre_executed_result = await asyncio.gather(_do_audit(), call_tool(tool_name, args), return_exceptions=True)
-                            if isinstance(audit_text, Exception):
-                                audit_text = "REASONING: Audit exception occurred.\nDECISION: REJECTED"
-                        else:
-                            audit_text = await _do_audit()
+                        audit_text = await _do_audit()
 
                         decision = "APPROVED"
                         reasoning = ""

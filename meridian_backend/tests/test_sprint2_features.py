@@ -76,7 +76,7 @@ async def test_ollama_cloud_api_mode_support():
     mock_client.chat.return_value = [mock_chunk]
     
     events = []
-    with patch("src.core.loop.get_ollama_client", return_value=mock_client):
+    with patch("src.core.loop.get_cached_ollama_client", return_value=mock_client), patch("src.core.loop.get_ollama_client", return_value=mock_client):
         async for event in run_react_agent_loop("Hello", "llama3.2:3b", "http://localhost:11434", model_source="api", api_provider="ollama"):
             events.append(event)
             
