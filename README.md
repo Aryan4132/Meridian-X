@@ -6,7 +6,7 @@
 
 ### Intelligent Agentic Desktop Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.5.1-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -306,8 +306,15 @@ curl -fsSL https://raw.githubusercontent.com/Aryan4132/Meridian-X/main/install.s
 Or download pre-compiled installers directly from [GitHub Releases](https://github.com/Aryan4132/Meridian-X/releases):
 
 - **Windows**: `meridian-x_0.4.0_x64-setup.exe` / `.msi`
-- **macOS**: `meridian-x_0.4.0_aarch64.dmg` / `.app`
 - **Linux**: `meridian-x_0.4.0_amd64.AppImage` / `.deb`
+
+> [!NOTE]
+> **macOS Gatekeeper Warning ("App is damaged and can't be opened"):**
+> Unsigned macOS builds downloaded from browsers trigger Apple Gatekeeper security. Fix with one command:
+> ```bash
+> sudo xattr -r -d com.apple.quarantine /Applications/meridian-x.app
+> ```
+> *(Or if installed in Downloads: `sudo xattr -r -d com.apple.quarantine ~/Downloads/meridian-x.app`)*
 
 ---
 

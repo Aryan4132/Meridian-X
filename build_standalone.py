@@ -76,10 +76,15 @@ def main():
     shutil.copytree(compiled_backend, frontend_api_dir)
     
     if platform.system() != "Windows":
-        api_bin = os.path.join(frontend_api_dir, "api")
-        if os.path.exists(api_bin):
-            print(f"Granting executable permissions (chmod +x) to '{api_bin}'...")
-            os.chmod(api_bin, 0o755)
+        print(f"Granting executable permissions (chmod +x) to '{frontend_api_dir}' binaries...")
+        for root, _, files in os.walk(frontend_api_dir):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if not file.endswith((".py", ".txt", ".json", ".md", ".onnx", ".tflite", ".png", ".jpg")):
+                    try:
+                        os.chmod(file_path, 0o755)
+                    except Exception:
+                        pass
     
     if sidecar_only:
         print("\n[Success] Standalone sidecar backend build process complete!")
