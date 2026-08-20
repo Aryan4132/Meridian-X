@@ -44,5 +44,13 @@ echo ""
 echo "=========================================================================="
 echo "      🪐 Meridian-X Installation Complete! Launching desktop...            "
 echo "=========================================================================="
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "[System] macOS detected. Applying free ad-hoc signature & clearing Gatekeeper flags..."
+    codesign --force --deep --sign - /Applications/meridian-x.app 2>/dev/null || true
+    xattr -r -d com.apple.quarantine /Applications/meridian-x.app 2>/dev/null || true
+    xattr -r -d com.apple.quarantine ~/Downloads/meridian-x.app 2>/dev/null || true
+    xattr -r -d com.apple.quarantine . 2>/dev/null || true
+fi
+
 chmod +x start_desktop.sh start_meridian.sh restart_backend.sh >/dev/null 2>&1 || true
 ./start_desktop.sh

@@ -613,7 +613,7 @@ def get_active_process_and_title() -> tuple[str, str, Optional[int]]:
     elif sys_platform == "Darwin":
         try:
             cmd = "osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'"
-            title = subprocess.check_output(cmd, shell=True).decode("utf-8", errors="ignore").strip()
+            title = subprocess.check_output(cmd, shell=True, timeout=2.0).decode("utf-8", errors="ignore").strip()
             proc_name = title
         except Exception:
             pass

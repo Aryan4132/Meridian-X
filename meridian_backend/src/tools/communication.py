@@ -116,7 +116,7 @@ def send_native_toast_notification(title: str, message: str) -> str:
             $objNotifyIcon.ShowBalloonTip(5000)
             """
             subprocess.Popen(["powershell", "-Command", ps_script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        elif os.uname().sysname == "Darwin":
+        elif platform.system() == "Darwin":
             cmd = f'osascript -e \'display notification "{message}" with title "{title}"\''
             subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:

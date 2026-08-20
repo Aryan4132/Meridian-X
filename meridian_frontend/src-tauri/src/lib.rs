@@ -418,6 +418,24 @@ pub fn run() {
                                 const CREATE_NO_WINDOW: u32 = 0x08000000;
                                 cmd.creation_flags(CREATE_NO_WINDOW);
                             }
+
+                            #[cfg(unix)]
+                            {
+                                use std::os::unix::fs::PermissionsExt;
+                                if let Ok(metadata) = std::fs::metadata(&api_exe_path) {
+                                    let mut perms = metadata.permissions();
+                                    perms.set_mode(0o755);
+                                    let _ = std::fs::set_permissions(&api_exe_path, perms);
+                                }
+                            }
+
+                            // Redirect stdout and stderr to log files inside data_dir to prevent BrokenPipe crash when launched from macOS GUI/Finder
+                            if let Ok(out_f) = std::fs::File::create(data_dir.join("api_stdout.log")) {
+                                cmd.stdout(std::process::Stdio::from(out_f));
+                            }
+                            if let Ok(err_f) = std::fs::File::create(data_dir.join("api_stderr.log")) {
+                                cmd.stderr(std::process::Stdio::from(err_f));
+                            }
                             
                             match cmd.spawn() {
                                 Ok(child) => {

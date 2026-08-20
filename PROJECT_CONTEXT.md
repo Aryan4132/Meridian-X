@@ -196,3 +196,43 @@ graph TD
 | `MERIDIAN_PROVIDER` | `localStorage` | Provider identifier (`ollama`, `openai`, `gemini`, `anthropic`, `deepseek`) |
 | `OLLAMA_HOST` | `.env` / Process | Ollama service endpoint address (default: `http://127.0.0.1:11434`) |
 | `MERIDIAN_ALLOW_HOST_CODE_EXEC` | `.env` | Controls permission for executing host system commands |
+
+---
+
+## 6. MACOS GATEKEEPER & DEPLOYMENT SETUP
+
+### Gatekeeper Quarantine Fix (Unsigned Builds)
+When downloading pre-compiled macOS binaries from web browsers, macOS Gatekeeper flags unsigned apps as *"damaged and can't be opened"*.
+
+**Manual Terminal Fix**:
+```bash
+sudo xattr -r -d com.apple.quarantine /Applications/meridian-x.app
+```
+*(For Downloads directory: `sudo xattr -r -d com.apple.quarantine ~/Downloads/meridian-x.app`)*
+
+**Automated Installer Handling (`install.sh`)**:
+```bash
+if [ "$(uname -s)" = "Darwin" ]; then
+    xattr -r -d com.apple.quarantine /Applications/meridian-x.app 2>/dev/null || true
+    xattr -r -d com.apple.quarantine ~/Downloads/meridian-x.app 2>/dev/null || true
+    xattr -r -d com.apple.quarantine . 2>/dev/null || true
+fi
+```
+
+### Free macOS Code Signing & Notarization Workflow (Student & Open-Source)
+Configured in `meridian_frontend/src-tauri/tauri.conf.json` under `bundle.macOS`:
+```json
+"bundle": {
+  "active": true,
+  "macOS": {
+    "minimumSystemVersion": "10.15",
+    "signingIdentity": "-"
+  }
+}
+```
+Uses free ad-hoc local signature (`codesign -s -`). End users clear browser quarantine flags via `install.sh` or standard terminal command:
+```bash
+sudo xattr -r -d com.apple.quarantine /Applications/meridian-x.app
+```
+*(Paid Apple Developer ID `$99/yr` optional: populate `APPLE_SIGNING_IDENTITY` / `APPLE_ID` secrets in CI if using paid developer certificate).*
+
