@@ -5,8 +5,103 @@ on:
     tags:
       - 'v*'
 
+# ────────────────────────────────────────────────────────────────
+# JOB 1: Build Python backend sidecar for each platform
+# Outputs: api-windows.zip, api-macos.zip, api-linux.zip
+# ────────────────────────────────────────────────────────────────
 jobs:
-  build-and-release:
+  build-backend:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            api_zip: api-windows.zip
+          - os: macos-latest
+            platform: macos
+            api_zip: api-macos.zip
+          - os: ubuntu-latest
+            platform: linux
+            api_zip: api-linux.zip
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    # --- Linux system deps for audio / ML python packages ---
+    - name: Install Linux System Dependencies
+      if: matrix.platform == 'linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          portaudio19-dev \
+          libsndfile1 \
+          libffi-dev \
+          libssl-dev \
+          build-essential \
+          libgomp1
+
+    # --- macOS system deps ---
+    - name: Install macOS System Dependencies
+      if: matrix.platform == 'macos'
+      run: |
+        brew install portaudio libsndfile
+
+    - name: Setup Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Create Virtualenv & Install Requirements
+      shell: bash
+      run: |
+        cd meridian_backend
+        python -m venv venv
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
+          ./venv/Scripts/pip.exe install pyinstaller
+          ./venv/Scripts/pip.exe install -r requirements.txt --no-deps || \
+          ./venv/Scripts/pip.exe install -r requirements.txt
+        else
+          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+          ./venv/bin/pip install pyinstaller
+          ./venv/bin/pip install -r requirements.txt --no-deps || \
+          ./venv/bin/pip install -r requirements.txt
+        fi
+
+    - name: Compile Python Backend with PyInstaller
+      shell: bash
+      run: |
+        python build_standalone.py --sidecar-only
+
+    - name: Zip Backend Sidecar
+      shell: bash
+      run: |
+        cd meridian_frontend/src-tauri
+        if [ "$RUNNER_OS" == "Windows" ]; then
+          7z a ${{ matrix.api_zip }} api/
+        else
+          zip -r ${{ matrix.api_zip }} api/
+        fi
+
+    - name: Upload Backend Zip to Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: meridian_frontend/src-tauri/${{ matrix.api_zip }}
+        tag_name: ${{ github.ref_name }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# ────────────────────────────────────────────────────────────────
+# JOB 2: Build Tauri shell (no Python bundled) — runs after backend
+# ────────────────────────────────────────────────────────────────
+  build-tauri:
+    needs: build-backend
     permissions:
       contents: write
     env:
@@ -31,7 +126,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # --- System Dependencies for Linux ---
+    # --- Linux system deps for Tauri (WebKit, etc.) ---
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -46,7 +141,7 @@ jobs:
           patchelf \
           squashfs-tools
 
-    # --- System Dependencies for macOS ---
+    # --- macOS: create-dmg for DMG bundling ---
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
       run: brew install create-dmg
@@ -57,44 +152,17 @@ jobs:
       with:
         node-version: 20
 
-    # --- Install Frontend Dependencies (clean, no --force, so native addons install correctly) ---
+    # --- Install Frontend Dependencies ---
     - name: Install Frontend Dependencies
       shell: bash
       run: |
         cd meridian_frontend
-        # Remove stale lock file so npm resolves fresh platform-specific optional deps
         rm -f package-lock.json
         npm install
 
-    # --- Setup Rust Compiler ---
+    # --- Setup Rust ---
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
-
-    # --- Setup Python Environment (3.11 — tflite-runtime has no 3.12 Linux wheels) ---
-    - name: Setup Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: Create Backend Virtualenv & Install Requirements
-      shell: bash
-      run: |
-        cd meridian_backend
-        python -m venv venv
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
-          ./venv/Scripts/pip.exe install pyinstaller || true
-          ./venv/Scripts/pip.exe install -r requirements.txt || true
-        else
-          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
-          ./venv/bin/pip install pyinstaller || true
-          ./venv/bin/pip install -r requirements.txt || true
-        fi
-
-    - name: Compile Standalone Backend Sidecar
-      shell: bash
-      run: |
-        python build_standalone.py --sidecar-only
 
     # --- Install NSIS (Windows only) ---
     - name: Install NSIS
