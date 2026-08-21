@@ -52,7 +52,7 @@ def publish_nudge_sync(
     icon: str = "💡",
     mascot_state: str = "default",
     action: Optional[str] = None,
-    patch: Optional[dict] = None
+    patch: Optional[Dict[str, Any]] = None
 ):
     """Thread-safe helper: schedule nudge publish onto the running event loop."""
     # Suppress notifications if Game Mode is active, unless it is a game mode state update
@@ -60,7 +60,7 @@ def publish_nudge_sync(
         print(f"[Proactive] Suppressed nudge '{title}' due to active Game Mode.")
         return
 
-    payload = {
+    payload: Dict[str, Any] = {
         "type": nudge_type,
         "title": title,
         "message": message,
@@ -154,7 +154,7 @@ def on_user_motion_return():
 CPU_WARN_THRESHOLD = 85.0      # %
 RAM_WARN_THRESHOLD = 88.0      # %
 DISK_WARN_THRESHOLD = 90.0     # % used
-DISK_PATH = "C:\\"
+DISK_PATH = os.path.abspath(os.sep)
 
 # Cooldown: don't repeat the same alert within N seconds
 _last_cpu_alert: float = 0.0
@@ -185,7 +185,7 @@ def check_system_health():
 
     try:
         # CPU
-        cpu = psutil.cpu_percent(interval=1.0)
+        cpu = psutil.cpu_percent(interval=0.1)
         if cpu > cpu_warn_threshold and (now - _last_cpu_alert) > _health_cooldown:
             _last_cpu_alert = now
             # Try to identify top CPU process
@@ -297,7 +297,7 @@ def check_idle_time():
     if idle_minutes >= IDLE_THRESHOLD_MINUTES and (now - _last_idle_nudge) > IDLE_NUDGE_COOLDOWN:
         _last_idle_nudge = now
         # Rotate suggestions based on hour
-        idx = int(datetime.now().hour) % len(IDLE_SUGGESTIONS)
+        idx = datetime.now().hour % len(IDLE_SUGGESTIONS)
         title, message = IDLE_SUGGESTIONS[idx]
         publish_nudge_sync(
             nudge_type="idle_nudge",
@@ -612,15 +612,47 @@ def get_active_process_and_title() -> tuple[str, str, Optional[int]]:
             pass
     elif sys_platform == "Darwin":
         try:
-            cmd = "osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'"
-            title = subprocess.check_output(cmd, shell=True, timeout=2.0).decode("utf-8", errors="ignore").strip()
-            proc_name = title
+            cmd = ["osascript", "-e", 'tell application "System Events" to set frontApp to first application process whose frontmost is true\nget {name, unix id} of frontApp']
+            out = subprocess.check_output(cmd, timeout=2.0).decode("utf-8", errors="ignore").strip()
+            parts = [p.strip() for p in out.split(",")]
+            if parts:
+                proc_name = parts[0]
+                title = parts[0]
+                if len(parts) > 1 and parts[1].isdigit():
+                    pid_val = int(parts[1])
         except Exception:
             pass
+    elif sys_platform == "Linux":
+        try:
+            import psutil
+            # 1. Get active window PID via xdotool
+            pid_out = subprocess.check_output(["xdotool", "getactivewindow", "getwindowpid"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+            if pid_out.isdigit():
+                pid_val = int(pid_out)
+                proc_name = psutil.Process(pid_val).name()
+            # 2. Get active window name via xdotool
+            title_out = subprocess.check_output(["xdotool", "getactivewindow", "getwindowname"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+            title = title_out
+        except Exception:
+            pass
+
     return proc_name, title, pid_val
 
 def is_system_busy_or_fullscreen(hwnd) -> bool:
     sys_platform = platform.system()
+    if sys_platform == "Linux":
+        try:
+            # Check if active window has _NET_WM_STATE_FULLSCREEN
+            out = subprocess.check_output(["xprop", "-root", "_NET_ACTIVE_WINDOW"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8")
+            win_id = out.split()[-1]
+            if win_id and win_id != "0x0":
+                prop_out = subprocess.check_output(["xprop", "-id", win_id, "_NET_WM_STATE"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8")
+                if "_NET_WM_STATE_FULLSCREEN" in prop_out:
+                    return True
+        except Exception:
+            pass
+        return False
+
     if sys_platform != "Windows":
         return False
         
@@ -663,6 +695,7 @@ def is_system_busy_or_fullscreen(hwnd) -> bool:
         pass
         
     return False
+
 
 def is_game_process_running(pid: int, expected_name: str) -> bool:
     if not pid or not expected_name:
@@ -805,7 +838,7 @@ def toggle_focus_guard(enabled: bool) -> str:
     status_str = "enabled" if enabled else "disabled"
     return f"Smart Focus Guard is now {status_str}."
 
-def generate_focus_digest() -> dict:
+def generate_focus_digest() -> Dict[str, Any]:
     """Generates consolidated digest of suppressed notifications upon taking a break (AST-06)."""
     digest = {
         "suppressed_count": len(_suppressed_nudges_buffer),
@@ -814,19 +847,6 @@ def generate_focus_digest() -> dict:
     }
     _suppressed_nudges_buffer.clear()
     return digest
-        
-    # Active Window Context (App-Aware Focus)
-    ides = ["visual studio code", "vscode", "cursor", "pycharm", "sublime text", "notepad++"]
-    if any(ide in title_lower for ide in ides) and title != _last_window_title:
-        _last_window_title = title
-        publish_nudge_sync(
-            nudge_type="app_context",
-            title="🖥️ IDE Focus Detected",
-            message=f"Focused on IDE: '{title[:40]}'. Let me know if you need code generation, reviews, or refactoring.",
-            action_hint="Suggest code task",
-            icon="💻",
-            mascot_state="diagnostic"
-        )
 
 # ──────────────────────────────────────────────
 # 6. SMART BATTERY & RESOURCE SAVER

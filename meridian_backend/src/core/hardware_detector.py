@@ -21,7 +21,9 @@ def detect_hardware_specs() -> Dict[str, Any]:
     vram_gb: float = 0.0
     gpu_name = "None"
 
-    # Attempt to detect NVIDIA GPU via pynvml
+    # Attempt to detect NVIDIA GPU via pynvml, Apple Silicon, or AMD ROCm
+    import platform
+    sys_os = platform.system()
     try:
         import pynvml  # type: ignore
         pynvml.nvmlInit()
@@ -40,11 +42,37 @@ def detect_hardware_specs() -> Dict[str, Any]:
     except Exception as e:
         logger.debug(f"NVIDIA GPU detection skipped: {e}")
 
+    # Fallback to Apple Silicon Metal Unified Memory
+    if not has_gpu and sys_os == "Darwin":
+        try:
+            import subprocess
+            res = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], stderr=subprocess.DEVNULL).decode('utf-8').strip()
+            if "Apple" in res or platform.machine() == "arm64":
+                has_gpu = True
+                gpu_name = f"Apple Silicon Metal ({res or 'M-Series'})"
+                # Unified memory available for Metal GPU shaders (~75% of RAM)
+                vram_gb = round(ram_gb * 0.75, 1)
+        except Exception:
+            pass
+
+    # Fallback to AMD ROCm
+    if not has_gpu and sys_os == "Linux":
+        try:
+            import subprocess
+            res = subprocess.check_output(["rocm-smi", "--showproductname"], stderr=subprocess.DEVNULL).decode('utf-8')
+            if "Card" in res or "GPU" in res:
+                has_gpu = True
+                gpu_name = "AMD Radeon (ROCm)"
+                vram_gb = round(ram_gb * 0.5, 1)
+        except Exception:
+            pass
+
     gpu_info: GpuInfo = {
         "has_gpu": has_gpu,
         "vram_gb": vram_gb,
         "name": gpu_name
     }
+
 
     # Determine recommended model tier
     tier = "entry"

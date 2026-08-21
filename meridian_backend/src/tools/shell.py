@@ -98,8 +98,9 @@ def nl_run(natural_language: str) -> str:
         
     print(f"[NL Shell] Running translated command: '{command}'")
     try:
+        sys_os = platform.system()
         # Run shell command dynamically based on OS platform
-        if platform.system() == "Windows":
+        if sys_os == "Windows":
             cmd_args = ["powershell", "-Command", command]
         else:
             cmd_args = ["/bin/sh", "-c", command]
@@ -109,7 +110,7 @@ def nl_run(natural_language: str) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=(platform.system() == "Windows")
+            shell=False
         )
         status = "SUCCESS" if res.returncode == 0 else "FAILED"
         log_sensitive_action(
@@ -133,8 +134,9 @@ def nl_run(natural_language: str) -> str:
                 client = ollama.Client(host=get_ollama_client_host())
                 model = get_brain_model()
                 
+                shell_name = "Windows PowerShell" if sys_os == "Windows" else "Bash/Zsh terminal"
                 prompt = (
-                    f"You are a command line terminal self-healing assistant. A Windows PowerShell command just failed.\n"
+                    f"You are a command line terminal self-healing assistant. A {shell_name} command just failed.\n"
                     f"Failed Command: {command}\n"
                     f"Exit Code: {res.returncode}\n"
                     f"Error Output (stderr):\n{res.stderr}\n"
@@ -161,7 +163,7 @@ def nl_run(natural_language: str) -> str:
                         icon="💻",
                         mascot_state="diagnostic",
                         action="run_repair",
-                        patch={"file_path": "PowerShell", "proposed": fix_command, "original": command, "error_message": res.stderr}
+                        patch={"file_path": "Terminal" if sys_os != "Windows" else "PowerShell", "proposed": fix_command, "original": command, "error_message": res.stderr}
                     )
                 except Exception as ex:
                     print(f"[Terminal Self-Healing] Failed to dispatch nudge: {ex}")
@@ -207,35 +209,39 @@ def monitor_process(command: str, duration_seconds: float = 5.0) -> str:
     """Executes a command and monitors its stdout/stderr in real-time for a specific duration, returning the output."""
     import subprocess
     import time
+    import platform
     
     print(f"[Process Monitor] Running command: {command} for {duration_seconds}s...")
     try:
+        sys_os = platform.system()
+        cmd_args = ["powershell", "-Command", command] if sys_os == "Windows" else ["/bin/sh", "-c", command]
         proc = subprocess.Popen(
-            ["powershell", "-Command", command],
+            cmd_args,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            shell=True
+            shell=False
         )
         
         start_time = time.time()
         stdout_lines = []
         stderr_lines = []
         
-        import select, sys
         while time.time() - start_time < duration_seconds:
             ret = proc.poll()
             # Non-blocking read: try to drain available output without blocking forever
             try:
-                line = proc.stdout.readline()
-                if line:
-                    stdout_lines.append(line)
+                if proc.stdout is not None:
+                    line = proc.stdout.readline()
+                    if line:
+                        stdout_lines.append(line)
             except Exception:
                 pass
             try:
-                err_line = proc.stderr.readline()
-                if err_line:
-                    stderr_lines.append(err_line)
+                if proc.stderr is not None:
+                    err_line = proc.stderr.readline()
+                    if err_line:
+                        stderr_lines.append(err_line)
             except Exception:
                 pass
             
@@ -272,4 +278,5 @@ def monitor_process(command: str, duration_seconds: float = 5.0) -> str:
         return "\n".join(report)
     except Exception as e:
         return f"Process monitoring failed: {e}"
+
 

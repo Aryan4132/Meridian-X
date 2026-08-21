@@ -1,3 +1,4 @@
+import platform
 import subprocess
 import csv
 import sys
@@ -6,11 +7,118 @@ from src.core.history_manager import find_workspace_root
 
 def _get_pythonw_path() -> str:
     py = sys.executable
-    if py.endswith("python.exe"):
-        pyw = py.replace("python.exe", "pythonw.exe")
-        if os.path.exists(pyw):
-            return pyw
+    if platform.system() == "Windows":
+        if py.endswith("python.exe"):
+            pyw = py.replace("python.exe", "pythonw.exe")
+            if os.path.exists(pyw):
+                return pyw
     return py
+
+def schedule_daily(task_name: str, goal: str, start_time: str) -> str:
+    """Cross-platform daily task scheduler (Windows schtasks / Linux crontab / macOS launchd)."""
+    sys_os = platform.system()
+    if sys_os == "Windows":
+        return win_schedule_daily(task_name, goal, start_time)
+    
+    # Linux & macOS: Crontab fallback
+    try:
+        parts = start_time.split(":")
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        hour = int(parts[0]) if len(parts) > 0 else 0
+        
+        root = find_workspace_root()
+        main_py = os.path.join(root, "main.py")
+        py = sys.executable
+        comment = f"# Meridian_{task_name}"
+        cron_job = f"{minute} {hour} * * * cd '{root}' && '{py}' '{main_py}' --goal '{goal}' {comment}\n"
+        
+        res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        current_cron = res.stdout if res.returncode == 0 else ""
+        
+        # Remove existing task if matching comment
+        new_cron_lines = [line for line in current_cron.splitlines() if comment not in line]
+        new_cron_lines.append(cron_job.strip())
+        new_cron_str = "\n".join(new_cron_lines) + "\n"
+        
+        p = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+        p.communicate(input=new_cron_str)
+        return f"Successfully scheduled daily task 'Meridian_{task_name}' at {start_time} via crontab."
+    except Exception as e:
+        return f"Failed to schedule daily task on {sys_os}: {e}"
+
+def schedule_once(task_name: str, goal: str, start_date: str, start_time: str) -> str:
+    """Cross-platform one-shot task scheduler."""
+    sys_os = platform.system()
+    if sys_os == "Windows":
+        return win_schedule_once(task_name, goal, start_date, start_time)
+    
+    # Unix 'at' or crontab one-shot fallback
+    try:
+        parts = start_time.split(":")
+        minute = int(parts[1]) if len(parts) > 1 else 0
+        hour = int(parts[0]) if len(parts) > 0 else 0
+        
+        # Parse date YYYY-MM-DD
+        date_parts = start_date.split("-")
+        day = int(date_parts[2]) if len(date_parts) > 2 else 1
+        month = int(date_parts[1]) if len(date_parts) > 1 else 1
+        
+        root = find_workspace_root()
+        main_py = os.path.join(root, "main.py")
+        py = sys.executable
+        comment = f"# Meridian_{task_name}"
+        cron_job = f"{minute} {hour} {day} {month} * cd '{root}' && '{py}' '{main_py}' --goal '{goal}' {comment}\n"
+        
+        res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        current_cron = res.stdout if res.returncode == 0 else ""
+        new_cron_lines = [line for line in current_cron.splitlines() if comment not in line]
+        new_cron_lines.append(cron_job.strip())
+        new_cron_str = "\n".join(new_cron_lines) + "\n"
+        
+        p = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+        p.communicate(input=new_cron_str)
+        return f"Successfully scheduled one-shot task 'Meridian_{task_name}' on {start_date} at {start_time} via crontab."
+    except Exception as e:
+        return f"Failed to schedule one-shot task on {sys_os}: {e}"
+
+def list_tasks() -> str:
+    """Cross-platform list scheduled tasks."""
+    sys_os = platform.system()
+    if sys_os == "Windows":
+        return win_list_tasks()
+    
+    try:
+        res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if res.returncode != 0 or not res.stdout.strip():
+            return "No scheduled Meridian tasks found in crontab."
+        lines = ["Active Scheduled Unix Crontab Tasks:"]
+        for line in res.stdout.splitlines():
+            if "# Meridian_" in line:
+                lines.append(f"- {line}")
+        return "\n".join(lines) if len(lines) > 1 else "No scheduled Meridian tasks found in crontab."
+    except Exception as e:
+        return f"Failed to list tasks on {sys_os}: {e}"
+
+def delete_task(task_name: str) -> str:
+    """Cross-platform delete scheduled task."""
+    sys_os = platform.system()
+    if sys_os == "Windows":
+        return win_delete_task(task_name)
+        
+    try:
+        comment = f"# Meridian_{task_name}"
+        res = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if res.returncode == 0 and res.stdout:
+            lines = [line for line in res.stdout.splitlines() if comment not in line]
+            new_cron_str = "\n".join(lines) + "\n"
+            p = subprocess.Popen(["crontab", "-"], stdin=subprocess.PIPE, text=True)
+            p.communicate(input=new_cron_str)
+            return f"Successfully deleted task 'Meridian_{task_name}' from crontab."
+        return f"Task 'Meridian_{task_name}' not found."
+    except Exception as e:
+        return f"Failed to delete task on {sys_os}: {e}"
+
+# --- Windows explicit implementations ---
 
 def win_schedule_daily(task_name: str, goal: str, start_time: str) -> str:
     """Schedule a daily recurring task in Windows Task Scheduler.
@@ -116,9 +224,6 @@ def win_list_tasks_raw() -> list:
                     
         tasks = []
         for row in reader:
-            # BUG-49 fix: explicitly guard against -1 indices. max(indices.values())==-1
-            # when no column is found, making `len(row) <= -1` always False (never skips).
-            # Accessing row[-1] returns last column silently with wrong data.
             max_idx = max(indices.values())
             if not row or max_idx < 0 or len(row) <= max_idx:
                 continue
@@ -173,3 +278,4 @@ def win_delete_task(task_name: str) -> str:
         return f"Successfully deleted scheduled OS task '{full_name}'."
     except subprocess.CalledProcessError as e:
         return f"Error deleting scheduled task: {e.stderr.strip() or e.stdout.strip()}"
+

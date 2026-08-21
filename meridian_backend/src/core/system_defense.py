@@ -15,7 +15,8 @@ def get_system_health_status() -> Dict[str, Any]:
     """Retrieves real-time CPU, RAM, disk usage, and temperature metrics."""
     cpu_pct = psutil.cpu_percent(interval=0.1)
     ram = psutil.virtual_memory()
-    disk = psutil.disk_usage("/")
+    root_dir = os.path.abspath(os.sep)
+    disk = psutil.disk_usage(root_dir)
     
     return {
         "cpu_percent": cpu_pct,
@@ -41,15 +42,22 @@ def isolate_rogue_processes(max_cpu_pct: float = 95.0) -> List[int]:
     terminated_pids = []
     current_pid = os.getpid()
     
+    CORE_SYSTEM_PROCESSES = (
+        "system", "explorer.exe", "svchost.exe", "services.exe", "csrss.exe",
+        "kernel_task", "launchd", "windowserver", "syslogd",
+        "systemd", "init", "kthreadd", "xorg", "gnome-shell", "wayland"
+    )
+
     for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
         try:
             if proc.info['pid'] != current_pid and proc.info['cpu_percent'] and proc.info['cpu_percent'] > max_cpu_pct:
                 proc_name = proc.info['name'].lower()
                 # Do not kill core system processes
-                if proc_name not in ("system", "explorer.exe", "svchost.exe", "kernel_task"):
+                if proc_name not in CORE_SYSTEM_PROCESSES:
                     logger.warning(f"[System Defense] Rogue process detected: PID {proc.info['pid']} ({proc_name}) using {proc.info['cpu_percent']}% CPU.")
                     terminated_pids.append(proc.info['pid'])
         except (psutil.NoSuchProcess, psutil.AccessDenied):
             pass
             
     return terminated_pids
+

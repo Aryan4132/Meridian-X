@@ -247,7 +247,7 @@ class AutonomousBugFixer:
 
         total = passed + failed
 
-        current_failure = None
+        current_failure: Optional[Dict[str, Any]] = None
         in_failure_section = False
 
         for line in lines:
