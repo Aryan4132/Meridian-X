@@ -16,6 +16,7 @@ import {
   Play
 } from 'lucide-react';
 import { Mascot3DCharacter } from './Mascot3DCharacter';
+import { API_BASE_URL } from './config';
 
 
 const THEME_COLORS: Record<string, { accent: string; bg: string; border: string }> = {
@@ -150,8 +151,6 @@ const playSoundEffect = (state: string) => {
     console.error("Web Audio synthesis error:", err);
   }
 };
-
-const API_BASE_URL = 'http://127.0.0.1:4132';
 
 export default function Mascot({ mascotState: propMascotState }: { mascotState?: string }) {
   const [mascotState, setMascotState] = useState<string>('default');
@@ -425,9 +424,12 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const handleOpenDashboard = async () => {
     if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ !== undefined) {
       try {
-        await invoke('set_mascot_visible', { visible: false });
+        await invoke('show_main_window');
       } catch (err) {
         console.error("Failed triggering main visibility:", err);
+        try {
+          await invoke('set_mascot_visible', { visible: false });
+        } catch (e) {}
       }
     }
   };

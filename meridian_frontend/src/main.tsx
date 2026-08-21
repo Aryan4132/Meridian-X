@@ -56,8 +56,10 @@ if (typeof window !== 'undefined') {
 }
 
 import { OnboardingWizard } from './startup/OnboardingWizard';
+import { BackendSetup } from './startup/BackendSetup';
+import { invoke } from '@tauri-apps/api/core';
 
-type AppStage = 'boot' | 'onboarding' | 'setup' | 'shell';
+type AppStage = 'download' | 'boot' | 'onboarding' | 'setup' | 'shell';
 
 function MainRouter() {
   const [windowType, setWindowType] = useState<'main' | 'mascot'>('main');
@@ -73,8 +75,23 @@ function MainRouter() {
       setWindowType('main');
       document.documentElement.classList.remove('mascot-html');
       document.body.classList.remove('mascot-body');
+
+      // Check if backend binary exists in production Tauri environment
+      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ && !import.meta.env.DEV) {
+        invoke<boolean>('check_backend_installed')
+          .then((installed) => {
+            if (!installed) {
+              setStage('download');
+            }
+          })
+          .catch((e) => console.warn('Could not check backend status:', e));
+      }
     }
   }, []);
+
+  const onDownloadComplete = () => {
+    setStage('boot');
+  };
 
   const onBootComplete = async () => {
     try {
@@ -113,6 +130,7 @@ function MainRouter() {
 
   return (
     <AppProvider>
+      {stage === 'download'   && <BackendSetup onComplete={onDownloadComplete} />}
       {stage === 'boot'       && <BootSequence onComplete={onBootComplete} />}
       {stage === 'onboarding' && <OnboardingWizard onComplete={onOnboardingComplete} />}
       {stage === 'setup'      && <SetupWizard onComplete={onSetupComplete} />}

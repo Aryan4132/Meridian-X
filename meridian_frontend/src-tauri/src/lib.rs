@@ -4,14 +4,87 @@ use tauri::{
     menu::{MenuBuilder, MenuItem},
     tray::TrayIconBuilder,
 };
-
-#[cfg(not(debug_assertions))]
 use std::sync::Mutex;
-#[cfg(not(debug_assertions))]
 use std::process::Child;
 
-#[cfg(not(debug_assertions))]
 static BACKEND_CHILD: Mutex<Option<Child>> = Mutex::new(None);
+
+/// Check if the Python backend binary is installed in the app data dir.
+#[tauri::command]
+fn check_backend_installed(app: tauri::AppHandle) -> bool {
+    let api_rel = if cfg!(target_os = "windows") { "api/api.exe" } else { "api/api" };
+    if let Ok(data_dir) = app.path().app_local_data_dir() {
+        let path = data_dir.join("Meridian").join(api_rel);
+        return path.exists();
+    }
+    false
+}
+
+/// Return the current app version (used by frontend to build the download URL).
+#[tauri::command]
+fn get_app_version() -> String {
+    env!("CARGO_PKG_VERSION").to_string()
+}
+
+/// Show the main dashboard window and hide the mascot.
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) {
+    if let Some(main_window) = app.get_webview_window("main") {
+        let _ = main_window.show();
+        let _ = main_window.set_focus();
+        let _ = main_window.maximize();
+    }
+    if let Some(mascot_window) = app.get_webview_window("mascot") {
+        let _ = mascot_window.hide();
+    }
+}
+
+/// Extract a zip archive (raw bytes from frontend) into the Meridian app data dir.
+#[tauri::command]
+fn extract_backend_zip(app: tauri::AppHandle, zip_bytes: Vec<u8>) -> Result<(), String> {
+    let data_dir = app.path().app_local_data_dir()
+        .map_err(|e| format!("Cannot resolve app data dir: {e}"))?;
+    let extract_to = data_dir.join("Meridian");
+    std::fs::create_dir_all(&extract_to)
+        .map_err(|e| format!("Cannot create Meridian dir: {e}"))?;
+
+    let cursor = std::io::Cursor::new(zip_bytes);
+    let mut archive = zip::ZipArchive::new(cursor)
+        .map_err(|e| format!("Invalid zip archive: {e}"))?;
+
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
+        let outpath = match file.enclosed_name() {
+            Some(p) => extract_to.join(p),
+            None => continue,
+        };
+        if file.name().ends_with('/') {
+            std::fs::create_dir_all(&outpath).map_err(|e| e.to_string())?;
+        } else {
+            if let Some(p) = outpath.parent() {
+                std::fs::create_dir_all(p).map_err(|e| e.to_string())?;
+            }
+            let mut outfile = std::fs::File::create(&outpath).map_err(|e| e.to_string())?;
+            std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
+
+            // Set executable bit on unix
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let name = outpath.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                let is_script = !name.ends_with(".py") && !name.ends_with(".txt")
+                    && !name.ends_with(".json") && !name.ends_with(".md")
+                    && !name.ends_with(".onnx") && !name.ends_with(".tflite");
+                if is_script {
+                    let mut perms = outfile.metadata().map_err(|e| e.to_string())?.permissions();
+                    perms.set_mode(0o755);
+                    std::fs::set_permissions(&outpath, perms).map_err(|e| e.to_string())?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
 
 #[tauri::command]
 fn set_island_mode(window: tauri::WebviewWindow, enable: bool) {
@@ -259,7 +332,18 @@ fn open_url(url: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![set_island_mode, trigger_backend_restart, set_mascot_visible, close_application, toggle_game_mode, open_url])
+        .invoke_handler(tauri::generate_handler![
+            set_island_mode,
+            trigger_backend_restart,
+            set_mascot_visible,
+            close_application,
+            toggle_game_mode,
+            open_url,
+            check_backend_installed,
+            get_app_version,
+            show_main_window,
+            extract_backend_zip,
+        ])
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
@@ -374,17 +458,21 @@ pub fn run() {
                     "api/api"
                 };
 
-                // Try resolving via standard Resource directory first
-                if let Ok(res_path) = app_handle.path().resolve(api_rel_path, tauri::path::BaseDirectory::Resource) {
-                    if res_path.exists() {
-                        api_exe_path = Some(res_path);
+                // Resolve backend binary from app local data dir (downloaded at first launch)
+                // Path: %LOCALAPPDATA%/meridian-x/Meridian/api/api[.exe]
+                if api_exe_path.is_none() {
+                    if let Ok(data_dir) = app_handle.path().app_local_data_dir() {
+                        let candidate = data_dir.join("Meridian").join(api_rel_path);
+                        if candidate.exists() {
+                            api_exe_path = Some(candidate);
+                        }
                     }
                 }
 
-                // Fallback: check sibling api directory relative to current executable (useful when running from target/release directly)
+                // Fallback: check sibling api directory relative to current executable
                 if api_exe_path.is_none() {
                     if let Ok(mut exe_path) = std::env::current_exe() {
-                        exe_path.pop(); // Remove executable name
+                        exe_path.pop();
                         let local_api = exe_path.join(api_rel_path);
                         if local_api.exists() {
                             api_exe_path = Some(local_api);
@@ -393,15 +481,20 @@ pub fn run() {
                 }
 
                 if let Some(api_exe_path) = api_exe_path {
-                    // Get OS app local data directory: %LOCALAPPDATA%/meridian-x
-                    if let Ok(app_local_data_dir) = app_handle.path().app_local_data_dir() {
-                            let data_dir = app_local_data_dir.join("Meridian");
-                            let _ = std::fs::create_dir_all(&data_dir);
-                            
+                    // Get OS app local data directory: %LOCALAPPDATA%/meridian-x/Meridian
+                    let data_dir = if let Ok(app_local_data_dir) = app_handle.path().app_local_data_dir() {
+                        let d = app_local_data_dir.join("Meridian");
+                        let _ = std::fs::create_dir_all(&d);
+                        d
+                    } else {
+                        api_exe_path.parent().unwrap_or(&api_exe_path).to_path_buf()
+                    };
+
+                    {
                             log::info!("Spawning backend sidecar: {:?}", api_exe_path);
                             let mut cmd = std::process::Command::new(&api_exe_path);
                             
-                            // Set CWD to resources/api directory
+                            // Set CWD to api directory so relative model paths resolve
                             if let Some(parent) = api_exe_path.parent() {
                                 cmd.current_dir(parent);
                             }
@@ -413,7 +506,6 @@ pub fn run() {
                             
                             #[cfg(target_os = "windows")]
                             {
-                                // On Windows, run the process in the background without opening a command window
                                 use std::os::windows::process::CommandExt;
                                 const CREATE_NO_WINDOW: u32 = 0x08000000;
                                 cmd.creation_flags(CREATE_NO_WINDOW);
@@ -429,7 +521,7 @@ pub fn run() {
                                 }
                             }
 
-                            // Redirect stdout and stderr to log files inside data_dir to prevent BrokenPipe crash when launched from macOS GUI/Finder
+                            // Redirect stdout and stderr to log files to prevent BrokenPipe crash when launched from macOS GUI/Finder
                             if let Ok(out_f) = std::fs::File::create(data_dir.join("api_stdout.log")) {
                                 cmd.stdout(std::process::Stdio::from(out_f));
                             }
