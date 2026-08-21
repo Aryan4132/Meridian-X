@@ -59,6 +59,7 @@ def main():
     add_data_str = " ".join(add_data_args)
     pyinstaller_cmd = (
         f'"{pyinstaller_exe}" --name api --onedir --clean --noconfirm '
+        f'--collect-all fastapi --collect-all uvicorn --collect-all pydantic --collect-all starlette '
         f'{add_data_str} '
         f'api.py'
     )
