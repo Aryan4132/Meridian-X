@@ -14,6 +14,15 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+if [ "$(uname -s)" = "Linux" ]; then
+    if ! command -v xclip &> /dev/null && ! command -v xsel &> /dev/null; then
+        echo "[Notice] 'xclip' or 'xsel' recommended for clipboard history monitoring on Linux."
+    fi
+    if ! command -v xdotool &> /dev/null; then
+        echo "[Notice] 'xdotool' recommended for active window tracking on Linux."
+    fi
+fi
+
 if [ ! -d "meridian_backend" ]; then
     echo "[1/3] Cloning Meridian-X repository..."
     git clone https://github.com/Aryan4132/Meridian-X.git

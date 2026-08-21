@@ -103,6 +103,8 @@ def close_window(title: str) -> str:
     return f"Sent close command to window: '{win.title}'"
 
 def get_active_window() -> str:
+    if pygetwindow is None:
+        return "Window management is unavailable on this platform (Linux/macOS)."
     try:
         win = pygetwindow.getActiveWindow()
         return f"Active Window: '{win.title}'" if win else "No active window detected"
@@ -110,6 +112,8 @@ def get_active_window() -> str:
         return f"Failed to get active window: {str(e)}"
 
 def wait_for_window(title: str, timeout: int = 5) -> str:
+    if pygetwindow is None:
+        return "Window management is unavailable on this platform (Linux/macOS)."
     start = time.time()
     while time.time() - start < timeout:
         wins = pygetwindow.getWindowsWithTitle(title)
@@ -123,13 +127,27 @@ def wait_for_window(title: str, timeout: int = 5) -> str:
 def open_app(name_or_path: str) -> str:
     # BUG-42 fix: use shell=False to prevent shell injection via LLM-provided arguments.
     # With shell=True, a value like 'calc.exe & del /f C:\important' becomes an injection vector.
-    subprocess.Popen([name_or_path], shell=False)
+    import platform
+    sys_os = platform.system()
+    if sys_os == "Darwin":
+        subprocess.Popen(["open", "-a", name_or_path], shell=False)
+    elif sys_os == "Linux":
+        subprocess.Popen([name_or_path], shell=False)
+    else:
+        subprocess.Popen([name_or_path], shell=False)
     return f"Dispatched application launch for: {name_or_path}"
 
 def open_file(path: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
-    os.startfile(path)
+    import platform
+    sys_os = platform.system()
+    if sys_os == "Windows":
+        os.startfile(path)  # type: ignore[attr-defined]
+    elif sys_os == "Darwin":
+        subprocess.Popen(["open", path])
+    else:
+        subprocess.Popen(["xdg-open", path])
     return f"Opened file '{path}' with default system handler"
 
 def open_url_in_browser(url: str) -> str:
@@ -162,20 +180,27 @@ def get_system_info() -> str:
     )
 
 def get_hardware_info() -> str:
+    import platform
+    sys_os = platform.system()
     try:
-        # Run wmic commands on Windows
-        cpu_cmd = "wmic cpu get name"
-        mem_cmd = "wmic computersystem get totalphysicalmemory"
-        
-        cpu_out = subprocess.check_output(cpu_cmd, shell=True).decode('utf-8').split('\n')[1].strip()
-        mem_out = int(subprocess.check_output(mem_cmd, shell=True).decode('utf-8').split('\n')[1].strip())
-        
-        return (
-            f"CPU: {cpu_out}\n"
-            f"Physical Memory: {mem_out // (1024**3)} GB"
-        )
+        if sys_os == "Windows":
+            cpu_cmd = ["wmic", "cpu", "get", "name"]
+            mem_cmd = ["wmic", "computersystem", "get", "totalphysicalmemory"]
+            cpu_out = subprocess.check_output(cpu_cmd, shell=False).decode('utf-8', errors='ignore').split('\n')[1].strip()
+            mem_out = int(subprocess.check_output(mem_cmd, shell=False).decode('utf-8', errors='ignore').split('\n')[1].strip())
+            return f"CPU: {cpu_out}\nPhysical Memory: {mem_out // (1024**3)} GB"
+        elif sys_os == "Darwin":
+            cpu_out = subprocess.check_output(["sysctl", "-n", "machdep.cpu.brand_string"], shell=False).decode('utf-8').strip()
+            mem_bytes = int(subprocess.check_output(["sysctl", "-n", "hw.memsize"], shell=False).decode('utf-8').strip())
+            return f"CPU: {cpu_out}\nPhysical Memory: {mem_bytes // (1024**3)} GB"
+        else:
+            # Linux fallback
+            cpu_out = subprocess.check_output("lscpu | grep 'Model name' | cut -d: -f2", shell=True).decode('utf-8').strip()
+            mem_bytes = psutil.virtual_memory().total
+            return f"CPU: {cpu_out or 'Generic Linux CPU'}\nPhysical Memory: {mem_bytes // (1024**3)} GB"
     except Exception:
-        return "OS: Windows (Direct hardware querying failed)"
+        mem_bytes = psutil.virtual_memory().total
+        return f"OS: {sys_os} (RAM: {mem_bytes // (1024**3)} GB)"
 
 def get_disk_info() -> str:
     lines = []
@@ -209,78 +234,147 @@ def get_temperature() -> str:
 
 
 def list_startup_items() -> str:
-    import winreg
+    import platform
+    sys_os = platform.system()
     items = []
-    paths = [
-        (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run"),
-        (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Run")
-    ]
-    for hive, path in paths:
+    if sys_os == "Windows":
         try:
-            with winreg.OpenKey(hive, path) as key:
-                count = winreg.QueryInfoKey(key)[1]
-                for i in range(count):
-                    name, val, _ = winreg.EnumValue(key, i)
-                    items.append(f"{name} -> {val}")
+            import winreg
+            paths = [
+                (winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Run"),
+                (winreg.HKEY_LOCAL_MACHINE, r"Software\Microsoft\Windows\CurrentVersion\Run")
+            ]
+            for hive, path in paths:
+                try:
+                    with winreg.OpenKey(hive, path) as key:
+                        count = winreg.QueryInfoKey(key)[1]
+                        for i in range(count):
+                            name, val, _ = winreg.EnumValue(key, i)
+                            items.append(f"{name} -> {val}")
+                except Exception:
+                    pass
         except Exception:
             pass
-    return "\n".join(items) if items else "No startup key registry entries found."
+    elif sys_os == "Darwin":
+        launch_dir = os.path.expanduser("~/Library/LaunchAgents")
+        if os.path.exists(launch_dir):
+            for f in os.listdir(launch_dir):
+                if f.endswith(".plist"):
+                    items.append(f"macOS LaunchAgent -> {f}")
+    elif sys_os == "Linux":
+        auto_dir = os.path.expanduser("~/.config/autostart")
+        if os.path.exists(auto_dir):
+            for f in os.listdir(auto_dir):
+                if f.endswith(".desktop"):
+                    items.append(f"Linux Autostart -> {f}")
+    return "\n".join(items) if items else "No startup entries found."
 
 def list_installed_apps() -> str:
-    import winreg
+    import platform
+    sys_os = platform.system()
     apps = []
-    path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
-    hives = [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]
-    
-    for hive in hives:
+    if sys_os == "Windows":
         try:
-            with winreg.OpenKey(hive, path) as key:
-                subkeys_count = winreg.QueryInfoKey(key)[0]
-                for i in range(subkeys_count):
-                    subkey_name = winreg.EnumKey(key, i)
-                    try:
-                        with winreg.OpenKey(key, subkey_name) as subkey:
-                            name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+            import winreg
+            path = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
+            hives = [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]
+            
+            for hive in hives:
+                try:
+                    with winreg.OpenKey(hive, path) as key:
+                        subkeys_count = winreg.QueryInfoKey(key)[0]
+                        for i in range(subkeys_count):
+                            subkey_name = winreg.EnumKey(key, i)
                             try:
-                                ver = winreg.QueryValueEx(subkey, "DisplayVersion")[0]
+                                with winreg.OpenKey(key, subkey_name) as subkey:
+                                    name = winreg.QueryValueEx(subkey, "DisplayName")[0]
+                                    try:
+                                        ver = winreg.QueryValueEx(subkey, "DisplayVersion")[0]
+                                    except Exception:
+                                        ver = "Unknown"
+                                    apps.append(f"{name} (v{ver})")
                             except Exception:
-                                ver = "Unknown"
-                            apps.append(f"{name} (v{ver})")
-                    except Exception:
-                        pass
+                                pass
+                except Exception:
+                    pass
         except Exception:
             pass
-            
-    # Sort and remove duplicates
+    elif sys_os == "Darwin":
+        app_dirs = ["/Applications", os.path.expanduser("~/Applications")]
+        for adir in app_dirs:
+            if os.path.exists(adir):
+                for app in os.listdir(adir):
+                    if app.endswith(".app"):
+                        apps.append(app.replace(".app", ""))
+    elif sys_os == "Linux":
+        app_dirs = ["/usr/share/applications", os.path.expanduser("~/.local/share/applications")]
+        for adir in app_dirs:
+            if os.path.exists(adir):
+                for f in os.listdir(adir):
+                    if f.endswith(".desktop"):
+                        apps.append(f.replace(".desktop", ""))
+
     unique_apps = sorted(list(set(apps)))
     return "\n".join(unique_apps[:100]) + (f"\n... (and {len(unique_apps)-100} more)" if len(unique_apps) > 100 else "")
 
 def list_services() -> str:
+    import platform
+    sys_os = platform.system()
     services = []
-    for s in psutil.win_service_iter():
+    if sys_os == "Windows" and hasattr(psutil, "win_service_iter"):
         try:
-            info = s.as_dict()
-            services.append(f"{info['name']} ({info['display_name']}) -> {info['status']}")
+            for s in psutil.win_service_iter():
+                try:
+                    info = s.as_dict()
+                    services.append(f"{info['name']} ({info['display_name']}) -> {info['status']}")
+                except Exception:
+                    pass
         except Exception:
             pass
-    return "\n".join(services[:50]) + (f"\n... ({len(services)-50} services total)" if len(services) > 50 else "")
+    elif sys_os == "Linux":
+        try:
+            out = subprocess.check_output(["systemctl", "list-units", "--type=service", "--no-pager", "--no-legend"], stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
+            for line in out.splitlines()[:50]:
+                services.append(line.strip())
+        except Exception:
+            pass
+    elif sys_os == "Darwin":
+        try:
+            out = subprocess.check_output(["launchctl", "list"], stderr=subprocess.DEVNULL).decode('utf-8', errors='ignore')
+            for line in out.splitlines()[1:51]:
+                services.append(line.strip())
+        except Exception:
+            pass
+
+    return "\n".join(services[:50]) if services else "Service monitoring not supported or empty on this platform."
 
 def start_service(name: str) -> str:
-    # N-2 fix: shell=False — service name is LLM-provided; shell=True allows injection
-    # (e.g., name='spooler & del /f C:\important').
+    import platform
+    sys_os = platform.system()
     try:
-        subprocess.check_call(["sc", "start", name], shell=False)
+        if sys_os == "Windows":
+            subprocess.check_call(["sc", "start", name], shell=False)
+        elif sys_os == "Linux":
+            subprocess.check_call(["systemctl", "start", name], shell=False)
+        elif sys_os == "Darwin":
+            subprocess.check_call(["launchctl", "start", name], shell=False)
         return f"Dispatched start command for service: {name}"
     except Exception as e:
-        return f"Failed to start service: {str(e)}"
+        return f"Failed to start service '{name}': {str(e)}"
 
 def stop_service(name: str) -> str:
-    # N-2 fix: same as start_service — shell=False with list.
+    import platform
+    sys_os = platform.system()
     try:
-        subprocess.check_call(["sc", "stop", name], shell=False)
+        if sys_os == "Windows":
+            subprocess.check_call(["sc", "stop", name], shell=False)
+        elif sys_os == "Linux":
+            subprocess.check_call(["systemctl", "stop", name], shell=False)
+        elif sys_os == "Darwin":
+            subprocess.check_call(["launchctl", "stop", name], shell=False)
         return f"Dispatched stop command for service: {name}"
     except Exception as e:
-        return f"Failed to stop service: {str(e)}"
+        return f"Failed to stop service '{name}': {str(e)}"
 
 # ----------------- PROCESS & NETWORK SERVICES -----------------
 
@@ -331,19 +425,33 @@ def get_network_connections() -> str:
 
 
 def get_wifi_networks() -> str:
+    import platform
+    sys_os = platform.system()
     try:
-        out = subprocess.check_output("netsh wlan show networks", shell=True).decode('utf-8', errors='ignore')
+        if sys_os == "Windows":
+            out = subprocess.check_output(["netsh", "wlan", "show", "networks"], shell=False).decode('utf-8', errors='ignore')
+        elif sys_os == "Darwin":
+            airport_path = "/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
+            if os.path.exists(airport_path):
+                out = subprocess.check_output([airport_path, "-s"], shell=False).decode('utf-8', errors='ignore')
+            else:
+                out = "Airport CLI utility not found on macOS."
+        else:
+            out = subprocess.check_output(["nmcli", "dev", "wifi"], shell=False).decode('utf-8', errors='ignore')
         return out
     except Exception as e:
         return f"Failed to list nearby WiFi networks: {str(e)}"
 
 def ping_host(host: str) -> str:
+    import platform
+    sys_os = platform.system()
+    count_flag = "-n" if sys_os == "Windows" else "-c"
     try:
-        # N-2 fix: shell=False with list; host is user-provided so must not be shell-interpolated.
-        out = subprocess.check_output(["ping", "-n", "3", host], shell=False).decode('utf-8', errors='ignore')
+        out = subprocess.check_output(["ping", count_flag, "3", host], shell=False).decode('utf-8', errors='ignore')
         return out
     except Exception as e:
         return f"Ping to {host} failed: {str(e)}"
+
 
 # ----------------- SYSTEM CLIPBOARD -----------------
 

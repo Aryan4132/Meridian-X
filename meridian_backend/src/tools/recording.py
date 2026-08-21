@@ -170,8 +170,10 @@ def replay_workflow(name: str) -> str:
                 # (accented, CJK, emoji). Use clipboard paste for full Unicode support.
                 try:
                     import pyperclip
+                    import platform
                     pyperclip.copy(text)
-                    pyautogui.hotkey('ctrl', 'v')
+                    paste_key = 'command' if platform.system() == 'Darwin' else 'ctrl'
+                    pyautogui.hotkey(paste_key, 'v')
                 except ImportError:
                     # Fallback to typewrite if pyperclip not available
                     pyautogui.typewrite(text)

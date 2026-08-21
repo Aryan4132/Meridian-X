@@ -1549,6 +1549,7 @@ async def run_react_agent_loop(
                         # #9 FIX: Parallel Consensus Overlap.
                         # Run process_final_response and QA Reviewer critique concurrently with asyncio.gather
                         # instead of serial waiting. Saves one full LLM latency round-trip.
+                        critique = ""
                         if model_source != "cloud":
                             yield sse_event("thought", json.dumps({
                                 "id": f"debate-init-{time.time()}",

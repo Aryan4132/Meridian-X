@@ -51,7 +51,7 @@ async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str 
     tasks = []
 
     for idx, call in enumerate(tool_calls):
-        tool_name = call.get("name")
+        tool_name = str(call.get("name") or "")
         tool_args = call.get("arguments", {})
 
         if not check_and_increment_retry(session_id, tool_name):

@@ -392,6 +392,34 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
             conn.close()
     return None
 
+def get_near_miss_semantic_cache(query_text: str, min_score: float = 0.60, max_score: float = 0.85) -> Optional[str]:
+    conn = None
+    try:
+        conn = get_sqlite_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM semantic_cache WHERE expires_at > ?", (time.time(),))
+        count = cursor.fetchone()[0]
+        if count > 0 and cache_index is not None:
+            vector = get_embedding(query_text)
+            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+            scores, ids = cache_index.search(vector_np, k=min(2, count))
+            if ids.size > 0 and ids[0].size > 0:
+                for score, id_val in zip(scores[0], ids[0]):
+                    if min_score <= score <= max_score:
+                        cursor.execute(
+                            "SELECT response_text FROM semantic_cache WHERE id = ? AND expires_at > ?",
+                            (int(id_val), time.time())
+                        )
+                        res = cursor.fetchone()
+                        if res and res["response_text"] and res["response_text"].strip():
+                            return res["response_text"]
+    except Exception as e:
+        print("[Semantic Cache] Near-miss lookup failed:", e)
+    finally:
+        if conn:
+            conn.close()
+    return None
+
 def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 24):
     ttl_seconds = ttl_hours * 3600
     expires_at = time.time() + ttl_seconds

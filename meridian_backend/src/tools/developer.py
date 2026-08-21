@@ -2,6 +2,22 @@ import os
 import tempfile
 import subprocess
 
+def _get_venv_executable(name: str) -> str:
+    import platform
+    sys_os = platform.system()
+    backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    bin_dir = "Scripts" if sys_os == "Windows" else "bin"
+    ext = ".exe" if sys_os == "Windows" else ""
+    target_path = os.path.join(backend_dir, "venv", bin_dir, f"{name}{ext}")
+    if os.path.exists(target_path):
+        return target_path
+    import shutil
+    which_path = shutil.which(name)
+    if which_path:
+        return which_path
+    return name
+
+
 def check_docker_available() -> bool:
     try:
         # Run docker info to check if Docker is running
@@ -75,10 +91,7 @@ def run_python(code: str, timeout: float = 10.0) -> str:
                 )
 
             # Fallback to host execution
-            backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-            python_exe = os.path.join(backend_dir, "venv", "Scripts", "python.exe")
-            if not os.path.exists(python_exe):
-                python_exe = "python" # Fallback to standard path if venv isn't mapped
+            python_exe = _get_venv_executable("python")
                 
             res = subprocess.run(
                 [python_exe, temp_path],
@@ -220,13 +233,10 @@ def scaffold_project(name: str, template: str) -> str:
 def run_tests(path: str, framework: str = "pytest") -> str:
     """Run pytest or unittest tests in the specified directory path."""
     try:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        venv_scripts = os.path.join(backend_dir, "venv", "Scripts")
-        
         if framework.lower() == "pytest":
-            cmd = [os.path.join(venv_scripts, "pytest.exe") if os.path.exists(venv_scripts) else "pytest"]
+            cmd = [_get_venv_executable("pytest")]
         else:
-            python_exe = os.path.join(venv_scripts, "python.exe") if os.path.exists(venv_scripts) else "python"
+            python_exe = _get_venv_executable("python")
             cmd = [python_exe, "-m", "unittest"]
             
         # N-2 fix: shell=False — cmd is already a list of safe executable paths.
@@ -238,10 +248,7 @@ def run_tests(path: str, framework: str = "pytest") -> str:
 def install_package(package: str) -> str:
     """Install a Python package into the virtual environment using pip install."""
     try:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        pip_exe = os.path.join(backend_dir, "venv", "Scripts", "pip.exe")
-        if not os.path.exists(pip_exe):
-            pip_exe = "pip"
+        pip_exe = _get_venv_executable("pip")
             
         # N-2 fix: shell=False — executable + args already in list form.
         res = subprocess.run([pip_exe, "install", package], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
@@ -254,15 +261,7 @@ def install_package(package: str) -> str:
 def lint_file(path: str) -> str:
     """Lint a Python file using ruff (or fall back to pep8 check)."""
     try:
-        import shutil
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        ruff_exe = os.path.join(backend_dir, "venv", "Scripts", "ruff.exe")
-        
-        has_ruff = os.path.exists(ruff_exe) or shutil.which("ruff") is not None
-        if not has_ruff:
-            return "Error: Linter 'ruff' is not installed. Run 'install_package' tool with arg: 'ruff' first."
-            
-        executable = ruff_exe if os.path.exists(ruff_exe) else "ruff"
+        executable = _get_venv_executable("ruff")
         # N-2 fix: shell=False — list form, no user input in args.
         res = subprocess.run([executable, "check", path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         if res.returncode == 0:
@@ -274,15 +273,7 @@ def lint_file(path: str) -> str:
 def format_file(path: str) -> str:
     """Format a Python file in place using black (or ruff format)."""
     try:
-        import shutil
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        black_exe = os.path.join(backend_dir, "venv", "Scripts", "black.exe")
-        
-        has_black = os.path.exists(black_exe) or shutil.which("black") is not None
-        if not has_black:
-            return "Error: Formatter 'black' is not installed. Run 'install_package' tool with arg: 'black' first."
-            
-        executable = black_exe if os.path.exists(black_exe) else "black"
+        executable = _get_venv_executable("black")
         # N-2 fix: shell=False — list form.
         res = subprocess.run([executable, path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, shell=False)
         if res.returncode == 0:
@@ -314,9 +305,7 @@ async def _get_lsp_client() -> LspClient:
         backend_dir = os.path.dirname(src_dir)
         root_dir = os.path.dirname(backend_dir)
         
-        executable = os.path.join(backend_dir, "venv", "Scripts", "pyright-langserver.exe")
-        if not os.path.exists(executable):
-            executable = "pyright-langserver"
+        executable = _get_venv_executable("pyright-langserver")
             
         client = LspClient(executable, root_dir)
         started = await client.start()
@@ -325,6 +314,7 @@ async def _get_lsp_client() -> LspClient:
             return client
         else:
             raise RuntimeError("Failed to start LSP Server.")
+
 
 async def _sync_file_to_lsp(client: LspClient, filepath: str):
     if not os.path.exists(filepath):

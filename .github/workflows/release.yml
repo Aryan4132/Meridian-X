@@ -21,7 +21,7 @@ jobs:
             tauri-args: "--bundles dmg"
           - os: ubuntu-latest
             platform: linux
-            tauri-args: "--bundles deb"
+            tauri-args: "--bundles deb,appimage"
 
     runs-on: ${{ matrix.os }}
 
