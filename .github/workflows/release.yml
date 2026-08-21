@@ -7,7 +7,7 @@ on:
 
 # ────────────────────────────────────────────────────────────────
 # JOB 1: Build Python backend sidecar for each platform
-# Outputs: api-windows.zip, api-macos.zip, api-linux.zip
+# Output: sidecar-{windows|macos|linux} GitHub Artifact
 # ────────────────────────────────────────────────────────────────
 jobs:
   build-backend:
@@ -19,13 +19,10 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            api_zip: api-windows.zip
           - os: macos-latest
             platform: macos
-            api_zip: api-macos.zip
           - os: ubuntu-latest
             platform: linux
-            api_zip: api-linux.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -33,7 +30,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # --- Linux system deps for audio / ML python packages ---
+    # --- System Dependencies for Linux ---
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -46,11 +43,10 @@ jobs:
           build-essential \
           libgomp1
 
-    # --- macOS system deps ---
+    # --- System Dependencies for macOS ---
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
-      run: |
-        brew install portaudio libsndfile
+      run: brew install portaudio libsndfile
 
     - name: Setup Python 3.11
       uses: actions/setup-python@v5
@@ -65,40 +61,46 @@ jobs:
         if [ "$RUNNER_OS" == "Windows" ]; then
           ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
           ./venv/Scripts/pip.exe install pyinstaller
-          ./venv/Scripts/pip.exe install -r requirements.txt --no-deps || \
-          ./venv/Scripts/pip.exe install -r requirements.txt
+          # Install core requirements line by line so missing optional platform wheels never block sidecar compilation
+          ./venv/Scripts/python.exe -c "
+import subprocess, sys
+with open('requirements.txt', 'r') as f:
+    for line in f:
+        req = line.strip()
+        if req and not req.startswith('#'):
+            subprocess.run([sys.executable, '-m', 'pip', 'install', req])
+"
         else
           ./venv/bin/python -m pip install --upgrade pip setuptools wheel
           ./venv/bin/pip install pyinstaller
-          ./venv/bin/pip install -r requirements.txt --no-deps || \
-          ./venv/bin/pip install -r requirements.txt
+          ./venv/bin/python -c "
+import subprocess, sys
+with open('requirements.txt', 'r') as f:
+    for line in f:
+        req = line.strip()
+        if req and not req.startswith('#'):
+            subprocess.run([sys.executable, '-m', 'pip', 'install', req])
+"
         fi
 
-    - name: Compile Python Backend with PyInstaller
+    - name: Compile Python Backend Sidecar
       shell: bash
       run: |
-        python build_standalone.py --sidecar-only
-
-    - name: Zip Backend Sidecar
-      shell: bash
-      run: |
-        cd meridian_frontend/src-tauri
         if [ "$RUNNER_OS" == "Windows" ]; then
-          7z a ${{ matrix.api_zip }} api/
+          ./meridian_backend/venv/Scripts/python build_standalone.py --sidecar-only
         else
-          zip -r ${{ matrix.api_zip }} api/
+          ./meridian_backend/venv/bin/python build_standalone.py --sidecar-only
         fi
 
-    - name: Upload Backend Zip to Release
-      uses: softprops/action-gh-release@v2
+    - name: Upload Sidecar Artifact
+      uses: actions/upload-artifact@v4
       with:
-        files: meridian_frontend/src-tauri/${{ matrix.api_zip }}
-        tag_name: ${{ github.ref_name }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: sidecar-${{ matrix.platform }}
+        path: meridian_frontend/src-tauri/api
+        retention-days: 1
 
 # ────────────────────────────────────────────────────────────────
-# JOB 2: Build Tauri shell (no Python bundled) — runs after backend
+# JOB 2: Build Tauri desktop app with embedded sidecar & publish release
 # ────────────────────────────────────────────────────────────────
   build-tauri:
     needs: build-backend
@@ -126,7 +128,14 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # --- Linux system deps for Tauri (WebKit, etc.) ---
+    # --- Download Sidecar Artifact compiled in Job 1 ---
+    - name: Download Sidecar Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: sidecar-${{ matrix.platform }}
+        path: meridian_frontend/src-tauri/api
+
+    # --- System Dependencies for Linux ---
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -141,7 +150,7 @@ jobs:
           patchelf \
           squashfs-tools
 
-    # --- macOS: create-dmg for DMG bundling ---
+    # --- System Dependencies for macOS ---
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
       run: brew install create-dmg
@@ -160,7 +169,7 @@ jobs:
         rm -f package-lock.json
         npm install
 
-    # --- Setup Rust ---
+    # --- Setup Rust Compiler ---
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
@@ -176,7 +185,7 @@ jobs:
       run: |
         rm -rf meridian_frontend/src-tauri/target/release/bundle
 
-    # --- Build Tauri App & Publish Release ---
+    # --- Build Tauri App & Upload to Release ---
     - name: Build Tauri App & Upload Release
       uses: tauri-apps/tauri-action@v0
       env:
