@@ -8,12 +8,14 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.core.gaze_tracker import start_gaze_tracking, stop_gaze_tracking, get_current_gaze, update_gaze_position
-from src.core.camera_sentinel import register_camera_feed, list_camera_feeds, ingest_motion_event, get_recent_alerts
-from src.core.ar_bridge import register_ar_headset, list_ar_headsets, push_ar_hud_payload
+from src.core.perception import (
+    start_gaze_tracking, stop_gaze_tracking, get_current_gaze, update_gaze_position,
+    register_camera_feed, list_camera_feeds, ingest_motion_event, get_recent_alerts,
+    register_ar_headset, list_ar_headsets, push_ar_hud_payload,
+    predict_next_action, prewarm_context_for_intent, get_habit_profile,
+    generate_presence_briefing, reset_briefing_cooldown
+)
 from src.voice.polyglot import translate_speech_to_code
-from src.core.predictive_engine import predict_next_action, prewarm_context_for_intent, get_habit_profile
-from src.core.presence_briefing import generate_presence_briefing, reset_briefing_cooldown
 
 
 def test_gaze_tracker_lifecycle():

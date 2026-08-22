@@ -59,12 +59,14 @@ from src.tools.documents import (
 )
 
 # JARVIS Perception & Intelligence Tools
-from src.core.gaze_tracker import start_gaze_tracking, stop_gaze_tracking, get_current_gaze
-from src.core.camera_sentinel import list_camera_feeds, get_recent_alerts
-from src.core.ar_bridge import list_ar_headsets, push_ar_hud_payload
+from src.core.perception import (
+    start_gaze_tracking, stop_gaze_tracking, get_current_gaze,
+    list_camera_feeds, get_recent_alerts,
+    list_ar_headsets, push_ar_hud_payload,
+    predict_next_action, prewarm_context_for_intent,
+    generate_presence_briefing
+)
 from src.voice.polyglot import translate_speech_to_code
-from src.core.predictive_engine import predict_next_action, prewarm_context_for_intent
-from src.core.presence_briefing import generate_presence_briefing
 
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:

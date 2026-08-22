@@ -86,9 +86,9 @@
 
 ## Phase 10: Repository Cleanup, Audit Fixes, & v0.1.0 Release
 
-- [ ] **Task 18.1: Directory & Dead Code Cleanup** — Delete `agent/temporal_consensus_guard.py`, `test_temporal_consensus.py`, runtime junk folders (`test_database_dir/`, `test_logging_dir/`, `test_tools_dir/`), and log files (`*.log`). Preserve `KANBAN.md` and `TIMELINE.md`.
-- [ ] **Task 18.2: Gitignore & Security Fixes** — Update `.gitignore` with `vault.enc`, test dirs, logs, and target build folders. Fix CORS origins in `meridian_backend/api.py`.
-- [ ] **Task 18.3: Clean Frontend Package & Version Reset** — Remove `express` and duplicate `vite` from `meridian_frontend/package.json`. Reset version to `0.1.0` in `package.json` and `tauri.conf.json`. Run `npm install` in `meridian_frontend`.
-- [ ] **Task 18.4: Overhaul README.md** — Create high-quality, professional `README.md` for Meridian-X v0.1.0.
-- [ ] **Task 18.5: Fix GitHub Release Workflow** — Update `.github/workflows/release.yml`.
-- [ ] **Task 18.6: Verification & Git Tag Push (`v0.1.0`)** — Run full pytest and frontend lint, commit clean changes, and push tag `v0.1.0` to GitHub repository.
+- [x] **Task 18.1: Directory & Dead Code Cleanup** — Delete `agent/temporal_consensus_guard.py`, `test_temporal_consensus.py`, runtime junk folders (`test_database_dir/`, `test_logging_dir/`, `test_tools_dir/`), and log files (`*.log`). Preserve `KANBAN.md` and `TIMELINE.md`.
+- [x] **Task 18.2: Gitignore & Security Fixes** — Update `.gitignore` with `vault.enc`, test dirs, logs, and target build folders. Fix CORS origins in `meridian_backend/api.py`.
+- [x] **Task 18.3: Clean Frontend Package & Version Reset** — Remove `express` and duplicate `vite` from `meridian_frontend/package.json`. Reset version to `0.1.0` in `package.json` and `tauri.conf.json`. Run `npm install` in `meridian_frontend`.
+- [x] **Task 18.4: Overhaul README.md** — Create high-quality, professional `README.md` for Meridian-X v0.1.0.
+- [x] **Task 18.5: Fix GitHub Release Workflow** — Update `.github/workflows/release.yml`.
+- [x] **Task 18.6: Verification & Git Tag Push (`v0.1.0`)** — Run full pytest and frontend lint, commit clean changes, and push tag `v0.1.0` to GitHub repository.
