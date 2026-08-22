@@ -39,12 +39,12 @@ export function BackendSetup({ onComplete }: BackendSetupProps) {
       const targetAsset = getPlatformAsset();
       setPlatformName(targetAsset.label);
 
-      let version = '0.5.2';
+      let version = '0.1.0';
       if ((window as any).__TAURI_INTERNALS__) {
         try {
           version = await invoke<string>('get_app_version');
         } catch (e) {
-          console.warn('Could not get Tauri version, fallback to v0.5.2:', e);
+          console.warn('Could not get Tauri version, fallback to v0.1.0:', e);
         }
       }
 
