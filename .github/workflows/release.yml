@@ -195,7 +195,7 @@ jobs:
           libsoup-3.0-dev \
           wmctrl xdotool || true
         sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
-        # Install extracted native linuxdeploy & appimagetool binaries (bypasses container FUSE restrictions)
+        # Install extracted native linuxdeploy, linuxdeploy-plugin-appimage & appimagetool binaries
         wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy.AppImage || true
         chmod +x /tmp/linuxdeploy.AppImage || true
         /tmp/linuxdeploy.AppImage --appimage-extract > /dev/null 2>&1 || true
@@ -203,6 +203,14 @@ jobs:
           sudo cp -r squashfs-root/usr/* /usr/local/
           sudo ln -sf /usr/local/bin/linuxdeploy /usr/bin/linuxdeploy || true
           rm -rf squashfs-root /tmp/linuxdeploy.AppImage
+        fi
+        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage -O /tmp/plugin-appimage.AppImage || true
+        chmod +x /tmp/plugin-appimage.AppImage || true
+        /tmp/plugin-appimage.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -d "squashfs-root" ]; then
+          sudo cp -r squashfs-root/usr/* /usr/local/
+          sudo ln -sf /usr/local/bin/linuxdeploy-plugin-appimage /usr/bin/linuxdeploy-plugin-appimage || true
+          rm -rf squashfs-root /tmp/plugin-appimage.AppImage
         fi
         wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage || true
         chmod +x /tmp/appimagetool.AppImage || true
@@ -263,6 +271,8 @@ jobs:
         CI: true
         APPIMAGE_EXTRACT_AND_RUN: 1
         NO_STRIP: true
+        NO_APPSTREAM: 1
+        ARCH: x86_64
       with:
         tagName: ${{ github.ref_name }}
         releaseName: 'Meridian-X ${{ github.ref_name }}'
