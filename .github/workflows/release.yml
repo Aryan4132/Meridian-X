@@ -218,6 +218,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         CI: true
+        APPIMAGE_EXTRACT_AND_RUN: 1
+        NO_STRIP: true
       with:
         tagName: ${{ github.ref_name }}
         releaseName: 'Meridian-X ${{ github.ref_name }}'
