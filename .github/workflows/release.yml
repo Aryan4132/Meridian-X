@@ -195,31 +195,35 @@ jobs:
           libsoup-3.0-dev \
           wmctrl xdotool || true
         sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
-        # Install extracted native linuxdeploy, linuxdeploy-plugin-appimage & appimagetool binaries
-        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy.AppImage || true
-        chmod +x /tmp/linuxdeploy.AppImage || true
-        /tmp/linuxdeploy.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -d "squashfs-root" ]; then
-          sudo cp -r squashfs-root/usr/* /usr/local/
+        # Clean stale symlinks and install native linuxdeploy, linuxdeploy-plugin-appimage & appimagetool binaries
+        sudo rm -f /usr/local/bin/linuxdeploy /usr/local/bin/linuxdeploy-plugin-appimage /usr/local/bin/appimagetool /usr/bin/linuxdeploy /usr/bin/linuxdeploy-plugin-appimage /usr/bin/appimagetool || true
+        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/ld.AppImage || true
+        chmod +x /tmp/ld.AppImage || true
+        /tmp/ld.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -f "squashfs-root/usr/bin/linuxdeploy" ]; then
+          sudo cp -f squashfs-root/usr/bin/linuxdeploy /usr/local/bin/
+          sudo chmod +x /usr/local/bin/linuxdeploy
           sudo ln -sf /usr/local/bin/linuxdeploy /usr/bin/linuxdeploy || true
-          rm -rf squashfs-root /tmp/linuxdeploy.AppImage
         fi
-        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage -O /tmp/plugin-appimage.AppImage || true
-        chmod +x /tmp/plugin-appimage.AppImage || true
-        /tmp/plugin-appimage.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -d "squashfs-root" ]; then
-          sudo cp -r squashfs-root/usr/* /usr/local/
+        rm -rf squashfs-root /tmp/ld.AppImage
+        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage -O /tmp/plugin.AppImage || true
+        chmod +x /tmp/plugin.AppImage || true
+        /tmp/plugin.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -f "squashfs-root/usr/bin/linuxdeploy-plugin-appimage" ]; then
+          sudo cp -f squashfs-root/usr/bin/linuxdeploy-plugin-appimage /usr/local/bin/
+          sudo chmod +x /usr/local/bin/linuxdeploy-plugin-appimage
           sudo ln -sf /usr/local/bin/linuxdeploy-plugin-appimage /usr/bin/linuxdeploy-plugin-appimage || true
-          rm -rf squashfs-root /tmp/plugin-appimage.AppImage
         fi
-        wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage || true
-        chmod +x /tmp/appimagetool.AppImage || true
-        /tmp/appimagetool.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -d "squashfs-root" ]; then
-          sudo cp -r squashfs-root/usr/* /usr/local/
+        rm -rf squashfs-root /tmp/plugin.AppImage
+        wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /tmp/tool.AppImage || true
+        chmod +x /tmp/tool.AppImage || true
+        /tmp/tool.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -f "squashfs-root/usr/bin/appimagetool" ]; then
+          sudo cp -f squashfs-root/usr/bin/appimagetool /usr/local/bin/
+          sudo chmod +x /usr/local/bin/appimagetool
           sudo ln -sf /usr/local/bin/appimagetool /usr/bin/appimagetool || true
-          rm -rf squashfs-root /tmp/appimagetool.AppImage
         fi
+        rm -rf squashfs-root /tmp/tool.AppImage
 
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
