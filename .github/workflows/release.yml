@@ -144,7 +144,7 @@ jobs:
             tauri-args: '--bundles dmg'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundles deb,appimage'
+            tauri-args: '--bundles deb'
 
     runs-on: ${{ matrix.os }}
 
@@ -289,7 +289,7 @@ jobs:
           |----------|------|
           | Windows  | `*-setup.exe` (NSIS installer) |
           | macOS    | `*.dmg` |
-          | Linux    | `*.AppImage` |
+          | Linux    | `*.deb` (Debian/Ubuntu package) |
         releaseDraft: true
         prerelease: false
         projectPath: './meridian_frontend'
