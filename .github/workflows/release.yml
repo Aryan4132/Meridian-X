@@ -89,7 +89,7 @@ jobs:
         fi
         $PY - <<'EOF'
         import importlib
-        mods = ["fastapi", "uvicorn", "httpx", "cryptography", "jwt", "apscheduler", "sqlalchemy", "psutil"]
+        mods = ["fastapi", "uvicorn", "httpx", "cryptography", "jwt", "apscheduler", "sqlalchemy", "psutil", "pydantic"]
         missing = []
         for m in mods:
             try:
