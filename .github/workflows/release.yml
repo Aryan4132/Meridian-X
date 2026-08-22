@@ -123,6 +123,7 @@ jobs:
       contents: write
     env:
       CI: true
+      APPIMAGE_EXTRACT_AND_RUN: 1
     strategy:
       fail-fast: false
       matrix:
@@ -135,7 +136,7 @@ jobs:
             tauri-args: '--bundles dmg'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundles appimage'
+            tauri-args: '--bundles deb,appimage'
 
     runs-on: ${{ matrix.os }}
 
