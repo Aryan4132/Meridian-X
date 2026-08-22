@@ -149,11 +149,20 @@ jobs:
         name: sidecar-${{ matrix.platform }}
         path: meridian_frontend/src-tauri/api
 
-    - name: Restore Executable Permissions (Unix)
-      if: matrix.platform != 'windows'
+    - name: Flatten & Verify Sidecar Layout
       shell: bash
       run: |
-        chmod -R +x meridian_frontend/src-tauri/api
+        echo "=== Verifying meridian_frontend/src-tauri/api contents ==="
+        mkdir -p meridian_frontend/src-tauri/api
+        if [ -d "meridian_frontend/src-tauri/api/api" ]; then
+          echo "Flattening nested api directory..."
+          cp -r meridian_frontend/src-tauri/api/api/* meridian_frontend/src-tauri/api/
+          rm -rf meridian_frontend/src-tauri/api/api
+        fi
+        if [ "$RUNNER_OS" != "Windows" ]; then
+          chmod -R +x meridian_frontend/src-tauri/api
+        fi
+        ls -la meridian_frontend/src-tauri/api
 
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
