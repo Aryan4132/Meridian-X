@@ -195,8 +195,23 @@ jobs:
           libsoup-3.0-dev \
           wmctrl xdotool || true
         sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
-        sudo wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool || true
-        sudo chmod +x /usr/local/bin/appimagetool || true
+        # Install extracted native linuxdeploy & appimagetool binaries (bypasses container FUSE restrictions)
+        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/linuxdeploy.AppImage || true
+        chmod +x /tmp/linuxdeploy.AppImage || true
+        /tmp/linuxdeploy.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -d "squashfs-root" ]; then
+          sudo cp -r squashfs-root/usr/* /usr/local/
+          sudo ln -sf /usr/local/bin/linuxdeploy /usr/bin/linuxdeploy || true
+          rm -rf squashfs-root /tmp/linuxdeploy.AppImage
+        fi
+        wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /tmp/appimagetool.AppImage || true
+        chmod +x /tmp/appimagetool.AppImage || true
+        /tmp/appimagetool.AppImage --appimage-extract > /dev/null 2>&1 || true
+        if [ -d "squashfs-root" ]; then
+          sudo cp -r squashfs-root/usr/* /usr/local/
+          sudo ln -sf /usr/local/bin/appimagetool /usr/bin/appimagetool || true
+          rm -rf squashfs-root /tmp/appimagetool.AppImage
+        fi
 
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
