@@ -129,13 +129,13 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: '--bundles nsis'
+            tauri-args: '--bundle nsis'
           - os: macos-latest
             platform: macos
-            tauri-args: '--bundles dmg'
+            tauri-args: '--bundle dmg'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundles appimage'
+            tauri-args: '--bundle appimage'
 
     runs-on: ${{ matrix.os }}
 
@@ -167,7 +167,10 @@ jobs:
           libayatana-appindicator3-dev \
           librsvg2-dev \
           patchelf \
-          squashfs-tools
+          squashfs-tools \
+          libgstreamer1.0-dev \
+          libgstreamer-plugins-base1.0-dev \
+          libsoup-3.0-dev
 
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
