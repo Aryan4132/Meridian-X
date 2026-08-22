@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * Hook for managing tab visibility lifecycle.
@@ -19,39 +19,6 @@ export function useTabLifecycle() {
   }, []);
 
   return isTabActive;
-}
-
-/**
- * Garbage collection manager for Blob URLs.
- * Automatically revokes created Blob URLs when component unmounts or explicitly requested.
- */
-export function useBlobGC() {
-  const activeBlobs = useRef<Set<string>>(new Set());
-
-  const createManagedBlobUrl = useCallback((blob: Blob): string => {
-    const url = URL.createObjectURL(blob);
-    activeBlobs.current.add(url);
-    return url;
-  }, []);
-
-  const revokeBlobUrl = useCallback((url: string) => {
-    if (activeBlobs.current.has(url)) {
-      URL.revokeObjectURL(url);
-      activeBlobs.current.delete(url);
-    }
-  }, []);
-
-  useEffect(() => {
-    const blobs = activeBlobs.current;
-    return () => {
-      blobs.forEach((url) => {
-        URL.revokeObjectURL(url);
-      });
-      blobs.clear();
-    };
-  }, []);
-
-  return { createManagedBlobUrl, revokeBlobUrl };
 }
 
 /**
@@ -87,39 +54,3 @@ export function useLowRamMode() {
   return { isLowRam, toggleLowRamMode };
 }
 
-/**
- * Virtualized list helper hook for rendering ultra-large item collections with low RAM footprint.
- */
-export function useVirtualList<T>({
-  items,
-  itemHeight,
-  containerHeight,
-  scrollTop,
-  overscan = 3,
-}: {
-  items: T[];
-  itemHeight: number;
-  containerHeight: number;
-  scrollTop: number;
-  overscan?: number;
-}) {
-  const totalHeight = items.length * itemHeight;
-  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
-  const endIndex = Math.min(
-    items.length,
-    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan
-  );
-
-  const visibleItems = items.slice(startIndex, endIndex).map((item, index) => ({
-    item,
-    index: startIndex + index,
-    top: (startIndex + index) * itemHeight,
-  }));
-
-  return {
-    totalHeight,
-    startIndex,
-    endIndex,
-    visibleItems,
-  };
-}

@@ -32,7 +32,7 @@ const PRESET_DISTRACTIONS = [
   { id: 'steam', label: 'Steam', target: 'steam.exe' },
 ];
 
-export default function Productivity() {
+export default function Productivity({ isActive = true }: { isActive?: boolean }) {
   const [stats, setStats] = useState<DeveloperStats>({ total: 0, success: 0, failed: 0, audits: 0, heals: 0, gitCommits: 0, pomodoros: 0 });
   const [durationMins, setDurationMins] = useState(25);
   const [secsLeft, setSecsLeft] = useState(25 * 60);
@@ -97,11 +97,13 @@ export default function Productivity() {
   };
 
   useEffect(() => {
+    // PERF-FIX: pause polling while the tab is hidden (Shell keeps views mounted)
+    if (isActive === false) return;
     fetchStats();
     syncPomodoro();
     const pollId = setInterval(syncPomodoro, 3000);
     return () => clearInterval(pollId);
-  }, [durationMins]);
+  }, [durationMins, isActive]);
 
   useEffect(() => {
     if (active && secsLeft > 0) {

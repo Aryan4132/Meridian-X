@@ -42,29 +42,38 @@ export const getApiKey = (): string => {
 export const attachApiKeyToFetch = () => {
   if (typeof window === 'undefined') return;
 
-  const apiKey = getApiKey();
-  const oauthToken = window.localStorage.getItem('MERIDIAN_OAUTH_TOKEN');
-  if (!apiKey && !oauthToken) return;
-
   const originalFetch = window.fetch.bind(window);
   (window as any).fetch = (input: RequestInfo | URL, init?: RequestInit) => {
-    const target = typeof input === 'string'
-      ? input
-      : input instanceof URL
-        ? input.toString()
-        : input.url;
+    try {
+      const target = typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : input.url;
 
-    if (target.includes(`:${API_PORT}`)) {
-      const nextInit: RequestInit = init ? { ...init } : {};
-      const headers = new Headers(nextInit.headers || {});
-      if (apiKey && !headers.has('X-API-Key')) {
-        headers.set('X-API-Key', apiKey);
+      // SEC-FIX: match by parsed origin instead of a port substring so
+      // lookalike hosts can never harvest the API key / OAuth token.
+      // Key + remote URL are re-read per call so Settings changes apply live.
+      const backendOrigin = new URL(getApiBaseUrl()).origin;
+      const targetUrl = new URL(target, window.location.href);
+      if (targetUrl.origin === backendOrigin) {
+        const apiKey = getApiKey();
+        const oauthToken = window.localStorage.getItem('MERIDIAN_OAUTH_TOKEN');
+        if (apiKey || oauthToken) {
+          const nextInit: RequestInit = init ? { ...init } : {};
+          const headers = new Headers(nextInit.headers || {});
+          if (apiKey && !headers.has('X-API-Key')) {
+            headers.set('X-API-Key', apiKey);
+          }
+          if (oauthToken && !headers.has('Authorization')) {
+            headers.set('Authorization', `Bearer ${oauthToken}`);
+          }
+          nextInit.headers = headers;
+          return originalFetch(input, nextInit);
+        }
       }
-      if (oauthToken && !headers.has('Authorization')) {
-        headers.set('Authorization', `Bearer ${oauthToken}`);
-      }
-      nextInit.headers = headers;
-      return originalFetch(input, nextInit);
+    } catch {
+      // Malformed URL — pass through untouched.
     }
     return originalFetch(input, init);
   };

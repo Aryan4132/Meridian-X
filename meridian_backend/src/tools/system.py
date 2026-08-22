@@ -21,6 +21,12 @@ except Exception:
     Quartz = None
 
 # Cross-Platform Window Wrappers
+
+def _escape_applescript(value: str) -> str:
+    """Escape a string for safe embedding inside an AppleScript double-quoted literal (SEC-FIX)."""
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
 class CrossPlatformWindow:
     def __init__(self, title: str, win_id=None):
         self.title = title
@@ -32,8 +38,8 @@ class CrossPlatformWindow:
             if wins:
                 wins[0].activate()
         elif sys.platform == 'darwin':
-            cmd = f'osascript -e \'tell application "{self.title}" to activate\''
-            subprocess.run(cmd, shell=True, capture_output=True)
+            script = 'tell application "{}" to activate'.format(_escape_applescript(self.title))
+            subprocess.run(["osascript", "-e", script], capture_output=True)
         elif sys.platform.startswith('linux'):
             if self._win_id:
                 subprocess.run(["wmctrl", "-i", "-a", str(self._win_id)], capture_output=True)
@@ -62,8 +68,8 @@ class CrossPlatformWindow:
             if wins:
                 wins[0].minimize()
         elif sys.platform == 'darwin':
-            cmd = f'osascript -e \'tell application "System Events" to set miniaturized of window 1 of (first process whose name is "{self.title}") to true\''
-            subprocess.run(cmd, shell=True, capture_output=True)
+            script = 'tell application "System Events" to set miniaturized of window 1 of (first process whose name is "{}") to true'.format(_escape_applescript(self.title))
+            subprocess.run(["osascript", "-e", script], capture_output=True)
         elif sys.platform.startswith('linux') and self._win_id:
             subprocess.run(["wmctrl", "-i", "-r", str(self._win_id), "-b", "add,hidden"], capture_output=True)
 
@@ -81,8 +87,8 @@ class CrossPlatformWindow:
             if wins:
                 wins[0].close()
         elif sys.platform == 'darwin':
-            cmd = f'osascript -e \'tell application "{self.title}" to quit\''
-            subprocess.run(cmd, shell=True, capture_output=True)
+            script = 'tell application "{}" to quit'.format(_escape_applescript(self.title))
+            subprocess.run(["osascript", "-e", script], capture_output=True)
         elif sys.platform.startswith('linux') and self._win_id:
             subprocess.run(["wmctrl", "-i", "-c", str(self._win_id)], capture_output=True)
 
@@ -110,8 +116,8 @@ def list_windows() -> str:
             except Exception:
                 pass
         try:
-            cmd = 'osascript -e \'tell application "System Events" to get name of every process whose visible is true\''
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            script = 'tell application "System Events" to get name of every process whose visible is true'
+            res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
             if res.returncode == 0 and res.stdout:
                 return "\n".join([x.strip() for x in res.stdout.split(",") if x.strip()])
         except Exception:
@@ -256,8 +262,8 @@ def get_active_window() -> str:
             except Exception:
                 pass
         try:
-            cmd = 'osascript -e \'tell application "System Events" to get name of first process whose frontmost is true\''
-            res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+            script = 'tell application "System Events" to get name of first process whose frontmost is true'
+            res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
             if res.returncode == 0 and res.stdout:
                 return f"Active Window: '{res.stdout.strip()}'"
         except Exception:
@@ -363,7 +369,7 @@ def get_hardware_info() -> str:
             return f"CPU: {cpu_out}\nPhysical Memory: {mem_bytes // (1024**3)} GB"
         else:
             # Linux fallback
-            cpu_out = subprocess.check_output("lscpu | grep 'Model name' | cut -d: -f2", shell=True).decode('utf-8').strip()
+            cpu_out = subprocess.check_output(["bash", "-lc", "lscpu | grep 'Model name' | cut -d: -f2"], shell=False).decode('utf-8').strip()
             mem_bytes = psutil.virtual_memory().total
             return f"CPU: {cpu_out or 'Generic Linux CPU'}\nPhysical Memory: {mem_bytes // (1024**3)} GB"
     except Exception:

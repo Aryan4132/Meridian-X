@@ -87,15 +87,34 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0, theme
 }
 
 
+// FIX: reuse ONE shared AudioContext — creating a new context per state
+// change leaks them (browsers cap ~6 concurrent contexts, after which UI
+// sound effects silently stop playing).
+let sharedAudioCtx: AudioContext | null = null;
+const getSharedAudioContext = (): AudioContext | null => {
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    try {
+      sharedAudioCtx = new AudioContextClass();
+    } catch {
+      return null;
+    }
+  }
+  if (sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+};
+
 const playSoundEffect = (state: string) => {
   if (localStorage.getItem('meridian_mascot_audio_fx') === 'false') return;
 
   try {
-    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioContextClass) return;
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
 
     const volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
-    const ctx = new AudioContextClass();
     
     if (state === 'happy' || state === 'default') {
       const osc = ctx.createOscillator();

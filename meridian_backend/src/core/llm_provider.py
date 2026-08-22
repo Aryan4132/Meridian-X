@@ -96,6 +96,10 @@ async def generate_completion_stream(
 
     delay = 1.0
     for attempt in range(retries):
+      # SEC-FIX: only retry requests that failed BEFORE any token was
+      # delivered — retrying mid-stream re-yields already-delivered tokens,
+      # duplicating output.
+      delivered_any = False
       try:
         async with httpx.AsyncClient(timeout=timeout_config) as client:
           async with client.stream(method, url, headers=headers, json=json_payload) as response:
@@ -113,10 +117,11 @@ async def generate_completion_stream(
             
             async for line in response.aiter_lines():
               if line:
+                delivered_any = True
                 yield line.encode('utf-8') if isinstance(line, str) else line
             return
       except (httpx.RequestError, httpx.TimeoutException) as e:
-        if attempt < retries - 1:
+        if not delivered_any and attempt < retries - 1:
           logger.warning(f"[{provider}] Network error: {e}. Retrying in {delay}s...")
           await asyncio.sleep(delay)
           delay *= 2

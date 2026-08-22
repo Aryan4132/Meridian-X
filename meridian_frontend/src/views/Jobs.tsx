@@ -82,7 +82,7 @@ function RunCard({ run }: { run: JobRun; key?: React.Key }) {
   );
 }
 
-export default function Jobs({ onRunsUpdate }: JobsProps) {
+export default function Jobs({ onRunsUpdate, isActive = true }: JobsProps & { isActive?: boolean }) {
   const [runs, setRuns] = useState<JobRun[]>([]);
   const [goal, setGoal] = useState('');
   const [interval, setIntervalSec] = useState('');
@@ -101,10 +101,12 @@ export default function Jobs({ onRunsUpdate }: JobsProps) {
   };
 
   useEffect(() => {
+    // PERF-FIX: pause polling while the tab is hidden (Shell keeps views mounted)
+    if (isActive === false) return;
     fetchRuns();
     const t = setInterval(fetchRuns, 8000);
     return () => clearInterval(t);
-  }, []);
+  }, [isActive]);
 
   const handleSchedule = async (e: React.FormEvent) => {
     e.preventDefault();

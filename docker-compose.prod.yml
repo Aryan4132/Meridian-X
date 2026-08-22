@@ -1,27 +1,39 @@
-version: '3.8'
-
 services:
   meridian-backend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: meridian-backend
+    env_file:
+      - .env
     environment:
       - HOST=0.0.0.0
       - PORT=4132
       - OLLAMA_HOST=http://ollama:11434
-      - AUTH_ENABLED=true
     volumes:
-      - meridian_data:/root/.meridian
+      - meridian_data:/data
     depends_on:
-      - ollama
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:4132/api/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     restart: unless-stopped
 
   ollama:
-    image: ollama/ollama:latest
+    image: ollama/ollama:0.5.4
     container_name: meridian-ollama
     volumes:
       - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 5s
+      start_period: 10s
+      retries: 5
     restart: unless-stopped
 
   caddy:
@@ -33,7 +45,7 @@ services:
     environment:
       - DOMAIN=${DOMAIN:-api.your-domain.com}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

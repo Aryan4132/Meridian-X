@@ -1,17 +1,29 @@
 # -*- mode: python ; coding: utf-8 -*-
+# Portable PyInstaller spec for the Meridian-X backend sidecar.
+#
+# FIX: previously this file hardcoded absolute C:\Users\... paths (breaking on
+# any other machine) and enabled UPX (AV false positives). Paths are now
+# resolved relative to the repo root so `pyinstaller api.spec` works anywhere.
+# Note: CI and build_standalone.py drive PyInstaller via CLI flags; this spec
+# is for manual/local builds only.
+import os
+
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('C:\\Users\\aryan\\OneDrive\\Dokumen\\Mini_Project\\Meridian-X\\hey_meridian.onnx', '.'), ('C:\\Users\\aryan\\OneDrive\\Dokumen\\Mini_Project\\Meridian-X\\hey_meridian.tflite', '.')]
+BACKEND_DIR = os.path.dirname(os.path.abspath(SPEC))
+REPO_ROOT = os.path.dirname(BACKEND_DIR)
+
+datas = [
+    (os.path.join(REPO_ROOT, 'hey_meridian.onnx'), '.'),
+    (os.path.join(REPO_ROOT, 'hey_meridian.tflite'), '.'),
+]
 binaries = []
 hiddenimports = []
-tmp_ret = collect_all('fastapi')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('uvicorn')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('pydantic')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-tmp_ret = collect_all('starlette')
-datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
+for pkg in ('fastapi', 'uvicorn', 'pydantic', 'starlette'):
+    tmp_ret = collect_all(pkg)
+    datas += tmp_ret[0]
+    binaries += tmp_ret[1]
+    hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
@@ -38,7 +50,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
@@ -51,7 +63,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='api',
 )

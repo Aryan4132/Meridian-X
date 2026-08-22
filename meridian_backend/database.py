@@ -82,7 +82,7 @@ def get_ollama_client():
     return _cached_ollama_client
 
 # Embedding client helper
-def get_embedding(text: str) -> List[float]:
+def get_embedding(text: str) -> Optional[List[float]]:
     embed_model = os.environ.get("EMBEDDING_MODEL")
     if not embed_model:
         try:
@@ -104,8 +104,9 @@ def get_embedding(text: str) -> List[float]:
             return list(embedding)
     except Exception as e:
         print(f"[Embedding] Warning: Failed to get embedding ({embed_model}) for text (len={len(text) if text else 0}): {e}")
-    # Default fallback embedding if Ollama is unreachable/missing
-    return [0.0] * 768  # nomic-embed-text has 768 dimensions by default
+    # SEC-FIX: return None on failure — persisting an all-zero vector poisons
+    # vector indexes so unrelated queries match with high similarity.
+    return None
 
 def normalize_vector(v: List[float]) -> np.ndarray:
     arr = np.array(v, dtype=np.float32)
@@ -146,15 +147,23 @@ def run_vector_health_check() -> bool:
         return False
     print("[Turbovec Health Check] Starting validation...")
     healthy = True
+
+    def _quarantine(path: str, reason: str):
+        # SEC-FIX: rename corrupt indexes aside instead of deleting them —
+        # a single bad load previously caused total silent memory loss.
+        quarantine_path = f"{path}.corrupt-{int(time.time())}"
+        try:
+            os.rename(path, quarantine_path)
+            print(f"[Turbovec Health Check] {reason} — quarantined as '{os.path.basename(quarantine_path)}'.")
+        except Exception as qe:
+            print(f"[Turbovec Health Check] Failed to quarantine '{path}': {qe}")
+
     for name, path in [("Knowledge Base", KB_INDEX_PATH), ("Semantic Cache", CACHE_INDEX_PATH), ("Conversations", CONV_INDEX_PATH)]:
         if os.path.exists(path):
             if os.path.getsize(path) == 0:
                 print(f"[Turbovec Health Check] Warning: {name} index file is empty (0 bytes). Recreating.")
                 healthy = False
-                try:
-                    os.remove(path)
-                except Exception:
-                    pass
+                _quarantine(path, "empty index file")
             else:
                 try:
                     # Test load
@@ -163,12 +172,9 @@ def run_vector_health_check() -> bool:
                     if getattr(test_idx, "dim", 0) != 768:
                         raise ValueError(f"Invalid dimension: {getattr(test_idx, 'dim', 0)}")
                 except Exception as e:
-                    print(f"[Turbovec Health Check] Error: {name} index is CORRUPTED ({e}). Removing.")
+                    print(f"[Turbovec Health Check] Error: {name} index is CORRUPTED ({e}). Quarantining.")
                     healthy = False
-                    try:
-                        os.remove(path)
-                    except Exception:
-                        pass
+                    _quarantine(path, "corrupted index")
         else:
             print(f"[Turbovec Health Check] {name} index file does not exist yet.")
     return healthy
@@ -321,6 +327,14 @@ def init_tables():
         )
     """)
     
+    # SEC/PERF-FIX: query-path indexes — conversations and logs are scanned via
+    # ORDER BY timestamp DESC / session_id filters on every request.
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_conversations_timestamp ON conversations(timestamp)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_task_log_timestamp ON task_log(timestamp)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_thought_logs_session ON thought_logs(session_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_thought_logs_timestamp ON thought_logs(timestamp)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_background_runs_timestamp ON background_runs(timestamp)")
+    
     conn.commit()
     conn.close()
     
@@ -366,25 +380,26 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
         
         if count > 0 and cache_index is not None:
             vector = get_embedding(query_text)
-            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-            
-            # Search closest items
-            scores, ids = cache_index.search(vector_np, k=min(2, count))
-            
-            if ids.size > 0 and ids[0].size > 0:
-                for score, id_val in zip(scores[0], ids[0]):
-                    # Score is inner product (cosine similarity since vectors are normalized)
-                    if score > 0.96:
-                        cursor.execute(
-                            "SELECT response_text, expires_at FROM semantic_cache WHERE id = ?",
-                            (int(id_val),)
-                        )
-                        res = cursor.fetchone()
-                        if res and res["response_text"] and res["response_text"].strip() and res["expires_at"] > time.time():
-                            print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
-                            # Store back to Tier-1
-                            _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])
-                            return res["response_text"]
+            if vector is not None:
+                vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+                
+                # Search closest items
+                scores, ids = cache_index.search(vector_np, k=min(2, count))
+                
+                if ids.size > 0 and ids[0].size > 0:
+                    for score, id_val in zip(scores[0], ids[0]):
+                        # Score is inner product (cosine similarity since vectors are normalized)
+                        if score > 0.96:
+                            cursor.execute(
+                                "SELECT response_text, expires_at FROM semantic_cache WHERE id = ?",
+                                (int(id_val),)
+                            )
+                            res = cursor.fetchone()
+                            if res and res["response_text"] and res["response_text"].strip() and res["expires_at"] > time.time():
+                                print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
+                                # Store back to Tier-1
+                                _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])
+                                return res["response_text"]
     except Exception as e:
         print("[Semantic Cache] Search failed:", e)
     finally:
@@ -401,18 +416,19 @@ def get_near_miss_semantic_cache(query_text: str, min_score: float = 0.60, max_s
         count = cursor.fetchone()[0]
         if count > 0 and cache_index is not None:
             vector = get_embedding(query_text)
-            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-            scores, ids = cache_index.search(vector_np, k=min(2, count))
-            if ids.size > 0 and ids[0].size > 0:
-                for score, id_val in zip(scores[0], ids[0]):
-                    if min_score <= score <= max_score:
-                        cursor.execute(
-                            "SELECT response_text FROM semantic_cache WHERE id = ? AND expires_at > ?",
-                            (int(id_val), time.time())
-                        )
-                        res = cursor.fetchone()
-                        if res and res["response_text"] and res["response_text"].strip():
-                            return res["response_text"]
+            if vector is not None:
+                vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+                scores, ids = cache_index.search(vector_np, k=min(2, count))
+                if ids.size > 0 and ids[0].size > 0:
+                    for score, id_val in zip(scores[0], ids[0]):
+                        if min_score <= score <= max_score:
+                            cursor.execute(
+                                "SELECT response_text FROM semantic_cache WHERE id = ? AND expires_at > ?",
+                                (int(id_val), time.time())
+                            )
+                            res = cursor.fetchone()
+                            if res and res["response_text"] and res["response_text"].strip():
+                                return res["response_text"]
     except Exception as e:
         print("[Semantic Cache] Near-miss lookup failed:", e)
     finally:
@@ -454,6 +470,10 @@ def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 
     if inserted_id is not None and cache_index is not None:
         try:
             vector = get_embedding(query_text)
+            # SEC-FIX: skip persisting when embedding failed — never store zero-vectors.
+            if vector is None:
+                print("[Semantic Cache] Skipped Turbovec index save (embedding unavailable).")
+                return
             vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
             with _turbovec_lock:
                 cache_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
@@ -601,11 +621,15 @@ def add_to_conversations(role: str, content: str, summary: str = ""):
     if inserted_id is not None and conv_index is not None:
         try:
             vector = get_embedding(content)
-            vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
-            with _turbovec_lock:
-                conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
-                conv_index.write(CONV_INDEX_PATH)
-            print(f"[Conversations Log] Saved to Turbovec index (ID: {inserted_id})")
+            # SEC-FIX: skip persisting when embedding failed — never store zero-vectors.
+            if vector is None:
+                print("[Conversations Log] Skipped Turbovec index save (embedding unavailable).")
+            else:
+                vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
+                with _turbovec_lock:
+                    conv_index.add_with_ids(vector_np, ids=np.array([inserted_id], dtype=np.uint64))
+                    conv_index.write(CONV_INDEX_PATH)
+                print(f"[Conversations Log] Saved to Turbovec index (ID: {inserted_id})")
         except Exception as e:
             print("[Conversations Log] Turbovec index save failed:", e)
 
@@ -710,6 +734,10 @@ def ingest_into_knowledge_base(source: str, text: str, metadata: Optional[dict] 
                 inserted_id = cursor.lastrowid
                 
                 vector = get_embedding(chunk)
+                # SEC-FIX: skip chunks whose embedding failed — never store zero-vectors.
+                if vector is None:
+                    print(f"[RAG] Skipped Turbovec index for chunk {index} (embedding unavailable).")
+                    continue
                 ids_to_add.append(inserted_id)
                 vectors_to_add.append(normalize_vector(vector))
                 
@@ -740,6 +768,8 @@ def search_knowledge_base(query: str, limit: int = 2) -> List[Dict[str, Any]]:
             return []
             
         vector = get_embedding(query)
+        if vector is None:
+            return []
         vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
         
         # Search Turbovec if available
@@ -903,14 +933,70 @@ def get_clipboard_history(limit: int = 50) -> List[Dict[str, Any]]:
 _user_profile_cache: Dict[str, Tuple[Any, float]] = {}
 _PROFILE_CACHE_TTL = 30.0  # 30 seconds cache TTL
 
+# SEC-FIX: sensitive profile values are encrypted at rest with Fernet keyed by
+# the machine-bound vault passphrase, instead of sitting as plaintext rows in
+# metadata.db / MongoDB.
+_SENSITIVE_PROFILE_MARKERS = (
+    "password", "secret", "token", "api_key", "apikey", "private_key",
+    "credential", "passphrase",
+)
+
+def _is_sensitive_profile_key(key: str) -> bool:
+    k = (key or "").lower()
+    return any(marker in k for marker in _SENSITIVE_PROFILE_MARKERS)
+
+def _profile_cipher():
+    try:
+        import base64 as _b64
+        import hashlib as _hashlib
+        from cryptography.fernet import Fernet
+        from src.core.vault import get_vault_passphrase
+        digest = _hashlib.sha256(get_vault_passphrase().encode("utf-8")).digest()
+        return Fernet(_b64.urlsafe_b64encode(digest))
+    except Exception as e:
+        print("[User Profile] Encryption unavailable, storing plaintext:", e)
+        return None
+
+def _seal_profile_value(plain_json: str) -> str:
+    """Wrap a json-encoded profile value in an encrypted envelope."""
+    cipher = _profile_cipher()
+    if cipher is None:
+        return plain_json
+    token = cipher.encrypt(plain_json.encode("utf-8")).decode("utf-8")
+    return json.dumps({"__enc__": True, "v": token})
+
+def _open_profile_value(stored: Any) -> Any:
+    """Read back a profile value that may be encrypted or legacy plaintext."""
+    if isinstance(stored, str):
+        try:
+            parsed = json.loads(stored)
+        except Exception:
+            return stored
+        if isinstance(parsed, dict) and parsed.get("__enc__"):
+            cipher = _profile_cipher()
+            if cipher is None:
+                print("[User Profile] Cannot decrypt value (encryption unavailable).")
+                return None
+            try:
+                raw = cipher.decrypt(parsed["v"].encode("utf-8")).decode("utf-8")
+                return json.loads(raw)
+            except Exception as e:
+                print(f"[User Profile] Decryption failed: {e}")
+                return None
+        return parsed
+    # MongoDB may have stored the raw python object for legacy rows
+    return stored
+
 def save_user_profile(key: str, value: Any):
     _user_profile_cache[key] = (value, time.time())
     # 1. Save to SQLite user_profile table
+    val_str = json.dumps(value)
+    if _is_sensitive_profile_key(key):
+        val_str = _seal_profile_value(val_str)
     conn = None
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
-        val_str = json.dumps(value)
         cursor.execute(
             "INSERT OR REPLACE INTO user_profile (key, value) VALUES (?, ?)",
             (key, val_str)
@@ -930,7 +1016,7 @@ def save_user_profile(key: str, value: Any):
             collection = db_conn["user_profile"]
             collection.update_one(
                 {"key": key},
-                {"$set": {"value": value, "timestamp": time.time()}},
+                {"$set": {"value": val_str, "timestamp": time.time()}},
                 upsert=True
             )
             print(f"[MongoDB User Profile] Updated: '{key}'")
@@ -951,8 +1037,9 @@ def get_user_profile(key: str) -> Optional[Any]:
         cursor.execute("SELECT value FROM user_profile WHERE key = ?", (key,))
         res = cursor.fetchone()
         if res:
-            parsed = json.loads(res["value"])
-            _user_profile_cache[key] = (parsed, time.time())
+            parsed = _open_profile_value(res["value"])
+            if parsed is not None:
+                _user_profile_cache[key] = (parsed, time.time())
             return parsed
     except Exception as e:
         print(f"[SQLite User Profile] Fetch failed: {e}")
@@ -967,8 +1054,9 @@ def get_user_profile(key: str) -> Optional[Any]:
             collection = db_conn["user_profile"]
             res = collection.find_one({"key": key})
             if res:
-                val = res.get("value")
-                _user_profile_cache[key] = (val, time.time())
+                val = _open_profile_value(res.get("value"))
+                if val is not None:
+                    _user_profile_cache[key] = (val, time.time())
                 return val
         except Exception as e:
             print("[MongoDB User Profile] Fetch failed:", e)
@@ -1048,6 +1136,9 @@ def purge_expired_cache():
             new_index = IdMapIndex(dim=768, bit_width=4)
             for r in remaining:
                 vector = get_embedding(r["query_text"])
+                # SEC-FIX: skip entries whose embedding failed — never store zero-vectors.
+                if vector is None:
+                    continue
                 vector_np = np.array([normalize_vector(vector)], dtype=np.float32)
                 new_index.add_with_ids(vector_np, ids=np.array([r["id"]], dtype=np.uint64))
             with _turbovec_lock:

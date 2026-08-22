@@ -145,6 +145,10 @@ def index_docs_directory(docs_dir: str):
                                 
                             # Generate embedding
                             vector = get_embedding(chunk_txt)
+                            # SEC-FIX: skip chunks whose embedding failed — never store zero-vectors.
+                            if vector is None:
+                                print(f"[Docs Indexer] Skipped chunk in '{rel_path}' (embedding unavailable).")
+                                continue
                             vector_json = json.dumps(vector)
                             
                             # Insert metadata and serialized vector into SQLite
@@ -215,6 +219,9 @@ def search_offline_docs(query: str, limit: int = 5):
             return []
             
         vector = get_embedding(query)
+        if vector is None:
+            conn.close()
+            return []
         
         # Turbovec search path
         if IdMapIndex is not None and docs_index is not None:

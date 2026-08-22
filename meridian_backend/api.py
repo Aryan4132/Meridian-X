@@ -2056,7 +2056,7 @@ def sandbox_run(request: SandboxRequest):
         f"DECISION: <APPROVED or REJECTED>"
     )
     
-    decision = "APPROVED"
+    decision = None
     reasoning = "Default approved."
     try:
         audit_res = client.generate(model=auditor_model, prompt=audit_prompt)
@@ -2080,6 +2080,12 @@ def sandbox_run(request: SandboxRequest):
         except Exception as ex:
             decision = "REJECTED"
             reasoning = f"Security auditor failed to load: {ex}"
+
+    # SEC-FIX: fail closed — an unreachable or unparseable auditor verdict
+    # blocks execution instead of defaulting to APPROVED.
+    if not decision:
+        decision = "REJECTED"
+        reasoning = "Security auditor returned no parsable DECISION."
             
     if "REJECTED" in decision:
         add_to_task_log("sandbox_run", 2, "blocked", f"Rejected by Security Auditor: {reasoning}")
@@ -3499,8 +3505,33 @@ async def execute_workflow_api(workflow_id: str, trigger_payload: Optional[Dict[
 
 
 @app.post("/api/workflows/webhook/{workflow_id}")
-async def handle_workflow_webhook_ingress_api(workflow_id: str, payload: Dict[str, Any]):
-    """WKF-02: External Webhook Ingress Gateway for triggering workflows."""
+async def handle_workflow_webhook_ingress_api(workflow_id: str, request: Request):
+    """WKF-02: External Webhook Ingress Gateway for triggering workflows.
+
+    SEC-FIX: callers must present an ``X-Webhook-Signature`` header containing
+    the hex HMAC-SHA256 of the raw request body keyed with
+    MERIDIAN_WEBHOOK_SECRET (auto-generated into .env on first use). Unsigned
+    ingress is rejected so LAN peers can never fire OAuth-backed workflow nodes.
+    """
+    import hashlib
+    import hmac as hmac_mod
+    from src.core.auth import bootstrap_webhook_secret
+
+    raw_body = await request.body()
+    provided = (request.headers.get("X-Webhook-Signature") or "").strip().lower()
+    secret = bootstrap_webhook_secret()
+    expected = hmac_mod.new(secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
+    if not (provided and hmac_mod.compare_digest(provided, expected)):
+        try:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action("SECURITY_AUDIT", "webhook_signature_rejected", {"workflow_id": workflow_id}, "FAILED")
+        except Exception:
+            pass
+        raise HTTPException(status_code=401, detail="Unauthorized: missing or invalid X-Webhook-Signature.")
+    try:
+        payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
     from src.core.workflow_engine import execute_workflow
     res = execute_workflow(workflow_id, payload)
     return {"status": "success", "ingress": "processed", "data": res}
@@ -3803,7 +3834,9 @@ def trigger_presence_briefing_api(user_name: Optional[str] = "User"):
 if __name__ == "__main__":
 
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=4132)
+    # SEC-FIX: bind loopback by default; opt into LAN exposure explicitly
+    bind_host = os.environ.get("MERIDIAN_BIND_HOST", "127.0.0.1")
+    uvicorn.run(app, host=bind_host, port=4132)
 
 
 

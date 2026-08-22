@@ -179,15 +179,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
+    // FIX: track the reconnect timer so it is cancelled on unmount (no ghost
+    // reconnect after teardown) and use exponential backoff instead of a
+    // fixed 3s hammer while the backend is down.
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let backoffMs = 3000;
     eventSource.onerror = () => {
       console.warn("EventSource disconnected, scheduling reconnect...");
       eventSource.close();
-      setTimeout(() => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
         setReconnectKey(prev => prev + 1);
-      }, 3000);
+      }, backoffMs);
+      backoffMs = Math.min(backoffMs * 2, 30000);
     };
 
     return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer);
       eventSource.close();
     };
   }, [backendAlive, reconnectKey]);

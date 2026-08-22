@@ -66,9 +66,50 @@ def test_slide_deck_generator(tmp_path):
     assert "Successfully generated" in res
 
 def test_p2p_hmac_challenge_response():
-    """Verify P2P peer authentication challenge-response (SEC-12)."""
-    res = authenticate_p2p_peer_challenge("127.0.0.1", 8009)
-    assert res is True
+    """Verify P2P peer authentication challenge-response (SEC-12).
+
+    FIX: previously asserted against a stub that returned True unconditionally.
+    Now exercises the real end-to-end handshake against a live in-test TCP
+    server that proves knowledge of the shared secret.
+    """
+    import socket
+    import threading
+    import hashlib
+    import hmac as hmac_mod
+    from src.core.p2p import authenticate_p2p_peer_challenge, respond_p2p_peer_challenge
+
+    secret = "unit_test_shared_secret"
+
+    # Fake peer node: answers MERIDIAN_CHALLENGE with HMAC(nonce)
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+
+    def peer_loop():
+        try:
+            conn, _ = srv.accept()
+            data = conn.recv(4096).decode("utf-8", errors="replace").strip()
+            if data.startswith("MERIDIAN_CHALLENGE:"):
+                nonce = data.split(":", 1)[1]
+                resp = respond_p2p_peer_challenge(nonce, shared_secret=secret)
+                conn.sendall(f"MERIDIAN_AUTH:{resp}\n".encode("utf-8"))
+            conn.close()
+        except Exception:
+            pass
+
+    t = threading.Thread(target=peer_loop, daemon=True)
+    t.start()
+
+    try:
+        # Correct secret -> authenticated
+        assert authenticate_p2p_peer_challenge("127.0.0.1", port, shared_secret=secret) is True
+        # Wrong secret -> rejected
+        assert authenticate_p2p_peer_challenge("127.0.0.1", port, shared_secret="wrong_secret") is False
+    finally:
+        srv.close()
+        t.join(timeout=2)
 
 def test_sse_stream_session_integrity_token():
     """Verify SSE session integrity token generation and validation (SEC-14)."""

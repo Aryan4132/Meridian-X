@@ -3,6 +3,7 @@ import json
 import time
 import re
 import httpx
+from urllib.parse import urlparse
 from selectolax.parser import HTMLParser
 import ollama
 from typing import List, Dict, Any, Optional
@@ -267,11 +268,51 @@ def browser_close() -> str:
 
 # --- Scraping Tools ---
 
+def _is_public_http_url(url: str) -> bool:
+    """SSRF guard: only http(s) URLs resolving to public hosts are allowed (SEC-FIX).
+
+    Blocks file://, and localhost/private/link-local/metadata targets so an
+    agent-steered scraper cannot read internal services (Ollama, LAN, cloud
+    metadata endpoints) from inside the user's machine.
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return False
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+        if not hostname:
+            return False
+        import ipaddress
+        try:
+            ip = ipaddress.ip_address(hostname)
+            # Literal IP — check directly
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+                return False
+            return True
+        except ValueError:
+            pass
+        # Hostname — block obvious local names; public DNS names resolve at
+        # request time (DNS-rebinding by remote servers is out of scope here).
+        blocked_names = {"localhost", "*.local", "*.internal", "metadata.google.internal"}
+        for pattern in blocked_names:
+            if pattern.startswith("*."):
+                if hostname.endswith(pattern[1:]):
+                    return False
+            elif hostname == pattern:
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
     """Scrape a list of URLs and extract fields specified in the schema."""
     results = []
     for url in urls:
         try:
+            if not _is_public_http_url(url):
+                results.append(f"URL: {url} -> Blocked by SSRF guard (non-public or non-http target).")
+                continue
             res = httpx.get(url, follow_redirects=True, timeout=10.0)
             if res.status_code != 200:
                 results.append(f"URL: {url} -> Failed (Status Code: {res.status_code})")
@@ -307,6 +348,8 @@ def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
 def scrape_table(url: str, table_index: int = 0) -> str:
     """Extract an HTML table from a webpage URL and return it as markdown."""
     try:
+        if not _is_public_http_url(url):
+            return "Blocked by SSRF guard (non-public or non-http target)."
         res = httpx.get(url, follow_redirects=True, timeout=10.0)
         if res.status_code != 200:
             return f"Failed to load URL (Status Code: {res.status_code})"
