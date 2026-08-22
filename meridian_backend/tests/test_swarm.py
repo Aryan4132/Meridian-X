@@ -53,9 +53,18 @@ async def test_swarm_orchestrator_parallel_run():
 @pytest.mark.asyncio
 async def test_swarm_tool_registry_integration():
     assert "run_agent_swarm" in TOOL_REGISTRY
-    result_text = await call_tool(
-        "run_agent_swarm",
-        {"goal": "Check system health", "roles": "researcher,auditor"}
-    )
+    # PERF-FIX: mock the LLM client exactly like the unit tests above — this
+    # integration test previously made REAL multi-turn Ollama calls and took
+    # ~7 minutes, dominating the whole suite.
+    mock_client = MagicMock()
+    mock_chunk = MagicMock()
+    mock_chunk.message.content = "Completed system health check."
+    mock_client.chat.return_value = [mock_chunk]
+
+    with patch("src.core.loop.get_cached_ollama_client", return_value=mock_client):
+        result_text = await call_tool(
+            "run_agent_swarm",
+            {"goal": "Check system health", "roles": "researcher,auditor"}
+        )
     assert "[Swarm] Multi-Agent Execution Synthesis Report" in result_text
     assert "Swarm-ResearcherAgent" in result_text

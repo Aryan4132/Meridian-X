@@ -1808,8 +1808,10 @@ async def run_react_agent_loop(
                     tool_run_id = f"run-{tool_name}-{time.time()}"
                     
                     # Security Auditor local consensus verification
+                    # SEC-FIX: the audit previously ran only for local models;
+                    # cloud-driven sessions executed Tier>=2 tools unaudited.
                     pre_executed_result = None
-                    if tier >= 2 and model_source != "cloud":
+                    if tier >= 2:
                         auditor_model = get_auditor_model()
                         yield sse_event("thought", json.dumps({
                             "id": audit_id,

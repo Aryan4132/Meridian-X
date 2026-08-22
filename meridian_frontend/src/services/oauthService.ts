@@ -12,9 +12,12 @@ export interface OAuthConnectionStatus {
   updated_at: number | null;
 }
 
+// FIX: every fetch now checks response.ok before parsing so non-2xx
+// responses surface as real errors instead of silently becoming {}.
 export const getOAuthProviders = async (): Promise<Record<string, OAuthProvider>> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/oauth/providers`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data.providers || {};
   } catch (error) {
@@ -30,6 +33,10 @@ export const authorizeOAuthFlow = async (provider: string, redirectUri: string =
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ provider, redirect_uri: redirectUri })
     });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`OAuth authorization failed (HTTP ${response.status}): ${detail.slice(0, 200)}`);
+    }
     const data = await response.json();
     return data;
   } catch (error) {
@@ -50,6 +57,10 @@ export const handleOAuthCallback = async (state: string, code: string, provider:
         redirect_uri: window.location.origin + '/oauth/callback'
       })
     });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(`OAuth callback failed (HTTP ${response.status}): ${detail.slice(0, 200)}`);
+    }
     const data = await response.json();
     if (data.access_token) {
       localStorage.setItem('MERIDIAN_OAUTH_TOKEN', data.access_token);
@@ -64,6 +75,7 @@ export const handleOAuthCallback = async (state: string, code: string, provider:
 export const getOAuthConnectionsStatus = async (): Promise<Record<string, OAuthConnectionStatus>> => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/auth/oauth/status`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data.connections || {};
   } catch (error) {

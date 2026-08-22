@@ -1,0 +1,10 @@
+# Reverse proxy for the Meridian-X backend (docker-compose.prod.yml).
+# Replace api.your-domain.com or set the DOMAIN env var.
+{$DOMAIN:api.your-domain.com} {
+	encode zstd gzip
+
+	reverse_proxy meridian-backend:4132 {
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}

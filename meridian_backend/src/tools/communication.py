@@ -100,25 +100,32 @@ def send_whatsapp_message(contact: str = "", message: str = "", phone_number: st
 def send_native_toast_notification(title: str, message: str) -> str:
     """Triggers native OS Toast / Balloon notification popup (PL-18)."""
     log_sensitive_action("TOAST_NOTIFICATION", "send_native_toast_notification", {"title": title, "message": message}, "SUCCESS")
+
+    def _ps_quote(value: str) -> str:
+        # SEC-FIX: single-quoted PowerShell literals only interpolate '' —
+        # prevents $()/backtick injection from agent-controlled strings.
+        return "'" + value.replace("'", "''") + "'"
+
+    def _applescript_escape(value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
     try:
         if os.name == "nt":
-            clean_msg = message.replace('"', "'")
-            clean_title = title.replace('"', "'")
             # PowerShell Balloon / Toast notification
-            ps_script = f"""
-            [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")
-            $objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon
-            $objNotifyIcon.Icon = [System.Drawing.SystemIcons]::Information
-            $objNotifyIcon.BalloonTipIcon = "Info"
-            $objNotifyIcon.BalloonTipText = "{clean_msg}"
-            $objNotifyIcon.BalloonTipTitle = "{clean_title}"
-            $objNotifyIcon.Visible = $True
-            $objNotifyIcon.ShowBalloonTip(5000)
-            """
-            subprocess.Popen(["powershell", "-Command", ps_script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ps_script = (
+                '[void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms"); '
+                '$objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon; '
+                '$objNotifyIcon.Icon = [System.Drawing.SystemIcons]::Information; '
+                '$objNotifyIcon.BalloonTipIcon = "Info"; '
+                f"$objNotifyIcon.BalloonTipText = {_ps_quote(message)}; "
+                f"$objNotifyIcon.BalloonTipTitle = {_ps_quote(title)}; "
+                '$objNotifyIcon.Visible = $True; '
+                '$objNotifyIcon.ShowBalloonTip(5000)'
+            )
+            subprocess.Popen(["powershell", "-NoProfile", "-Command", ps_script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         elif platform.system() == "Darwin":
-            cmd = f'osascript -e \'display notification "{message}" with title "{title}"\''
-            subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            script = 'display notification "{}" with title "{}"'.format(_applescript_escape(message), _applescript_escape(title))
+            subprocess.Popen(["osascript", "-e", script], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         else:
             subprocess.Popen(["notify-send", title, message], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return f"Native toast notification displayed: '{title}' - '{message}'"

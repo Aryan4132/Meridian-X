@@ -122,7 +122,10 @@ def check_ollama():
 
 def check_ports():
     print("\n--- Checking Port Availability ---")
-    ports = [8000, 1420] # 8000: Python Backend, 1420: Tauri Frontend Dev Port
+    # FIX: backend binds 4132 (not 8000) per api.py / docker-compose; 1420 is
+    # the Tauri frontend dev port.
+    ports = [4132, 1420]
+    failures = 0
     for port in ports:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(1.0)
@@ -131,8 +134,10 @@ def check_ports():
             print_result(f"Port {port} is free", True)
         except OSError:
             print_result(f"Port {port} is IN USE", False, "May conflict with startup or run loops")
+            failures += 1
         finally:
             s.close()
+    return failures
 
 def check_audio():
     print("\n--- Checking Audio Subsystem ---")
@@ -175,16 +180,20 @@ def main():
     print("       Meridian-X System Verification     ")
     print("=========================================")
     print(f"Platform: {platform.system()} {platform.release()} ({platform.machine()})")
-    
+
     check_python()
     check_node()
     check_databases()
     check_ollama()
-    check_ports()
+    port_failures = check_ports()
     check_audio()
-    
+
     print("\n=========================================")
+    if port_failures:
+        print(f"Verification complete with {port_failures} port conflict(s).")
+        sys.exit(1)
     print("Verification complete.")
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()

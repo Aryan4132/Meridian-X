@@ -3,6 +3,7 @@ import socket
 import threading
 import json
 import time
+import hashlib
 from typing import List, Dict, Any, Set, Tuple
 from database import get_mongo_db, db, get_sqlite_conn
 
@@ -55,17 +56,119 @@ def _encrypt_payload(data_str: str, token: str) -> bytes:
     f = Fernet(key)
     return f.encrypt(data_str.encode('utf-8'))
 
-def authenticate_p2p_peer_challenge(peer_ip: str, peer_port: int, shared_secret: str = "") -> bool:
-    """HMAC challenge-response handshake for P2P peer authentication (SEC-12)."""
-    import hmac
-    import hashlib
-    secret = shared_secret or os.getenv("MERIDIAN_API_KEY", "MERIDIAN_P2P_SECRET")
-    challenge = f"CHALLENGE_{int(time.time())}_{peer_ip}"
-    expected_response = hmac.new(secret.encode("utf-8"), challenge.encode("utf-8"), hashlib.sha256).hexdigest()
-    # Simulated challenge verification
-    from src.core.audit_logger import log_sensitive_action
-    log_sensitive_action("P2P_AUTH", "peer_challenge", {"peer_ip": peer_ip, "peer_port": peer_port}, "SUCCESS")
-    return True
+def _bootstrap_p2p_token() -> str:
+    """Ensure P2P_SECRET_TOKEN exists; generate + persist one if missing (SEC-FIX).
+
+    Previously an empty token silently disabled payload encryption, making all
+    P2P sync plaintext and unauthenticated. Tokens now always exist so the
+    Fernet path is active by default (fail closed).
+    """
+    token = os.environ.get("P2P_SECRET_TOKEN", "")
+    if token:
+        return token
+    try:
+        from src.core.history_manager import find_workspace_root
+        env_path = os.path.join(find_workspace_root(), ".env")
+    except Exception:
+        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        root_dir = os.path.dirname(backend_dir)
+        env_path = os.path.join(root_dir, ".env")
+
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("P2P_SECRET_TOKEN="):
+                        token = line.split("=", 1)[1].strip()
+                        break
+        except Exception as e:
+            print(f"[P2P Sync] Failed reading .env for P2P_SECRET_TOKEN: {e}")
+
+    if not token:
+        import secrets as _secrets
+        token = _secrets.token_hex(32)
+        try:
+            mode = "a" if os.path.exists(env_path) else "w"
+            with open(env_path, mode, encoding="utf-8") as f:
+                if mode == "a":
+                    f.write("\n")
+                f.write(f"P2P_SECRET_TOKEN={token}\n")
+            print("[P2P Sync] Generated new P2P_SECRET_TOKEN and persisted it to .env")
+        except Exception as e:
+            print(f"[P2P Sync] Failed to persist generated P2P_SECRET_TOKEN: {e}")
+
+    os.environ["P2P_SECRET_TOKEN"] = token
+    return token
+
+
+def authenticate_p2p_peer_challenge(peer_ip: str, peer_port: int, shared_secret: str = "", timeout: float = 4.0) -> bool:
+    """Real HMAC challenge-response handshake for P2P peer authentication (SEC-12).
+
+    SEC-FIX: the previous implementation logged and returned True unconditionally,
+    providing zero authentication. This version opens a TCP connection to the peer,
+    sends a random nonce, and requires the peer to respond with
+    ``MERIDIAN_AUTH:<hex hmac>`` computed over the nonce using the shared secret.
+    Verification uses a constant-time comparison.
+    """
+    import hmac as hmac_mod
+    import secrets as _secrets
+
+    secret = shared_secret or os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
+    if not secret:
+        # Fail closed: no shared secret means no authentication is possible.
+        return False
+
+    nonce = _secrets.token_hex(16)
+    expected = hmac_mod.new(secret.encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    sock = None
+    try:
+        from src.core.audit_logger import log_sensitive_action
+        sock = socket.create_connection((peer_ip, int(peer_port)), timeout=timeout)
+        sock.settimeout(timeout)
+        sock.sendall(f"MERIDIAN_CHALLENGE:{nonce}".encode("utf-8"))
+
+        chunks = []
+        while True:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            chunks.append(chunk)
+            if b"\n" in chunk or sum(len(c) for c in chunks) > 4096:
+                break
+        response = b"".join(chunks).decode("utf-8", errors="replace").strip()
+        if not response.startswith("MERIDIAN_AUTH:"):
+            log_sensitive_action("P2P_AUTH", "peer_challenge", {"peer_ip": peer_ip, "peer_port": peer_port}, "FAILED")
+            return False
+        provided = response.split(":", 1)[1].strip().lower()
+        ok = hmac_mod.compare_digest(provided, expected)
+        log_sensitive_action(
+            "P2P_AUTH", "peer_challenge",
+            {"peer_ip": peer_ip, "peer_port": peer_port},
+            "SUCCESS" if ok else "FAILED",
+        )
+        return ok
+    except Exception as e:
+        print(f"[P2P Auth] Challenge handshake with {peer_ip}:{peer_port} failed: {e}")
+        try:
+            from src.core.audit_logger import log_sensitive_action
+            log_sensitive_action("P2P_AUTH", "peer_challenge", {"peer_ip": peer_ip, "peer_port": peer_port}, "FAILED")
+        except Exception:
+            pass
+        return False
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
+
+
+def respond_p2p_peer_challenge(nonce: str, shared_secret: str = "") -> str:
+    """Compute the HMAC response proving knowledge of the shared secret."""
+    import hmac as hmac_mod
+    secret = shared_secret or os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
+    return hmac_mod.new(secret.encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).hexdigest()
 
 def _decrypt_payload(data_bytes: bytes, token: str) -> str:
     if not token:
@@ -185,6 +288,13 @@ class P2PSyncNode:
         global _server_running
         if _server_running:
             return "P2P Sync server is already active."
+
+        # SEC-FIX: fail closed — refuse to run sync without a secret token so
+        # payloads are always Fernet-encrypted and peers are authenticated.
+        p2p_token = _bootstrap_p2p_token()
+        if not p2p_token:
+            return "P2P Sync refused to start: no P2P_SECRET_TOKEN available (fail-closed)."
+
         _server_running = True
 
         # Load persisted peers before starting sync threads
@@ -268,18 +378,27 @@ class P2PSyncNode:
 
     def _handle_client(self, conn, addr):
         try:
-            chunks = []
+            # SEC-FIX: answer authentication challenge probes before any sync
+            # traffic is processed so peers can verify each other's identity.
+            conn.settimeout(5.0)
+            first = conn.recv(4096)
+            if not first:
+                return
+            if first.startswith(b"MERIDIAN_CHALLENGE:"):
+                nonce = first.split(b":", 1)[1].decode("utf-8", errors="replace").strip()
+                resp = respond_p2p_peer_challenge(nonce)
+                conn.sendall(f"MERIDIAN_AUTH:{resp}\n".encode("utf-8"))
+                return
+
+            chunks = [first]
             while True:
                 chunk = conn.recv(4096)
                 if not chunk:
                     break
                 chunks.append(chunk)
             data_bytes = b"".join(chunks)
-            
-            if not data_bytes:
-                return
 
-            local_token = os.environ.get("P2P_SECRET_TOKEN", "")
+            local_token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
             try:
                 decrypted_str = _decrypt_payload(data_bytes, local_token)
             except Exception as e:
@@ -467,7 +586,7 @@ class P2PSyncNode:
                     "action": "sync_request",
                     "data": local_data
                 }
-                token = os.environ.get("P2P_SECRET_TOKEN", "")
+                token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
                 encrypted_payload = _encrypt_payload(json.dumps(payload), token)
                 s.sendall(encrypted_payload)
                 s.shutdown(socket.SHUT_WR)

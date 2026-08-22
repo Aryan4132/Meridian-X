@@ -19,7 +19,7 @@ function detectType(text: string): string | null {
   return null;
 }
 
-export default function Clipboard() {
+export default function Clipboard({ isActive = true }: { isActive?: boolean }) {
   const { setActiveTab } = useApp();
   const [items, setItems] = useState<ClipboardRecord[]>([]);
   const [query, setQuery] = useState('');
@@ -44,10 +44,12 @@ export default function Clipboard() {
   };
 
   useEffect(() => {
+    // PERF-FIX: pause polling while the tab is hidden (Shell keeps views mounted)
+    if (isActive === false) return;
     fetch_();
     const t = setInterval(fetch_, 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [isActive]);
 
   const analyze = (text: string) => {
     setActiveTab('timeline');

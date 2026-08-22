@@ -62,6 +62,39 @@ def rotate_meridian_api_key(new_key: str):
     from src.core.audit_logger import log_sensitive_action
     log_sensitive_action("SECURITY_AUDIT", "api_key_rotated", {"new_key_prefix": new_key[:10] + "..."}, "SUCCESS")
 
+def bootstrap_webhook_secret():
+  """Ensures MERIDIAN_WEBHOOK_SECRET exists; generates + persists one if missing (SEC-FIX).
+
+  Used to HMAC-sign /api/workflows/webhook ingress requests so unsigned callers
+  can never trigger OAuth-backed workflow actions.
+  """
+  secret = os.getenv("MERIDIAN_WEBHOOK_SECRET")
+  if secret:
+    return secret
+  try:
+    from src.core.history_manager import find_workspace_root
+    env_path = os.path.join(find_workspace_root(), ".env")
+  except Exception:
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), ".env")
+  if os.path.exists(env_path):
+    with open(env_path, "r") as f:
+      for line in f:
+        if line.startswith("MERIDIAN_WEBHOOK_SECRET="):
+          secret = line.split("=", 1)[1].strip()
+          break
+  if not secret:
+    secret = secrets.token_hex(32)
+    mode = "a" if os.path.exists(env_path) else "w"
+    try:
+      with open(env_path, mode) as f:
+        if mode == "a":
+          f.write("\n")
+        f.write(f"MERIDIAN_WEBHOOK_SECRET={secret}\n")
+    except Exception as e:
+      print(f"Error bootstrapping webhook secret to .env: {e}")
+    os.environ["MERIDIAN_WEBHOOK_SECRET"] = secret
+  return secret
+
 # Run bootstrap on module load
 API_KEY = bootstrap_api_key()
 
@@ -69,20 +102,26 @@ from fastapi import Header, HTTPException, status, Depends, Request
 
 
 def _is_loopback_request(request: Optional[Request]) -> bool:
-    """Allow same-machine desktop app traffic from localhost/loopback without a header."""
+    """Allow same-machine desktop app traffic only when the TCP peer is actually loopback.
+
+    SEC-FIX: never trust the client-supplied ``Host`` or ``Origin`` headers for the
+    auth decision — a LAN attacker (or a DNS-rebinding page) can set both freely.
+    The physical source IP of the socket is the only trustworthy signal here.
+    """
     if request is None:
         return False
 
-    host = (request.headers.get("host") or "").split(":", 1)[0].lower()
-    origin = (request.headers.get("origin") or "").lower()
     client_host = getattr(getattr(request, "client", None), "host", "") or ""
-
     if client_host in {"127.0.0.1", "::1", "localhost"}:
-        return True
-    if host in {"127.0.0.1", "::1", "localhost"}:
-        return True
-    if origin.startswith(("http://localhost", "http://127.0.0.1", "http://[::1]", "https://localhost", "https://127.0.0.1", "tauri://localhost")):
-        return True
+        # Loopback peer — additionally require a trusted Origin when one is
+        # presented so browser-based DNS-rebinding requests are rejected.
+        origin = (request.headers.get("origin") or "").strip().lower()
+        if not origin or origin.startswith((
+            "http://localhost", "http://127.0.0.1", "http://[::1]",
+            "https://localhost", "https://127.0.0.1",
+            "tauri://localhost", "http://tauri.localhost",
+        )):
+            return True
     return False
 
 
@@ -104,8 +143,11 @@ def require_api_key(
     # Check path whitelist if request object is available
     if request is not None and hasattr(request, "url"):
         path = request.url.path
-        if path in ("/api/health", "/api/debug/log", "/docs", "/openapi.json") or path.startswith("/api/auth/oauth") or path.startswith("/api/workflows/webhook"):
+        if path in ("/api/health", "/docs", "/openapi.json") or path.startswith("/api/auth/oauth"):
             return True
+        # SEC-FIX: /api/workflows/webhook and /api/debug/log removed from the
+        # whitelist — webhooks verify their own HMAC signature (api.py) and the
+        # debug log endpoint now requires auth to prevent log injection.
 
     if _is_loopback_request(request):
         return True

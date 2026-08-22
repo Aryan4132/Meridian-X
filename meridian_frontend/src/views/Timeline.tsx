@@ -300,6 +300,15 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   };
 
   const clearChat = async () => {
+    // FIX: abort any in-flight stream so an orphaned response can't append
+    // messages after the chat has been cleared.
+    if (abortControllerRef.current) {
+      try { abortControllerRef.current.abort(); } catch { /* noop */ }
+      abortControllerRef.current = null;
+    }
+    setLoading(false);
+    setStreaming('');
+    setStreamThoughts([]);
     try { await fetch(`${API_BASE_URL}/api/chat/clear`, { method: 'POST' }); } catch { /* noop */ }
     setMessages([]);
   };
@@ -497,13 +506,20 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
     }
   };
 
+  // FIX: keep a ref to the latest executeTask so the window event listener
+  // below never fires with a stale first-render closure (ttsEnabled etc.).
+  const executeTaskRef = useRef(executeTask);
+  useEffect(() => {
+    executeTaskRef.current = executeTask;
+  });
+
   useEffect(() => {
     const handleCustomPrompt = (e: Event) => {
       const customEvt = e as CustomEvent<{ prompt: string }>;
       if (customEvt.detail?.prompt) {
         const text = customEvt.detail.prompt;
         setMessages(prev => [...prev, { id: String(Date.now()), role: 'user', content: text, timestamp: Date.now() }]);
-        executeTask(text);
+        executeTaskRef.current(text);
       }
     };
     window.addEventListener('meridian:send-chat', handleCustomPrompt);
@@ -698,6 +714,9 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       {/* Messages */}
       <div
         onClick={handleTimelineClick}
+        role="log"
+        aria-live="polite"
+        aria-label="Conversation messages"
         style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}
       >
         <AnimatePresence initial={false}>

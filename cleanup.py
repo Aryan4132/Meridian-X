@@ -1,9 +1,30 @@
 import os
 import shutil
+import sys
 
-def cleanup_workspace():
+DESTRUCTIVE_TARGETS = (
+    "meridian_memory/",
+    "meridian_backend/meridian_memory/",
+    "vault.enc",
+    "meridian_backend/vault.enc",
+)
+
+def cleanup_workspace(assume_yes: bool = False):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     print("[Cleanup] Starting Meridian-X workspace cleanup...")
+
+    # SAFETY FIX: the script previously deleted the AI memory databases and
+    # the user's encrypted secrets vault with no confirmation and no dry-run.
+    if not assume_yes:
+        print("\nThis will PERMANENTLY delete, among other things:")
+        for target in DESTRUCTIVE_TARGETS:
+            marker = "*" if os.path.exists(os.path.join(root_dir, target)) else " "
+            print(f"  {marker} {target}")
+        print("Items marked * currently exist.")
+        answer = input("\nType 'yes' to continue (anything else aborts): ").strip().lower()
+        if answer != "yes":
+            print("[Cleanup] Aborted. Nothing was deleted.")
+            return
     
     # 1. Clean LanceDB / vector databases
     memory_paths = [
@@ -103,4 +124,4 @@ def cleanup_workspace():
     print("[Cleanup] Cleanup process complete. Workspace is back to default state.")
 
 if __name__ == "__main__":
-    cleanup_workspace()
+    cleanup_workspace(assume_yes="--yes" in sys.argv)

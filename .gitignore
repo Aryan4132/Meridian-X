@@ -49,27 +49,25 @@ meridian_memory/
 .env.*
 meridian_backend/.env
 
-# Local logging and analytics data
+# Local logging, test output, and analytics data
 finetune_data.jsonl
 logs/
 *.log
+test_database_dir/
+test_logging_dir/
+test_tools_dir/
+meridian_backend/test_database_dir/
+meridian_backend/test_logging_dir/
+meridian_backend/test_tools_dir/
 
 # CodeGraph files
 .codegraph/
-
-# Internal tracking & planning documents
-KANBAN.md
-IMPROVEMENTS.md
-UI_UX_IMPROVEMENTS.md
-BUG_REGISTRY.md
-SPEC.md
-tasks.md
-tasks/
 
 # Compiled Installers & Encrypted Vaults
 executables/
 vault.enc
 *.exe
 *.msi
+
 
 

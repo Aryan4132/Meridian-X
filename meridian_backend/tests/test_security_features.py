@@ -13,11 +13,48 @@ from src.core.vault import get_vault_passphrase, save_secret, get_secret
 client = TestClient(app)
 
 
+def _request_as_peer(method: str, path: str, headers: dict = None, peer=("127.0.0.1", 51234)):
+    """Issue a request whose ASGI scope reports the given TCP peer.
+
+    FIX: Starlette's TestClient always reports peer host 'testclient', which can
+    never exercise the physical-loopback trust path — the old suite instead
+    relied on the Host-header bypass that was a real vulnerability.
+    """
+    import asyncio
+    import httpx
+    transport = httpx.ASGITransport(app=app, client=peer)
+
+    async def _do():
+        async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:4132") as ac:
+            return await ac.request(method, path, headers=headers or {})
+
+    return asyncio.run(_do())
+
+
 def test_loopback_localhost_request_allowed_without_api_key():
-    """Verify local desktop app requests from loopback are allowed without X-API-Key (SEC-01)."""
-    local_client = TestClient(app, base_url="http://127.0.0.1:4132")
-    response = local_client.get("/api/system-usage")
+    """Verify local desktop app requests from an actual loopback peer are allowed without X-API-Key (SEC-01)."""
+    response = _request_as_peer("GET", "/api/system-usage", peer=("127.0.0.1", 51234))
     assert response.status_code == 200
+
+
+def test_remote_host_header_spoof_is_rejected():
+    """SEC-FIX regression: a non-loopback peer sending 'Host: 127.0.0.1' must NOT bypass auth."""
+    response = _request_as_peer(
+        "GET", "/api/system-usage",
+        headers={"Host": "127.0.0.1:4132"},
+        peer=("192.168.1.66", 51000),
+    )
+    assert response.status_code == 401
+
+
+def test_loopback_with_untrusted_origin_is_rejected():
+    """SEC-FIX regression: DNS-rebinding style request (loopback peer + evil Origin) is rejected."""
+    response = _request_as_peer(
+        "GET", "/api/system-usage",
+        headers={"Origin": "http://evil-website.com"},
+        peer=("127.0.0.1", 51235),
+    )
+    assert response.status_code == 401
 
 
 def test_public_health_endpoint_allowed_without_api_key():

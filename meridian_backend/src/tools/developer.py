@@ -73,7 +73,9 @@ def run_python(code: str, timeout: float = 10.0) -> str:
             return "\n".join(result_lines) if len(result_lines) > 1 else "Code executed successfully with no output inside Docker."
         else:
             # Check MERIDIAN_ALLOW_HOST_CODE_EXEC gate (SEC-10)
-            allow_host_exec = os.environ.get("MERIDIAN_ALLOW_HOST_CODE_EXEC", "true").lower() == "true"
+            # SEC-FIX: default flipped to false — host-side execution of
+            # LLM-generated code is opt-in, not silently enabled.
+            allow_host_exec = os.environ.get("MERIDIAN_ALLOW_HOST_CODE_EXEC", "false").lower() == "true"
             if not allow_host_exec:
                 try:
                     from src.core.audit_logger import log_sensitive_action

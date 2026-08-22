@@ -44,13 +44,13 @@ export default function Shell() {
               <Timeline onThoughtsUpdate={setThoughtsFeed} />
             </div>
             <div style={{ display: activeTab === 'jobs' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-              <Jobs onRunsUpdate={setRecentRuns} />
+              <Jobs onRunsUpdate={setRecentRuns} isActive={activeTab === 'jobs'} />
             </div>
             <div style={{ display: activeTab === 'clipboard' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-              <Clipboard />
+              <Clipboard isActive={activeTab === 'clipboard'} />
             </div>
             <div style={{ display: activeTab === 'productivity' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-              <Productivity />
+              <Productivity isActive={activeTab === 'productivity'} />
             </div>
             <div style={{ display: activeTab === 'lobby' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
               <SwarmDebate />

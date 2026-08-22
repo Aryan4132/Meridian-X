@@ -128,4 +128,6 @@ if __name__ == "__main__":
         os.chdir(backend_dir)
         import uvicorn
         from api import app
-        uvicorn.run(app, host="0.0.0.0", port=4132)
+        # SEC-FIX: bind loopback by default; opt into LAN exposure explicitly
+        bind_host = os.environ.get("MERIDIAN_BIND_HOST", "127.0.0.1")
+        uvicorn.run(app, host=bind_host, port=4132)

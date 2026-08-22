@@ -50,8 +50,12 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
+        cache: 'pip'
+        cache-dependency-path: 'meridian_backend/requirements.txt'
 
-    # ── Windows: PowerShell pip loop ──
+    # FIX: single fail-fast install — previously each failed package was
+    # logged as "Skipped" and the build continued, silently shipping
+    # sidecars missing dependencies.
     - name: Create Virtualenv & Install Requirements (Windows)
       if: matrix.platform == 'windows'
       shell: pwsh
@@ -60,21 +64,9 @@ jobs:
         python -m venv venv
         .\venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
         .\venv\Scripts\pip.exe install pyinstaller
+        .\venv\Scripts\pip.exe install -r requirements.txt --no-warn-script-location
+        if ($LASTEXITCODE -ne 0) { throw "Backend dependency installation failed" }
 
-        Get-Content requirements.txt | ForEach-Object {
-          $line = $_.Trim()
-          if ($line -and -not $line.StartsWith('#')) {
-            Write-Host "Installing: $line"
-            $proc = Start-Process -FilePath ".\venv\Scripts\pip.exe" `
-              -ArgumentList "install", $line, "--no-warn-script-location" `
-              -Wait -PassThru -NoNewWindow
-            if ($proc.ExitCode -ne 0) {
-              Write-Warning "Skipped (install failed): $line"
-            }
-          }
-        }
-
-    # ── macOS / Linux: bash pip loop ──
     - name: Create Virtualenv & Install Requirements (Unix)
       if: matrix.platform != 'windows'
       shell: bash
@@ -83,15 +75,31 @@ jobs:
         python -m venv venv
         ./venv/bin/python -m pip install --upgrade pip setuptools wheel
         ./venv/bin/pip install pyinstaller
+        ./venv/bin/pip install -r requirements.txt --no-warn-script-location
 
-        while IFS= read -r line || [[ -n "$line" ]]; do
-          line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          if [[ -n "$line" && ! "$line" == \#* ]]; then
-            echo "Installing: $line"
-            ./venv/bin/pip install "$line" --no-warn-script-location || \
-              echo "WARNING: Skipped (install failed): $line"
-          fi
-        done < requirements.txt
+    # FIX: import smoke test — catches broken/missing deps BEFORE PyInstaller
+    # bakes them into the released sidecar.
+    - name: Backend Import Smoke Test
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          PY=./meridian_backend/venv/Scripts/python.exe
+        else
+          PY=./meridian_backend/venv/bin/python
+        fi
+        $PY - <<'EOF'
+        import importlib
+        mods = ["fastapi", "uvicorn", "httpx", "cryptography", "jwt", "apscheduler", "sqlalchemy", "psutil"]
+        missing = []
+        for m in mods:
+            try:
+                importlib.import_module(m)
+            except Exception as e:
+                missing.append(f"{m}: {e}")
+        if missing:
+            raise SystemExit("Missing/broken core dependencies:\n" + "\n".join(missing))
+        print("Core dependency smoke test passed.")
+        EOF
 
     # ── Compile sidecar ──
     - name: Compile Python Backend Sidecar (Windows)
@@ -196,16 +204,30 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 20
+        cache: 'npm'
+        cache-dependency-path: 'meridian_frontend/package-lock.json'
 
+    # FIX: use committed lockfile via npm ci — deleting package-lock.json made
+    # every release build resolve fresh versions (non-reproducible artifacts).
     - name: Install Frontend Dependencies
       shell: bash
       run: |
         cd meridian_frontend
-        rm -f package-lock.json
-        npm install
+        npm ci
+
+    - name: Typecheck Frontend
+      shell: bash
+      run: |
+        cd meridian_frontend
+        npx tsc --noEmit
 
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
+
+    - name: Cache Rust Build
+      uses: swatinem/rust-cache@v2
+      with:
+        workspaces: 'meridian_frontend/src-tauri'
 
     - name: Install NSIS (Windows only)
       if: matrix.platform == 'windows'
@@ -237,7 +259,7 @@ jobs:
           | Windows  | `*-setup.exe` (NSIS installer) |
           | macOS    | `*.dmg` |
           | Linux    | `*.AppImage` |
-        releaseDraft: true
+        releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'
         args: ${{ matrix.tauri-args }}
