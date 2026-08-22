@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('../hey_meridian.onnx', '.'), ('../hey_meridian.tflite', '.')]
+datas = [('C:\\Users\\aryan\\OneDrive\\Dokumen\\Mini_Project\\Meridian-X\\hey_meridian.onnx', '.'), ('C:\\Users\\aryan\\OneDrive\\Dokumen\\Mini_Project\\Meridian-X\\hey_meridian.tflite', '.')]
 binaries = []
 hiddenimports = []
 tmp_ret = collect_all('fastapi')
