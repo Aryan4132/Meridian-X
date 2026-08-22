@@ -88,13 +88,13 @@ def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
             _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
             return result
 
-        # 3. Fallback to preferred installed local models
-        for preferred in ["qwen2.5-coder:7b-instruct-q4_K_M", "llama3.2:3b", "qwen3.5:latest"]:
-            if preferred in installed_models:
-                _model_name_cache[cache_key] = {"result": preferred, "expires": now + _MODEL_CACHE_TTL}
-                return preferred
+        # 3. Fallback to first installed local model
+        if installed_models:
+            result = installed_models[0]
+            _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
+            return result
 
-        result = installed_models[0]
+        result = model_name or "for ex: model name"
         _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
         return result
     except Exception as e:

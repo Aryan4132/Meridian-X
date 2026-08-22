@@ -195,10 +195,12 @@ jobs:
           libsoup-3.0-dev \
           wmctrl xdotool || true
         sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
+        sudo wget https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /usr/local/bin/appimagetool || true
+        sudo chmod +x /usr/local/bin/appimagetool || true
 
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
-      run: brew install create-dmg
+      run: brew install create-dmg || true
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -259,7 +261,7 @@ jobs:
           | Windows  | `*-setup.exe` (NSIS installer) |
           | macOS    | `*.dmg` |
           | Linux    | `*.AppImage` |
-        releaseDraft: false
+        releaseDraft: true
         prerelease: false
         projectPath: './meridian_frontend'
         args: ${{ matrix.tauri-args }}

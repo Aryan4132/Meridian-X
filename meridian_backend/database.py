@@ -90,7 +90,7 @@ def get_embedding(text: str) -> Optional[List[float]]:
         except Exception:
             pass
     if not embed_model:
-        embed_model = "nomic-embed-text"
+        embed_model = "for ex: model name"
 
     try:
         # Truncate text to ~2000 chars (~500 tokens) to prevent context length error from Ollama embedding models

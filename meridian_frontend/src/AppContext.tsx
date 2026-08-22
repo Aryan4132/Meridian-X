@@ -86,14 +86,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.className = `theme-${t}`;
   }, []);
 
-  // Update model name when localStorage changes
+  // Update model name when localStorage or model changes
   useEffect(() => {
     const update = () => {
       const m = localStorage.getItem('MERIDIAN_MODEL');
       if (m) setModelName(m);
     };
     window.addEventListener('storage', update);
-    return () => window.removeEventListener('storage', update);
+    window.addEventListener('meridian-model-changed', update);
+    return () => {
+      window.removeEventListener('storage', update);
+      window.removeEventListener('meridian-model-changed', update);
+    };
   }, []);
 
   // Poll backend health + usage
