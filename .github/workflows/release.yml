@@ -21,7 +21,7 @@ jobs:
             platform: windows
           - os: macos-latest
             platform: macos
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             platform: linux
 
     runs-on: ${{ matrix.os }}
@@ -134,7 +134,7 @@ jobs:
           - os: macos-latest
             platform: macos
             tauri-args: '--bundles dmg'
-          - os: ubuntu-22.04
+          - os: ubuntu-latest
             platform: linux
             tauri-args: '--bundles deb,appimage'
 
