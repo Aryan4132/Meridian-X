@@ -53,8 +53,7 @@ def main():
     model_files = glob.glob(os.path.join(root_dir, "*.onnx")) + glob.glob(os.path.join(root_dir, "*.tflite"))
     add_data_args = []
     for f in model_files:
-        filename = os.path.basename(f)
-        add_data_args.append(f'--add-data "../{filename}{sep}."')
+        add_data_args.append(f'--add-data "{f}{sep}."')
     
     add_data_str = " ".join(add_data_args)
     pyinstaller_cmd = (
