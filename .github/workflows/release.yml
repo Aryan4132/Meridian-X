@@ -1,4 +1,4 @@
-name: Compile & Package Multi-Platform Release
+name: Build & Release Multi-Platform Installer
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - 'v*'
 
 # ────────────────────────────────────────────────────────────────
-# JOB 1: Build Python backend sidecar for each platform
+# JOB 1 — Compile Python backend sidecar for each platform
 # Output: sidecar-{windows|macos|linux} GitHub Artifact
 # ────────────────────────────────────────────────────────────────
 jobs:
@@ -30,7 +30,6 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # --- System Dependencies for Linux ---
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -43,7 +42,6 @@ jobs:
           build-essential \
           libgomp1
 
-    # --- System Dependencies for macOS ---
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
       run: brew install portaudio libsndfile
@@ -53,44 +51,60 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Create Virtualenv & Install Requirements
+    # ── Windows: PowerShell pip loop ──
+    - name: Create Virtualenv & Install Requirements (Windows)
+      if: matrix.platform == 'windows'
+      shell: pwsh
+      run: |
+        cd meridian_backend
+        python -m venv venv
+        .\venv\Scripts\python.exe -m pip install --upgrade pip setuptools wheel
+        .\venv\Scripts\pip.exe install pyinstaller
+
+        Get-Content requirements.txt | ForEach-Object {
+          $line = $_.Trim()
+          if ($line -and -not $line.StartsWith('#')) {
+            Write-Host "Installing: $line"
+            $proc = Start-Process -FilePath ".\venv\Scripts\pip.exe" `
+              -ArgumentList "install", $line, "--no-warn-script-location" `
+              -Wait -PassThru -NoNewWindow
+            if ($proc.ExitCode -ne 0) {
+              Write-Warning "Skipped (install failed): $line"
+            }
+          }
+        }
+
+    # ── macOS / Linux: bash pip loop ──
+    - name: Create Virtualenv & Install Requirements (Unix)
+      if: matrix.platform != 'windows'
       shell: bash
       run: |
         cd meridian_backend
         python -m venv venv
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./venv/Scripts/python.exe -m pip install --upgrade pip setuptools wheel
-          ./venv/Scripts/pip.exe install pyinstaller
-          # Install core requirements line by line so missing optional platform wheels never block sidecar compilation
-          ./venv/Scripts/python.exe -c "
-import subprocess, sys
-with open('requirements.txt', 'r') as f:
-    for line in f:
-        req = line.strip()
-        if req and not req.startswith('#'):
-            subprocess.run([sys.executable, '-m', 'pip', 'install', req])
-"
-        else
-          ./venv/bin/python -m pip install --upgrade pip setuptools wheel
-          ./venv/bin/pip install pyinstaller
-          ./venv/bin/python -c "
-import subprocess, sys
-with open('requirements.txt', 'r') as f:
-    for line in f:
-        req = line.strip()
-        if req and not req.startswith('#'):
-            subprocess.run([sys.executable, '-m', 'pip', 'install', req])
-"
-        fi
+        ./venv/bin/python -m pip install --upgrade pip setuptools wheel
+        ./venv/bin/pip install pyinstaller
 
-    - name: Compile Python Backend Sidecar
+        while IFS= read -r line || [[ -n "$line" ]]; do
+          line="$(echo "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          if [[ -n "$line" && ! "$line" == \#* ]]; then
+            echo "Installing: $line"
+            ./venv/bin/pip install "$line" --no-warn-script-location || \
+              echo "WARNING: Skipped (install failed): $line"
+          fi
+        done < requirements.txt
+
+    # ── Compile sidecar ──
+    - name: Compile Python Backend Sidecar (Windows)
+      if: matrix.platform == 'windows'
+      shell: pwsh
+      run: |
+        .\meridian_backend\venv\Scripts\python.exe build_standalone.py --sidecar-only
+
+    - name: Compile Python Backend Sidecar (Unix)
+      if: matrix.platform != 'windows'
       shell: bash
       run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          ./meridian_backend/venv/Scripts/python build_standalone.py --sidecar-only
-        else
-          ./meridian_backend/venv/bin/python build_standalone.py --sidecar-only
-        fi
+        ./meridian_backend/venv/bin/python build_standalone.py --sidecar-only
 
     - name: Upload Sidecar Artifact
       uses: actions/upload-artifact@v4
@@ -100,7 +114,8 @@ with open('requirements.txt', 'r') as f:
         retention-days: 1
 
 # ────────────────────────────────────────────────────────────────
-# JOB 2: Build Tauri desktop app with embedded sidecar & publish release
+# JOB 2 — Build Tauri app (embeds sidecar) & publish release
+# One installer per OS: Windows=NSIS .exe | macOS=DMG | Linux=AppImage
 # ────────────────────────────────────────────────────────────────
   build-tauri:
     needs: build-backend
@@ -114,13 +129,13 @@ with open('requirements.txt', 'r') as f:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: "--bundles nsis,msi"
+            tauri-args: '--bundles nsis'
           - os: macos-latest
             platform: macos
-            tauri-args: "--bundles dmg"
+            tauri-args: '--bundles dmg'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: "--bundles deb,appimage"
+            tauri-args: '--bundles appimage'
 
     runs-on: ${{ matrix.os }}
 
@@ -128,14 +143,12 @@ with open('requirements.txt', 'r') as f:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    # --- Download Sidecar Artifact compiled in Job 1 ---
     - name: Download Sidecar Artifact
       uses: actions/download-artifact@v4
       with:
         name: sidecar-${{ matrix.platform }}
         path: meridian_frontend/src-tauri/api
 
-    # --- System Dependencies for Linux ---
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -150,18 +163,15 @@ with open('requirements.txt', 'r') as f:
           patchelf \
           squashfs-tools
 
-    # --- System Dependencies for macOS ---
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
       run: brew install create-dmg
 
-    # --- Setup Node.js ---
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 20
 
-    # --- Install Frontend Dependencies ---
     - name: Install Frontend Dependencies
       shell: bash
       run: |
@@ -169,23 +179,19 @@ with open('requirements.txt', 'r') as f:
         rm -f package-lock.json
         npm install
 
-    # --- Setup Rust Compiler ---
     - name: Setup Rust
       uses: dtolnay/rust-toolchain@stable
 
-    # --- Install NSIS (Windows only) ---
-    - name: Install NSIS
+    - name: Install NSIS (Windows only)
       if: matrix.platform == 'windows'
       shell: pwsh
       run: choco install nsis -y
 
-    # --- Clean Stale Bundles ---
     - name: Clean Previous Release Bundles
       shell: bash
       run: |
         rm -rf meridian_frontend/src-tauri/target/release/bundle
 
-    # --- Build Tauri App & Upload to Release ---
     - name: Build Tauri App & Upload Release
       uses: tauri-apps/tauri-action@v0
       env:
@@ -194,8 +200,18 @@ with open('requirements.txt', 'r') as f:
       with:
         tagName: ${{ github.ref_name }}
         releaseName: 'Meridian-X ${{ github.ref_name }}'
-        releaseBody: 'Automated multi-platform release for ${{ github.ref_name }}'
+        releaseBody: |
+          ## Meridian-X ${{ github.ref_name }}
+
+          Single installer per platform — bundles the full AI backend and desktop UI.
+
+          | Platform | File |
+          |----------|------|
+          | Windows  | `*-setup.exe` (NSIS installer) |
+          | macOS    | `*.dmg` |
+          | Linux    | `*.AppImage` |
         releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'
         args: ${{ matrix.tauri-args }}
+

@@ -156,7 +156,7 @@ const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts
               display: 'flex', flexDirection: 'column', gap: 4,
             }}>
               {thoughts.map((t, i) => (
-                <li key={i} style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.5 }}>{preprocessLatex(t)}</li>
+                <li key={i} style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>{preprocessLatex(t)}</li>
               ))}
             </ol>
           </motion.div>

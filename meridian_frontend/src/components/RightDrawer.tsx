@@ -71,9 +71,11 @@ export default function RightDrawer({
     <>
       <div
         style={{
-          width: rightDrawerOpen ? 'var(--drawer-width)' : 0,
+          width: rightDrawerOpen ? 'var(--drawer-width, 320px)' : 0,
+          minWidth: rightDrawerOpen ? 'var(--drawer-width, 320px)' : 0,
+          maxWidth: rightDrawerOpen ? 'var(--drawer-width, 320px)' : 0,
           opacity: rightDrawerOpen ? 1 : 0,
-          transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+          transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           background: 'var(--bg-panel)',
           borderLeft: rightDrawerOpen ? '1px solid var(--border-subtle)' : 'none',
           overflow: 'hidden',
@@ -81,11 +83,12 @@ export default function RightDrawer({
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
+          boxSizing: 'border-box',
         }}
       >
-        <div style={{ width: 'var(--drawer-width)', padding: '16px 16px 0', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ width: '100%', padding: '16px 16px 0', display: 'flex', flexDirection: 'column', height: '100%', boxSizing: 'border-box', overflowX: 'hidden' }}>
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, width: '100%', boxSizing: 'border-box' }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.08em', fontFamily: "'JetBrains Mono', monospace" }}>
               {title}
             </span>
@@ -111,11 +114,11 @@ export default function RightDrawer({
           </div>
 
           {/* Content */}
-          <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 16 }}>
+          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 16, width: '100%', boxSizing: 'border-box' }}>
 
             {/* TIMELINE: Live ReAct thoughts */}
             {activeTab === 'timeline' && (
-              <div>
+              <div style={{ width: '100%', boxSizing: 'border-box' }}>
                 {thoughtsFeed?.streaming && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', animation: 'pulse-glow-kf 1s ease-in-out infinite' }} />
@@ -127,7 +130,7 @@ export default function RightDrawer({
                     No thoughts yet. Send a message to start.
                   </p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, width: '100%', boxSizing: 'border-box' }}>
                     {thoughtsFeed!.thoughts.map((t, i) => (
                       <div key={i} style={{
                         fontSize: 11,
@@ -141,6 +144,8 @@ export default function RightDrawer({
                         wordBreak: 'break-word',
                         overflowWrap: 'anywhere',
                         whiteSpace: 'pre-wrap',
+                        maxWidth: '100%',
+                        boxSizing: 'border-box',
                       }}>
                         <span style={{ color: 'var(--text-dim)', marginRight: 6 }}>{(i + 1).toString().padStart(2, '0')}.</span>
                         {t}
