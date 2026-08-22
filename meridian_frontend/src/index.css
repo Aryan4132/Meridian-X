@@ -43,6 +43,7 @@
   --font-main: 'IBM Plex Mono', 'JetBrains Mono', monospace;
   --font-heading: 'IBM Plex Mono', 'JetBrains Mono', monospace;
   --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --drawer-width: 320px;
 }
 
 /* 1. Art Deco (Dark Luxury) */

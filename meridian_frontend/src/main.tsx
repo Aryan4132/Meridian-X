@@ -77,7 +77,7 @@ function MainRouter() {
       document.body.classList.remove('mascot-body');
 
       // Check if backend binary exists in production Tauri environment
-      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ && !import.meta.env.DEV) {
+      if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__ && !(import.meta as any).env?.DEV) {
         invoke<boolean>('check_backend_installed')
           .then((installed) => {
             if (!installed) {
