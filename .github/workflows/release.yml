@@ -129,13 +129,13 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: '--bundle nsis'
+            tauri-args: '--bundles nsis'
           - os: macos-latest
             platform: macos
-            tauri-args: '--bundle dmg'
+            tauri-args: '--bundles dmg'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundle appimage'
+            tauri-args: '--bundles appimage'
 
     runs-on: ${{ matrix.os }}
 
@@ -168,6 +168,7 @@ jobs:
           librsvg2-dev \
           patchelf \
           squashfs-tools \
+          libfuse2 \
           libgstreamer1.0-dev \
           libgstreamer-plugins-base1.0-dev \
           libsoup-3.0-dev
