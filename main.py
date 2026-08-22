@@ -100,7 +100,7 @@ async def run_cli_goal(goal: str, model: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Meridian-X: Autonomous Offline Desktop Agent")
     parser.add_argument("--goal", type=str, help="Execute a single goal autonomously via CLI")
-    parser.add_argument("--model", type=str, default="qwen2.5-coder:7b-instruct-q4_K_M", help="Ollama model override")
+    parser.add_argument("--model", type=str, default="for ex: model name", help="Ollama model override (for ex: model name)")
     args = parser.parse_args()
     
     if args.goal:

@@ -16,7 +16,7 @@ class HardwareGovernor:
         self.ram_limit_pct = ram_limit_pct
         self.cpu_limit_pct = cpu_limit_pct
 
-    def probe_model_benchmark(self, model_name: str = "qwen2.5-coder") -> Dict[str, Any]:
+    def probe_model_benchmark(self, model_name: str = "for ex: model name") -> Dict[str, Any]:
         """
         #4 FIX: Runs a real timed probe query to measure actual model TTFT and tokens-per-second.
         Previously returned hardcoded constants (ttft_ms=120, tps=42.5) which made the model

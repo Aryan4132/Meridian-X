@@ -95,9 +95,9 @@ export default function Settings() {
   const [provider, setProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [modelSource, setModelSource] = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
   const [ollamaHost, setOllamaHost] = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
-  const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'qwen2.5-coder:7b-instruct-q4_K_M');
-  const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'moondream:1.8b');
-  const [embeddingModel, setEmbeddingModel] = useState(() => localStorage.getItem('EMBEDDING_MODEL') || localStorage.getItem('embedding_model') || 'nomic-embed-text');
+  const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'for ex: model name');
+  const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'for ex: model name');
+  const [embeddingModel, setEmbeddingModel] = useState(() => localStorage.getItem('EMBEDDING_MODEL') || localStorage.getItem('embedding_model') || 'for ex: model name');
   const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
   const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
   const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
@@ -290,7 +290,7 @@ export default function Settings() {
     } catch { }
   };
 
-  const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'qwen2.5-coder:1.5b-instruct-q8_0');
+  const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'for ex: model name');
   const [contextTokenLimit, setContextTokenLimit] = useState(() => parseInt(localStorage.getItem('context_token_limit') || '8192'));
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
   const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
@@ -701,6 +701,9 @@ export default function Settings() {
       const models = PROVIDER_MODELS[provider] || [];
       if (models.length > 0 && !models.includes(brainModel)) {
         setBrainModel(models[0]);
+        localStorage.setItem('MERIDIAN_MODEL', models[0]);
+        setModelName(models[0]);
+        window.dispatchEvent(new Event('meridian-model-changed'));
       }
     }
   }, [provider]);
@@ -844,6 +847,7 @@ export default function Settings() {
           });
         } catch { /* noop */ }
         setModelName(brainModel);
+        window.dispatchEvent(new Event('meridian-model-changed'));
         setSaveStatus('saved');
       } else {
         setSaveStatus('fail');
