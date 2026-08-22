@@ -149,6 +149,12 @@ jobs:
         name: sidecar-${{ matrix.platform }}
         path: meridian_frontend/src-tauri/api
 
+    - name: Restore Executable Permissions (Unix)
+      if: matrix.platform != 'windows'
+      shell: bash
+      run: |
+        chmod -R +x meridian_frontend/src-tauri/api
+
     - name: Install Linux System Dependencies
       if: matrix.platform == 'linux'
       run: |
@@ -210,8 +216,7 @@ jobs:
           | Windows  | `*-setup.exe` (NSIS installer) |
           | macOS    | `*.dmg` |
           | Linux    | `*.AppImage` |
-        releaseDraft: false
+        releaseDraft: true
         prerelease: false
         projectPath: './meridian_frontend'
         args: ${{ matrix.tauri-args }}
-
