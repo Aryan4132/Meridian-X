@@ -12,10 +12,22 @@ static BACKEND_CHILD: Mutex<Option<Child>> = Mutex::new(None);
 /// Check if the Python backend binary is installed in the app data dir.
 #[tauri::command]
 fn check_backend_installed(app: tauri::AppHandle) -> bool {
-    let api_rel = if cfg!(target_os = "windows") { "api/api.exe" } else { "api/api" };
+    let api_bin = if cfg!(target_os = "windows") { "api.exe" } else { "api" };
+    if let Ok(res_dir) = app.path().resource_dir() {
+        if res_dir.join("api").join(api_bin).exists() || res_dir.join(api_bin).exists() {
+            return true;
+        }
+    }
+    if let Ok(mut exe_dir) = std::env::current_exe() {
+        exe_dir.pop();
+        if exe_dir.join("api").join(api_bin).exists() || exe_dir.join(api_bin).exists() || exe_dir.join("resources").join("api").join(api_bin).exists() {
+            return true;
+        }
+    }
     if let Ok(data_dir) = app.path().app_local_data_dir() {
-        let path = data_dir.join("Meridian").join(api_rel);
-        return path.exists();
+        if data_dir.join("Meridian").join("api").join(api_bin).exists() {
+            return true;
+        }
     }
     false
 }
@@ -452,30 +464,44 @@ pub fn run() {
                 let app_handle = app.handle();
                 let mut api_exe_path = None;
 
-                let api_rel_path = if cfg!(target_os = "windows") {
-                    "api/api.exe"
-                } else {
-                    "api/api"
-                };
+                let api_bin = if cfg!(target_os = "windows") { "api.exe" } else { "api" };
 
-                // Resolve backend binary from app local data dir (downloaded at first launch)
-                // Path: %LOCALAPPDATA%/meridian-x/Meridian/api/api[.exe]
+                // 1. Check Tauri resources directory (bundled inside single executable/installer)
                 if api_exe_path.is_none() {
-                    if let Ok(data_dir) = app_handle.path().app_local_data_dir() {
-                        let candidate = data_dir.join("Meridian").join(api_rel_path);
-                        if candidate.exists() {
-                            api_exe_path = Some(candidate);
+                    if let Ok(res_dir) = app_handle.path().resource_dir() {
+                        let c1 = res_dir.join("api").join(api_bin);
+                        let c2 = res_dir.join(api_bin);
+                        if c1.exists() {
+                            api_exe_path = Some(c1);
+                        } else if c2.exists() {
+                            api_exe_path = Some(c2);
                         }
                     }
                 }
 
-                // Fallback: check sibling api directory relative to current executable
+                // 2. Check sibling or resources directory relative to current executable
                 if api_exe_path.is_none() {
-                    if let Ok(mut exe_path) = std::env::current_exe() {
-                        exe_path.pop();
-                        let local_api = exe_path.join(api_rel_path);
-                        if local_api.exists() {
-                            api_exe_path = Some(local_api);
+                    if let Ok(mut exe_dir) = std::env::current_exe() {
+                        exe_dir.pop();
+                        let c1 = exe_dir.join("api").join(api_bin);
+                        let c2 = exe_dir.join(api_bin);
+                        let c3 = exe_dir.join("resources").join("api").join(api_bin);
+                        if c1.exists() {
+                            api_exe_path = Some(c1);
+                        } else if c2.exists() {
+                            api_exe_path = Some(c2);
+                        } else if c3.exists() {
+                            api_exe_path = Some(c3);
+                        }
+                    }
+                }
+
+                // 3. Check OS app local data directory (%LOCALAPPDATA%/meridian-x/Meridian/api/api[.exe])
+                if api_exe_path.is_none() {
+                    if let Ok(data_dir) = app_handle.path().app_local_data_dir() {
+                        let candidate = data_dir.join("Meridian").join("api").join(api_bin);
+                        if candidate.exists() {
+                            api_exe_path = Some(candidate);
                         }
                     }
                 }
