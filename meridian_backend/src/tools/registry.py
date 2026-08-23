@@ -45,10 +45,11 @@ from src.tools.recording import record_screen, stop_recording, analyze_recording
 from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
-from src.tools.geo_location import resolve_location, get_localized_weather, bias_query_spatially
 from src.tools.papercoder import generate_paper2code
+from src.tools.chrome_manager import launch_chrome_with_profile, get_chrome_profile_status
+from src.tools.media_player import play_youtube_music, verify_media_playing, control_media_playback
+from database import save_user_preference, get_user_preference
 
-# Advanced desktop tools imports
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
 from src.tools.task_scheduler import win_schedule_daily, win_schedule_once, win_list_tasks, win_delete_task
 from src.tools.security_auditor import run_security_audit
@@ -155,7 +156,15 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "open_app": {"tier": 1, "func": open_app},
     "open_file": {"tier": 1, "func": open_file},
     "open_url_in_browser": {"tier": 1, "func": open_url_in_browser},
+    "launch_chrome_with_profile": {"tier": 1, "func": launch_chrome_with_profile},
+    "get_chrome_profile_status": {"tier": 0, "func": get_chrome_profile_status},
+    "play_youtube_music": {"tier": 1, "func": play_youtube_music},
+    "verify_media_playing": {"tier": 0, "func": verify_media_playing},
+    "control_media_playback": {"tier": 1, "func": control_media_playback},
+    "save_user_preference": {"tier": 1, "func": save_user_preference},
+    "get_user_preference": {"tier": 0, "func": get_user_preference},
     "close_app": {"tier": 2, "func": close_app},
+
     "get_active_window": {"tier": 0, "func": get_active_window},
     "wait_for_window": {"tier": 0, "func": wait_for_window},
     
