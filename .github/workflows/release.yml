@@ -290,7 +290,7 @@ jobs:
           | Windows  | `*-setup.exe` (NSIS installer) |
           | macOS    | `*.dmg` |
           | Linux    | `*.deb` (Debian/Ubuntu package) |
-        releaseDraft: true
+        releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'
         args: ${{ matrix.tauri-args }}
