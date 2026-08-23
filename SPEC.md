@@ -100,9 +100,15 @@ Implement **Day 1 features (OPT-01, PL-30)** and **JARVIS-02 through JARVIS-11**
 - Add platform-native task scheduling, active window tracking, fullscreen game mode detection, and hardware capabilities detection (Apple Silicon unified memory, AMD ROCm).
 - Generalize shell command execution (`monitor_process`, `ping`, `open_app`, `open_file`).
 
+### 17. Butler AI & Media Automation Engine (`BUTLER-01` in `media_player.py`, `chrome_manager.py`, `database.py`)
+- **Butler Account & Preferences Memory**: Store persistent user account rules (e.g., `media_account_email`: `aryanshukla4132@gmail.com`, default streaming platforms) in SQLite/MongoDB profile memory with `save_user_preference` and `get_user_preference` API.
+- **Chrome Persistent User Data Profile Bridge**: Launch Chrome browser using local Chrome User Data directory (`%LOCALAPPDATA%\Google\Chrome\User Data`) or persistent Playwright context (`meridian_memory/chrome_profile`) so logged-in Google accounts (`aryanshukla4132@gmail.com`) stay authenticated.
+- **YouTube Music Playback Automation**: Dedicated `play_youtube_music(song_query: str, account_email: Optional[str] = None)` tool to search YT Music (`https://music.youtube.com/search?q=...`), select the track, trigger playback in non-headless Chrome window, and manage media controls (play/pause/skip).
+- **Butler Visual Verification & Auto-Retry Loop**: Closed-loop verification (`verify_media_playing` / `screenshot` + `vision_analyze` / `ocr_screen`) that takes a screenshot after executing open/play actions. If the target track/media is not actively playing, automatically retry by clicking the top song result play button or executing fallback hotkeys until verified.
+
 ## Verification Strategy
 
-- Pytest test suite for backend modules (`test_geo_location.py`, `test_oauth.py`, `test_day4_features.py`, `test_day5_features.py`, `test_day6_features.py`, `test_multi_os.py`).
+- Pytest test suite for backend modules (`test_geo_location.py`, `test_oauth.py`, `test_day4_features.py`, `test_day5_features.py`, `test_day6_features.py`, `test_multi_os.py`, `test_butler_media.py`).
 - Frontend build check (`npm run build`).
 
 ## Success Criteria
@@ -114,4 +120,6 @@ Implement **Day 1 features (OPT-01, PL-30)** and **JARVIS-02 through JARVIS-11**
 - [ ] Day 5 full-duplex voice, continuous window, voice response toggle, and biometrics pass unit test suite (`test_day5_features.py`).
 - [ ] Day 6 AST code graph, Neural RAG intent synthesizer, and PaperCoder paper-to-code tool pass unit test suite (`test_day6_features.py`).
 - [ ] Multi-OS cross-platform unit test suite (`test_multi_os.py`) passes 100% on Windows, macOS, and Linux.
+- [ ] BUTLER-01 persistent Chrome account profile, YouTube Music automation tool, and preference memory pass unit tests (`test_butler_media.py`).
+
 

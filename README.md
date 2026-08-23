@@ -50,13 +50,52 @@
 ## 🏗️ Architecture
 
 ```mermaid
-graph TD
-    A[React 19 + TypeScript Desktop UI] <-->|Tauri IPC / REST / SSE| B[FastAPI Async Backend]
-    B <--> C[ReAct Execution Loop]
-    C <--> D[Ollama / Cloud LLM APIs]
-    C <--> E[Tool Registry & MCP Client]
-    C <--> F[Local Vector DB & SQLite WAL]
-    E <--> G[System & Desktop Operations]
+flowchart TB
+    subgraph UI["🖥️ Presentation & User Interface Layer"]
+        UI_MAIN["React 19 + TS Desktop UI (Tauri v2)"]
+        UI_HUD["3D Mascot & Overlay HUD (Three.js)"]
+    end
+
+    subgraph GATEWAY["⚡ Backend Gateway & Security"]
+        FASTAPI["FastAPI Async Core Engine"]
+        SEC_GATE["Multi-Tier Security & Approval Gate"]
+    end
+
+    subgraph CORE["🧠 ReAct Autonomous Engine"]
+        REACT["ReAct Loop (Reason ➔ Act ➔ Observe)"]
+        HEAL["Self-Healing Corrector & Auditor"]
+    end
+
+    subgraph MODELS["🤖 Model Provider Layer"]
+        OLLAMA["Local LLMs (Ollama / Qwen / Llama)"]
+        CLOUD["Cloud LLMs (OpenAI / Anthropic / Gemini)"]
+    end
+
+    subgraph KNOWLEDGE["💾 Vector Memory & Code Graph"]
+        VEC_DB["Turbovec Local Vector RAG"]
+        AST_GRAPH["Codebase AST Knowledge Graph"]
+    end
+
+    subgraph TOOLS["🔌 Tool Integration & System Execution"]
+        MCP["MCP Server Client Registry"]
+        SYS_OPS["Desktop & System Automations"]
+    end
+
+    UI_MAIN <-->|Tauri IPC / REST / SSE| FASTAPI
+    UI_HUD <-->|State Dynamic Sync| FASTAPI
+
+    FASTAPI --> SEC_GATE
+    SEC_GATE --> REACT
+
+    REACT <-->|Inference Stream| OLLAMA
+    REACT <-->|API Requests| CLOUD
+
+    REACT <-->|Semantic Search| VEC_DB
+    REACT <-->|Symbol & Graph Queries| AST_GRAPH
+    REACT <-->|Retry & Fix| HEAL
+
+    REACT -->|Dispatch Calls| MCP
+    REACT -->|Execute Direct Operations| SYS_OPS
 ```
 
 ---

@@ -92,3 +92,12 @@
 - [x] **Task 18.4: Overhaul README.md** — Create high-quality, professional `README.md` for Meridian-X v0.1.0.
 - [x] **Task 18.5: Fix GitHub Release Workflow** — Update `.github/workflows/release.yml`.
 - [x] **Task 18.6: Verification & Git Tag Push (`v0.1.0`)** — Run full pytest and frontend lint, commit clean changes, and push tag `v0.1.0` to GitHub repository.
+
+## Phase 11: Butler AI & Persistent Chrome Media Automation (`BUTLER-01`)
+
+- [x] **Task 19.1: Butler Account Memory & User Preferences Engine (`database.py`)** — Implement `save_user_preference(key, value)` and `get_user_preference(key)` to persist account rules (e.g. `media_account_email`: `aryanshukla4132@gmail.com`).
+- [x] **Task 19.2: Persistent Chrome User Data Profile Manager (`chrome_manager.py`)** — Create Chrome profile manager launching Chrome with persistent User Data Directory (`%LOCALAPPDATA%\Google\Chrome\User Data` / `meridian_memory/chrome_profile`) so logged-in Google sessions are preserved.
+- [x] **Task 19.3: YouTube Music & Media Automation Tool (`media_player.py`)** — Implement `play_youtube_music(song_query, account_email, use_chrome)` tool to navigate YT Music (`https://music.youtube.com/search?q=...`), select track, trigger playback, and control media session.
+- [x] **Task 19.4: Butler Visual Verification & Auto-Retry Loop (`media_player.py`, `desktop.py`)** — Implement screenshot + vision/OCR visual verification (`verify_media_playing`) after opening/playing. Automatically click play icon or send keyboard play hotkeys if search page is loaded but playback hasn't started, retrying up to 3 times.
+- [x] **Task 19.5: Tool Registry & Agent System Prompt Integration (`registry.py`)** — Register `play_youtube_music`, `verify_media_playing`, `save_user_preference`, `control_media_playback` in tool registry and expose to ReAct loop.
+- [x] **Task 19.6: Butler Media Automation Unit Test Suite (`test_butler_media.py`)** — Add test suite covering profile persistence, account rule resolution, YT Music URL construction, visual verification retries, and media playback dispatch.

@@ -1062,6 +1062,17 @@ def get_user_profile(key: str) -> Optional[Any]:
             print("[MongoDB User Profile] Fetch failed:", e)
     return None
 
+def save_user_preference(key: str, value: Any) -> str:
+    """Butler memory helper: Saves user preference rule (e.g. media_account_email) to database profile."""
+    save_user_profile(key, value)
+    return f"Successfully saved preference: '{key}' = '{value}'"
+
+def get_user_preference(key: str, default: Any = None) -> Any:
+    """Butler memory helper: Retrieves stored user preference rule, returning default if absent."""
+    val = get_user_profile(key)
+    return val if val is not None else default
+
+
 def get_auditor_model() -> str:
     try:
         model = get_user_profile("meridian_auditor_model")

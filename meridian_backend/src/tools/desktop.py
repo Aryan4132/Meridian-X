@@ -1,11 +1,14 @@
 import os
 import mss
+import mss.tools
+
+
 try:
     import pyautogui
     pyautogui.FAILSAFE = True
 except Exception:
     pyautogui = None
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Union
 from src.core.audit_logger import log_sensitive_action
 
 def screenshot(output_path: str) -> str:
@@ -112,16 +115,18 @@ def gui_type(text: str, interval: float = 0.05) -> str:
         log_sensitive_action("GUI_INPUT", "type", {"text_len": len(text), "interval": interval, "error": str(e)}, "FAILED")
         raise e
 
-def gui_hotkey(keys: List[str]) -> str:
+def gui_hotkey(keys: Union[str, List[str]]) -> str:
+    key_list = [keys] if isinstance(keys, str) else keys
     if pyautogui is None:
         return "Error: PyAutoGUI is unavailable on this platform."
     try:
-        pyautogui.hotkey(*keys)
-        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": keys}, "SUCCESS")
-        return f"Pressed keys combination: {keys}"
+        pyautogui.hotkey(*key_list)
+        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": key_list}, "SUCCESS")
+        return f"Pressed keys combination: {key_list}"
     except Exception as e:
-        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": keys, "error": str(e)}, "FAILED")
+        log_sensitive_action("GUI_INPUT", "hotkey", {"keys": key_list, "error": str(e)}, "FAILED")
         raise e
+
 
 def gui_scroll(x: int, y: int, clicks: int) -> str:
     if pyautogui is None:
@@ -161,8 +166,10 @@ def find_ui_elements_pil(image_path: str) -> List[List[int]]:
             for y in range(stride_y, height - stride_y, stride_y):
                 # Sample local edge intensity
                 box_area = edges.crop((x - 12, y - 12, x + 12, y + 12))
-                stat = sum(box_area.getdata()) / 576.0
+                stat = sum([p for p in box_area.getdata()]) / 576.0
                 if stat > 20.0:
+
+
                     # Deduplicate nearby anchors
                     too_close = False
                     for bx, by in boxes:
