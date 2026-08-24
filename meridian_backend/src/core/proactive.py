@@ -90,6 +90,35 @@ def publish_nudge_sync(
         print(f"[Proactive Nudge] ({title}): {message}")
 
 
+def push_day8_context_nudge(
+    nudge_type: str,
+    title: str,
+    message: str,
+    icon: str = "💡",
+    action: Optional[str] = None
+) -> None:
+    """Dispatches a Day 8 ambient context nudge (face, gesture, window, ambient audio) to UI."""
+    publish_nudge_sync(
+        nudge_type=nudge_type,
+        title=title,
+        message=message,
+        icon=icon,
+        action=action,
+        mascot_state="alert" if nudge_type in ("wellbeing", "hitl_approval") else "default"
+    )
+
+
+async def push_proactive_nudge(
+    nudge_type: str,
+    title: str,
+    message: str,
+    actions: Optional[List[Any]] = None,
+    icon: str = "💡"
+) -> None:
+    """Async wrapper for publishing proactive nudges."""
+    publish_nudge_sync(nudge_type=nudge_type, title=title, message=message, icon=icon)
+
+
 def dispatch_notification(
     title: str,
     message: str,

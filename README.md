@@ -6,7 +6,7 @@
 
 ### Autonomous Offline-First Desktop AI Agent & Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.1.0-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.1.1-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -24,24 +24,29 @@
 ## ✨ Key Capabilities
 
 ### 🧠 Autonomous ReAct Reasoning Engine
+
 - **Reasoning Loop**: Asynchronous *Reason → Act → Observe* execution stream with live Server-Sent Events (SSE).
 - **Multi-Model Support**: Powered by local models via Ollama (Qwen2.5-Coder, Llama 3, DeepSeek) or cloud APIs (OpenAI, Anthropic, Gemini, Groq, OpenRouter).
 - **Self-Healing & Auto-Correction**: Intercepts tool errors, syntax failures, and parameter mismatches automatically.
 
 ### 🛡️ Multi-Tier Safety & Execution Controls
+
 - **Tier 0 (Read-Only)**: Parallel non-mutating operations (`read_file`, `list_directory`, `search_web`).
 - **Tier 1 (Safe Mutations)**: Monitored file modifications and structured script runs.
 - **Tier 2/3 (High-Risk Operations)**: Enforces interactive human-in-the-loop approval gates before executing desktop actions or system modifications.
 
 ### 🔌 Model Context Protocol (MCP) Integration
+
 - **Universal Tool Registry**: Seamlessly connects to external MCP tool servers (GitHub, PostgreSQL, Slack, Linear, Filesystem).
 - **Dynamic Tool Injection**: Extends agent capabilities at runtime without restarting the service.
 
 ### 🦊 Interactive 3D Mascot & Desktop Overlay
+
 - **Frameless Overlay HUD**: Compact desktop widget floating over applications with global key bindings (`Alt + M`, `Alt + V`).
 - **Cognitive State Dynamics**: Real-time visual indicator reflecting agent status (Idle, Thinking, Executing, Error, Success).
 
 ### ⚡ Local Vector Memory & Codebase Graph (Neural RAG)
+
 - **Document & Code Ingestion**: Parses PDF, Markdown, Python, DOCX, and JSON into a localized SQLite WAL database with vector embeddings.
 - **Code Graph AST**: Parses symbol definitions, callers, callees, and change impact matrices.
 
@@ -119,6 +124,7 @@ flowchart TB
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - **Python**: 3.11 or higher
 - **Node.js**: v20 or higher
 - **Ollama** (optional for local LLMs): [ollama.com](https://ollama.com)
@@ -133,11 +139,13 @@ cd Meridian-X
 ```
 
 **Windows**:
+
 ```powershell
 .\start_desktop.bat
 ```
 
 **Linux / macOS**:
+
 ```bash
 chmod +x start_desktop.sh
 ./start_desktop.sh

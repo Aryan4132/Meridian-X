@@ -61,6 +61,81 @@ def parse_receipt_subscription(file_path_or_text: str) -> Dict[str, Any]:
     return result
 
 
+def _extract_pdf_layout_and_tables(file_path: str) -> str:
+    """Pure-Python XY-Cut layout sorting and table parser using pypdf visitor_text."""
+    if not pypdf:
+        raise ImportError("The 'pypdf' package is not installed.")
+
+    reader = pypdf.PdfReader(file_path)
+    text_parts = []
+
+    for i, page in enumerate(reader.pages):
+        text_parts.append(f"--- Page {i + 1} ---")
+        page_fragments = []
+
+        def visitor_body(text, cm, tm, font_dict, font_size):
+            if text and text.strip():
+                # Extract (x, y) coordinates from transformation matrix
+                x = tm[4] if len(tm) > 4 else 0
+                y = tm[5] if len(tm) > 5 else 0
+                page_fragments.append({"x": float(x), "y": float(y), "text": text.strip()})
+
+        try:
+            page.extract_text(visitor_text=visitor_body)
+        except Exception:
+            pass
+
+        if not page_fragments:
+            text_parts.append(page.extract_text() or "")
+            continue
+
+        # Sort top-to-bottom (PDF y is bottom-up, so higher y is top of page)
+        # Group fragments into horizontal lines (y threshold 4.0)
+        lines: List[List[Dict[str, Any]]] = []
+        page_fragments.sort(key=lambda f: f["y"], reverse=True)
+
+        current_line: List[Dict[str, Any]] = []
+        current_y = None
+
+        for frag in page_fragments:
+            if current_y is None or abs(frag["y"] - current_y) <= 4.0:
+                current_line.append(frag)
+                if current_y is None:
+                    current_y = frag["y"]
+            else:
+                current_line.sort(key=lambda f: f["x"])
+                lines.append(current_line)
+                current_line = [frag]
+                current_y = frag["y"]
+
+        if current_line:
+            current_line.sort(key=lambda f: f["x"])
+            lines.append(current_line)
+
+        # Format lines into text / markdown tables
+        page_str_lines = []
+        for line_frags in lines:
+            if len(line_frags) >= 2:
+                # Table row detection based on x gaps
+                row_cells = [line_frags[0]["text"]]
+                for idx in range(1, len(line_frags)):
+                    gap = line_frags[idx]["x"] - (line_frags[idx-1]["x"] + len(line_frags[idx-1]["text"]) * 5)
+                    if gap > 15:
+                        row_cells.append(line_frags[idx]["text"])
+                    else:
+                        row_cells[-1] += " " + line_frags[idx]["text"]
+                if len(row_cells) > 1:
+                    page_str_lines.append("| " + " | ".join(row_cells) + " |")
+                else:
+                    page_str_lines.append(" ".join(f["text"] for f in line_frags))
+            else:
+                page_str_lines.append(" ".join(f["text"] for f in line_frags))
+
+        text_parts.append("\n".join(page_str_lines))
+
+    return "\n".join(text_parts)
+
+
 def read_document_text(file_path: str) -> str:
     """
     Extracts text content or data from office document formats (.pdf, .docx, .pptx, .xlsx, .xls).
@@ -68,18 +143,11 @@ def read_document_text(file_path: str) -> str:
     """
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
-        
+
     ext = os.path.splitext(file_path)[1].lower()
-    
+
     if ext == ".pdf":
-        if not pypdf:
-            raise ImportError("The 'pypdf' package is not installed.")
-        reader = pypdf.PdfReader(file_path)
-        text_parts = []
-        for i, page in enumerate(reader.pages):
-            text_parts.append(f"--- Page {i + 1} ---")
-            text_parts.append(page.extract_text() or "")
-        return "\n".join(text_parts)
+        return _extract_pdf_layout_and_tables(file_path)
         
     elif ext == ".docx":
         if not docx:

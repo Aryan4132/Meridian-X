@@ -103,17 +103,17 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 7 — Multi-Provider RAG, PDF Extractor & Vault Fallback (🔴 High Priority · ⬜ Not started)
-- **`PL-08`** 🔜 — Multi-Provider RAG Vector Embeddings Pipeline
+## 📅 Day 7 — Multi-Provider RAG, PDF Extractor & Vault Fallback (🔴 High Priority · ✅ Complete)
+- **`PL-08`** ✅ — Multi-Provider RAG Vector Embeddings Pipeline
   - *Target*: `database.py`
   - *Deliverable*: OpenAI `text-embedding-3-small` and in-memory `fastembed` fallback when local Ollama is offline.
-- **`PL-11`** 🔜 — Hybrid Sparse-Dense RAG & AST Code Chunking
+- **`PL-11`** ✅ — Hybrid Sparse-Dense RAG & AST Code Chunking
   - *Target*: `doc_indexer.py`
   - *Deliverable*: BM25 keyword matching + Turbovec dense vectors + AST function/class boundary chunking.
-- **`PL-17`** 🔜 — Native Pure-Python PDF Layout & Table Extractor
+- **`PL-17`** ✅ — Native Pure-Python PDF Layout & Table Extractor
   - *Target*: `documents.py`, `doc_indexer.py`
   - *Deliverable*: Pure-Python XY-Cut reading order sorting and bounding box table parser.
-- **`PL-09`** 🔜 — Multi-Cloud Vault Fallback Chain
+- **`PL-09`** ✅ — Multi-Cloud Vault Fallback Chain
   - *Target*: `llm_provider.py`
   - *Deliverable*: Automated failover chain across vault API keys (Primary Cloud $\rightarrow$ Secondary Cloud $\rightarrow$ Ollama).
 
@@ -157,67 +157,10 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 10 — Subagent Model Binding, RTSP Camera & Polyglot (🟡 Medium Priority)
-- **`PL-10`** ⬜ — Heterogeneous Subagent Model Binding
-  - *Target*: `swarm.py`
-  - *Deliverable*: Role-based subagent model binding (DeepSeek Coder for Auditor, Gemini Flash for Researcher).
-- **`JARVIS-05`** ⬜ — Smart Camera & RTSP Security Vision Sentinel
-  - *Target*: `camera_sentinel.py`
-  - *Deliverable*: RTSP security camera stream object detector notifying room entry or visitors.
-- **`JARVIS-06`** ⬜ — Room Arrival Auto-Briefing & Voice Synthesizer
-  - *Target*: `presence_briefing.py`
-  - *Deliverable*: Presence-triggered 15-second executive voice report upon entering workspace.
-- **`JARVIS-10`** ⬜ — Multi-Lingual Whisper & Real-Time Code Polyglot
-  - *Target*: `polyglot.py`
-  - *Deliverable*: 50+ language real-time speech-to-code translator.
-
 ---
 
-## 📅 Day 11 — AR Bridge, Workspace Layout & Perception HUD (🟡 Medium Priority)
-- **`JARVIS-08`** ⬜ — Dynamic AR Smart Glasses & Headset Mirroring Bridge
-  - *Target*: `ar_bridge.py`
-  - *Deliverable*: WebSockets HUD streaming for XREAL, Meta Ray-Ban, and Apple Vision Pro headsets.
-- **`SYS-01`** ⬜ — Smart Workspace Window Auto-Organizer
-  - *Target*: `workspace_layout.py`
-  - *Deliverable*: Auto-arranges editor, terminal, browser, and Meridian HUD windows into mode presets.
-- **`PL-05`** ⬜ — Frontend Perception HUD & Hardware Toggles
-  - *Target*: `PerceptionHUD.tsx`, `NavRail.tsx`
-  - *Deliverable*: Visual webcam/mic indicators and hardware mute switches.
-- **`PL-20`** ⬜ — Active Brain Model & Execution Mode Header Pill
-  - *Target*: `StatusBar.tsx`, `NavRail.tsx`
-  - *Deliverable*: Persistent status badge showing active loaded model and execution mode.
-- **`PL-22`** ⬜ — Inline Connection & API Key Health Checks
-  - *Target*: `Settings.tsx`
-  - *Deliverable*: Real-time connection status badges for Ollama and API keys.
 
----
-
-## 📅 Day 12 — Mascot Expressions, Visualizer & UI Polish (🟡 Medium & 🟢 Low Priority)
-- **`PL-13`** ⬜ — Mascot Visor Expressions & Micro-Emotions
-  - *Target*: `Mascot.tsx`
-  - *Deliverable*: Dynamic SVG visor eyes (`^ _ ^`, `> _ <`, `- _ -`) and sleeping particle animations.
-- **`PL-14`** ⬜ — Mascot Real-Time Voice Audio Visualizer
-  - *Target*: `Mascot.tsx`
-  - *Deliverable*: Circular 8-bar audio equalizer reacting to STT/TTS frequencies.
-- **`PL-15`** ⬜ — Agent Loop Action Auras for Mascot
-  - *Target*: `Mascot.tsx`
-  - *Deliverable*: Action-specific visual aura effects (browsing particles, vision sonar beam, auditing shield).
-- **`PL-16`** ⬜ — Desktop Floating Pet Edge-Snapping & Drag Physics
-  - *Target*: `Mascot.tsx`
-  - *Deliverable*: Screen edge-snapping, drag physics, and interactive pet click behaviors.
-- **`PL-19`** ⬜ — Collapsible Timeline Step Accordions & Diff Preview
-  - *Target*: `Timeline.tsx`
-  - *Deliverable*: Collapsible agent step accordions and code diff previews.
-- **`PL-21`** ⬜ — Command Palette View Navigation & Action Toggles
-  - *Target*: `CommandPalette.tsx`
-  - *Deliverable*: Extended `Ctrl+K` command palette with navigation and mode toggles.
-- **`PL-27`** ⬜ — Anime.js UI Animation Integration
-  - *Target*: `meridian_website/package.json`, `src/`
-  - *Deliverable*: Anime.js timeline animations, SVG morphing, and staggered transitions.
-
----
-
-## 📅 Day 13 — Personal Butler Expansion I: Memory, Travel & Expiry (🔴 High Priority · ⬜ Not started)
+## 📅 Day 10 — Personal Butler Expansion I: Memory, Travel & Expiry (🔴 High Priority · ⬜ Not started)
 
 *Everything below was verified as **missing from the codebase** on 2026-08-23. Each item reuses existing infrastructure (proactive event bus, preference memory, WhatsApp/OAuth connectors, geo engine, scheduler).*
 
@@ -233,7 +176,7 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 14 — Cyber Defense Sprint I: Emergency & Data Protection (🔴 High Priority · ⬜ Not started)
+## 📅 Day 11 — Cyber Defense Sprint I: Emergency & Data Protection (🔴 High Priority · ⬜ Not started)
 
 *Verified missing on 2026-08-23: no ransomware detection, network monitoring, breach watch, or lockdown mode exists (`system_defense.py` covers only CPU/RAM/process hygiene).*
 
@@ -252,7 +195,7 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 15 — Voice Calling Engine (🔴 High Priority · ⬜ Not started)
+## 📅 Day 12 — Voice Calling Engine (🔴 High Priority · ⬜ Not started)
 
 *Verified missing on 2026-08-23: `duplex.py` only transcribes/translates supplied audio — there is no real telephony bridge or call agent anywhere.*
 
@@ -271,7 +214,7 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 16 — Cyber Defense Sprint II: Malware & System Protection (🔴 High Priority · ⬜ Not started)
+## 📅 Day 13 — Cyber Defense Sprint II: Malware & System Protection (🔴 High Priority · ⬜ Not started)
 
 *Verified missing on 2026-08-23: no malware scanning, behavioral detection, or persistence auditing exists (`security_auditor.py` covers only port scans + leak checks).*
 
@@ -308,6 +251,50 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
   - *Deliverable*: Google Fit / Apple Health / smartwatch steps + sleep sync feeding the wellness score and a "readiness" line in the morning briefing.
 
 ---
+
+---
+
+
+## 📅 Day 15 — Subagent Model Binding, RTSP Camera & Polyglot (🟡 Medium Priority)
+- **`PL-10`** ⬜ — Heterogeneous Subagent Model Binding
+  - *Target*: `swarm.py`
+  - *Deliverable*: Role-based subagent model binding (DeepSeek Coder for Auditor, Gemini Flash for Researcher).
+- **`JARVIS-05`** ⬜ — Smart Camera & RTSP Security Vision Sentinel
+  - *Target*: `camera_sentinel.py`
+  - *Deliverable*: RTSP security camera stream object detector notifying room entry or visitors.
+- **`JARVIS-06`** ⬜ — Room Arrival Auto-Briefing & Voice Synthesizer
+  - *Target*: `presence_briefing.py`
+  - *Deliverable*: Presence-triggered 15-second executive voice report upon entering workspace.
+- **`JARVIS-10`** ⬜ — Multi-Lingual Whisper & Real-Time Code Polyglot
+  - *Target*: `polyglot.py`
+  - *Deliverable*: 50+ language real-time speech-to-code translator.
+
+---
+
+---
+
+
+## 📅 Day 16 — AR Bridge, Workspace Layout & Perception HUD (🟡 Medium Priority)
+- **`JARVIS-08`** ⬜ — Dynamic AR Smart Glasses & Headset Mirroring Bridge
+  - *Target*: `ar_bridge.py`
+  - *Deliverable*: WebSockets HUD streaming for XREAL, Meta Ray-Ban, and Apple Vision Pro headsets.
+- **`SYS-01`** ⬜ — Smart Workspace Window Auto-Organizer
+  - *Target*: `workspace_layout.py`
+  - *Deliverable*: Auto-arranges editor, terminal, browser, and Meridian HUD windows into mode presets.
+- **`PL-05`** ⬜ — Frontend Perception HUD & Hardware Toggles
+  - *Target*: `PerceptionHUD.tsx`, `NavRail.tsx`
+  - *Deliverable*: Visual webcam/mic indicators and hardware mute switches.
+- **`PL-20`** ⬜ — Active Brain Model & Execution Mode Header Pill
+  - *Target*: `StatusBar.tsx`, `NavRail.tsx`
+  - *Deliverable*: Persistent status badge showing active loaded model and execution mode.
+- **`PL-22`** ⬜ — Inline Connection & API Key Health Checks
+  - *Target*: `Settings.tsx`
+  - *Deliverable*: Real-time connection status badges for Ollama and API keys.
+
+---
+
+---
+
 
 ## 📅 Day 17 — Butler Expansion II: Household, Finance & Rhythm (🟡 Medium Priority · ⬜ Not started)
 - **`BUTLER-03`** ⬜ — Wellness & Ergonomics Butler
@@ -372,37 +359,10 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 20 — Butler Expansion III: Learning & Planning Polish (🟢 Low Priority · ⬜ Not started)
-- **`BUTLER-08`** ⬜ — Learning Queue & Spaced Reading Digest
-  - *Target*: `learning_queue.py`, `tools/web_browser.py`
-  - *Deliverable*: "Save for later" queue, scheduled digest slot, SM-2 flashcards with chat recall quizzes.
-- **`BUTLER-09`** ⬜ — Weather-Aware Day Planner & Outfit Advisor
-  - *Target*: `day_planner.py`, `geo_location.py`
-  - *Deliverable*: Morning plan timeline merging weather/calendar/habits; outfit suggestions; rain-alert proactive replans.
-
 ---
 
-## 📅 Day 21 — Polish: Persona & Reflection (🟢 Low Priority · ⬜ Not started)
-- **`BUTLER-12`** ⬜ — Butler Persona & Mood Engine
-  - *Target*: `llm_provider.py`, `Mascot.tsx`
-  - *Deliverable*: Personality slider (concise ↔ wingman ↔ formal), context-driven mood (deadline day vs. Friday evening), TTS tone adaptation via AST-07 params.
-- **`BUTLER-27`** ⬜ — Weekly Review Generator
-  - *Target*: `proactive.py`, `database.py`
-  - *Deliverable*: Sunday auto-review: wins, misses, focus metrics, next-week plan; voice-readable on demand.
 
----
-
-## 📅 Day 22 — Security Polish: Hygiene & Cleanup (🟢 Low Priority · ⬜ Not started)
-- **`SEC-42`** ⬜ — Wi-Fi Security Assessor
-  - *Target*: `wifi_assessor.py`, `proactive.py`
-  - *Deliverable*: Warn on open/WEP/WPA2-weak networks at join time, auto-tighten firewall + sharing rules on public Wi-Fi, network trust profiles.
-- **`SEC-43`** ⬜ — Secure File Shredder & Sensitive Vault
-  - *Target*: `secure_shredder.py`, `tools/filesystem.py`
-  - *Deliverable*: DoD 5220.20-M style multi-pass wipe with verification, encrypted sensitive-file vault inside the existing vault system, wipe certificates for audit.
-
----
-
-## 📅 Day 24 — Knowledge & Cost Intelligence (🟡 Medium Priority · ⬜ Not started)
+## 📅 Day 20 — Knowledge & Cost Intelligence (🟡 Medium Priority · ⬜ Not started)
 - **`TRUST-03`** ⬜ — Cloud Spend & Token Meter
   - *Target*: `llm_provider.py`, `Settings.tsx`
   - *Deliverable*: Per-provider token/cost dashboard, monthly budget caps, automatic downgrade to local Ollama when overspend threshold hits.
@@ -421,7 +381,7 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
 
 ---
 
-## 📅 Day 25 — Life Expansion: Vehicle, Family & Media (🟡 Medium Priority · ⬜ Not started)
+## 📅 Day 21 — Life Expansion: Vehicle, Family & Media (🟡 Medium Priority · ⬜ Not started)
 - **`CAR-01`** ⬜ — Car Logbook & Service Predictor
   - *Target*: `car_logbook.py`, `documents.py`
   - *Deliverable*: Fuel/service/expense entries, mileage-based service-due predictions, insurance renewal tie-in with BUTLER-06 expiry ladder.
@@ -439,6 +399,70 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
   - *Deliverable*: Dedupe, face-tagged albums (reuses PL-01 embeddings), auto-album generation, "on this day" resurfacing.
 
 ---
+
+---
+
+
+## 📅 Day 22 — Mascot Expressions, Visualizer & UI Polish (🟡 Medium & 🟢 Low Priority)
+- **`PL-13`** ⬜ — Mascot Visor Expressions & Micro-Emotions
+  - *Target*: `Mascot.tsx`
+  - *Deliverable*: Dynamic SVG visor eyes (`^ _ ^`, `> _ <`, `- _ -`) and sleeping particle animations.
+- **`PL-14`** ⬜ — Mascot Real-Time Voice Audio Visualizer
+  - *Target*: `Mascot.tsx`
+  - *Deliverable*: Circular 8-bar audio equalizer reacting to STT/TTS frequencies.
+- **`PL-15`** ⬜ — Agent Loop Action Auras for Mascot
+  - *Target*: `Mascot.tsx`
+  - *Deliverable*: Action-specific visual aura effects (browsing particles, vision sonar beam, auditing shield).
+- **`PL-16`** ⬜ — Desktop Floating Pet Edge-Snapping & Drag Physics
+  - *Target*: `Mascot.tsx`
+  - *Deliverable*: Screen edge-snapping, drag physics, and interactive pet click behaviors.
+- **`PL-19`** ⬜ — Collapsible Timeline Step Accordions & Diff Preview
+  - *Target*: `Timeline.tsx`
+  - *Deliverable*: Collapsible agent step accordions and code diff previews.
+- **`PL-21`** ⬜ — Command Palette View Navigation & Action Toggles
+  - *Target*: `CommandPalette.tsx`
+  - *Deliverable*: Extended `Ctrl+K` command palette with navigation and mode toggles.
+- **`PL-27`** ⬜ — Anime.js UI Animation Integration
+  - *Target*: `meridian_website/package.json`, `src/`
+  - *Deliverable*: Anime.js timeline animations, SVG morphing, and staggered transitions.
+
+---
+
+---
+
+
+## 📅 Day 23 — Butler Expansion III: Learning & Planning Polish (🟢 Low Priority · ⬜ Not started)
+- **`BUTLER-08`** ⬜ — Learning Queue & Spaced Reading Digest
+  - *Target*: `learning_queue.py`, `tools/web_browser.py`
+  - *Deliverable*: "Save for later" queue, scheduled digest slot, SM-2 flashcards with chat recall quizzes.
+- **`BUTLER-09`** ⬜ — Weather-Aware Day Planner & Outfit Advisor
+  - *Target*: `day_planner.py`, `geo_location.py`
+  - *Deliverable*: Morning plan timeline merging weather/calendar/habits; outfit suggestions; rain-alert proactive replans.
+
+---
+
+## 📅 Day 24 — Polish: Persona & Reflection (🟢 Low Priority · ⬜ Not started)
+- **`BUTLER-12`** ⬜ — Butler Persona & Mood Engine
+  - *Target*: `llm_provider.py`, `Mascot.tsx`
+  - *Deliverable*: Personality slider (concise ↔ wingman ↔ formal), context-driven mood (deadline day vs. Friday evening), TTS tone adaptation via AST-07 params.
+- **`BUTLER-27`** ⬜ — Weekly Review Generator
+  - *Target*: `proactive.py`, `database.py`
+  - *Deliverable*: Sunday auto-review: wins, misses, focus metrics, next-week plan; voice-readable on demand.
+
+---
+
+## 📅 Day 25 — Security Polish: Hygiene & Cleanup (🟢 Low Priority · ⬜ Not started)
+- **`SEC-42`** ⬜ — Wi-Fi Security Assessor
+  - *Target*: `wifi_assessor.py`, `proactive.py`
+  - *Deliverable*: Warn on open/WEP/WPA2-weak networks at join time, auto-tighten firewall + sharing rules on public Wi-Fi, network trust profiles.
+- **`SEC-43`** ⬜ — Secure File Shredder & Sensitive Vault
+  - *Target*: `secure_shredder.py`, `tools/filesystem.py`
+  - *Deliverable*: DoD 5220.20-M style multi-pass wipe with verification, encrypted sensitive-file vault inside the existing vault system, wipe certificates for audit.
+
+---
+
+---
+
 
 ## 📅 Day 26 — Long-Tail Polish (🟢 Low Priority · ⬜ Not started)
 - **`TRUST-04`** ⬜ — Citation Guardrails
@@ -464,4 +488,3 @@ Daily schedule sequenced strictly by **priority/importance**, **security impact*
   - *Deliverable*: Full keyboard navigation + screen-reader labels, high-contrast theme, font scaling, voice-only complete control mode audit.
 - **`MED-02`** ⬜ — Journal Prompts & Gratitude Mode
   - *Target*: `proactive.py`, `database.py`
-  - *Deliverable*: Nightly reflection prompts inside BUTLER-07 wind-down; gratitude streak tracking.

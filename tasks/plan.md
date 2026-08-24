@@ -1,10 +1,22 @@
-# Implementation Plan: Tasks PL-23 to PL-26
+# Implementation Plan: Day 7 — Multi-Provider RAG, PDF Extractor & Vault Fallback Chain
 
 ## Overview
-Implement configurable Model Execution Mode (`local` vs `cloud`/`api`) and bind task decomposition to the user active `brain_model`.
+Implement Day 7 features for Meridian-X: Multi-Provider Embeddings Pipeline (`PL-08`), Hybrid Sparse-Dense RAG & AST Code Chunking (`PL-11`), Native Pure-Python PDF Layout & Table Extractor (`PL-17`), and Multi-Cloud Vault Fallback Chain (`PL-09`).
 
-## Tasks
-1. **PL-23**: Bind `decompose_goal_to_checklist` and internal loop helpers to active `brain_model` in `meridian_backend/src/core/loop.py`.
-2. **PL-24**: Dynamic `MERIDIAN_MODEL_SOURCE` lookup in `Timeline.tsx` and `Mascot.tsx`.
-3. **PL-25**: Execution Mode UI toggle in `Settings.tsx`.
-4. **PL-26**: Backend API profile & stream synchronization in `api.py`.
+## Task List
+
+### Phase 1: RAG & Document Pipeline
+- [ ] Task 20.1: Multi-Provider RAG Vector Embeddings Pipeline (`database.py`)
+- [ ] Task 20.2: Hybrid Sparse-Dense RAG & AST Code Chunking (`src/core/doc_indexer.py`)
+- [ ] Task 20.3: Native Pure-Python PDF Layout & Table Extractor (`src/tools/documents.py`)
+
+### Phase 2: Resilience & Verification
+- [ ] Task 20.4: Multi-Cloud Vault Fallback Chain (`src/core/llm_provider.py`)
+- [ ] Task 20.5: Day 7 Unit Test Suite Verification (`tests/test_day7_features.py`)
+
+## Risks and Mitigations
+| Risk | Impact | Mitigation |
+|---|---|---|
+| OpenAI / Ollama embedding dimension mismatch (1536 vs 4096) | Medium | Normalize and zero-pad / slice vectors or track model dimension metadata per index. |
+| In-memory embedding fallback overhead | Low | Use lightweight deterministic hashing vectorizer as offline zero-dependency fallback. |
+| PDF layout text fragment overlap | Medium | Group text fragments by Y-coordinate bands before X-sorting (XY-Cut algorithm). |

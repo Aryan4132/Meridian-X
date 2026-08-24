@@ -98,6 +98,15 @@
 - [x] **Task 19.1: Butler Account Memory & User Preferences Engine (`database.py`)** — Implement `save_user_preference(key, value)` and `get_user_preference(key)` to persist account rules (e.g. `media_account_email`: `aryanshukla4132@gmail.com`).
 - [x] **Task 19.2: Persistent Chrome User Data Profile Manager (`chrome_manager.py`)** — Create Chrome profile manager launching Chrome with persistent User Data Directory (`%LOCALAPPDATA%\Google\Chrome\User Data` / `meridian_memory/chrome_profile`) so logged-in Google sessions are preserved.
 - [x] **Task 19.3: YouTube Music & Media Automation Tool (`media_player.py`)** — Implement `play_youtube_music(song_query, account_email, use_chrome)` tool to navigate YT Music (`https://music.youtube.com/search?q=...`), select track, trigger playback, and control media session.
+
+## Phase 12: Day 7 — Multi-Provider RAG, PDF Extractor & Vault Fallback (`PL-08`, `PL-11`, `PL-17`, `PL-09`)
+
+- [ ] **Task 20.1: Multi-Provider RAG Vector Embeddings Pipeline (`PL-08`)** — `meridian_backend/database.py`
+- [ ] **Task 20.2: Hybrid Sparse-Dense RAG & AST Code Chunking (`PL-11`)** — `meridian_backend/src/core/doc_indexer.py`
+- [ ] **Task 20.3: Native Pure-Python PDF Layout & Table Extractor (`PL-17`)** — `meridian_backend/src/tools/documents.py`
+- [ ] **Task 20.4: Multi-Cloud Vault Fallback Chain (`PL-09`)** — `meridian_backend/src/core/llm_provider.py`
+- [ ] **Task 20.5: Day 7 Unit Test Suite Verification** — `meridian_backend/tests/test_day7_features.py`
+
 - [x] **Task 19.4: Butler Visual Verification & Auto-Retry Loop (`media_player.py`, `desktop.py`)** — Implement screenshot + vision/OCR visual verification (`verify_media_playing`) after opening/playing. Automatically click play icon or send keyboard play hotkeys if search page is loaded but playback hasn't started, retrying up to 3 times.
 - [x] **Task 19.5: Tool Registry & Agent System Prompt Integration (`registry.py`)** — Register `play_youtube_music`, `verify_media_playing`, `save_user_preference`, `control_media_playback` in tool registry and expose to ReAct loop.
 - [x] **Task 19.6: Butler Media Automation Unit Test Suite (`test_butler_media.py`)** — Add test suite covering profile persistence, account rule resolution, YT Music URL construction, visual verification retries, and media playback dispatch.

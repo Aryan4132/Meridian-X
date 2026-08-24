@@ -21,7 +21,7 @@ Last Updated: 2026-08-23
 | **BUTLER-21** | Package Delivery Tracker (shipping-email parse → delivery-day alert + doorbell cam check) | 🟢 Low | Butler / Logistics |
 | **BUTLER-28** | Multi-Profile & Guest Mode (isolated personas, auto-wipe guest sessions) | 🟢 Low | Platform |
 
-> *SEC-42/43 were promoted from this Backlog to Planned → Day 22 on 2026-08-23.*
+> *SEC-42/43 were promoted from this Backlog to Planned → Day 25 on 2026-08-23.*
 
 ---
 
@@ -32,35 +32,35 @@ Last Updated: 2026-08-23
 | ID | Task Name | Priority | Category | Target File(s) | Acceptance Criteria |
 |---|---|---|---|---|---|
 | **PL-08** | **Multi-Provider RAG Vector Embeddings Pipeline** | 🔴 High | Memory/RAG | `meridian_backend/database.py` | OpenAI `text-embedding-3-small` and in-memory CPU fallback (`fastembed`) when local Ollama `nomic-embed-text` is offline. |
-| **PL-09** | **Multi-Cloud Vault Fallback Chain** | 🟡 Medium | AI Engine | `meridian_backend/src/core/llm_provider.py` | Automated failover across vault API keys (Primary Cloud → Secondary Cloud → Local Ollama). |
 | **PL-11** | **Hybrid Sparse-Dense RAG & AST Code Chunking** | 🔴 High | RAG/Memory | `meridian_backend/src/core/doc_indexer.py` | BM25 keyword matching + Turbovec dense vectors + AST function/class boundary chunking. |
 | **PL-17** | **Native Pure-Python PDF Layout & Table Extractor** | 🔴 High | RAG/Memory | `meridian_backend/src/tools/documents.py`, `doc_indexer.py` | Pure-Python XY-Cut reading-order sort and bounding-box table parser for RAG indexing without Java. |
 | **PL-01** | **Facial Recognition & Presence Engine** | 🔴 High | Vision/AI | `meridian_backend/src/core/vision_face.py` | Real-time presence, face-recognition embeddings, emotion tracking via MediaPipe/OpenCV. |
 | **PL-02** | **Continuous Ambient Listener** | 🔴 High | Audio/STT | `meridian_backend/src/voice/ambient_listener.py` | Background VAD (`webrtcvad`) + continuous `faster-whisper` transcription stream. |
 | **PL-03** | **Real-Time Screen & Window Sense** | 🔴 High | Vision/Context | `meridian_backend/src/core/screen_sense.py` | Active-window metadata tracking + vision-LLM screen parsing on app switch/error. |
 | **PL-04** | **Proactive Nudge Engine Expansion** | 🔴 High | Intelligence | `meridian_backend/src/core/proactive.py` | Event-driven context synthesis combining face, sound, screen, and system metrics. |
-| **PL-05** | **Frontend Perception HUD & Hardware Toggles** | 🟡 Medium | UI/UX | `meridian_frontend/src/components/PerceptionHUD.tsx`, `NavRail.tsx` | Webcam/mic indicators and hardware mute switches. |
 | **PL-06** | **Provider-Aware Multimodal Screen Vision** | 🔴 High | Vision/AI | `meridian_backend/src/core/vision.py` | Route screen captures to GPT-4o / Gemini Flash / Claude Sonnet when API keys are active. |
 | **PL-29** | **Vision Motion & Hand Gesture Control Sentinel** | 🔴 High | Vision/AI | `meridian_backend/src/core/vision_gesture.py` | Hand-gesture recognizer (thumbs-up approve, open-palm stop, wave/swipes) + desk motion tracker. |
 | **JARVIS-02** | **Eye-Tracking & Spatial Gaze Control Sentinel** | 🔴 High | Vision/Perception | `meridian_backend/src/core/gaze_tracker.py` | MediaPipe Iris gaze tracker for hands-free window selection & gaze-based dimming. |
 | **JARVIS-04** | **Predictive Action Pre-Execution & Context Pre-Warmer** *(partial: habit model groundwork exists in `perception.py`)* | 🔴 High | Intelligence | `meridian_backend/src/core/predictive_engine.py` | Habit model pre-warms LLM context, opens dev tools, pre-scaffolds git diffs. |
+| **ECO-01** | **Mobile Companion App & QR P2P Sync** | 🔴 High | Cross-Device | `meridian_backend/src/core/p2p.py` | QR pairing, mobile voice-command relay, phone camera video ingestion. |
+| **FIN-03** | **Real-Time Financial News Sentiment & Stock Sentinel** | 🔴 High | Personal Finance | `meridian_backend/src/core/finance_sentinel.py` | News sentiment classifier + hybrid stock trend forecasting engine. |
+| **PL-09** | **Multi-Cloud Vault Fallback Chain** | 🟡 Medium | AI Engine | `meridian_backend/src/core/llm_provider.py` | Automated failover across vault API keys (Primary Cloud → Secondary Cloud → Local Ollama). |
+| **PL-05** | **Frontend Perception HUD & Hardware Toggles** | 🟡 Medium | UI/UX | `meridian_frontend/src/components/PerceptionHUD.tsx`, `NavRail.tsx` | Webcam/mic indicators and hardware mute switches. |
 | **JARVIS-05** | **Smart Camera & RTSP Security Vision Sentinel** | 🟡 Medium | Vision/Security | `meridian_backend/src/core/camera_sentinel.py` | RTSP object detector notifying room entry, deliveries, or unknown visitors. |
 | **JARVIS-06** | **Room Arrival Auto-Briefing & Voice Synthesizer** | 🟡 Medium | Voice/Assistant | `meridian_backend/src/core/presence_briefing.py` | Presence-triggered 15-second executive voice report upon entering workspace. |
 | **JARVIS-08** | **Dynamic AR Smart Glasses & Headset Mirroring Bridge** | 🟡 Medium | AR/Hardware | `meridian_backend/src/core/ar_bridge.py` | WebSocket HUD streaming for XREAL, Meta Ray-Ban, Apple Vision Pro. |
-| **ECO-01** | **Mobile Companion App & QR P2P Sync** | 🔴 High | Cross-Device | `meridian_backend/src/core/p2p.py` | QR pairing, mobile voice-command relay, phone camera video ingestion. |
-| **FIN-03** | **Real-Time Financial News Sentiment & Stock Sentinel** | 🔴 High | Personal Finance | `meridian_backend/src/core/finance_sentinel.py` | News sentiment classifier + hybrid stock trend forecasting engine. |
 | **PL-10** | **Heterogeneous Subagent Model Binding** | 🟡 Medium | Multi-Agent | `meridian_backend/src/core/swarm.py` | Role-based subagent model binding (DeepSeek Coder → Auditor, Gemini Flash → Researcher). |
 | **SYS-01** | **Smart Workspace Window Auto-Organizer** | 🟡 Medium | System Automation | `meridian_backend/src/core/workspace_layout.py` | Auto-arrange editor/terminal/browser/HUD windows into Dev, Research, Review presets. |
 | **JARVIS-10** | **Multi-Lingual Whisper & Real-Time Code Polyglot** | 🟡 Medium | Voice | `meridian_backend/src/voice/polyglot.py` | 50+ language real-time speech-to-code translator. |
 | **PL-13** | **Mascot Visor Expressions & Micro-Emotions** | 🟡 Medium | UI/Mascot | `meridian_frontend/src/Mascot.tsx` | Dynamic SVG visor eyes (`^ _ ^`, `> _ <`, `- _ -`) + sleeping Zzz particles. |
 | **PL-14** | **Mascot Real-Time Voice Audio Visualizer** | 🟡 Medium | UI/Audio | `meridian_frontend/src/Mascot.tsx` | Circular 8-bar equalizer reacting to STT/TTS frequencies. |
 | **PL-15** | **Agent Loop Action Auras for Mascot** | 🟡 Medium | UI/Agent | `meridian_frontend/src/Mascot.tsx` | Action-specific auras (browsing particles, vision sonar, auditing shield). |
-| **PL-16** | **Desktop Floating Pet Edge-Snapping & Drag Physics** | 🟢 Low | UI/Desktop | `meridian_frontend/src/Mascot.tsx` | Edge-snapping, drag physics, click reactions for floating pet mode. |
 | **PL-19** | **Collapsible Timeline Step Accordions & Diff Preview** | 🟡 Medium | UI/UX | `meridian_frontend/src/views/Timeline.tsx` | Collapsible agent step accordions + syntax-highlighted diff previews. |
 | **PL-20** | **Active Brain Model & Execution Mode Header Pill** | 🟡 Medium | UI/UX | `StatusBar.tsx`, `NavRail.tsx` | Persistent badge showing loaded model + Local vs Cloud/API mode. |
-| **PL-21** | **Command Palette View Navigation & Action Toggles** | 🟢 Low | UI/UX | `CommandPalette.tsx` | Ctrl+K palette view switching, mode toggles, shortcut hints. |
 | **PL-22** | **Inline Connection & API Key Health Checks** | 🟡 Medium | UI/UX | `Settings.tsx` | Live status badges for Ollama ping + vault key validation in Settings. |
 | **PL-27** | **Anime.js UI Animation Integration** | 🟡 Medium | UI/UX | `meridian_website/package.json`, `src/` | Anime.js timelines, SVG morphing, staggered transitions across website components. |
+| **PL-16** | **Desktop Floating Pet Edge-Snapping & Drag Physics** | 🟢 Low | UI/Desktop | `meridian_frontend/src/Mascot.tsx` | Edge-snapping, drag physics, click reactions for floating pet mode. |
+| **PL-21** | **Command Palette View Navigation & Action Toggles** | 🟢 Low | UI/UX | `CommandPalette.tsx` | Ctrl+K palette view switching, mode toggles, shortcut hints. |
 
 ### 🎯 Planned — Butler, Cyber-Defense & Calling Expansion *(priority-ordered)*
 
@@ -72,11 +72,6 @@ Last Updated: 2026-08-23
 | **SEC-37** | **Real-Time Process Behavior Monitor (EDR-Lite)** | Security/System | `behavior_monitor.py`, `system_defense.py` | Detect process-injection patterns, crypto-miner signatures, mass file-handle access, suspicious child chains → auto-quarantine via JARVIS-07. |
 | **SEC-38** | **Persistence & Autoruns Sentinel** | Security/System | `persistence_sentinel.py`, `watcher.py` | Baseline registry Run keys / scheduled tasks / services / startup folders / browser extensions; alert + one-click rollback on new persistence entries. |
 | **SEC-34** | **Emergency Lockdown Mode** | Security/System | `emergency_lockdown.py`, `system_defense.py` | One voice/command trigger: lock workstation, mute mic, disable cameras, isolate network adapters, freeze vault; PIN/biometric unlock; audit-logged. |
-| **TRUST-01** | **Memory Editor UI ("What do you remember?")** | Trust/AI | `memory_editor.py`, `MemoryEditor.tsx`, `temporal_memory.py` | Searchable window into everything Meridian remembers; edit/delete/"forget this"; JSON export — GDPR-style brain transparency. |
-| **TRUST-02** | **Tool-Use Regression Suite** | Trust/CI | `tests/tool_scenarios.yaml`, `.github/workflows/ci.yml` | Scripted NL scenarios asserting correct tool selection + args through `loop.py`; CI gate pre-release so refactors can't break routing. |
-| **OPS-01** | **Self-Updater with Safe Swap & Changelog** | Platform/Reliability | `updater.py`, `.github/workflows/release.yml` | Version check → download → verify signature → swap binaries → restart with rollback on failed health probe; in-app changelog. |
-| **KNOW-01** | **Downloads Janitor** | Files/Automation | `file_janitor.py`, `tools/filesystem.py` | Auto-sort downloads by type/date, duplicate hash finder, age-out rules with review-before-delete; nightly summary nudge. |
-| **FIT-01** | **Wearable Health Data Ingestion** | Health/Integration | `health_ingest.py`, `proactive.py` | Google Fit / Apple Health / smartwatch steps + sleep feeding wellness score and morning-briefing "readiness" line. |
 | **SEC-31** | **Ransomware Canary & File Integrity Watcher** | Security/Files | `fim_sentinel.py`, `watcher.py` | Honeypot files + hash baselines on Documents/Desktop; mass-modify tripwire → process quarantine (JARVIS-07 hook), emergency snapshot, toast alert. |
 | **CALL-01** | **VoIP Phone Agent Bridge** | Communication/Voice | `tools/phone_agent.py`, `voice/duplex.py` | Twilio/SIP trunk bridging live calls through duplex STT/TTS loop; `make_phone_call` tool with goal-driven conversation loop and hang-up detection. |
 | **CALL-02** | **AI Call Screener & Receptionist** | Communication/Voice | `tools/phone_agent.py` | Answers unknown numbers; spam/human/priority classification; message taking; starred-caller passthrough; live transcript to UI. |
@@ -88,6 +83,11 @@ Last Updated: 2026-08-23
 | **BUTLER-02** | **Personal CRM & Occasion Sentinel** | Butler/Memory | `personal_crm.py`, `proactive.py` | People graph (birthdays, anniversaries, last-contact); occasion nudges + LLM gift ideas 3 days ahead; silent-VIP follow-up alerts. |
 | **BUTLER-04** | **Travel Butler & Leave-By Briefing** | Butler/Travel | `travel_butler.py`, `tools/web.py` | NL trip creation, itinerary from Gmail confirmations, leave-by commute calc via `geo_location.py`, travel-day voice briefing. |
 | **BUTLER-06** | **Document Expiry Vault Sentinel** | Butler/Security | `expiry_sentinel.py`, `tools/documents.py` | Passport/ID/insurance/warranty/domain registry with 30/14/7/1-day escalation via proactive notifications. |
+| **TRUST-01** | **Memory Editor UI ("What do you remember?")** | Trust/AI | `memory_editor.py`, `MemoryEditor.tsx`, `temporal_memory.py` | Searchable window into everything Meridian remembers; edit/delete/"forget this"; JSON export — GDPR-style brain transparency. |
+| **TRUST-02** | **Tool-Use Regression Suite** | Trust/CI | `tests/tool_scenarios.yaml`, `.github/workflows/ci.yml` | Scripted NL scenarios asserting correct tool selection + args through `loop.py`; CI gate pre-release so refactors can't break routing. |
+| **OPS-01** | **Self-Updater with Safe Swap & Changelog** | Platform/Reliability | `updater.py`, `.github/workflows/release.yml` | Version check → download → verify signature → swap binaries → restart with rollback on failed health probe; in-app changelog. |
+| **KNOW-01** | **Downloads Janitor** | Files/Automation | `file_janitor.py`, `tools/filesystem.py` | Auto-sort downloads by type/date, duplicate hash finder, age-out rules with review-before-delete; nightly summary nudge. |
+| **FIT-01** | **Wearable Health Data Ingestion** | Health/Integration | `health_ingest.py`, `proactive.py` | Google Fit / Apple Health / smartwatch steps + sleep feeding wellness score and morning-briefing "readiness" line. |
 
 #### 🟡 Medium
 

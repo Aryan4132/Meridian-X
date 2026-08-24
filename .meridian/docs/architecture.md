@@ -68,1279 +68,1292 @@ graph TD
     N62["workflow_engine.py [meridian_backend/src/core]"]
     N63["auto_reviewer.py [meridian_backend/src/tools]"]
     N64["browser_agent.py [meridian_backend/src/tools]"]
-    N65["clipboard.py [meridian_backend/src/tools]"]
-    N66["communication.py [meridian_backend/src/tools]"]
-    N67["db_query.py [meridian_backend/src/tools]"]
-    N68["desktop.py [meridian_backend/src/tools]"]
-    N69["developer.py [meridian_backend/src/tools]"]
-    N70["documents.py [meridian_backend/src/tools]"]
-    N71["dynamic_manager.py [meridian_backend/src/tools]"]
-    N72["exporter.py [meridian_backend/src/tools]"]
-    N73["external_connectors.py [meridian_backend/src/tools]"]
-    N74["filesystem.py [meridian_backend/src/tools]"]
-    N75["geo_location.py [meridian_backend/src/tools]"]
-    N76["knowledge.py [meridian_backend/src/tools]"]
-    N77["mcp_marketplace.py [meridian_backend/src/tools]"]
-    N78["ollama_manager.py [meridian_backend/src/tools]"]
-    N79["papercoder.py [meridian_backend/src/tools]"]
-    N80["recording.py [meridian_backend/src/tools]"]
-    N81["registry.py [meridian_backend/src/tools]"]
-    N82["review.py [meridian_backend/src/tools]"]
-    N83["scheduler.py [meridian_backend/src/tools]"]
-    N84["security_auditor.py [meridian_backend/src/tools]"]
-    N85["shell.py [meridian_backend/src/tools]"]
-    N86["system.py [meridian_backend/src/tools]"]
-    N87["task_scheduler.py [meridian_backend/src/tools]"]
-    N88["vault.py [meridian_backend/src/tools]"]
-    N89["voice.py [meridian_backend/src/tools]"]
-    N90["watcher.py [meridian_backend/src/tools]"]
-    N91["web.py [meridian_backend/src/tools]"]
-    N92["web_browser.py [meridian_backend/src/tools]"]
-    N93["whatsapp_manager.py [meridian_backend/src/tools]"]
-    N94["duplex.py [meridian_backend/src/voice]"]
-    N95["polyglot.py [meridian_backend/src/voice]"]
-    N96["stt.py [meridian_backend/src/voice]"]
-    N97["tts.py [meridian_backend/src/voice]"]
-    N98["voice_biometrics.py [meridian_backend/src/voice]"]
-    N99["wakeword.py [meridian_backend/src/voice]"]
-    N100["conftest.py [meridian_backend/tests]"]
-    N101["run_tests.py [meridian_backend/tests]"]
-    N102["test_auto_bug_fixer.py [meridian_backend/tests]"]
-    N103["test_backlog_features.py [meridian_backend/tests]"]
-    N104["test_backlog_sprint.py [meridian_backend/tests]"]
-    N105["test_bridges.py [meridian_backend/tests]"]
-    N106["test_config.py [meridian_backend/tests]"]
-    N107["test_context_budget.py [meridian_backend/tests]"]
-    N108["test_database.py [meridian_backend/tests]"]
-    N109["test_day3_features.py [meridian_backend/tests]"]
-    N110["test_day4_features.py [meridian_backend/tests]"]
-    N111["test_day5_features.py [meridian_backend/tests]"]
-    N112["test_day6_features.py [meridian_backend/tests]"]
-    N113["test_document_tools.py [meridian_backend/tests]"]
-    N114["test_geo_location.py [meridian_backend/tests]"]
-    N115["test_jarvis_perception.py [meridian_backend/tests]"]
-    N116["test_llm_provider.py [meridian_backend/tests]"]
-    N117["test_logging.py [meridian_backend/tests]"]
-    N118["test_loop_parser.py [meridian_backend/tests]"]
-    N119["test_loop_submodules.py [meridian_backend/tests]"]
-    N120["test_model_source.py [meridian_backend/tests]"]
-    N121["test_multi_os.py [meridian_backend/tests]"]
-    N122["test_oauth.py [meridian_backend/tests]"]
-    N123["test_p2p.py [meridian_backend/tests]"]
-    N124["test_proactive.py [meridian_backend/tests]"]
-    N125["test_proactive_notifications.py [meridian_backend/tests]"]
-    N126["test_security_features.py [meridian_backend/tests]"]
-    N127["test_sprint2_features.py [meridian_backend/tests]"]
-    N128["test_stream_resiliency.py [meridian_backend/tests]"]
-    N129["test_swarm.py [meridian_backend/tests]"]
-    N130["test_tools.py [meridian_backend/tests]"]
-    N131["test_vault.py [meridian_backend/tests]"]
-    N132["test_voice_speed.py [meridian_backend/tests]"]
-    N133["test_wakeword_continuous.py [meridian_backend/tests]"]
-    N134["test_wakeword_onnx.py [meridian_backend/tests]"]
-    N135["test_workflow.py [meridian_backend/tests]"]
-    N136["vite.config.ts [meridian_frontend]"]
-    N137["AppContext.tsx [meridian_frontend/src]"]
-    N138["main.tsx [meridian_frontend/src]"]
-    N139["Mascot.tsx [meridian_frontend/src]"]
-    N140["Mascot3DCharacter.tsx [meridian_frontend/src]"]
-    N141["CommandPalette.tsx [meridian_frontend/src/components]"]
-    N142["NavRail.tsx [meridian_frontend/src/components]"]
-    N143["RightDrawer.tsx [meridian_frontend/src/components]"]
-    N144["ServerConnectionModal.tsx [meridian_frontend/src/components]"]
-    N145["Shell.tsx [meridian_frontend/src/components]"]
-    N146["StatusBar.tsx [meridian_frontend/src/components]"]
-    N147["AmbientParticles.tsx [meridian_frontend/src/components/ui]"]
-    N148["DataBadge.tsx [meridian_frontend/src/components/ui]"]
-    N149["GlowCard.tsx [meridian_frontend/src/components/ui]"]
-    N150["HoloButton.tsx [meridian_frontend/src/components/ui]"]
-    N151["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
-    N152["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
-    N153["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
-    N154["oauthService.ts [meridian_frontend/src/services]"]
-    N155["BackendSetup.tsx [meridian_frontend/src/startup]"]
-    N156["BootSequence.tsx [meridian_frontend/src/startup]"]
-    N157["OnboardingWizard.tsx [meridian_frontend/src/startup]"]
-    N158["SetupWizard.tsx [meridian_frontend/src/startup]"]
-    N159["Clipboard.tsx [meridian_frontend/src/views]"]
-    N160["Jobs.tsx [meridian_frontend/src/views]"]
-    N161["Productivity.tsx [meridian_frontend/src/views]"]
-    N162["Settings.tsx [meridian_frontend/src/views]"]
-    N163["SwarmDebate.tsx [meridian_frontend/src/views]"]
-    N164["Timeline.tsx [meridian_frontend/src/views]"]
-    N165["WorkflowBuilder.tsx [meridian_frontend/src/views]"]
-    N166["applications.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N167["background.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N168["cli.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N169["concurrency.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N170["datastructures.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N171["encoders.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N172["exceptions.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N173["exception_handlers.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N174["logger.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N175["params.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N176["param_functions.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N177["requests.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N178["responses.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N179["routing.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N180["sse.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N181["staticfiles.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N182["templating.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N183["testclient.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N184["types.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N185["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N186["websockets.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N187["__init__.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N188["__main__.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
-    N189["models.py [meridian_frontend/src-tauri/api/_internal/fastapi/dependencies]"]
-    N190["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi/dependencies]"]
-    N191["asyncexitstack.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N192["cors.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N193["gzip.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N194["httpsredirect.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N195["trustedhost.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N196["wsgi.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N197["__init__.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
-    N198["docs.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
-    N199["models.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
-    N200["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
-    N201["api_key.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
-    N202["base.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
-    N203["http.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
-    N204["oauth2.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
-    N205["open_id_connect_url.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
-    N206["shared.py [meridian_frontend/src-tauri/api/_internal/fastapi/_compat]"]
-    N207["v2.py [meridian_frontend/src-tauri/api/_internal/fastapi/_compat]"]
-    N208["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N209["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
-    N210["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N211["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
-    N212["aliases.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N213["alias_generators.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N214["annotated_handlers.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N215["color.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N216["config.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N217["dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N218["errors.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N219["fields.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N220["functional_serializers.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N221["functional_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N222["json_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N223["main.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N224["mypy.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N225["networks.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N226["root_model.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N227["types.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N228["type_adapter.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N229["validate_call_decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N230["version.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N231["warnings.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N232["_migration.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N233["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
-    N234["class_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N235["config.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N236["copy_internals.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N237["decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N238["json.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N239["parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N240["tools.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
-    N241["arguments_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
-    N242["missing_sentinel.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
-    N243["pipeline.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
-    N244["_loader.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
-    N245["_schema_validator.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
-    N246["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
-    N247["annotated_types.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N248["class_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N249["color.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N250["config.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N251["dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N252["datetime_parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N253["decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N254["env_settings.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N255["errors.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N256["error_wrappers.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N257["fields.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N258["generics.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N259["json.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N260["main.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N261["mypy.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N262["networks.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N263["parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N264["schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N265["tools.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N266["types.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N267["typing.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N268["utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N269["validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N270["version.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N271["_hypothesis_plugin.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N272["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
-    N273["_config.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N274["_core_metadata.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N275["_core_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N276["_dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N277["_decorators.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N278["_decorators_v1.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N279["_discriminated_union.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N280["_docs_extraction.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N281["_fields.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N282["_forward_ref.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N283["_generate_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N284["_generics.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N285["_git.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N286["_import_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N287["_internal_dataclass.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N288["_known_annotated_metadata.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N289["_mock_val_ser.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N290["_model_construction.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N291["_namespace_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N292["_repr.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N293["_schema_gather.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N294["_schema_generation_shared.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N295["_serializers.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N296["_signature.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N297["_typing_extra.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N298["_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N299["_validate_call.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N300["_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
-    N301["applications.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N302["authentication.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N303["background.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N304["concurrency.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N305["config.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N306["convertors.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N307["datastructures.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N308["endpoints.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N309["exceptions.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N310["formparsers.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N311["requests.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N312["responses.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N313["routing.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N314["schemas.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N315["staticfiles.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N316["status.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N317["templating.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N318["testclient.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N319["types.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N320["websockets.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N321["_exception_handler.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N322["_utils.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
-    N323["authentication.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N324["base.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N325["cors.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N326["errors.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N327["exceptions.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N328["gzip.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N329["httpsredirect.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N330["sessions.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N331["trustedhost.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N332["wsgi.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N333["__init__.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
-    N334["config.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N335["importer.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N336["logging.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N337["main.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N338["server.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N339["workers.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N340["_compat.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N341["_subprocess.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N342["_types.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N343["__init__.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N344["__main__.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
-    N345["off.py [meridian_frontend/src-tauri/api/_internal/uvicorn/lifespan]"]
-    N346["on.py [meridian_frontend/src-tauri/api/_internal/uvicorn/lifespan]"]
-    N347["asyncio.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
-    N348["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
-    N349["uvloop.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
-    N350["asgi2.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
-    N351["message_logger.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
-    N352["proxy_headers.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
-    N353["wsgi.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
-    N354["utils.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols]"]
-    N355["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
-    N356["flow_control.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
-    N357["h11_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
-    N358["httptools_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
-    N359["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
-    N360["websockets_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
-    N361["websockets_sansio_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
-    N362["wsproto_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
-    N363["basereload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
-    N364["multiprocess.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
-    N365["statreload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
-    N366["watchfilesreload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
-    N367["__init__.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
-    N368["get_system_platform_info.py [plugins]"]
+    N65["chrome_manager.py [meridian_backend/src/tools]"]
+    N66["clipboard.py [meridian_backend/src/tools]"]
+    N67["communication.py [meridian_backend/src/tools]"]
+    N68["db_query.py [meridian_backend/src/tools]"]
+    N69["desktop.py [meridian_backend/src/tools]"]
+    N70["developer.py [meridian_backend/src/tools]"]
+    N71["documents.py [meridian_backend/src/tools]"]
+    N72["dynamic_manager.py [meridian_backend/src/tools]"]
+    N73["exporter.py [meridian_backend/src/tools]"]
+    N74["external_connectors.py [meridian_backend/src/tools]"]
+    N75["filesystem.py [meridian_backend/src/tools]"]
+    N76["geo_location.py [meridian_backend/src/tools]"]
+    N77["knowledge.py [meridian_backend/src/tools]"]
+    N78["mcp_marketplace.py [meridian_backend/src/tools]"]
+    N79["media_player.py [meridian_backend/src/tools]"]
+    N80["ollama_manager.py [meridian_backend/src/tools]"]
+    N81["papercoder.py [meridian_backend/src/tools]"]
+    N82["recording.py [meridian_backend/src/tools]"]
+    N83["registry.py [meridian_backend/src/tools]"]
+    N84["review.py [meridian_backend/src/tools]"]
+    N85["scheduler.py [meridian_backend/src/tools]"]
+    N86["security_auditor.py [meridian_backend/src/tools]"]
+    N87["shell.py [meridian_backend/src/tools]"]
+    N88["system.py [meridian_backend/src/tools]"]
+    N89["task_scheduler.py [meridian_backend/src/tools]"]
+    N90["vault.py [meridian_backend/src/tools]"]
+    N91["voice.py [meridian_backend/src/tools]"]
+    N92["watcher.py [meridian_backend/src/tools]"]
+    N93["web.py [meridian_backend/src/tools]"]
+    N94["web_browser.py [meridian_backend/src/tools]"]
+    N95["whatsapp_manager.py [meridian_backend/src/tools]"]
+    N96["duplex.py [meridian_backend/src/voice]"]
+    N97["polyglot.py [meridian_backend/src/voice]"]
+    N98["stt.py [meridian_backend/src/voice]"]
+    N99["tts.py [meridian_backend/src/voice]"]
+    N100["voice_biometrics.py [meridian_backend/src/voice]"]
+    N101["wakeword.py [meridian_backend/src/voice]"]
+    N102["conftest.py [meridian_backend/tests]"]
+    N103["run_tests.py [meridian_backend/tests]"]
+    N104["test_auto_bug_fixer.py [meridian_backend/tests]"]
+    N105["test_backlog_features.py [meridian_backend/tests]"]
+    N106["test_backlog_sprint.py [meridian_backend/tests]"]
+    N107["test_bridges.py [meridian_backend/tests]"]
+    N108["test_butler_media.py [meridian_backend/tests]"]
+    N109["test_config.py [meridian_backend/tests]"]
+    N110["test_context_budget.py [meridian_backend/tests]"]
+    N111["test_database.py [meridian_backend/tests]"]
+    N112["test_day3_features.py [meridian_backend/tests]"]
+    N113["test_day4_features.py [meridian_backend/tests]"]
+    N114["test_day5_features.py [meridian_backend/tests]"]
+    N115["test_day6_features.py [meridian_backend/tests]"]
+    N116["test_day7_features.py [meridian_backend/tests]"]
+    N117["test_document_tools.py [meridian_backend/tests]"]
+    N118["test_geo_location.py [meridian_backend/tests]"]
+    N119["test_jarvis_perception.py [meridian_backend/tests]"]
+    N120["test_llm_provider.py [meridian_backend/tests]"]
+    N121["test_logging.py [meridian_backend/tests]"]
+    N122["test_loop_parser.py [meridian_backend/tests]"]
+    N123["test_loop_submodules.py [meridian_backend/tests]"]
+    N124["test_model_source.py [meridian_backend/tests]"]
+    N125["test_multi_os.py [meridian_backend/tests]"]
+    N126["test_oauth.py [meridian_backend/tests]"]
+    N127["test_p2p.py [meridian_backend/tests]"]
+    N128["test_proactive.py [meridian_backend/tests]"]
+    N129["test_proactive_notifications.py [meridian_backend/tests]"]
+    N130["test_security_features.py [meridian_backend/tests]"]
+    N131["test_sprint2_features.py [meridian_backend/tests]"]
+    N132["test_stream_resiliency.py [meridian_backend/tests]"]
+    N133["test_swarm.py [meridian_backend/tests]"]
+    N134["test_tools.py [meridian_backend/tests]"]
+    N135["test_vault.py [meridian_backend/tests]"]
+    N136["test_voice_speed.py [meridian_backend/tests]"]
+    N137["test_wakeword_continuous.py [meridian_backend/tests]"]
+    N138["test_wakeword_onnx.py [meridian_backend/tests]"]
+    N139["test_workflow.py [meridian_backend/tests]"]
+    N140["vite.config.ts [meridian_frontend]"]
+    N141["AppContext.tsx [meridian_frontend/src]"]
+    N142["main.tsx [meridian_frontend/src]"]
+    N143["Mascot.tsx [meridian_frontend/src]"]
+    N144["Mascot3DCharacter.tsx [meridian_frontend/src]"]
+    N145["CommandPalette.tsx [meridian_frontend/src/components]"]
+    N146["NavRail.tsx [meridian_frontend/src/components]"]
+    N147["RightDrawer.tsx [meridian_frontend/src/components]"]
+    N148["ServerConnectionModal.tsx [meridian_frontend/src/components]"]
+    N149["Shell.tsx [meridian_frontend/src/components]"]
+    N150["StatusBar.tsx [meridian_frontend/src/components]"]
+    N151["AmbientParticles.tsx [meridian_frontend/src/components/ui]"]
+    N152["DataBadge.tsx [meridian_frontend/src/components/ui]"]
+    N153["GlowCard.tsx [meridian_frontend/src/components/ui]"]
+    N154["HoloButton.tsx [meridian_frontend/src/components/ui]"]
+    N155["ProgressArc.tsx [meridian_frontend/src/components/ui]"]
+    N156["TerminalLine.tsx [meridian_frontend/src/components/ui]"]
+    N157["useMemoryOptimizer.ts [meridian_frontend/src/hooks]"]
+    N158["oauthService.ts [meridian_frontend/src/services]"]
+    N159["BackendSetup.tsx [meridian_frontend/src/startup]"]
+    N160["BootSequence.tsx [meridian_frontend/src/startup]"]
+    N161["OnboardingWizard.tsx [meridian_frontend/src/startup]"]
+    N162["SetupWizard.tsx [meridian_frontend/src/startup]"]
+    N163["Clipboard.tsx [meridian_frontend/src/views]"]
+    N164["Jobs.tsx [meridian_frontend/src/views]"]
+    N165["Productivity.tsx [meridian_frontend/src/views]"]
+    N166["Settings.tsx [meridian_frontend/src/views]"]
+    N167["SwarmDebate.tsx [meridian_frontend/src/views]"]
+    N168["Timeline.tsx [meridian_frontend/src/views]"]
+    N169["WorkflowBuilder.tsx [meridian_frontend/src/views]"]
+    N170["applications.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N171["background.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N172["cli.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N173["concurrency.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N174["datastructures.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N175["encoders.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N176["exceptions.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N177["exception_handlers.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N178["logger.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N179["params.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N180["param_functions.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N181["requests.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N182["responses.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N183["routing.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N184["sse.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N185["staticfiles.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N186["templating.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N187["testclient.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N188["types.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N189["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N190["websockets.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N191["__init__.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N192["__main__.py [meridian_frontend/src-tauri/api/_internal/fastapi]"]
+    N193["models.py [meridian_frontend/src-tauri/api/_internal/fastapi/dependencies]"]
+    N194["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi/dependencies]"]
+    N195["asyncexitstack.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N196["cors.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N197["gzip.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N198["httpsredirect.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N199["trustedhost.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N200["wsgi.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N201["__init__.py [meridian_frontend/src-tauri/api/_internal/fastapi/middleware]"]
+    N202["docs.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
+    N203["models.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
+    N204["utils.py [meridian_frontend/src-tauri/api/_internal/fastapi/openapi]"]
+    N205["api_key.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
+    N206["base.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
+    N207["http.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
+    N208["oauth2.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
+    N209["open_id_connect_url.py [meridian_frontend/src-tauri/api/_internal/fastapi/security]"]
+    N210["shared.py [meridian_frontend/src-tauri/api/_internal/fastapi/_compat]"]
+    N211["v2.py [meridian_frontend/src-tauri/api/_internal/fastapi/_compat]"]
+    N212["coreBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N213["utilsBundle.js [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/lib]"]
+    N214["structs.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N215["types.d.ts [meridian_frontend/src-tauri/api/_internal/playwright/driver/package/types]"]
+    N216["aliases.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N217["alias_generators.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N218["annotated_handlers.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N219["color.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N220["config.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N221["dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N222["errors.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N223["fields.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N224["functional_serializers.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N225["functional_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N226["json_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N227["main.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N228["mypy.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N229["networks.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N230["root_model.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N231["types.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N232["type_adapter.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N233["validate_call_decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N234["version.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N235["warnings.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N236["_migration.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N237["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic]"]
+    N238["class_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N239["config.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N240["copy_internals.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N241["decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N242["json.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N243["parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N244["tools.py [meridian_frontend/src-tauri/api/_internal/pydantic/deprecated]"]
+    N245["arguments_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
+    N246["missing_sentinel.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
+    N247["pipeline.py [meridian_frontend/src-tauri/api/_internal/pydantic/experimental]"]
+    N248["_loader.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
+    N249["_schema_validator.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
+    N250["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic/plugin]"]
+    N251["annotated_types.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N252["class_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N253["color.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N254["config.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N255["dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N256["datetime_parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N257["decorator.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N258["env_settings.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N259["errors.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N260["error_wrappers.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N261["fields.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N262["generics.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N263["json.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N264["main.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N265["mypy.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N266["networks.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N267["parse.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N268["schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N269["tools.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N270["types.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N271["typing.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N272["utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N273["validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N274["version.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N275["_hypothesis_plugin.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N276["__init__.py [meridian_frontend/src-tauri/api/_internal/pydantic/v1]"]
+    N277["_config.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N278["_core_metadata.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N279["_core_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N280["_dataclasses.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N281["_decorators.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N282["_decorators_v1.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N283["_discriminated_union.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N284["_docs_extraction.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N285["_fields.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N286["_forward_ref.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N287["_generate_schema.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N288["_generics.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N289["_git.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N290["_import_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N291["_internal_dataclass.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N292["_known_annotated_metadata.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N293["_mock_val_ser.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N294["_model_construction.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N295["_namespace_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N296["_repr.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N297["_schema_gather.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N298["_schema_generation_shared.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N299["_serializers.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N300["_signature.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N301["_typing_extra.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N302["_utils.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N303["_validate_call.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N304["_validators.py [meridian_frontend/src-tauri/api/_internal/pydantic/_internal]"]
+    N305["applications.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N306["authentication.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N307["background.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N308["concurrency.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N309["config.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N310["convertors.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N311["datastructures.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N312["endpoints.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N313["exceptions.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N314["formparsers.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N315["requests.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N316["responses.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N317["routing.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N318["schemas.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N319["staticfiles.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N320["status.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N321["templating.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N322["testclient.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N323["types.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N324["websockets.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N325["_exception_handler.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N326["_utils.py [meridian_frontend/src-tauri/api/_internal/starlette]"]
+    N327["authentication.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N328["base.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N329["cors.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N330["errors.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N331["exceptions.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N332["gzip.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N333["httpsredirect.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N334["sessions.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N335["trustedhost.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N336["wsgi.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N337["__init__.py [meridian_frontend/src-tauri/api/_internal/starlette/middleware]"]
+    N338["config.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N339["importer.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N340["logging.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N341["main.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N342["server.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N343["workers.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N344["_compat.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N345["_subprocess.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N346["_types.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N347["__init__.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N348["__main__.py [meridian_frontend/src-tauri/api/_internal/uvicorn]"]
+    N349["off.py [meridian_frontend/src-tauri/api/_internal/uvicorn/lifespan]"]
+    N350["on.py [meridian_frontend/src-tauri/api/_internal/uvicorn/lifespan]"]
+    N351["asyncio.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
+    N352["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
+    N353["uvloop.py [meridian_frontend/src-tauri/api/_internal/uvicorn/loops]"]
+    N354["asgi2.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
+    N355["message_logger.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
+    N356["proxy_headers.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
+    N357["wsgi.py [meridian_frontend/src-tauri/api/_internal/uvicorn/middleware]"]
+    N358["utils.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols]"]
+    N359["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
+    N360["flow_control.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
+    N361["h11_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
+    N362["httptools_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/http]"]
+    N363["auto.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
+    N364["websockets_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
+    N365["websockets_sansio_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
+    N366["wsproto_impl.py [meridian_frontend/src-tauri/api/_internal/uvicorn/protocols/websockets]"]
+    N367["basereload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
+    N368["multiprocess.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
+    N369["statreload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
+    N370["watchfilesreload.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
+    N371["__init__.py [meridian_frontend/src-tauri/api/_internal/uvicorn/supervisors]"]
+    N372["get_system_platform_info.py [plugins]"]
 
-    N2 --> N238
-    N2 --> N259
-    N5 --> N347
-    N5 --> N238
-    N5 --> N259
+    N2 --> N242
+    N2 --> N263
+    N5 --> N351
+    N5 --> N242
+    N5 --> N263
     N5 --> N13
-    N9 --> N217
-    N9 --> N251
+    N9 --> N221
+    N9 --> N255
     N12 --> N9
     N12 --> N20
-    N12 --> N216
-    N12 --> N235
-    N12 --> N250
-    N12 --> N305
-    N12 --> N334
+    N12 --> N220
+    N12 --> N239
+    N12 --> N254
+    N12 --> N309
+    N12 --> N338
     N12 --> N11
     N12 --> N10
-    N13 --> N347
-    N13 --> N336
-    N13 --> N238
-    N13 --> N259
-    N13 --> N267
+    N13 --> N351
+    N13 --> N340
+    N13 --> N242
+    N13 --> N263
+    N13 --> N271
     N13 --> N14
-    N14 --> N238
-    N14 --> N259
-    N14 --> N267
-    N15 --> N238
-    N15 --> N259
-    N15 --> N336
-    N16 --> N267
-    N17 --> N347
-    N17 --> N267
-    N18 --> N267
+    N14 --> N242
+    N14 --> N263
+    N14 --> N271
+    N15 --> N242
+    N15 --> N263
+    N15 --> N340
+    N16 --> N271
+    N17 --> N351
+    N17 --> N271
+    N18 --> N271
     N18 --> N14
-    N19 --> N267
-    N21 --> N347
+    N19 --> N271
+    N21 --> N351
     N21 --> N14
-    N23 --> N238
-    N23 --> N259
+    N23 --> N242
+    N23 --> N263
+    N23 --> N271
     N23 --> N14
-    N24 --> N267
+    N24 --> N271
     N24 --> N14
-    N25 --> N267
-    N26 --> N238
-    N26 --> N259
-    N26 --> N267
-    N27 --> N238
-    N27 --> N259
-    N27 --> N267
-    N28 --> N336
-    N28 --> N267
-    N30 --> N238
-    N30 --> N259
-    N30 --> N336
-    N30 --> N347
-    N30 --> N267
+    N25 --> N271
+    N26 --> N242
+    N26 --> N263
+    N26 --> N271
+    N27 --> N242
+    N27 --> N263
+    N27 --> N271
+    N28 --> N340
+    N28 --> N271
+    N30 --> N242
+    N30 --> N263
+    N30 --> N340
+    N30 --> N351
+    N30 --> N271
     N30 --> N14
-    N31 --> N336
-    N31 --> N238
-    N31 --> N259
-    N32 --> N238
-    N32 --> N259
-    N32 --> N347
-    N32 --> N267
+    N31 --> N340
+    N31 --> N242
+    N31 --> N263
+    N32 --> N242
+    N32 --> N263
+    N32 --> N351
+    N32 --> N271
     N32 --> N14
-    N33 --> N347
-    N33 --> N267
-    N34 --> N238
-    N34 --> N259
-    N34 --> N347
-    N34 --> N267
+    N33 --> N351
+    N33 --> N271
+    N34 --> N242
+    N34 --> N263
+    N34 --> N351
+    N34 --> N271
     N34 --> N14
-    N35 --> N238
-    N35 --> N259
-    N35 --> N347
-    N35 --> N267
+    N35 --> N242
+    N35 --> N263
+    N35 --> N351
+    N35 --> N271
     N35 --> N14
-    N36 --> N238
-    N36 --> N259
-    N36 --> N347
-    N36 --> N267
-    N37 --> N238
-    N37 --> N259
-    N37 --> N347
-    N37 --> N336
-    N37 --> N267
-    N38 --> N347
-    N38 --> N238
-    N38 --> N259
-    N38 --> N336
-    N38 --> N267
-    N39 --> N267
-    N39 --> N238
-    N39 --> N259
+    N36 --> N242
+    N36 --> N263
+    N36 --> N351
+    N36 --> N271
+    N37 --> N242
+    N37 --> N263
+    N37 --> N351
+    N37 --> N340
+    N37 --> N271
+    N38 --> N351
+    N38 --> N242
+    N38 --> N263
+    N38 --> N340
+    N38 --> N271
+    N39 --> N271
+    N39 --> N242
+    N39 --> N263
     N39 --> N14
-    N40 --> N267
-    N41 --> N238
-    N41 --> N259
-    N41 --> N267
-    N42 --> N336
-    N42 --> N347
-    N42 --> N267
-    N42 --> N238
-    N42 --> N259
-    N43 --> N238
-    N43 --> N259
-    N43 --> N267
+    N40 --> N271
+    N41 --> N242
+    N41 --> N263
+    N41 --> N271
+    N42 --> N340
+    N42 --> N351
+    N42 --> N271
+    N42 --> N242
+    N42 --> N263
+    N43 --> N242
+    N43 --> N263
+    N43 --> N271
     N43 --> N14
-    N44 --> N336
-    N44 --> N267
-    N45 --> N267
-    N46 --> N347
-    N46 --> N267
+    N44 --> N340
+    N44 --> N271
+    N45 --> N271
+    N46 --> N351
+    N46 --> N271
     N46 --> N14
     N46 --> N13
-    N47 --> N336
-    N47 --> N267
-    N48 --> N238
-    N48 --> N259
-    N48 --> N267
-    N49 --> N267
-    N50 --> N336
-    N50 --> N267
-    N51 --> N347
+    N47 --> N340
+    N47 --> N271
+    N48 --> N242
+    N48 --> N263
+    N48 --> N271
+    N49 --> N271
+    N50 --> N340
+    N50 --> N271
+    N51 --> N351
     N51 --> N14
-    N51 --> N238
-    N51 --> N259
-    N52 --> N336
-    N52 --> N267
-    N53 --> N238
-    N53 --> N259
-    N53 --> N347
-    N53 --> N267
+    N51 --> N242
+    N51 --> N263
+    N52 --> N340
+    N52 --> N271
+    N53 --> N242
+    N53 --> N263
+    N53 --> N351
+    N53 --> N271
     N53 --> N14
-    N54 --> N347
-    N54 --> N238
-    N54 --> N259
-    N54 --> N267
+    N54 --> N351
+    N54 --> N242
+    N54 --> N263
+    N54 --> N271
     N54 --> N14
-    N55 --> N336
-    N55 --> N267
-    N56 --> N267
-    N56 --> N347
+    N55 --> N340
+    N55 --> N271
+    N56 --> N271
+    N56 --> N351
     N56 --> N14
-    N57 --> N267
-    N58 --> N267
-    N59 --> N238
-    N59 --> N259
-    N59 --> N267
-    N60 --> N336
+    N57 --> N271
+    N58 --> N271
+    N59 --> N242
+    N59 --> N263
+    N59 --> N271
+    N60 --> N340
     N60 --> N14
-    N61 --> N336
-    N61 --> N267
-    N62 --> N238
-    N62 --> N259
-    N62 --> N267
-    N63 --> N267
-    N64 --> N238
-    N64 --> N259
-    N64 --> N267
-    N65 --> N267
+    N61 --> N340
+    N61 --> N271
+    N62 --> N242
+    N62 --> N263
+    N62 --> N271
+    N63 --> N271
+    N64 --> N242
+    N64 --> N263
+    N64 --> N271
+    N65 --> N271
     N65 --> N14
-    N66 --> N336
-    N66 --> N267
+    N66 --> N271
     N66 --> N14
-    N67 --> N267
+    N67 --> N340
+    N67 --> N271
     N67 --> N14
-    N68 --> N267
+    N68 --> N271
     N68 --> N14
-    N69 --> N347
-    N69 --> N267
-    N70 --> N267
-    N71 --> N336
-    N71 --> N267
-    N72 --> N238
-    N72 --> N259
-    N72 --> N267
-    N72 --> N14
-    N73 --> N238
-    N73 --> N259
-    N73 --> N177
-    N73 --> N311
-    N73 --> N267
-    N74 --> N267
-    N75 --> N267
-    N76 --> N267
-    N76 --> N14
-    N77 --> N238
-    N77 --> N259
-    N77 --> N267
-    N78 --> N14
-    N79 --> N238
-    N79 --> N259
-    N79 --> N267
-    N79 --> N217
-    N79 --> N251
-    N79 --> N9
-    N79 --> N20
-    N79 --> N216
-    N79 --> N235
-    N79 --> N250
-    N79 --> N305
-    N79 --> N334
-    N79 --> N11
-    N79 --> N10
-    N80 --> N238
-    N80 --> N259
-    N80 --> N267
+    N69 --> N271
+    N69 --> N14
+    N70 --> N351
+    N70 --> N271
+    N71 --> N271
+    N72 --> N340
+    N72 --> N271
+    N73 --> N242
+    N73 --> N263
+    N73 --> N271
+    N73 --> N14
+    N74 --> N242
+    N74 --> N263
+    N74 --> N181
+    N74 --> N315
+    N74 --> N271
+    N75 --> N271
+    N76 --> N271
+    N77 --> N271
+    N77 --> N14
+    N78 --> N242
+    N78 --> N263
+    N78 --> N271
+    N79 --> N271
+    N79 --> N14
     N80 --> N14
-    N81 --> N347
-    N81 --> N267
-    N81 --> N14
-    N81 --> N238
-    N81 --> N259
-    N82 --> N267
+    N81 --> N242
+    N81 --> N263
+    N81 --> N271
+    N81 --> N221
+    N81 --> N255
+    N81 --> N9
+    N81 --> N20
+    N81 --> N220
+    N81 --> N239
+    N81 --> N254
+    N81 --> N309
+    N81 --> N338
+    N81 --> N11
+    N81 --> N10
+    N82 --> N242
+    N82 --> N263
+    N82 --> N271
     N82 --> N14
-    N84 --> N267
-    N85 --> N267
-    N85 --> N14
-    N88 --> N267
-    N88 --> N238
-    N88 --> N259
-    N90 --> N267
-    N91 --> N267
-    N91 --> N14
-    N92 --> N238
-    N92 --> N259
-    N92 --> N267
-    N92 --> N14
-    N93 --> N238
-    N93 --> N259
-    N93 --> N336
-    N93 --> N267
+    N83 --> N351
+    N83 --> N271
+    N83 --> N14
+    N83 --> N242
+    N83 --> N263
+    N84 --> N271
+    N84 --> N14
+    N86 --> N271
+    N87 --> N271
+    N87 --> N14
+    N90 --> N271
+    N90 --> N242
+    N90 --> N263
+    N92 --> N271
+    N93 --> N271
     N93 --> N14
-    N94 --> N347
-    N94 --> N267
-    N95 --> N336
-    N95 --> N267
-    N96 --> N267
-    N96 --> N14
-    N97 --> N336
-    N97 --> N267
-    N97 --> N14
-    N98 --> N267
+    N94 --> N242
+    N94 --> N263
+    N94 --> N271
+    N94 --> N14
+    N95 --> N242
+    N95 --> N263
+    N95 --> N340
+    N95 --> N271
+    N95 --> N14
+    N96 --> N351
+    N96 --> N271
+    N97 --> N340
+    N97 --> N271
+    N98 --> N271
+    N98 --> N14
+    N99 --> N340
+    N99 --> N271
     N99 --> N14
-    N102 --> N347
-    N102 --> N13
-    N103 --> N14
+    N100 --> N271
+    N101 --> N14
+    N104 --> N351
     N104 --> N13
-    N107 --> N14
+    N105 --> N14
+    N106 --> N13
     N108 --> N14
-    N109 --> N14
     N110 --> N14
-    N111 --> N13
-    N116 --> N347
-    N117 --> N336
-    N117 --> N238
-    N117 --> N259
-    N118 --> N238
-    N118 --> N259
-    N119 --> N347
-    N120 --> N14
-    N123 --> N14
-    N124 --> N347
-    N125 --> N347
-    N125 --> N13
-    N126 --> N13
-    N126 --> N347
-    N127 --> N13
-    N128 --> N347
-    N129 --> N347
-    N130 --> N238
-    N130 --> N259
-    N132 --> N89
-    N133 --> N13
-    N134 --> N13
-    N137 --> N184
-    N137 --> N211
-    N137 --> N227
-    N137 --> N266
-    N137 --> N319
-    N137 --> N9
-    N137 --> N20
-    N137 --> N216
-    N137 --> N235
-    N137 --> N250
-    N137 --> N305
-    N137 --> N334
-    N138 --> N139
-    N138 --> N156
-    N138 --> N158
-    N138 --> N145
-    N138 --> N137
-    N138 --> N9
-    N138 --> N20
-    N138 --> N216
-    N138 --> N235
-    N138 --> N250
-    N138 --> N305
-    N138 --> N334
-    N138 --> N157
-    N138 --> N155
-    N139 --> N140
-    N139 --> N9
-    N139 --> N20
-    N139 --> N216
-    N139 --> N235
-    N139 --> N250
-    N139 --> N305
-    N139 --> N334
-    N142 --> N137
-    N142 --> N139
-    N143 --> N137
-    N143 --> N151
-    N143 --> N148
-    N144 --> N9
-    N144 --> N20
-    N144 --> N216
-    N144 --> N235
-    N144 --> N250
-    N144 --> N305
-    N144 --> N334
-    N145 --> N137
-    N145 --> N142
-    N145 --> N146
-    N145 --> N143
-    N145 --> N164
-    N145 --> N160
-    N145 --> N159
-    N145 --> N161
-    N145 --> N163
-    N145 --> N165
-    N145 --> N162
-    N145 --> N147
-    N146 --> N137
-    N146 --> N148
-    N147 --> N153
-    N154 --> N9
-    N154 --> N20
-    N154 --> N216
-    N154 --> N235
-    N154 --> N250
-    N154 --> N305
-    N154 --> N334
-    N155 --> N9
-    N155 --> N20
-    N155 --> N216
-    N155 --> N235
-    N155 --> N250
-    N155 --> N305
-    N155 --> N334
-    N156 --> N9
-    N156 --> N20
-    N156 --> N216
-    N156 --> N235
-    N156 --> N250
-    N156 --> N305
-    N156 --> N334
-    N156 --> N139
-    N157 --> N9
-    N157 --> N20
-    N157 --> N216
-    N157 --> N235
-    N157 --> N250
-    N157 --> N305
-    N157 --> N334
-    N158 --> N150
+    N111 --> N14
+    N112 --> N14
+    N113 --> N14
+    N114 --> N13
+    N116 --> N242
+    N116 --> N263
+    N116 --> N14
+    N120 --> N351
+    N121 --> N340
+    N121 --> N242
+    N121 --> N263
+    N122 --> N242
+    N122 --> N263
+    N123 --> N351
+    N124 --> N14
+    N127 --> N14
+    N128 --> N351
+    N129 --> N351
+    N129 --> N13
+    N130 --> N13
+    N130 --> N351
+    N131 --> N13
+    N132 --> N351
+    N133 --> N351
+    N134 --> N242
+    N134 --> N263
+    N136 --> N91
+    N137 --> N13
+    N138 --> N13
+    N141 --> N188
+    N141 --> N215
+    N141 --> N231
+    N141 --> N270
+    N141 --> N323
+    N141 --> N9
+    N141 --> N20
+    N141 --> N220
+    N141 --> N239
+    N141 --> N254
+    N141 --> N309
+    N141 --> N338
+    N142 --> N143
+    N142 --> N160
+    N142 --> N162
+    N142 --> N149
+    N142 --> N141
+    N142 --> N9
+    N142 --> N20
+    N142 --> N220
+    N142 --> N239
+    N142 --> N254
+    N142 --> N309
+    N142 --> N338
+    N142 --> N161
+    N142 --> N159
+    N143 --> N144
+    N143 --> N9
+    N143 --> N20
+    N143 --> N220
+    N143 --> N239
+    N143 --> N254
+    N143 --> N309
+    N143 --> N338
+    N146 --> N141
+    N146 --> N143
+    N147 --> N141
+    N147 --> N155
+    N147 --> N152
+    N148 --> N9
+    N148 --> N20
+    N148 --> N220
+    N148 --> N239
+    N148 --> N254
+    N148 --> N309
+    N148 --> N338
+    N149 --> N141
+    N149 --> N146
+    N149 --> N150
+    N149 --> N147
+    N149 --> N168
+    N149 --> N164
+    N149 --> N163
+    N149 --> N165
+    N149 --> N167
+    N149 --> N169
+    N149 --> N166
+    N149 --> N151
+    N150 --> N141
+    N150 --> N152
+    N151 --> N157
     N158 --> N9
     N158 --> N20
-    N158 --> N216
-    N158 --> N235
-    N158 --> N250
-    N158 --> N305
-    N158 --> N334
-    N159 --> N184
-    N159 --> N211
-    N159 --> N227
-    N159 --> N266
-    N159 --> N319
-    N159 --> N137
-    N159 --> N150
+    N158 --> N220
+    N158 --> N239
+    N158 --> N254
+    N158 --> N309
+    N158 --> N338
     N159 --> N9
     N159 --> N20
-    N159 --> N216
-    N159 --> N235
-    N159 --> N250
-    N159 --> N305
-    N159 --> N334
-    N160 --> N184
-    N160 --> N211
-    N160 --> N227
-    N160 --> N266
-    N160 --> N319
-    N160 --> N150
-    N160 --> N149
+    N159 --> N220
+    N159 --> N239
+    N159 --> N254
+    N159 --> N309
+    N159 --> N338
     N160 --> N9
     N160 --> N20
-    N160 --> N216
-    N160 --> N235
-    N160 --> N250
-    N160 --> N305
-    N160 --> N334
-    N161 --> N184
-    N161 --> N211
-    N161 --> N227
-    N161 --> N266
-    N161 --> N319
-    N161 --> N151
-    N161 --> N150
-    N161 --> N149
+    N160 --> N220
+    N160 --> N239
+    N160 --> N254
+    N160 --> N309
+    N160 --> N338
+    N160 --> N143
     N161 --> N9
     N161 --> N20
-    N161 --> N216
-    N161 --> N235
-    N161 --> N250
-    N161 --> N305
-    N161 --> N334
+    N161 --> N220
+    N161 --> N239
+    N161 --> N254
+    N161 --> N309
+    N161 --> N338
+    N162 --> N154
     N162 --> N9
     N162 --> N20
-    N162 --> N216
-    N162 --> N235
-    N162 --> N250
-    N162 --> N305
-    N162 --> N334
-    N162 --> N184
-    N162 --> N211
-    N162 --> N227
-    N162 --> N266
-    N162 --> N319
-    N162 --> N137
-    N162 --> N153
-    N162 --> N151
-    N162 --> N150
-    N162 --> N149
-    N163 --> N152
-    N163 --> N150
+    N162 --> N220
+    N162 --> N239
+    N162 --> N254
+    N162 --> N309
+    N162 --> N338
+    N163 --> N188
+    N163 --> N215
+    N163 --> N231
+    N163 --> N270
+    N163 --> N323
+    N163 --> N141
+    N163 --> N154
     N163 --> N9
     N163 --> N20
-    N163 --> N216
-    N163 --> N235
-    N163 --> N250
-    N163 --> N305
-    N163 --> N334
-    N164 --> N184
-    N164 --> N211
-    N164 --> N227
-    N164 --> N266
-    N164 --> N319
-    N164 --> N150
-    N164 --> N149
+    N163 --> N220
+    N163 --> N239
+    N163 --> N254
+    N163 --> N309
+    N163 --> N338
+    N164 --> N188
+    N164 --> N215
+    N164 --> N231
+    N164 --> N270
+    N164 --> N323
+    N164 --> N154
+    N164 --> N153
     N164 --> N9
     N164 --> N20
-    N164 --> N216
-    N164 --> N235
-    N164 --> N250
-    N164 --> N305
-    N164 --> N334
+    N164 --> N220
+    N164 --> N239
+    N164 --> N254
+    N164 --> N309
+    N164 --> N338
+    N165 --> N188
+    N165 --> N215
+    N165 --> N231
+    N165 --> N270
+    N165 --> N323
+    N165 --> N155
+    N165 --> N154
+    N165 --> N153
     N165 --> N9
     N165 --> N20
-    N165 --> N216
-    N165 --> N235
-    N165 --> N250
-    N165 --> N305
-    N165 --> N334
-    N166 --> N267
-    N167 --> N267
-    N169 --> N267
-    N170 --> N267
-    N171 --> N217
-    N171 --> N251
-    N171 --> N184
-    N171 --> N211
-    N171 --> N227
-    N171 --> N266
-    N171 --> N319
-    N171 --> N267
-    N172 --> N267
-    N174 --> N336
+    N165 --> N220
+    N165 --> N239
+    N165 --> N254
+    N165 --> N309
+    N165 --> N338
+    N166 --> N9
+    N166 --> N20
+    N166 --> N220
+    N166 --> N239
+    N166 --> N254
+    N166 --> N309
+    N166 --> N338
+    N166 --> N188
+    N166 --> N215
+    N166 --> N231
+    N166 --> N270
+    N166 --> N323
+    N166 --> N141
+    N166 --> N157
+    N166 --> N155
+    N166 --> N154
+    N166 --> N153
+    N167 --> N156
+    N167 --> N154
+    N167 --> N9
+    N167 --> N20
+    N167 --> N220
+    N167 --> N239
+    N167 --> N254
+    N167 --> N309
+    N167 --> N338
+    N168 --> N188
+    N168 --> N215
+    N168 --> N231
+    N168 --> N270
+    N168 --> N323
+    N168 --> N154
+    N168 --> N153
+    N168 --> N9
+    N168 --> N20
+    N168 --> N220
+    N168 --> N239
+    N168 --> N254
+    N168 --> N309
+    N168 --> N338
+    N169 --> N9
+    N169 --> N20
+    N169 --> N220
+    N169 --> N239
+    N169 --> N254
+    N169 --> N309
+    N169 --> N338
+    N170 --> N271
+    N171 --> N271
+    N173 --> N271
+    N174 --> N271
+    N175 --> N221
+    N175 --> N255
+    N175 --> N188
+    N175 --> N215
     N175 --> N231
-    N175 --> N217
-    N175 --> N251
-    N175 --> N267
-    N176 --> N267
-    N178 --> N267
-    N179 --> N238
-    N179 --> N259
-    N179 --> N184
-    N179 --> N211
-    N179 --> N227
-    N179 --> N266
-    N179 --> N319
-    N179 --> N217
-    N179 --> N251
-    N179 --> N267
-    N180 --> N267
-    N184 --> N211
-    N184 --> N227
-    N184 --> N266
-    N184 --> N319
-    N184 --> N267
-    N185 --> N231
-    N185 --> N267
-    N189 --> N217
-    N189 --> N251
-    N189 --> N267
-    N189 --> N347
-    N190 --> N217
-    N190 --> N251
-    N190 --> N267
-    N198 --> N238
-    N198 --> N259
-    N198 --> N267
-    N199 --> N267
-    N200 --> N203
-    N200 --> N231
-    N200 --> N267
-    N201 --> N267
-    N203 --> N267
-    N204 --> N267
-    N205 --> N267
-    N206 --> N184
-    N206 --> N211
-    N206 --> N227
-    N206 --> N266
-    N206 --> N319
-    N206 --> N267
-    N206 --> N231
-    N206 --> N217
-    N206 --> N251
-    N207 --> N231
-    N207 --> N217
-    N207 --> N251
-    N207 --> N267
-    N210 --> N184
-    N210 --> N211
-    N210 --> N227
-    N210 --> N266
-    N210 --> N319
-    N211 --> N210
-    N212 --> N217
-    N212 --> N251
-    N212 --> N267
-    N214 --> N267
-    N215 --> N267
-    N216 --> N231
-    N216 --> N267
-    N217 --> N251
-    N217 --> N184
-    N217 --> N211
-    N217 --> N227
-    N217 --> N266
-    N217 --> N319
-    N217 --> N267
-    N217 --> N231
-    N218 --> N267
-    N219 --> N217
-    N219 --> N251
-    N219 --> N267
-    N219 --> N231
-    N219 --> N247
-    N220 --> N217
-    N220 --> N251
-    N220 --> N267
-    N221 --> N217
-    N221 --> N251
+    N175 --> N270
+    N175 --> N323
+    N175 --> N271
+    N176 --> N271
+    N178 --> N340
+    N179 --> N235
+    N179 --> N221
+    N179 --> N255
+    N179 --> N271
+    N180 --> N271
+    N182 --> N271
+    N183 --> N242
+    N183 --> N263
+    N183 --> N188
+    N183 --> N215
+    N183 --> N231
+    N183 --> N270
+    N183 --> N323
+    N183 --> N221
+    N183 --> N255
+    N183 --> N271
+    N184 --> N271
+    N188 --> N215
+    N188 --> N231
+    N188 --> N270
+    N188 --> N323
+    N188 --> N271
+    N189 --> N235
+    N189 --> N271
+    N193 --> N221
+    N193 --> N255
+    N193 --> N271
+    N193 --> N351
+    N194 --> N221
+    N194 --> N255
+    N194 --> N271
+    N202 --> N242
+    N202 --> N263
+    N202 --> N271
+    N203 --> N271
+    N204 --> N207
+    N204 --> N235
+    N204 --> N271
+    N205 --> N271
+    N207 --> N271
+    N208 --> N271
+    N209 --> N271
+    N210 --> N188
+    N210 --> N215
+    N210 --> N231
+    N210 --> N270
+    N210 --> N323
+    N210 --> N271
+    N210 --> N235
+    N210 --> N221
+    N210 --> N255
+    N211 --> N235
+    N211 --> N221
+    N211 --> N255
+    N211 --> N271
+    N214 --> N188
+    N214 --> N215
+    N214 --> N231
+    N214 --> N270
+    N214 --> N323
+    N215 --> N214
+    N216 --> N221
+    N216 --> N255
+    N216 --> N271
+    N218 --> N271
+    N219 --> N271
+    N220 --> N235
+    N220 --> N271
+    N221 --> N255
+    N221 --> N188
+    N221 --> N215
     N221 --> N231
-    N221 --> N267
-    N222 --> N217
-    N222 --> N251
-    N222 --> N231
-    N222 --> N267
-    N223 --> N184
-    N223 --> N211
-    N223 --> N227
-    N223 --> N266
-    N223 --> N319
-    N223 --> N231
-    N223 --> N267
-    N223 --> N238
-    N223 --> N259
-    N224 --> N267
-    N224 --> N261
-    N224 --> N231
-    N225 --> N217
-    N225 --> N251
-    N225 --> N267
-    N226 --> N267
-    N227 --> N217
-    N227 --> N251
-    N227 --> N184
-    N227 --> N211
-    N227 --> N266
-    N227 --> N319
-    N227 --> N267
-    N227 --> N247
-    N227 --> N238
-    N227 --> N259
-    N228 --> N184
-    N228 --> N211
-    N228 --> N227
-    N228 --> N266
-    N228 --> N319
-    N228 --> N217
-    N228 --> N251
-    N228 --> N267
-    N229 --> N184
-    N229 --> N211
-    N229 --> N227
-    N229 --> N266
-    N229 --> N319
-    N229 --> N267
-    N232 --> N267
+    N221 --> N270
+    N221 --> N323
+    N221 --> N271
+    N221 --> N235
+    N222 --> N271
+    N223 --> N221
+    N223 --> N255
+    N223 --> N271
+    N223 --> N235
+    N223 --> N251
+    N224 --> N221
+    N224 --> N255
+    N224 --> N271
+    N225 --> N221
+    N225 --> N255
+    N225 --> N235
+    N225 --> N271
+    N226 --> N221
+    N226 --> N255
+    N226 --> N235
+    N226 --> N271
+    N227 --> N188
+    N227 --> N215
+    N227 --> N231
+    N227 --> N270
+    N227 --> N323
+    N227 --> N235
+    N227 --> N271
+    N227 --> N242
+    N227 --> N263
+    N228 --> N271
+    N228 --> N265
+    N228 --> N235
+    N229 --> N221
+    N229 --> N255
+    N229 --> N271
+    N230 --> N271
+    N231 --> N221
+    N231 --> N255
+    N231 --> N188
+    N231 --> N215
+    N231 --> N270
+    N231 --> N323
+    N231 --> N271
+    N231 --> N251
+    N231 --> N242
+    N231 --> N263
+    N232 --> N188
+    N232 --> N215
     N232 --> N231
-    N233 --> N267
+    N232 --> N270
+    N232 --> N323
+    N232 --> N221
+    N232 --> N255
+    N232 --> N271
+    N233 --> N188
+    N233 --> N215
     N233 --> N231
-    N234 --> N184
-    N234 --> N211
-    N234 --> N227
-    N234 --> N266
-    N234 --> N319
-    N234 --> N267
-    N234 --> N231
-    N235 --> N231
-    N235 --> N267
-    N236 --> N267
-    N237 --> N231
-    N237 --> N267
+    N233 --> N270
+    N233 --> N323
+    N233 --> N271
+    N236 --> N271
+    N236 --> N235
+    N237 --> N271
+    N237 --> N235
+    N238 --> N188
+    N238 --> N215
     N238 --> N231
-    N238 --> N184
-    N238 --> N211
-    N238 --> N227
-    N238 --> N266
-    N238 --> N319
-    N238 --> N267
-    N238 --> N217
-    N238 --> N251
-    N239 --> N238
-    N239 --> N259
-    N239 --> N231
-    N239 --> N267
-    N240 --> N238
-    N240 --> N259
-    N240 --> N231
-    N240 --> N267
-    N241 --> N267
-    N243 --> N217
-    N243 --> N251
-    N243 --> N267
-    N243 --> N247
-    N243 --> N184
-    N243 --> N211
-    N243 --> N227
-    N243 --> N266
-    N243 --> N319
-    N244 --> N231
-    N244 --> N267
-    N245 --> N267
-    N246 --> N267
-    N247 --> N267
-    N248 --> N231
-    N248 --> N184
-    N248 --> N211
-    N248 --> N227
-    N248 --> N266
-    N248 --> N319
-    N248 --> N267
-    N249 --> N267
-    N250 --> N238
-    N250 --> N259
-    N250 --> N267
-    N251 --> N217
-    N251 --> N267
-    N252 --> N267
-    N253 --> N267
-    N254 --> N231
-    N254 --> N267
-    N255 --> N267
-    N256 --> N238
-    N256 --> N259
-    N256 --> N267
-    N257 --> N267
-    N258 --> N184
-    N258 --> N211
-    N258 --> N227
-    N258 --> N266
-    N258 --> N319
-    N258 --> N267
-    N259 --> N184
-    N259 --> N211
-    N259 --> N227
-    N259 --> N266
-    N259 --> N319
-    N259 --> N267
-    N259 --> N217
-    N259 --> N251
-    N260 --> N231
-    N260 --> N184
-    N260 --> N211
-    N260 --> N227
-    N260 --> N266
-    N260 --> N319
-    N260 --> N267
-    N261 --> N267
-    N261 --> N224
-    N261 --> N231
-    N262 --> N267
-    N263 --> N238
-    N263 --> N259
-    N263 --> N267
+    N238 --> N270
+    N238 --> N323
+    N238 --> N271
+    N238 --> N235
+    N239 --> N235
+    N239 --> N271
+    N240 --> N271
+    N241 --> N235
+    N241 --> N271
+    N242 --> N235
+    N242 --> N188
+    N242 --> N215
+    N242 --> N231
+    N242 --> N270
+    N242 --> N323
+    N242 --> N271
+    N242 --> N221
+    N242 --> N255
+    N243 --> N242
+    N243 --> N263
+    N243 --> N235
+    N243 --> N271
+    N244 --> N242
+    N244 --> N263
+    N244 --> N235
+    N244 --> N271
+    N245 --> N271
+    N247 --> N221
+    N247 --> N255
+    N247 --> N271
+    N247 --> N251
+    N247 --> N188
+    N247 --> N215
+    N247 --> N231
+    N247 --> N270
+    N247 --> N323
+    N248 --> N235
+    N248 --> N271
+    N249 --> N271
+    N250 --> N271
+    N251 --> N271
+    N252 --> N235
+    N252 --> N188
+    N252 --> N215
+    N252 --> N231
+    N252 --> N270
+    N252 --> N323
+    N252 --> N271
+    N253 --> N271
+    N254 --> N242
+    N254 --> N263
+    N254 --> N271
+    N255 --> N221
+    N255 --> N271
+    N256 --> N271
+    N257 --> N271
+    N258 --> N235
+    N258 --> N271
+    N259 --> N271
+    N260 --> N242
+    N260 --> N263
+    N260 --> N271
+    N261 --> N271
+    N262 --> N188
+    N262 --> N215
+    N262 --> N231
+    N262 --> N270
+    N262 --> N323
+    N262 --> N271
+    N263 --> N188
+    N263 --> N215
+    N263 --> N231
+    N263 --> N270
+    N263 --> N323
+    N263 --> N271
+    N263 --> N221
+    N263 --> N255
+    N264 --> N235
+    N264 --> N188
+    N264 --> N215
     N264 --> N231
-    N264 --> N217
-    N264 --> N251
-    N264 --> N267
-    N265 --> N238
-    N265 --> N259
-    N265 --> N267
-    N266 --> N231
-    N266 --> N184
-    N266 --> N211
-    N266 --> N227
-    N266 --> N319
-    N266 --> N267
-    N267 --> N184
-    N267 --> N211
-    N267 --> N227
-    N267 --> N266
-    N267 --> N319
-    N268 --> N231
-    N268 --> N184
-    N268 --> N211
-    N268 --> N227
-    N268 --> N266
-    N268 --> N319
-    N268 --> N267
-    N269 --> N267
-    N269 --> N231
-    N271 --> N238
-    N271 --> N259
-    N271 --> N267
-    N273 --> N231
-    N273 --> N267
-    N274 --> N267
-    N274 --> N231
-    N275 --> N267
-    N276 --> N217
-    N276 --> N251
-    N276 --> N231
-    N276 --> N267
-    N277 --> N184
-    N277 --> N211
-    N277 --> N227
-    N277 --> N266
-    N277 --> N319
-    N277 --> N217
-    N277 --> N251
-    N277 --> N267
-    N278 --> N267
-    N279 --> N267
-    N280 --> N267
-    N281 --> N217
-    N281 --> N251
+    N264 --> N270
+    N264 --> N323
+    N264 --> N271
+    N265 --> N271
+    N265 --> N228
+    N265 --> N235
+    N266 --> N271
+    N267 --> N242
+    N267 --> N263
+    N267 --> N271
+    N268 --> N235
+    N268 --> N221
+    N268 --> N255
+    N268 --> N271
+    N269 --> N242
+    N269 --> N263
+    N269 --> N271
+    N270 --> N235
+    N270 --> N188
+    N270 --> N215
+    N270 --> N231
+    N270 --> N323
+    N270 --> N271
+    N271 --> N188
+    N271 --> N215
+    N271 --> N231
+    N271 --> N270
+    N271 --> N323
+    N272 --> N235
+    N272 --> N188
+    N272 --> N215
+    N272 --> N231
+    N272 --> N270
+    N272 --> N323
+    N272 --> N271
+    N273 --> N271
+    N273 --> N235
+    N275 --> N242
+    N275 --> N263
+    N275 --> N271
+    N277 --> N235
+    N277 --> N271
+    N278 --> N271
+    N278 --> N235
+    N279 --> N271
+    N280 --> N221
+    N280 --> N255
+    N280 --> N235
+    N280 --> N271
+    N281 --> N188
+    N281 --> N215
     N281 --> N231
-    N281 --> N267
-    N281 --> N247
-    N282 --> N217
-    N282 --> N251
-    N282 --> N267
-    N283 --> N217
-    N283 --> N251
-    N283 --> N267
-    N283 --> N231
-    N283 --> N184
-    N283 --> N211
-    N283 --> N227
-    N283 --> N266
-    N283 --> N319
-    N284 --> N184
-    N284 --> N211
-    N284 --> N227
-    N284 --> N266
-    N284 --> N319
-    N284 --> N267
-    N286 --> N267
-    N288 --> N267
-    N288 --> N247
-    N289 --> N267
-    N290 --> N267
-    N290 --> N231
-    N290 --> N184
-    N290 --> N211
-    N290 --> N227
-    N290 --> N266
-    N290 --> N319
-    N291 --> N267
-    N292 --> N184
-    N292 --> N211
-    N292 --> N227
-    N292 --> N266
-    N292 --> N319
-    N292 --> N267
-    N293 --> N217
-    N293 --> N251
-    N293 --> N267
-    N294 --> N267
-    N295 --> N267
-    N296 --> N217
-    N296 --> N251
-    N296 --> N267
-    N297 --> N184
-    N297 --> N211
-    N297 --> N227
-    N297 --> N266
-    N297 --> N319
-    N297 --> N267
-    N298 --> N217
-    N298 --> N251
-    N298 --> N231
-    N298 --> N184
-    N298 --> N211
-    N298 --> N227
-    N298 --> N266
-    N298 --> N319
-    N298 --> N267
-    N299 --> N267
-    N300 --> N267
-    N301 --> N267
-    N302 --> N267
-    N303 --> N267
-    N304 --> N231
-    N304 --> N267
-    N305 --> N231
-    N305 --> N267
-    N306 --> N267
-    N307 --> N267
-    N308 --> N238
-    N308 --> N259
-    N308 --> N267
-    N309 --> N203
-    N310 --> N217
-    N310 --> N251
-    N310 --> N267
-    N311 --> N238
-    N311 --> N259
-    N311 --> N203
-    N311 --> N267
-    N312 --> N203
-    N312 --> N238
-    N312 --> N259
-    N312 --> N267
-    N313 --> N184
-    N313 --> N211
-    N313 --> N227
-    N313 --> N266
-    N313 --> N319
-    N313 --> N231
-    N313 --> N267
-    N314 --> N267
-    N315 --> N267
-    N316 --> N231
-    N317 --> N267
-    N318 --> N238
-    N318 --> N259
-    N318 --> N231
-    N318 --> N184
-    N318 --> N211
-    N318 --> N227
-    N318 --> N266
-    N318 --> N319
-    N318 --> N267
-    N319 --> N267
-    N320 --> N238
-    N320 --> N259
-    N320 --> N267
-    N321 --> N267
-    N322 --> N267
-    N322 --> N347
-    N324 --> N267
-    N327 --> N267
-    N328 --> N193
-    N328 --> N267
-    N330 --> N238
-    N330 --> N259
-    N330 --> N267
-    N332 --> N231
-    N332 --> N267
-    N333 --> N267
-    N334 --> N347
-    N334 --> N238
-    N334 --> N259
-    N334 --> N336
-    N334 --> N267
-    N335 --> N267
-    N336 --> N203
-    N336 --> N267
-    N337 --> N347
-    N337 --> N336
-    N337 --> N231
-    N337 --> N267
-    N338 --> N347
-    N338 --> N336
-    N338 --> N184
-    N338 --> N211
-    N338 --> N227
-    N338 --> N266
-    N338 --> N319
-    N338 --> N267
-    N339 --> N347
-    N339 --> N336
-    N339 --> N231
-    N339 --> N267
-    N340 --> N347
-    N340 --> N267
-    N342 --> N184
-    N342 --> N211
-    N342 --> N227
-    N342 --> N266
-    N342 --> N319
-    N342 --> N267
-    N345 --> N267
-    N346 --> N347
-    N346 --> N336
-    N346 --> N267
-    N348 --> N347
-    N348 --> N349
-    N349 --> N347
-    N351 --> N336
-    N351 --> N267
-    N353 --> N347
-    N353 --> N231
-    N354 --> N347
-    N355 --> N347
-    N356 --> N347
-    N357 --> N347
-    N357 --> N203
-    N357 --> N336
-    N357 --> N267
-    N358 --> N347
-    N358 --> N203
-    N358 --> N336
-    N358 --> N267
-    N359 --> N347
-    N359 --> N186
-    N359 --> N320
-    N360 --> N347
-    N360 --> N203
-    N360 --> N336
-    N360 --> N267
-    N360 --> N186
-    N360 --> N320
-    N361 --> N347
-    N361 --> N336
-    N361 --> N203
-    N361 --> N267
-    N361 --> N186
-    N361 --> N320
-    N362 --> N347
-    N362 --> N336
-    N362 --> N267
-    N363 --> N336
-    N363 --> N184
-    N363 --> N211
-    N363 --> N227
-    N363 --> N266
-    N363 --> N319
-    N364 --> N336
-    N364 --> N267
-    N365 --> N336
-    N367 --> N267
+    N281 --> N270
+    N281 --> N323
+    N281 --> N221
+    N281 --> N255
+    N281 --> N271
+    N282 --> N271
+    N283 --> N271
+    N284 --> N271
+    N285 --> N221
+    N285 --> N255
+    N285 --> N235
+    N285 --> N271
+    N285 --> N251
+    N286 --> N221
+    N286 --> N255
+    N286 --> N271
+    N287 --> N221
+    N287 --> N255
+    N287 --> N271
+    N287 --> N235
+    N287 --> N188
+    N287 --> N215
+    N287 --> N231
+    N287 --> N270
+    N287 --> N323
+    N288 --> N188
+    N288 --> N215
+    N288 --> N231
+    N288 --> N270
+    N288 --> N323
+    N288 --> N271
+    N290 --> N271
+    N292 --> N271
+    N292 --> N251
+    N293 --> N271
+    N294 --> N271
+    N294 --> N235
+    N294 --> N188
+    N294 --> N215
+    N294 --> N231
+    N294 --> N270
+    N294 --> N323
+    N295 --> N271
+    N296 --> N188
+    N296 --> N215
+    N296 --> N231
+    N296 --> N270
+    N296 --> N323
+    N296 --> N271
+    N297 --> N221
+    N297 --> N255
+    N297 --> N271
+    N298 --> N271
+    N299 --> N271
+    N300 --> N221
+    N300 --> N255
+    N300 --> N271
+    N301 --> N188
+    N301 --> N215
+    N301 --> N231
+    N301 --> N270
+    N301 --> N323
+    N301 --> N271
+    N302 --> N221
+    N302 --> N255
+    N302 --> N235
+    N302 --> N188
+    N302 --> N215
+    N302 --> N231
+    N302 --> N270
+    N302 --> N323
+    N302 --> N271
+    N303 --> N271
+    N304 --> N271
+    N305 --> N271
+    N306 --> N271
+    N307 --> N271
+    N308 --> N235
+    N308 --> N271
+    N309 --> N235
+    N309 --> N271
+    N310 --> N271
+    N311 --> N271
+    N312 --> N242
+    N312 --> N263
+    N312 --> N271
+    N313 --> N207
+    N314 --> N221
+    N314 --> N255
+    N314 --> N271
+    N315 --> N242
+    N315 --> N263
+    N315 --> N207
+    N315 --> N271
+    N316 --> N207
+    N316 --> N242
+    N316 --> N263
+    N316 --> N271
+    N317 --> N188
+    N317 --> N215
+    N317 --> N231
+    N317 --> N270
+    N317 --> N323
+    N317 --> N235
+    N317 --> N271
+    N318 --> N271
+    N319 --> N271
+    N320 --> N235
+    N321 --> N271
+    N322 --> N242
+    N322 --> N263
+    N322 --> N235
+    N322 --> N188
+    N322 --> N215
+    N322 --> N231
+    N322 --> N270
+    N322 --> N323
+    N322 --> N271
+    N323 --> N271
+    N324 --> N242
+    N324 --> N263
+    N324 --> N271
+    N325 --> N271
+    N326 --> N271
+    N326 --> N351
+    N328 --> N271
+    N331 --> N271
+    N332 --> N197
+    N332 --> N271
+    N334 --> N242
+    N334 --> N263
+    N334 --> N271
+    N336 --> N235
+    N336 --> N271
+    N337 --> N271
+    N338 --> N351
+    N338 --> N242
+    N338 --> N263
+    N338 --> N340
+    N338 --> N271
+    N339 --> N271
+    N340 --> N207
+    N340 --> N271
+    N341 --> N351
+    N341 --> N340
+    N341 --> N235
+    N341 --> N271
+    N342 --> N351
+    N342 --> N340
+    N342 --> N188
+    N342 --> N215
+    N342 --> N231
+    N342 --> N270
+    N342 --> N323
+    N342 --> N271
+    N343 --> N351
+    N343 --> N340
+    N343 --> N235
+    N343 --> N271
+    N344 --> N351
+    N344 --> N271
+    N346 --> N188
+    N346 --> N215
+    N346 --> N231
+    N346 --> N270
+    N346 --> N323
+    N346 --> N271
+    N349 --> N271
+    N350 --> N351
+    N350 --> N340
+    N350 --> N271
+    N352 --> N351
+    N352 --> N353
+    N353 --> N351
+    N355 --> N340
+    N355 --> N271
+    N357 --> N351
+    N357 --> N235
+    N358 --> N351
+    N359 --> N351
+    N360 --> N351
+    N361 --> N351
+    N361 --> N207
+    N361 --> N340
+    N361 --> N271
+    N362 --> N351
+    N362 --> N207
+    N362 --> N340
+    N362 --> N271
+    N363 --> N351
+    N363 --> N190
+    N363 --> N324
+    N364 --> N351
+    N364 --> N207
+    N364 --> N340
+    N364 --> N271
+    N364 --> N190
+    N364 --> N324
+    N365 --> N351
+    N365 --> N340
+    N365 --> N207
+    N365 --> N271
+    N365 --> N190
+    N365 --> N324
+    N366 --> N351
+    N366 --> N340
+    N366 --> N271
+    N367 --> N340
+    N367 --> N188
+    N367 --> N215
+    N367 --> N231
+    N367 --> N270
+    N367 --> N323
+    N368 --> N340
+    N368 --> N271
+    N369 --> N340
+    N371 --> N271
 ```
 
 ## Detailed File Index
@@ -1426,7 +1439,9 @@ graph TD
   - Imports: `cryptography`
   - Imports: `datetime`
   - Imports: `docx`
+  - Imports: `fastembed`
   - Imports: `hashlib`
+  - Imports: `httpx`
   - Imports: `json`
   - Imports: `numpy`
   - Imports: `ollama`
@@ -1492,14 +1507,18 @@ graph TD
   - Imports: `re`
   - Imports: `src`
 - **meridian_backend/src/core/doc_indexer.py**
+  - Imports: `ast`
   - Imports: `database`
   - Imports: `hashlib`
   - Imports: `json`
+  - Imports: `math`
   - Imports: `numpy`
   - Imports: `os`
+  - Imports: `re`
   - Imports: `sqlite3`
   - Imports: `time`
   - Imports: `turbovec`
+  - Imports: `typing`
 - **meridian_backend/src/core/exporter.py**
   - Imports: `database`
   - Imports: `os`
@@ -1826,6 +1845,16 @@ graph TD
   - Imports: `os`
   - Imports: `time`
   - Imports: `typing`
+- **meridian_backend/src/tools/chrome_manager.py**
+  - Imports: `database`
+  - Imports: `os`
+  - Imports: `playwright`
+  - Imports: `shutil`
+  - Imports: `subprocess`
+  - Imports: `sys`
+  - Imports: `time`
+  - Imports: `typing`
+  - Imports: `webbrowser`
 - **meridian_backend/src/tools/clipboard.py**
   - Imports: `bson`
   - Imports: `database`
@@ -1928,6 +1957,14 @@ graph TD
   - Imports: `os`
   - Imports: `time`
   - Imports: `typing`
+- **meridian_backend/src/tools/media_player.py**
+  - Imports: `database`
+  - Imports: `playwright`
+  - Imports: `pyautogui`
+  - Imports: `src`
+  - Imports: `time`
+  - Imports: `typing`
+  - Imports: `urllib`
 - **meridian_backend/src/tools/ollama_manager.py**
   - Imports: `database`
   - Imports: `threading`
@@ -2149,6 +2186,12 @@ graph TD
   - Imports: `pytest`
   - Imports: `src`
   - Imports: `time`
+- **meridian_backend/tests/test_butler_media.py**
+  - Imports: `database`
+  - Imports: `os`
+  - Imports: `src`
+  - Imports: `sys`
+  - Imports: `unittest`
 - **meridian_backend/tests/test_config.py**
   - Imports: `os`
   - Imports: `src`
@@ -2190,6 +2233,14 @@ graph TD
   - Imports: `os`
   - Imports: `pytest`
   - Imports: `src`
+- **meridian_backend/tests/test_day7_features.py**
+  - Imports: `database`
+  - Imports: `json`
+  - Imports: `numpy`
+  - Imports: `os`
+  - Imports: `pytest`
+  - Imports: `src`
+  - Imports: `sys`
 - **meridian_backend/tests/test_document_tools.py**
   - Imports: `os`
   - Imports: `pytest`

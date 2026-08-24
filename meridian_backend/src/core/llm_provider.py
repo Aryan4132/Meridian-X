@@ -57,15 +57,26 @@ def get_api_key(provider: str) -> Optional[str]:
   """
   Retrieves the API key for a provider.
   Checks:
-  1. Environment variables (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY).
-  2. SQLite/MongoDB user_profile database (saved via first-run onboarding / settings UI).
+  1. Encrypted Vault (via vault_get).
+  2. Environment variables (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY).
+  3. SQLite/MongoDB user_profile database.
   """
+  # 1. Check Vault
+  try:
+    from src.core.vault import vault_get
+    key = vault_get(f"{provider.lower()}_key") or vault_get(f"{provider.upper()}_API_KEY")
+    if key:
+      return key
+  except Exception:
+    pass
+
+  # 2. Check Environment Variables
   env_name = f"{provider.upper()}_API_KEY"
   key = os.getenv(env_name)
   if key:
     return key
-    
-  # Fallback to database profiles (SQLite first, then MongoDB via get_user_profile)
+
+  # 3. Fallback to Database Profiles
   try:
     from database import get_user_profile
     profile_key = f"{provider.lower()}_key"
@@ -74,7 +85,7 @@ def get_api_key(provider: str) -> Optional[str]:
       return val
   except Exception as e:
     logger.debug(f"Failed to fetch {provider} key from database profile: {e}")
-    
+
   return None
 
 
