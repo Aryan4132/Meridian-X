@@ -159,6 +159,10 @@ def get_secret(key: str, passphrase: Optional[str] = None) -> Optional[str]:
     except Exception:
         return None
 
+# Public API Aliases
+vault_set = save_secret
+vault_get = get_secret
+
 
 def delete_secret(key: str, passphrase: Optional[str] = None) -> bool:
     """Removes a key from the encrypted vault if present."""

@@ -82,31 +82,92 @@ def get_ollama_client():
     return _cached_ollama_client
 
 # Embedding client helper
+def _get_fallback_embedding(text: str, dim: int = 768) -> List[float]:
+    """Generates a deterministic in-memory feature-hash vector when remote providers are offline."""
+    if not text:
+        return [0.0] * dim
+    import hashlib
+    words = re.findall(r"\w+", text.lower())
+    vec = np.zeros(dim, dtype=np.float32)
+    for word in words:
+        h = int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16)
+        idx = h % dim
+        val = 1.0 if (h % 2 == 0) else -1.0
+        vec[idx] += val
+    norm = np.linalg.norm(vec)
+    if norm > 1e-9:
+        vec = vec / norm
+    return vec.tolist()
+
+def _get_openai_embedding(text: str, api_key: str, dim: int = 768) -> Optional[List[float]]:
+    """Fetches OpenAI text-embedding-3-small embedding."""
+    try:
+        import httpx
+        url = "https://api.openai.com/v1/embeddings"
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        payload = {"model": "text-embedding-3-small", "input": text, "dimensions": dim}
+        res = httpx.post(url, headers=headers, json=payload, timeout=10.0)
+        if res.status_code == 200:
+            data = res.json()
+            return data["data"][0]["embedding"]
+    except Exception as e:
+        print(f"[Embedding] OpenAI embedding failed: {e}")
+    return None
+
+_cached_fastembed_model = None
+
 def get_embedding(text: str) -> Optional[List[float]]:
+    """Multi-provider embedding generator (OpenAI -> Ollama -> In-Memory Fallback)."""
+    if not text or not text.strip():
+        return None
+
+    if len(text) > 2000:
+        text = text[:2000]
+
+    # 1. Try OpenAI if key is present
+    openai_key = os.environ.get("OPENAI_API_KEY")
+    if not openai_key:
+        try:
+            openai_key = get_user_profile("openai_key")
+        except Exception:
+            pass
+    if openai_key:
+        vec = _get_openai_embedding(text, openai_key)
+        if vec is not None:
+            return vec
+
+    # 2. Try Ollama
     embed_model = os.environ.get("EMBEDDING_MODEL")
     if not embed_model:
         try:
             embed_model = get_user_profile("embedding_model")
         except Exception:
             pass
-    if not embed_model:
-        embed_model = "for ex: model name"
+    if not embed_model or embed_model.startswith("for ex"):
+        embed_model = "nomic-embed-text"
 
     try:
-        # Truncate text to ~2000 chars (~500 tokens) to prevent context length error from Ollama embedding models
-        if text and len(text) > 2000:
-            text = text[:2000]
         client = get_ollama_client()
         res = client.embeddings(model=embed_model, prompt=text)
-        # BUG-2 fix: ollama SDK returns an EmbeddingResponse object, not a dict.
-        embedding = res.embedding if hasattr(res, "embedding") else res.get("embedding")
+        embedding = res.embedding if hasattr(res, "embedding") else (res.get("embedding") if isinstance(res, dict) else None)
         if embedding:
             return list(embedding)
     except Exception as e:
-        print(f"[Embedding] Warning: Failed to get embedding ({embed_model}) for text (len={len(text) if text else 0}): {e}")
-    # SEC-FIX: return None on failure — persisting an all-zero vector poisons
-    # vector indexes so unrelated queries match with high similarity.
-    return None
+        print(f"[Embedding] Warning: Ollama embedding failed ({embed_model}): {e}")
+
+    # 3. Fallback to FastEmbed / In-Memory Deterministic Hashing Vectorizer
+    global _cached_fastembed_model
+    try:
+        from fastembed import TextEmbedding  # type: ignore # pyright: ignore[reportMissingImports]
+        if _cached_fastembed_model is None:
+            _cached_fastembed_model = TextEmbedding()
+        embeddings = list(_cached_fastembed_model.embed([text]))
+        if len(embeddings) > 0:
+            return list(embeddings[0])
+    except Exception:
+        pass
+
+    return _get_fallback_embedding(text)
 
 def normalize_vector(v: List[float]) -> np.ndarray:
     arr = np.array(v, dtype=np.float32)

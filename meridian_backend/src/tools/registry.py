@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 # Import existing core tool functions
 from src.tools.filesystem import read_file, write_file, list_directory, search_files, move_file, delete_file
 from src.tools.web import search_web, search_news, fetch_page, parse_page, download_file, autonomous_research, ingest_url
+from src.tools.geo_location import resolve_location, get_localized_weather, bias_query_spatially
 from src.tools.desktop import (
     screenshot, screenshot_region, ocr_screen, vision_analyze, find_on_screen,
     gui_click, gui_right_click, gui_double_click, gui_drag, gui_type, gui_hotkey, gui_scroll, get_mouse_position,
