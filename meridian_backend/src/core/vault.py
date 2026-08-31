@@ -51,10 +51,30 @@ _cache_lock = threading.Lock()
 # Stores: {cache_key: (derived_key, expires_at)}
 _key_cache: Dict[str, tuple] = {}
 _CACHE_TTL = 300  # 5 minutes
+_VAULT_FROZEN = False
+
+def freeze_vault() -> None:
+    """Freezes vault access during Emergency Lockdown."""
+    global _VAULT_FROZEN
+    with _cache_lock:
+        _VAULT_FROZEN = True
+        _key_cache.clear()
+
+def unfreeze_vault() -> None:
+    """Restores vault access after Emergency Lockdown is lifted."""
+    global _VAULT_FROZEN
+    with _cache_lock:
+        _VAULT_FROZEN = False
+
+def is_vault_frozen() -> bool:
+    """Returns whether vault is currently frozen."""
+    return _VAULT_FROZEN
 
 
 def _get_or_derive_key(passphrase: str, salt: bytes, kdf_type: str = "argon2id") -> bytes:
     """Return the cached derived key for this passphrase if still valid, else re-derive."""
+    if _VAULT_FROZEN:
+        raise PermissionError("Vault is frozen due to Emergency Lockdown.")
     pass_hash = hashlib.sha256(f"{passphrase}:{kdf_type}:{salt.hex()}".encode()).hexdigest()
     with _cache_lock:
         entry = _key_cache.get(pass_hash)
@@ -72,6 +92,7 @@ def _invalidate_key_cache() -> None:
     """Evict all cached keys (called on vault write since a new salt is generated)."""
     with _cache_lock:
         _key_cache.clear()
+
 
 
 # ---------------------------------------------------------------------------
@@ -152,10 +173,14 @@ def save_secret(key: str, value: str, passphrase: Optional[str] = None) -> str:
 
 def get_secret(key: str, passphrase: Optional[str] = None) -> Optional[str]:
     """Decrypt vault and return the value for `key`, or None if missing."""
+    if _VAULT_FROZEN:
+        raise PermissionError("Vault is frozen due to Emergency Lockdown.")
     _audit("vault_get", key)
     try:
         secrets = load_all_secrets(passphrase)
         return secrets.get(key)
+    except PermissionError as pe:
+        raise pe
     except Exception:
         return None
 

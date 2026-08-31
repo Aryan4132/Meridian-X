@@ -61,3 +61,15 @@ def isolate_rogue_processes(max_cpu_pct: float = 95.0) -> List[int]:
             
     return terminated_pids
 
+
+def trigger_defense_lockdown(pin: str = "1234") -> Dict[str, Any]:
+    """Helper to trigger SEC-34 Emergency Lockdown mode."""
+    from src.core.emergency_lockdown import trigger_emergency_lockdown
+    return trigger_emergency_lockdown(pin=pin)
+
+def run_edr_process_scan(auto_quarantine: bool = False) -> Dict[str, Any]:
+    """Helper to run SEC-37 EDR-Lite process behavior scan."""
+    from src.core.behavior_monitor import scan_process_behavior
+    return scan_process_behavior(auto_quarantine=auto_quarantine)
+
+

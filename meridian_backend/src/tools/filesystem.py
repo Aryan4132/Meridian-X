@@ -44,6 +44,16 @@ def write_file(path: str, content: str) -> str:
             os.makedirs(parent, exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
             f.write(content)
+        
+        # SEC-36: Download / File write malware inspection hook
+        try:
+            from src.core.malware_scanner import scan_file_and_quarantine
+            scan_res = scan_file_and_quarantine(path)
+            if scan_res.get("is_threat"):
+                return f"WARNING: File {path} was flagged as malicious and moved to quarantine: {scan_res.get('threat_reasons')}"
+        except Exception:
+            pass
+
         log_sensitive_action(
             category="FILE_WRITE",
             action="write_file",

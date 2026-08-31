@@ -20,9 +20,6 @@ docs_index = None
 
 def init_docs_index():
     global docs_index
-    if docs_index is not None or IdMapIndex is None:
-        return
-    
     try:
         conn = get_sqlite_conn()
         cursor = conn.cursor()
@@ -56,6 +53,9 @@ def init_docs_index():
         conn.close()
     except Exception as e:
         print("[Docs Indexer] SQLite initialization failed:", e)
+
+    if docs_index is not None or IdMapIndex is None:
+        return
 
     if IdMapIndex is not None:
         if os.path.exists(DOCS_INDEX_PATH):
