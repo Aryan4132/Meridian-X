@@ -874,6 +874,53 @@ body.mascot-body #root {
    COMPONENT BASE STYLES
    ============================================================ */
 
+/* Universal Tab & Subtab Navigation System */
+.subtab-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+  margin-top: 8px;
+  scrollbar-width: none;
+}
+
+.subtab-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: var(--bg-surface);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-main);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.subtab-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-bright);
+  border-color: var(--border-subtle);
+}
+
+.subtab-btn-active,
+.subtab-btn.active {
+  background: var(--accent-muted) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  font-weight: 600 !important;
+  box-shadow: 0 0 14px var(--accent-muted);
+}
+
 /* Inputs */
 .input-base {
   width: 100%;

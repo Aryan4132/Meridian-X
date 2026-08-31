@@ -878,7 +878,7 @@ export default function Settings() {
         <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 8px', fontFamily: "'JetBrains Mono', monospace" }}>Configuration · Models · Appearance · Guard</p>
 
         {/* Category Navigation Bar */}
-        <div style={{ display: 'flex', gap: 6, overflowX: 'auto', borderBottom: '1px solid var(--border-subtle)', paddingBottom: 8, marginTop: 12 }}>
+        <div className="subtab-bar">
           {SETTINGS_TABS.map(t => {
             const Icon = t.icon;
             const active = activeCategory === t.id;
@@ -887,16 +887,7 @@ export default function Settings() {
                 key={t.id}
                 type="button"
                 onClick={() => setActiveCategory(t.id as any)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '6px 12px', borderRadius: 'var(--radius-sm)',
-                  border: active ? '1px solid var(--accent)' : '1px solid transparent',
-                  background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-surface)',
-                  color: active ? 'var(--accent)' : 'var(--text-dim)',
-                  cursor: 'pointer', fontSize: 11, fontWeight: active ? 600 : 400,
-                  transition: 'all 0.15s ease',
-                  whiteSpace: 'nowrap',
-                }}
+                className={`subtab-btn ${active ? 'subtab-btn-active' : ''}`}
               >
                 <Icon size={13} />
                 {t.label}

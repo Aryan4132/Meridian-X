@@ -68,6 +68,7 @@ executables/
 vault.enc
 *.exe
 *.msi
+.quarantine/
 
 
 

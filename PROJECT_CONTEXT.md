@@ -58,12 +58,18 @@
 - **Tier 0 Read-Only Tools** (`read_file`, `list_directory`, `search_web`): Executed concurrently via `asyncio.gather()`.
 - **Tier >= 1 Mutating Tools** (`write_file`, `run_command`, `gui_click`): Executed sequentially inside transactional safety gates.
 
-### 🛡️ Enterprise Security Gateways (`SEC-01` to `SEC-26`)
+### 🛡️ Enterprise Security Gateways & Cyber Defense (`SEC-01` to `SEC-38`)
 
 - `X-API-Key` Auth dependency (`require_api_key`).
 - `SlowAPIMiddleware` rate-limiting (20 req/min chat, 10 req/min vault).
 - Prompt Injection Sanitizer stripping jailbreaks and hidden unicode exploits (`prompt_injection.py`).
 - `MERIDIAN_ALLOW_HOST_CODE_EXEC` environment flag gating local terminal command execution.
+- **Emergency Lockdown Mode (`SEC-34`)** (`emergency_lockdown.py`): One voice/command trigger that locks workstation (`LockWorkStation`), mutes mic/camera, isolates network adapters, and freezes vault sessions until PIN/biometric unlock.
+- **Ransomware Canary & FIM Sentinel (`SEC-31`)** (`fim_sentinel.py`): Honeypot files in `Documents`/`Desktop`, SHA-256 baseline monitoring, and automatic rogue process quarantine (`isolate_rogue_processes`) on mass file tampering.
+- **EDR-Lite Real-Time Process Behavior Monitor (`SEC-37`)** (`behavior_monitor.py`): Detects suspicious parent-child process spawns (Office/Browser -> CMD/PowerShell), crypto-miner CPU signatures (>85% CPU multi-thread), and mass file handle access.
+- **Local Malware Scanner & Download Inspector (`SEC-36`)** (`malware_scanner.py`): Bytecode signature patterns, Shannon entropy analysis (>7.3 threshold), and AES-encrypted `.quarantine/` store.
+- **Breach & Leak Sentinel (`SEC-28`)** (`breach_sentinel.py`): HaveIBeenPwned k-anonymity SHA-1 prefix API search, email credential breach auditor, and dark-web keyword watch.
+- **Persistence & Autoruns Sentinel (`SEC-38`)** (`persistence_sentinel.py`): Snapshot baseline of registry Run keys, startup folders, scheduled tasks, and system services with one-click rollback.
 
 ### 📋 Clipboard Surveillance & Focus Shield
 
