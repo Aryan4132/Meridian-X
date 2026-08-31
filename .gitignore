@@ -70,5 +70,13 @@ vault.enc
 *.msi
 .quarantine/
 
+# Internal task tracking & agent context docs
+TIMELINE.md
+KANBAN.md
+PROJECT_CONTEXT.md
+SPEC.md
+tasks.md
+tasks/
+
 
 
