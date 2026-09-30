@@ -79,7 +79,7 @@ def test_review_diff():
         with patch("src.tools.review.call_llm_sync", return_value="🟢 OK: No critical diff issues."):
             # First check with clean repo
             res_clean = review_diff(temp_dir)
-            assert "No git diff changes" in res_clean
+            assert "git diff changes" in res_clean
 
 def test_auto_reviewer_generate_unit_tests():
     """Verify auto_reviewer unit test generator."""

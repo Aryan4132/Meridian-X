@@ -2,8 +2,15 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
-# Disable auth bypass for test verification
-os.environ["DISABLE_AUTH"] = "false"
+@pytest.fixture(autouse=True)
+def _enforce_auth_for_security_suite():
+    old = os.environ.get("DISABLE_AUTH")
+    os.environ["DISABLE_AUTH"] = "false"
+    yield
+    if old is None:
+        os.environ.pop("DISABLE_AUTH", None)
+    else:
+        os.environ["DISABLE_AUTH"] = old
 
 from api import app
 from src.core.auth import API_KEY
@@ -13,7 +20,9 @@ from src.core.vault import get_vault_passphrase, save_secret, get_secret
 client = TestClient(app)
 
 
-def _request_as_peer(method: str, path: str, headers: dict = None, peer=("127.0.0.1", 51234)):
+from typing import Optional, Dict, Any
+
+def _request_as_peer(method: str, path: str, headers: Optional[Dict[str, Any]] = None, peer=("127.0.0.1", 51234)):
     """Issue a request whose ASGI scope reports the given TCP peer.
 
     FIX: Starlette's TestClient always reports peer host 'testclient', which can

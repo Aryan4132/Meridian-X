@@ -1,6 +1,7 @@
 import os
 import unittest
 import sys
+import os
 import json
 import shutil
 from unittest.mock import patch
@@ -85,5 +86,19 @@ class TestTools(unittest.TestCase):
         res_empty = send_whatsapp_message()
         self.assertIn("Error", res_empty)
 
+    def test_git_snapshot_and_rollback(self):
+        from src.tools.developer import git_create_snapshot, git_rollback
+        from src.tools.registry import TOOL_REGISTRY
+        
+        self.assertIn("git_create_snapshot", TOOL_REGISTRY)
+        self.assertIn("git_rollback", TOOL_REGISTRY)
+        
+        # Test creating snapshot on current repo
+        res_snap = git_create_snapshot(".")
+        self.assertTrue(isinstance(res_snap, str))
+        self.assertTrue("Snapshot" in res_snap or "clean" in res_snap)
+
+
 if __name__ == "__main__":
     unittest.main()
+

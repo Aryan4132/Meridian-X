@@ -7,10 +7,10 @@ scenarios:
       query: "extract_text_from_file"
 
   - id: SCENARIO-02
-    prompt: "Play YouTube Music song Shape of You"
-    expected_tool: "play_youtube_music"
+    prompt: "Browse the web to search for latest AI papers"
+    expected_tool: "browser_use_task"
     required_args:
-      song_query: "Shape of You"
+      task: "search for latest AI papers"
 
   - id: SCENARIO-03
     prompt: "Check memory for facts about user"

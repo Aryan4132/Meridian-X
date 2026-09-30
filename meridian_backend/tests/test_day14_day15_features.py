@@ -23,14 +23,14 @@ def test_swarm_heterogeneous_model_binding():
     assert custom_agent.model == "custom-gpt-5"
 
 def test_p2p_qr_pairing_and_token_verification():
-    from src.core.p2p import generate_qr_pairing_payload, verify_mobile_pairing_secret, _bootstrap_p2p_token
+    from src.core.p2p import get_manual_pairing_info, verify_mobile_pairing_secret, _bootstrap_p2p_token
 
-    payload = generate_qr_pairing_payload()
-    assert payload["app"] == "Meridian-X"
-    assert "secret" in payload
-    assert payload["port"] == 8009
+    info = get_manual_pairing_info()
+    assert info["app"] == "Meridian-X"
+    assert "secret" not in info
+    assert info["port"] == 8009
 
-    secret = payload["secret"]
+    secret = _bootstrap_p2p_token()
     assert verify_mobile_pairing_secret(secret) is True
     assert verify_mobile_pairing_secret("invalid_secret_123") is False
 
