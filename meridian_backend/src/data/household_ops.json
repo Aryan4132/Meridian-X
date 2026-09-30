@@ -1,0 +1,119 @@
+{
+  "pantry": [],
+  "groceries": [
+    {
+      "id": "g_1789494037",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-15 23:10"
+    },
+    {
+      "id": "g_1789568474",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-16 19:51"
+    },
+    {
+      "id": "g_1789570909",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-16 20:31"
+    },
+    {
+      "id": "g_1789571608",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-16 20:43"
+    },
+    {
+      "id": "g_1789745156",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-18 20:55"
+    },
+    {
+      "id": "g_1789746142",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-18 21:12"
+    },
+    {
+      "id": "g_1789910232",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-20 18:47"
+    },
+    {
+      "id": "g_1789912922",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-09-20 19:32"
+    }
+  ],
+  "chores": [
+    {
+      "id": "c_1789494037",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789568474",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789570909",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789571608",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789745156",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789746142",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789910232",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1789912922",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    }
+  ]
+}

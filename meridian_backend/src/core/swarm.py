@@ -44,15 +44,24 @@ SWARM_ROLE_TOOLS = {
     "bug_fixer": ["search_files", "read_file", "run_test_suite", "create_git_branch", "verify_fix", "commit_verified_fix"]
 }
 
+SWARM_ROLE_MODELS = {
+    "researcher": "gemini-1.5-flash",
+    "auditor": "deepseek-coder",
+    "browser": "claude-3-5-sonnet",
+    "planner": "claude-3-5-sonnet",
+    "bug_fixer": "deepseek-coder",
+}
+
 
 class SwarmAgent:
     """Represents an autonomous specialized subagent in the swarm."""
 
-    def __init__(self, role: str, name: Optional[str] = None):
+    def __init__(self, role: str, name: Optional[str] = None, model: Optional[str] = None):
         from datetime import datetime
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         self.role = role.lower()
         self.name = name or f"Swarm-{role.capitalize()}Agent"
+        self.model = model or SWARM_ROLE_MODELS.get(self.role)
         base_prompt = SWARM_ROLE_PROMPTS.get(
             self.role,
             f"You are a specialized Swarm Agent focused on {self.role} tasks."
@@ -67,21 +76,19 @@ class SwarmAgent:
     async def execute(self, goal: str, session_id: str = "default") -> Dict[str, Any]:
         """
         #1 FIX: Executes the subagent task via the real agent loop.
-        Previously this was a stub returning a hardcoded string. Now it invokes
-        run_react_agent_loop(is_worker=True) with the agent's allowed_tools injected
-        into the system prompt as a HARD restriction so the subagent cannot
-        call tools outside its designated role.
+        Invokes run_react_agent_loop(is_worker=True) with role model binding.
         """
         start_time = time.time()
-        print(f"[Swarm Engine] Starting subagent '{self.name}' (Role: {self.role})...")
+        print(f"[Swarm Engine] Starting subagent '{self.name}' (Role: {self.role}, Model: {self.model or 'default'})...")
 
         try:
             from src.core.loop import run_react_agent_loop
             from database import get_brain_model, get_model_source, get_ollama_client_host
 
-            brain_model = get_brain_model()
+            brain_model = self.model or get_brain_model()
             model_source = get_model_source()
             ollama_host = get_ollama_client_host()
+
 
             # Build a role-scoped worker prompt that includes tool restriction
             allowed_str = ", ".join(self.allowed_tools) if self.allowed_tools else "all tools"

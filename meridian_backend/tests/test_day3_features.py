@@ -61,16 +61,18 @@ def test_native_toast_notification():
     assert "notification" in res.lower()
 
 def test_approval_gate_evaluator():
-    requires_approval, reason = check_approval_gate("delete_file", {"filepath": "important.txt"})
-    assert requires_approval is True
-    assert "delete_file" in reason
+    from unittest.mock import patch
+    with patch("database.get_unrestricted_pc_access", return_value=False):
+        requires_approval, reason = check_approval_gate("delete_file", {"filepath": "important.txt"})
+        assert requires_approval is True
+        assert "delete_file" in reason
 
-    requires_cmd, reason_cmd = check_approval_gate("nl_run", {"natural_language": "rm -rf /tmp"})
-    assert requires_cmd is True
-    assert "dangerous command" in reason_cmd.lower()
+        requires_cmd, reason_cmd = check_approval_gate("nl_run", {"natural_language": "rm -rf /tmp"})
+        assert requires_cmd is True
+        assert "dangerous command" in reason_cmd.lower()
 
-    safe_req, _ = check_approval_gate("read_file", {"filepath": "readme.txt"})
-    assert safe_req is False
+        safe_req, _ = check_approval_gate("read_file", {"filepath": "readme.txt"})
+        assert safe_req is False
 
 def test_sandbox_runner():
     code, stdout, stderr = run_sandboxed_command("echo 'Sandbox Test'")

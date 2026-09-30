@@ -85,3 +85,52 @@ class TemporalMemoryGraph:
             entity_type="user_preference",
             state={"category": category, "key": preference_key, "value": preference_value}
         )
+
+# Global Temporal Memory Graph Instance
+temporal_graph = TemporalMemoryGraph()
+
+def capture_voice_thought(transcript: str, tags: Optional[List[str]] = None) -> Dict[str, Any]:
+    """BUTLER-25: Captures instant voice thought, auto-tags keywords, and indexes in temporal graph."""
+    if not transcript:
+        return {"status": "error", "message": "Transcript cannot be empty."}
+
+    # Simple auto-tagging heuristic
+    words = [w.strip("#,.!?").lower() for w in transcript.split() if len(w) > 4]
+    extracted_tags = tags or list(set(words[:4]))
+
+    entity_id = f"thought:{int(time.time())}"
+    node_id = temporal_graph.add_event(
+        entity_id=entity_id,
+        entity_type="voice_thought",
+        state={
+            "transcript": transcript,
+            "tags": extracted_tags,
+            "captured_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+    )
+
+    return {
+        "status": "success",
+        "node_id": node_id,
+        "transcript": transcript,
+        "tags": extracted_tags,
+        "message": f"Voice thought captured and tagged: [{', '.join(extracted_tags)}]"
+    }
+
+def query_voice_thoughts(query_tag: str = "") -> List[Dict[str, Any]]:
+    """BUTLER-25: Queries captured voice thoughts with temporal decay relevance scoring."""
+    now = time.time()
+    results = []
+    for node_id, node in temporal_graph.nodes.items():
+        if node.get("type") == "voice_thought":
+            state = node.get("state", {})
+            tags = state.get("tags", [])
+            if not query_tag or any(query_tag.lower() in t.lower() for t in tags) or query_tag.lower() in state.get("transcript", "").lower():
+                item = dict(state)
+                item["node_id"] = node_id
+                item["temporal_relevance"] = temporal_graph.calculate_temporal_relevance(node_id, now)
+                results.append(item)
+
+    results.sort(key=lambda x: x["temporal_relevance"], reverse=True)
+    return results
+

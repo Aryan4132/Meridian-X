@@ -27,8 +27,10 @@ from src.tools.developer import (
     scaffold_project, run_tests, install_package, lint_file, format_file,
     lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
 )
-from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails, send_native_toast_notification
-from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session
+from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails, send_native_toast_notification, send_discord_message, read_discord_messages, add_discord_reaction, list_discord_channels
+from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session, bridge_whatsapp_voice_call
+from src.tools.health_ingest import sync_wearable_health_data, get_health_metrics_summary
+from src.tools.wellness import track_hydration, trigger_ergonomic_break, calculate_daily_wellness_score
 
 # Import newly implemented advanced capability tools
 from src.tools.vault import vault_set, vault_get, vault_list, vault_delete
@@ -42,7 +44,10 @@ from src.tools.shell import nl_to_shell, nl_run, shell_history, monitor_process
 from src.tools.db_query import db_connect, db_query, db_execute, db_schema, db_nl_query, db_disconnect
 from src.tools.exporter import export_session, export_goal, list_sessions, export_finetune_data, finetune_stats, mark_correction
 from src.tools.web_browser import browser_open, browser_screenshot, browser_find_and_click, browser_type_in, browser_get_text, browser_close, scrape_urls, scrape_table, schedule_scrape
-from src.tools.recording import record_screen, stop_recording, analyze_recording, save_workflow, replay_workflow, list_workflows
+from src.tools.recording import record_screen, stop_recording, analyze_recording, save_workflow, replay_workflow, list_workflows, export_video_mp4, record_webcam_video
+from src.tools.video_editor import trim_video, concat_videos, change_video_speed, add_text_watermark, convert_video_to_gif, add_auto_subtitles
+
+
 from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
@@ -69,6 +74,40 @@ from src.core.perception import (
     generate_presence_briefing
 )
 from src.voice.polyglot import translate_speech_to_code
+from src.core.vision import analyze_screen_multimodal
+from src.core.screen_sense import get_active_window_sense
+from src.core.vision_face import get_presence_state
+from src.voice.ambient_listener import get_recent_ambient_transcripts
+from src.core.proactive import synthesize_ambient_nudge, generate_meeting_prep_briefing
+
+
+
+from src.tools.phone_agent import make_outbound_call, screen_incoming_call, process_post_call_intelligence
+from src.core.sos_protocol import trigger_emergency_sos
+from src.tools.external_connectors import triage_inbox_emails, generate_draft_reply, manage_unsubscribes
+from src.core.personal_crm import add_crm_contact, check_crm_occasions, list_crm_contacts
+
+# Day 12 & Day 13 Butler, Knowledge, Finance & Security Tools
+from src.tools.expiry_sentinel import add_expiry_document, check_document_expiries, list_expiry_documents
+from src.tools.travel_butler import create_trip, calculate_leave_by_time, get_upcoming_trips
+from src.tools.bill_radar import register_recurring_bill, get_bill_due_radar
+from src.tools.finance_sentinel import analyze_stock_sentiment, get_market_watchlist
+from src.tools.file_janitor import scan_downloads_folder, organize_downloads
+from src.tools.search_hub import universal_search
+from src.tools.screenshot_memory import capture_screenshot_memory, query_screenshot_memory
+from src.tools.household import add_grocery_item, add_household_chore, get_household_summary
+from src.tools.phishing_guard import check_url_reputation
+from src.tools.totp_generator import generate_totp_code
+from src.tools.password_auditor import audit_password_strength
+from src.tools.network_guardian import audit_network_boundary
+from src.tools.usb_watchdog import audit_usb_peripherals
+from src.tools.dns_shield import audit_dns_health
+from src.tools.cam_guard import audit_camera_mic_access
+from src.tools.detonation_sandbox import detonate_attachment_sample
+
+
+
+
 
 # Dynamic imports to avoid circular database referencing
 def _ingest_file(path: str) -> str:
@@ -222,11 +261,21 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "send_email": {"tier": 2, "func": send_email},
     "read_emails": {"tier": 0, "func": read_emails},
     "send_whatsapp_message": {"tier": 2, "func": send_whatsapp_message},
+    "send_discord_message": {"tier": 2, "func": send_discord_message},
+    "read_discord_messages": {"tier": 0, "func": read_discord_messages},
+    "add_discord_reaction": {"tier": 1, "func": add_discord_reaction},
+    "list_discord_channels": {"tier": 0, "func": list_discord_channels},
     "manage_whatsapp_contacts": {"tier": 1, "func": manage_whatsapp_contacts},
     "read_whatsapp_messages": {"tier": 0, "func": read_whatsapp_messages},
     "list_whatsapp_chats": {"tier": 0, "func": list_whatsapp_chats},
     "login_whatsapp_session": {"tier": 1, "func": login_whatsapp_session},
+    "bridge_whatsapp_voice_call": {"tier": 2, "func": bridge_whatsapp_voice_call},
     "triage_and_read_emails": {"tier": 1, "func": triage_and_read_emails},
+    "sync_wearable_health_data": {"tier": 1, "func": sync_wearable_health_data},
+    "get_health_metrics_summary": {"tier": 0, "func": get_health_metrics_summary},
+    "track_hydration": {"tier": 0, "func": track_hydration},
+    "trigger_ergonomic_break": {"tier": 0, "func": trigger_ergonomic_break},
+    "calculate_daily_wellness_score": {"tier": 0, "func": calculate_daily_wellness_score},
 
 
 
@@ -269,10 +318,30 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "review_diff": {"tier": 0, "func": review_diff},
     "review_directory": {"tier": 0, "func": review_directory},
     "export_review": {"tier": 1, "func": export_review},
-    "generate_paper2code": {"tier": 1, "func": generate_paper2code},
-
     "generate_unit_tests": {"tier": 1, "func": generate_unit_tests},
     "review_git_changes": {"tier": 0, "func": review_git_changes},
+
+    # Day 10 Multimodal & Ambient Perception Tools
+    "analyze_active_screen": {"tier": 0, "func": analyze_screen_multimodal},
+    "get_active_window_sense": {"tier": 0, "func": get_active_window_sense},
+    "get_presence_state": {"tier": 0, "func": get_presence_state},
+    "get_ambient_speech_context": {"tier": 0, "func": get_recent_ambient_transcripts},
+    "synthesize_ambient_nudge": {"tier": 0, "func": synthesize_ambient_nudge},
+
+    # Day 11 Telephony, Emergency SOS, Email Triage & Personal CRM Tools
+    "make_outbound_call": {"tier": 2, "func": make_outbound_call},
+    "screen_incoming_call": {"tier": 0, "func": screen_incoming_call},
+    "process_post_call_intelligence": {"tier": 0, "func": process_post_call_intelligence},
+    "trigger_emergency_sos": {"tier": 2, "func": trigger_emergency_sos},
+    "triage_inbox_emails": {"tier": 0, "func": triage_inbox_emails},
+    "generate_draft_reply": {"tier": 1, "func": generate_draft_reply},
+    "manage_unsubscribes": {"tier": 1, "func": manage_unsubscribes},
+    "add_crm_contact": {"tier": 1, "func": add_crm_contact},
+    "check_crm_occasions": {"tier": 0, "func": check_crm_occasions},
+    "list_crm_contacts": {"tier": 0, "func": list_crm_contacts},
+    "generate_meeting_prep_briefing": {"tier": 0, "func": generate_meeting_prep_briefing},
+
+
 
 
     # NL Shell
@@ -314,13 +383,23 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "scrape_table": {"tier": 0, "func": scrape_table},
     "schedule_scrape": {"tier": 1, "func": schedule_scrape},
 
-    # Screen Recording & Workflow Replay
+    # Screen Recording, Video Editing & Workflow Replay
     "record_screen": {"tier": 1, "func": record_screen},
     "stop_recording": {"tier": 1, "func": stop_recording},
     "analyze_recording": {"tier": 0, "func": analyze_recording},
     "save_workflow": {"tier": 1, "func": save_workflow},
     "replay_workflow": {"tier": 2, "func": replay_workflow},
     "list_workflows": {"tier": 0, "func": list_workflows},
+    "export_video_mp4": {"tier": 1, "func": export_video_mp4},
+    "record_webcam_video": {"tier": 1, "func": record_webcam_video},
+    "trim_video": {"tier": 1, "func": trim_video},
+    "concat_videos": {"tier": 1, "func": concat_videos},
+    "change_video_speed": {"tier": 1, "func": change_video_speed},
+    "add_text_watermark": {"tier": 1, "func": add_text_watermark},
+    "convert_video_to_gif": {"tier": 1, "func": convert_video_to_gif},
+    "add_auto_subtitles": {"tier": 1, "func": add_auto_subtitles},
+
+
 
     # Clipboard manager
     "clipboard_history": {"tier": 0, "func": clipboard_history},
@@ -367,7 +446,35 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "list_ar_headsets": {"tier": 0, "func": list_ar_headsets},
     "translate_speech_to_code": {"tier": 0, "func": translate_speech_to_code},
     "predict_next_action": {"tier": 0, "func": predict_next_action},
-    "generate_presence_briefing": {"tier": 0, "func": generate_presence_briefing}
+    "generate_presence_briefing": {"tier": 0, "func": generate_presence_briefing},
+
+    # Day 12 & Day 13 Butler, Knowledge, Finance & Security Tools
+    "add_expiry_document": {"tier": 1, "func": add_expiry_document},
+    "check_document_expiries": {"tier": 0, "func": check_document_expiries},
+    "list_expiry_documents": {"tier": 0, "func": list_expiry_documents},
+    "create_trip": {"tier": 1, "func": create_trip},
+    "calculate_leave_by_time": {"tier": 0, "func": calculate_leave_by_time},
+    "get_upcoming_trips": {"tier": 0, "func": get_upcoming_trips},
+    "register_recurring_bill": {"tier": 1, "func": register_recurring_bill},
+    "get_bill_due_radar": {"tier": 0, "func": get_bill_due_radar},
+    "analyze_stock_sentiment": {"tier": 0, "func": analyze_stock_sentiment},
+    "get_market_watchlist": {"tier": 0, "func": get_market_watchlist},
+    "scan_downloads_folder": {"tier": 0, "func": scan_downloads_folder},
+    "organize_downloads": {"tier": 2, "func": organize_downloads},
+    "universal_search": {"tier": 0, "func": universal_search},
+    "capture_screenshot_memory": {"tier": 1, "func": capture_screenshot_memory},
+    "query_screenshot_memory": {"tier": 0, "func": query_screenshot_memory},
+    "add_grocery_item": {"tier": 1, "func": add_grocery_item},
+    "add_household_chore": {"tier": 1, "func": add_household_chore},
+    "get_household_summary": {"tier": 0, "func": get_household_summary},
+    "check_url_reputation": {"tier": 0, "func": check_url_reputation},
+    "generate_totp_code": {"tier": 0, "func": generate_totp_code},
+    "audit_password_strength": {"tier": 0, "func": audit_password_strength},
+    "audit_network_boundary": {"tier": 0, "func": audit_network_boundary},
+    "audit_usb_peripherals": {"tier": 0, "func": audit_usb_peripherals},
+    "audit_dns_health": {"tier": 0, "func": audit_dns_health},
+    "audit_camera_mic_access": {"tier": 0, "func": audit_camera_mic_access},
+    "detonate_attachment_sample": {"tier": 2, "func": detonate_attachment_sample}
 }
 
 def browser_navigate_wrapper(url: str) -> str:
@@ -387,25 +494,39 @@ def mcp_install_server_wrapper(server_id: str) -> str:
     return mcp_install_server_tool(server_id)
 
 
+def _run_coro_safe(coro):
+    """Executes a coroutine safely, supporting execution inside an active event loop."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        import concurrent.futures
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(lambda: asyncio.run(coro)).result()
+    else:
+        return asyncio.run(coro)
+
+
 def run_agent_swarm_wrapper(goal: str, roles: str = "researcher,auditor") -> str:
     """BK-10: Spawns parallel specialized subagents to work on a goal concurrently."""
     try:
         from src.core.swarm import SwarmOrchestrator
         role_list = [r.strip() for r in roles.split(",") if r.strip()]
-        res = asyncio.run(SwarmOrchestrator().run_swarm(goal, role_list))
+        res = _run_coro_safe(SwarmOrchestrator().run_swarm(goal, role_list))
         return res.get("synthesis", "Swarm execution complete.")
     except Exception as e:
         return f"Swarm execution failed: {e}"
 
 
 def run_autonomous_bug_fixer_wrapper(target_path: Optional[str] = None) -> str:
-
     """DEV-01: Autonomous Background Bug Fixer & Auto-PR Agent."""
     import json
     try:
         from src.core.swarm import AutonomousBugFixer
         fixer = AutonomousBugFixer()
-        res = asyncio.run(fixer.auto_fix_pipeline(target_path=target_path))
+        res = _run_coro_safe(fixer.auto_fix_pipeline(target_path=target_path))
         return json.dumps(res, indent=2)
     except Exception as e:
         return f"Autonomous bug fixer execution failed: {e}"
@@ -455,6 +576,26 @@ try:
 except Exception as e:
     print("[Plugins] Auto-discovery activation failed:", e)
 
+# Register Day 16, 17, 18 Tools
+try:
+    from src.tools.workspace_layout import arrange_workspace_grid
+    from src.tools.learning_queue import add_to_learning_queue, generate_reading_digest
+    from src.tools.price_watcher import add_watched_product, check_price_drops
+    from src.tools.networth_tracker import get_networth_summary
+    from src.tools.wifi_assessor import assess_wifi_security
+    from src.tools.bookmark_manager import add_bookmark, list_bookmarks
+
+    TOOL_REGISTRY["arrange_workspace_grid"] = {"func": arrange_workspace_grid, "description": "Arrange active desktop windows into 2x2 grid", "tier": 1}
+    TOOL_REGISTRY["add_to_learning_queue"] = {"func": add_to_learning_queue, "description": "Save article or link for later reading", "tier": 1}
+    TOOL_REGISTRY["generate_reading_digest"] = {"func": generate_reading_digest, "description": "Generate SM-2 reading digest summary", "tier": 1}
+    TOOL_REGISTRY["add_watched_product"] = {"func": add_watched_product, "description": "Track e-commerce product price drops", "tier": 1}
+    TOOL_REGISTRY["get_networth_summary"] = {"func": get_networth_summary, "description": "Get total assets vs liabilities snapshot", "tier": 1}
+    TOOL_REGISTRY["assess_wifi_security"] = {"func": assess_wifi_security, "description": "Assess Wi-Fi security and firewall status", "tier": 1}
+    TOOL_REGISTRY["add_bookmark"] = {"func": add_bookmark, "description": "Add auto-tagged smart bookmark", "tier": 1}
+except Exception as _tool_err:
+    print("[Registry] Day 16-18 tool registration warning:", _tool_err)
+
+
 async def call_tool(name: str, args: Dict[str, Any]) -> str:
     if name not in TOOL_REGISTRY:
         raise ValueError(f"Unknown tool: '{name}'")
@@ -484,3 +625,52 @@ def register_dynamic_tool(name: str, func: Any, description: str = "", tier: int
         "description": description,
         "tier": tier
     }
+
+
+def register_tool(name: str, metadata: Dict[str, Any]) -> bool:
+    """Register a new tool with full metadata."""
+    try:
+        # Validate required fields
+        if not name or not isinstance(name, str):
+            return False
+            
+        # Create tool entry
+        TOOL_REGISTRY[name] = {
+            "func": None,  # Will be set dynamically when needed
+            "description": metadata.get("description", ""),
+            "tier": metadata.get("tier", 1),
+            "inputSchema": metadata.get("inputSchema", {"type": "object", "properties": {}}),
+            "outputSchema": metadata.get("outputSchema", {"type": "object", "properties": {}}),
+            "supportsStreaming": metadata.get("supportsStreaming", False),
+            "handlerModule": metadata.get("handlerModule", ""),
+            "handlerFunction": metadata.get("handlerFunction", ""),
+            "metadata": metadata  # Store full metadata for reference
+        }
+        return True
+    except Exception:
+        return False
+
+
+def unregister_tool(name: str) -> bool:
+    """Unregister a tool by name."""
+    try:
+        if name in TOOL_REGISTRY:
+            del TOOL_REGISTRY[name]
+            return True
+        return False
+    except Exception:
+        return False
+
+
+class ToolRegistry:
+    """Class wrapper for tool registry operations."""
+    def list_tools(self) -> list:
+        return [{"name": k, "description": v.get("description", ""), "tier": v.get("tier", 1)} for k, v in TOOL_REGISTRY.items()]
+
+    def get_tool(self, name: str) -> Optional[Any]:
+        info = TOOL_REGISTRY.get(name)
+        return info["func"] if info else None
+
+registry = ToolRegistry()
+
+

@@ -60,10 +60,8 @@ async def stream_pull_model(model_name: str, base_url: Optional[str] = None) -> 
     if not base_url:
         base_url = get_ollama_base_url()
 
-    pull_url = f"{base_url}/api/pull"
-    payload = {"name": model_name, "stream": True}
-
-    async with httpx.AsyncClient(timeout=None) as client:
+    timeout_cfg = httpx.Timeout(connect=10.0, read=300.0, write=300.0, pool=10.0)
+    async with httpx.AsyncClient(timeout=timeout_cfg) as client:
         try:
             async with client.stream("POST", pull_url, json=payload) as response:
                 if response.status_code != 200:

@@ -6,7 +6,7 @@
 
 ### Autonomous Offline-First Desktop AI Agent & Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.1.1-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.1.4-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -56,53 +56,60 @@
 
 ```mermaid
 flowchart TB
-    subgraph UI["🖥️ Presentation &amp; UI Layer"]
-        direction TB
+    subgraph UI["🖥️ Presentation & UI Layer"]
+        direction LR
         UI_MAIN["React 19 + TS Desktop UI<br/>(Tauri v2)"]
-        UI_HUD["3D Mascot &amp; Overlay HUD<br/>(Three.js)"]
+        UI_HUD["3D Mascot & Overlay HUD<br/>(Three.js)"]
     end
 
-    subgraph GATEWAY["⚡ Backend Gateway &amp; Security"]
-        direction TB
+    subgraph GATEWAY["⚡ Backend Gateway & Security"]
+        direction LR
         FASTAPI["FastAPI Async Core Engine"]
-        SEC_GATE["Multi-Tier Security &amp; Approval Gate"]
+        SEC_GATE["Multi-Tier Security & Approval Gate"]
     end
 
     subgraph CORE["🧠 ReAct Autonomous Engine"]
-        direction TB
+        direction LR
         REACT["ReAct Loop<br/>(Reason ➔ Act ➔ Observe)"]
-        HEAL["Self-Healing Corrector &amp; Auditor"]
+        HEAL["Self-Healing Corrector & Auditor"]
+    end
+
+    subgraph INTEGRATIONS["🔌 Extensions & Memory Layer"]
+        direction LR
+        subgraph TOOLS["🔌 Tool Integration & System Execution"]
+            direction TB
+            MCP["MCP Server Client Registry"]
+            SYS_OPS["Desktop & System Automations"]
+        end
+        subgraph KNOWLEDGE["💾 Vector Memory & Code Graph"]
+            direction TB
+            VEC_DB["Turbovec Local Vector RAG"]
+            AST_GRAPH["Codebase AST Knowledge Graph"]
+        end
     end
 
     subgraph MODELS["🤖 Model Provider Layer"]
-        direction TB
+        direction LR
         OLLAMA["Local LLMs<br/>(Ollama / Qwen / Llama)"]
         CLOUD["Cloud LLMs<br/>(OpenAI / Anthropic / Gemini)"]
-    end
-
-    subgraph KNOWLEDGE["💾 Vector Memory &amp; Code Graph"]
-        direction TB
-        VEC_DB["Turbovec Local Vector RAG"]
-        AST_GRAPH["Codebase AST Knowledge Graph"]
-    end
-
-    subgraph TOOLS["🔌 Tool Integration &amp; System Execution"]
-        direction TB
-        MCP["MCP Server Client Registry"]
-        SYS_OPS["Desktop &amp; System Automations"]
     end
 
     UI_MAIN <-->|"Tauri IPC / REST / SSE"| FASTAPI
     UI_HUD <-->|"State Sync"| FASTAPI
     FASTAPI --> SEC_GATE
     SEC_GATE --> REACT
-    REACT <-->|"Inference Stream"| OLLAMA
-    REACT <-->|"API Requests"| CLOUD
-    REACT <-->|"Semantic Search"| VEC_DB
-    REACT <-->|"Symbol &amp; Graph Queries"| AST_GRAPH
-    REACT <-->|"Retry &amp; Fix"| HEAL
+    REACT <-->|"Retry & Fix"| HEAL
+
     REACT -->|"Dispatch Calls"| MCP
     REACT -->|"Execute Ops"| SYS_OPS
+    REACT <-->|"Semantic Search"| VEC_DB
+    REACT <-->|"Symbol & Graph Queries"| AST_GRAPH
+
+    REACT <-->|"Inference Stream"| OLLAMA
+    REACT <-->|"API Requests"| CLOUD
+
+    TOOLS ~~~ MODELS
+    KNOWLEDGE ~~~ MODELS
 
     classDef uiStyle fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0c4a6e
     classDef gatewayStyle fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#78350f

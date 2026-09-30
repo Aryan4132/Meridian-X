@@ -17,7 +17,7 @@ from typing import Dict, Any, Optional
 logger = logging.getLogger("meridian_emergency_lockdown")
 
 # Global lockdown state
-_LOCKDOWN_STATE = {
+_LOCKDOWN_STATE: Dict[str, Any] = {
     "is_locked": False,
     "mic_muted": False,
     "camera_disabled": False,

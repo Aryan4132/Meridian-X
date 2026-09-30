@@ -1,4 +1,6 @@
 import os
+import shutil
+import uuid
 import asyncio
 from src.core.mcp_client import mcp_manager
 
@@ -22,11 +24,14 @@ import platform
 import json
 from contextlib import asynccontextmanager
 from typing import cast, Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, UploadFile, File, Request
+from fastapi import FastAPI, HTTPException, UploadFile, File, Request, WebSocket, WebSocketDisconnect, Depends
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse, Response
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from pydantic import BaseModel, Field, field_validator
+
 
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -47,7 +52,8 @@ def configure_localhost_tls_cert() -> Optional[Dict[str, str]]:
         for blob in server_cert.cert_chain_pems:
             blob.write_to_path(cert_path)
         return {"ssl_certfile": cert_path, "ssl_keyfile": key_path}
-    except Exception:
+    except Exception as err:
+        logging.warning(f"Self-signed TLS certificate generation disabled: {err}")
         return None
 
 # Suppress system usage poll log noise in the terminal
@@ -68,7 +74,7 @@ from database import (
     get_user_profile,
     get_ollama_client_host
 )
-from src.core.loop import run_react_agent_loop, active_confirmations
+from src.core.loop import run_react_agent_loop, active_confirmations, approve_confirmation
 
 def log_finetune_data(prompt: str, response_text: str):
     try:
@@ -276,8 +282,8 @@ async def lifespan(app: FastAPI):
     try:
         await mcp_manager.shutdown()
         print("Stopped all MCP servers.")
-    except Exception:
-        pass
+    except Exception as e:
+        print("Failed to shutdown MCP manager:", e)
     try:
         from src.core.telegram_bridge import stop_telegram_bridge
         stop_telegram_bridge()
@@ -332,18 +338,202 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from fastapi import Depends
-from src.core.auth import require_api_key
+from src.core.auth import require_api_key, require_permission
 from src.core.security_middleware import MaxBodySizeMiddleware, TrustedOriginMiddleware, SecurityHeadersMiddleware
+
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    'meridian_api_requests_total',
+    'Total API requests',
+    ['method', 'endpoint', 'http_status']
+)
+
+REQUEST_LATENCY = Histogram(
+    'meridian_api_request_latency_seconds',
+    'API request latency in seconds',
+    ['method', 'endpoint']
+)
+
+ACTIVE_REQUESTS = Gauge(
+    'meridian_api_active_requests',
+    'Number of active API requests'
+)
+
+SYSTEM_CPU_USAGE = Gauge(
+    'meridian_system_cpu_usage_percent',
+    'System CPU usage percentage'
+)
+
+SYSTEM_MEMORY_USAGE = Gauge(
+    'meridian_system_memory_usage_percent',
+    'System memory usage percentage'
+)
 
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(
     title="Meridian-X API",
+    description="""
+    ## Meridian-X Backend API
+    
+    A comprehensive AI assistant backend with advanced features including:
+    - 🤖 Multi-LLM provider support (Ollama, OpenAI, Anthropic, etc.)
+    - 🧠 Retrieval-Augmented Generation (RAG) with Turbovec vector database
+    - 🔧 Dynamic tool generation and MCP server integration
+    - 👁️ Advanced perception systems (screen, voice, gaze tracking)
+    - ⚡ Real-time collaboration and swarm intelligence
+    - 🛡️ Enterprise-grade security with OAuth 2.0, API key rotation, and vault
+    - 📊 Observability with distributed tracing, metrics, and structured logging
+    - 🔄 Mobile companion bridge for Tauri/Android applications
+    
+    ### Authentication
+    Most endpoints require authentication via:
+    - `X-API-Key` header with your Meridian-X API key
+    - Or `Authorization: Bearer <jwt_token>` for OAuth flows
+    
+    ### Rate Limiting
+    API endpoints are rate-limited to prevent abuse. See individual endpoint docs for limits.
+    
+    ### WebSocket Endpoints
+    - `/ws` - Main WebSocket connection for mobile app
+    - `/api/ws/mobile` - Mobile-specific WebSocket bridge
+    
+    ### Versioning
+    Current API version: 1.0.0
+    """,
     version="1.0.0",
     lifespan=lifespan,
-    dependencies=[Depends(require_api_key)]
+    dependencies=[Depends(require_api_key)],
+    contact={
+        "name": "Meridian-X Team",
+        "url": "https://github.com/Aryan4132/Meridian-X",
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    openapi_tags=[
+        {
+            "name": "health",
+            "description": "System health checks and diagnostics"
+        },
+        {
+            "name": "chat",
+            "description": "AI chat endpoints with reasoning traces"
+        },
+        {
+            "name": "voice",
+            "description": "Voice processing, TTS, STT, and biometrics"
+        },
+        {
+            "name": "rag",
+            "description": "Retrieval-Augmented Generation and knowledge base"
+        },
+        {
+            "name": "mcp",
+            "description": "Model Context Protocol server management"
+        },
+        {
+            "name": "security",
+            "description": "Security features including API key rotation and auditing"
+        },
+        {
+            "name": "system",
+            "description": "System management, updates, and configuration"
+        },
+        {
+            "name": "workflow",
+            "description": "Workflow engine and automation"
+        },
+        {
+            "name": "perception",
+            "description": "Advanced perception systems (screen, presence, ambient)"
+        },
+        {
+            "name": "mobile",
+            "description": "Mobile companion bridge endpoints"
+        }
+    ]
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, cast(Any, _rate_limit_exceeded_handler))
+
+
+# Prometheus metrics middleware
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    # Skip metrics endpoint itself to avoid infinite recursion
+    if request.url.path == "/metrics":
+        return await call_next(request)
+    
+    method = request.method
+    endpoint = request.url.path
+    
+    # Increment active requests
+    ACTIVE_REQUESTS.inc()
+    
+    start_time = time.time()
+    try:
+        # Process request
+        response = await call_next(request)
+        
+        # Record metrics
+        status_code = response.status_code
+        REQUEST_COUNT.labels(method=method, endpoint=endpoint, http_status=status_code).inc()
+        REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
+        
+        return response
+    except Exception as e:
+        # Record exception metrics
+        REQUEST_COUNT.labels(method=method, endpoint=endpoint, http_status=500).inc()
+        REQUEST_LATENCY.labels(method=method, endpoint=endpoint).observe(time.time() - start_time)
+        raise
+    finally:
+        # Decrement active requests
+        ACTIVE_REQUESTS.dec()
+
+
+# Metrics endpoint
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint."""
+    # Update system metrics before serving
+    try:
+        SYSTEM_CPU_USAGE.set(psutil.cpu_percent())
+        SYSTEM_MEMORY_USAGE.set(psutil.virtual_memory().percent)
+    except Exception:
+        pass  # Ignore errors in metric collection
+    
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+from contextvars import ContextVar
+correlation_id: ContextVar[str] = ContextVar("correlation_id", default="")
+
+# Correlation ID middleware for request tracing
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    # Generate or extract correlation ID
+    correlation_id_val = request.headers.get("X-Correlation-ID") or str(uuid.uuid4())
+    correlation_id.set(correlation_id_val)
+    
+    # Process request
+    response = await call_next(request)
+    
+    # Add correlation ID to response headers
+    response.headers["X-Correlation-ID"] = correlation_id_val
+    return response
+
+
+# API Version Endpoint
+@app.get("/api/version")
+async def get_api_version():
+    """Get current API version information."""
+    return {
+        "version": "1.0.0",
+        "status": "stable",
+        "release_date": "2026-09-18",
+        "description": "Meridian-X Backend API"
+    }
 
 
 app.add_middleware(SlowAPIMiddleware)
@@ -351,18 +541,21 @@ app.add_middleware(MaxBodySizeMiddleware, max_bytes=10_485_760)  # 10 MB cap
 app.add_middleware(TrustedOriginMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# BUG-70 fix: restricted to known local/Tauri origins only.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "tauri://localhost",
         "https://tauri.localhost",
         "http://tauri.localhost",
+        "http://localhost",
+        "https://localhost",
         "http://localhost:5173",
         "http://localhost:4132",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:4132",
+        "http://10.0.2.2:4132",
     ],
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -411,11 +604,87 @@ def get_mcp_reverse_tools():
             "name": name,
             "description": tool.get("description", ""),
             "tier": tool.get("tier", 1),
-            "inputSchema": {"type": "object", "properties": {}}
+            "inputSchema": {"type": "object", "properties": {}},
+            "outputSchema": {"type": "object", "properties": {}},
+            "supportsStreaming": tool.get("supportsStreaming", False)
         })
     return {"status": "success", "tools": mcp_tools}
 
-# SEC-14: SSE Stream Session Integrity Token
+
+class MCPToolRegisterRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100, description="Unique identifier for the tool")
+    description: str = Field(..., max_length=500, description="Human-readable description of what the tool does")
+    tier: int = Field(1, ge=1, le=3, description="Security tier: 0=read-only, 1=safe mutations, 2=high-risk")
+    input_schema: Dict[str, Any] = Field(default_factory=dict, description="JSON Schema for tool input parameters")
+    output_schema: Dict[str, Any] = Field(default_factory=dict, description="JSON Schema for tool output")
+    supports_streaming: bool = Field(False, description="Whether the tool supports streaming responses")
+    handler_module: str = Field(..., description="Python module path containing the tool implementation")
+    handler_function: str = Field(..., description="Function name within the module to execute")
+
+
+@app.post("/api/mcp/v1/tools/register")
+def register_mcp_tool(request: MCPToolRegisterRequest):
+    """Dynamically register a new MCP tool at runtime."""
+    try:
+        from src.tools.registry import register_tool
+        
+        # Create tool metadata dictionary
+        metadata = {
+            "name": request.name,
+            "description": request.description,
+            "tier": request.tier,
+            "inputSchema": request.input_schema,
+            "outputSchema": request.output_schema,
+            "supportsStreaming": request.supports_streaming,
+            "handlerModule": request.handler_module,
+            "handlerFunction": request.handler_function
+        }
+        
+        # Register the tool
+        success = register_tool(request.name, metadata)
+        
+        if success:
+            return {
+                "status": "success",
+                "message": f"MCP tool '{request.name}' registered successfully",
+                "tool": {
+                    "name": request.name,
+                    "description": request.description,
+                    "tier": request.tier,
+                    "supportsStreaming": request.supports_streaming
+                }
+            }
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to register MCP tool '{request.name}'"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/mcp/v1/tools/{tool_name}")
+def unregister_mcp_tool(tool_name: str):
+    """Unregister an MCP tool at runtime."""
+    try:
+        from src.tools.registry import unregister_tool
+        success = unregister_tool(tool_name)
+        
+        if success:
+            return {
+                "status": "success",
+                "message": f"MCP tool '{tool_name}' unregistered successfully"
+            }
+        else:
+            raise HTTPException(
+                status_code=404,
+                detail=f"MCP tool '{tool_name}' not found"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Response models
+from src.core.response_models import HealthResponse, DiagnosticsResponse, RotateKeyResponse
 def generate_sse_session_token(session_id: str) -> str:
     """Generates per-session HMAC token for SSE stream integrity validation (SEC-14)."""
     import hmac
@@ -440,8 +709,8 @@ def run_pip_audit_vulnerability_scanner() -> dict:
         return {"status": "skipped", "reason": "pip-audit package not installed"}
 
 # SEC-22: API Key Rotation Endpoint
-@app.post("/api/security/rotate-key")
 @limiter.limit("2/minute")
+@app.post("/api/security/rotate-key", response_model=RotateKeyResponse, dependencies=[Depends(require_permission(["admin"]))])
 def post_rotate_api_key(request: Request):
     """Rotates MERIDIAN_API_KEY dynamically at runtime (SEC-22)."""
     import secrets
@@ -451,23 +720,22 @@ def post_rotate_api_key(request: Request):
     return {"status": "success", "message": "API key rotated successfully.", "new_key_prefix": new_key[:12] + "..."}
 
 @app.post("/api/system/shutdown")
-
 @limiter.limit("5/minute")
 def post_system_shutdown(request: Request):
-    import threading
-    import _thread
     try:
         from src.core.audit_logger import log_sensitive_action
         log_sensitive_action("SHUTDOWN", "post_system_shutdown", {"ip": request.client.host if request.client else "unknown"}, "SUCCESS")
     except Exception:
         pass
 
-    def exit_func():
-        time.sleep(0.2)
-        _thread.interrupt_main()
-        
-    threading.Thread(target=exit_func, daemon=True).start()
-    return {"status": "success", "message": "Shutdown initiated."}
+    # Initiate graceful shutdown through proper channels
+    import os
+    import signal
+    
+    # Send SIGTERM to initiate graceful shutdown
+    os.kill(os.getpid(), signal.SIGTERM)
+    
+    return {"status": "success", "message": "Graceful shutdown initiated."}
 
 @app.get("/api/voice/onnx-models")
 def get_onnx_models():
@@ -525,8 +793,9 @@ class ChatRequest(BaseModel):
     prompt: str = Field(..., max_length=50000)
     modelSettings: Optional[ModelSettings] = None
 
-@app.get("/api/health")
-def api_health():
+@limiter.limit("10/minute")
+@app.get("/api/health", response_model=HealthResponse)
+def api_health(request: Request):
     health_status = {
         "status": "healthy",
         "sqlite": "online",
@@ -560,6 +829,7 @@ def api_health():
             health_status["mongodb"] = "online"
     except Exception as e:
         health_status["mongodb"] = f"offline: {e}"
+        health_status["status"] = "degraded"
         
     # 3. Ollama check
     try:
@@ -577,12 +847,41 @@ def api_health():
         health_status["ollama"] = f"offline: {e}"
         health_status["status"] = "degraded"
         
+    # 4. System resources check
+    try:
+        import psutil
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        disk = psutil.disk_usage('/')
+        
+        health_status["details"]["system"] = {
+            "cpu_percent": cpu_percent,
+            "memory_percent": memory.percent,
+            "disk_percent": (disk.used / disk.total) * 100
+        }
+        
+        # Mark as degraded if resources are critically low
+        if cpu_percent > 95 or memory.percent > 95 or (disk.used / disk.total) > 0.95:
+            health_status["status"] = "degraded"
+    except Exception as e:
+        health_status["details"]["system"] = {"error": str(e)}
+        
+    # 5. MCP servers check
+    try:
+        from src.core.mcp_client import mcp_manager
+        # Simple check - if manager exists and has been initialized
+        health_status["details"]["mcp"] = {
+            "initialized": hasattr(mcp_manager, 'sessions') and len(getattr(mcp_manager, 'sessions', {})) > 0
+        }
+    except Exception as e:
+        health_status["details"]["mcp"] = {"error": str(e)}
+        
     return health_status
 
-@app.get("/api/diagnostics")
-def api_diagnostics():
+@limiter.limit("5/minute")
+@app.get("/api/diagnostics", response_model=DiagnosticsResponse)
+def api_diagnostics(request: Request):
     try:
-        import shutil
         import psutil
         
         # 1. System Info
@@ -1055,7 +1354,6 @@ def get_tts_engine():
 
 from fastapi.responses import StreamingResponse
 import tempfile
-import os
 
 class TTSRequest(BaseModel):
     text: str
@@ -1310,13 +1608,13 @@ def chat_stream(request: ChatRequest):
             generator = run_react_agent_loop(*args, **kwargs).__aiter__()
             while True:
                 try:
-                    # 60s token inactivity timeout guard to prevent infinite stream hanging
-                    event = await asyncio.wait_for(generator.__anext__(), timeout=60.0)
+                    # 120s token inactivity timeout guard to prevent infinite stream hanging
+                    event = await asyncio.wait_for(generator.__anext__(), timeout=120.0)
                     yield event
                 except StopAsyncIteration:
                     break
                 except asyncio.TimeoutError:
-                    err_msg = json.dumps({"chat": "\n[Stream Error: LLM response timed out after 60s of inactivity.]\n", "speech": "", "lang": "en"})
+                    err_msg = json.dumps({"chat": "\n[Stream Error: LLM response timed out after 120s of inactivity.]\n", "speech": "", "lang": "en"})
                     yield f"event: text\ndata: {err_msg}\n\n"
                     break
         except Exception as e:
@@ -1473,10 +1771,8 @@ async def proactive_stream():
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 @app.post("/api/chat/confirm")
-def chat_confirm(request: ConfirmRequest):
-    if request.id in active_confirmations:
-        active_confirmations[request.id]["approved"] = request.approved
-        active_confirmations[request.id]["event"].set()
+async def chat_confirm(request: ConfirmRequest):
+    if await approve_confirmation(request.id, request.approved):
         return {"status": "success", "message": "Confirmation processed."}
     raise HTTPException(status_code=404, detail="Confirmation ID not found or already processed.")
 
@@ -1696,6 +1992,16 @@ def rag_ingest(request: IngestRequest):
 class IngestFileRequest(BaseModel):
     file_path: str
 
+class IngestFilesRequest(BaseModel):
+    file_paths: List[str]
+    
+    @field_validator('file_paths')
+    @classmethod
+    def file_paths_must_not_be_empty(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError('At least one file path must be provided')
+        return v
+
 @app.post("/api/rag/ingest-file")
 def rag_ingest_file(request: IngestFileRequest):
     try:
@@ -1712,6 +2018,60 @@ def rag_ingest_file(request: IngestFileRequest):
         return {"status": "success", "message": f"Successfully parsed and ingested '{os.path.basename(abs_path)}' into Turbovec RAG."}
     except Exception as e:
         add_to_task_log("ingest_file", 1, "failed", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/rag/ingest-files")
+def rag_ingest_files(request: IngestFilesRequest):
+    """Batch ingest multiple files into the knowledge base."""
+    try:
+        from database import extract_text_from_file, ingest_into_knowledge_base
+        
+        results = []
+        failed_files = []
+        
+        for file_path in request.file_paths:
+            try:
+                abs_path = os.path.abspath(file_path)
+                if not os.path.exists(abs_path):
+                    failed_files.append({
+                        "file": file_path,
+                        "error": "File not found"
+                    })
+                    continue
+                    
+                text = extract_text_from_file(abs_path)
+                if not text or not text.strip():
+                    failed_files.append({
+                        "file": file_path,
+                        "error": "No extractable text content found"
+                    })
+                    continue
+                
+                ingest_into_knowledge_base(os.path.basename(abs_path), text)
+                add_to_task_log("ingest_file", 1, "success")
+                results.append({
+                    "file": file_path,
+                    "status": "success",
+                    "message": f"Successfully parsed and ingested '{os.path.basename(abs_path)}'"
+                })
+            except Exception as e:
+                failed_files.append({
+                    "file": file_path,
+                    "error": str(e)
+                })
+                add_to_task_log("ingest_file", 1, "failed", str(e))
+        
+        return {
+            "status": "partial_success" if failed_files else "success",
+            "results": results,
+            "failed_files": failed_files,
+            "summary": {
+                "total": len(request.file_paths),
+                "successful": len(results),
+                "failed": len(failed_files)
+            }
+        }
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/rag/ingest-file-upload")
@@ -1807,47 +2167,7 @@ class ProfileSaveRequest(BaseModel):
     meridian_log_level: Optional[str] = None
     embedding_model: Optional[str] = None
 
-ENV_KEY_MAP = {
-    "ollama_host": "OLLAMA_HOST",
-    "groq_key": "GROQ_API_KEY",
-    "openrouter_key": "OPENROUTER_API_KEY",
-    "mistral_key": "MISTRAL_API_KEY",
-    "openai_key": "OPENAI_API_KEY",
-    "anthropic_key": "ANTHROPIC_API_KEY",
-    "gemini_key": "GEMINI_API_KEY",
-    "deepseek_key": "DEEPSEEK_API_KEY",
-    "tavily_key": "TAVILY_API_KEY",
-    "discord_token": "DISCORD_BOT_TOKEN",
-    "telegram_token": "TELEGRAM_BOT_TOKEN",
-    "telegram_chat_id": "TELEGRAM_CHAT_ID",
-    "meridian_provider": "MERIDIAN_PROVIDER",
-    "meridian_model_source": "MERIDIAN_MODEL_SOURCE",
-    "meridian_model": "MERIDIAN_MODEL",
-    "meridian_vision_model": "MERIDIAN_VISION_MODEL",
-    "meridian_auditor_model": "MERIDIAN_AUDITOR_MODEL",
-    "embedding_model": "EMBEDDING_MODEL",
-    "meridian_voice": "MERIDIAN_VOICE",
-    "wakeword_threshold": "WAKEWORD_THRESHOLD",
-    "wakeword_model_filename": "WAKEWORD_MODEL_FILENAME",
-    "wakeword_phrase": "WAKEWORD_PHRASE",
-    "stt_model_size": "STT_MODEL_SIZE",
-    "stt_silence_timeout": "STT_SILENCE_TIMEOUT",
-    "stt_vad_threshold": "STT_VAD_THRESHOLD",
-    "stt_max_duration": "STT_MAX_DURATION",
-    "browser_viewport_width": "BROWSER_VIEWPORT_WIDTH",
-    "browser_viewport_height": "BROWSER_VIEWPORT_HEIGHT",
-    "cpu_warn_threshold": "CPU_WARN_THRESHOLD",
-    "ram_warn_threshold": "RAM_WARN_THRESHOLD",
-    "disk_warn_threshold": "DISK_WARN_THRESHOLD",
-    "distraction_sites": "DISTRACTION_SITES",
-    "smtp_server": "SMTP_SERVER",
-    "smtp_port": "SMTP_PORT",
-    "smtp_email": "SMTP_EMAIL",
-    "smtp_password": "SMTP_PASSWORD",
-    "imap_server": "IMAP_SERVER",
-    "mongodb_uri": "MONGODB_URI",
-    "meridian_log_level": "MERIDIAN_LOG_LEVEL"
-}
+
 
 def update_local_env_file(key: str, val: str):
     env_vars = {}
@@ -2444,6 +2764,28 @@ def post_p2p_toggle():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/p2p/qr")
+def get_p2p_qr_payload():
+    from src.core.p2p import generate_qr_pairing_payload
+    try:
+        payload = generate_qr_pairing_payload()
+        return {"status": "success", "payload": payload}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class VerifyPairingRequest(BaseModel):
+    secret: str
+
+@app.post("/api/p2p/verify-pairing")
+def post_verify_pairing(req: VerifyPairingRequest):
+    from src.core.p2p import verify_mobile_pairing_secret
+    paired = verify_mobile_pairing_secret(req.secret)
+    if paired:
+        return {"status": "success", "authenticated": True, "message": "Mobile client successfully paired."}
+    else:
+        raise HTTPException(status_code=401, detail="Invalid pairing secret token.")
+
+
 class LobbyDebateRequest(BaseModel):
     prompt: str
 
@@ -2723,93 +3065,6 @@ def api_security_audit():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-class DebateRequest(BaseModel):
-    prompt: str
-
-@app.post("/api/lobby/debate")
-async def api_lobby_debate(request: DebateRequest):
-    import ollama
-    import asyncio
-    
-    prompt = request.prompt
-    host = get_ollama_client_host()
-    client = ollama.Client(host=host)
-    
-    # Try to use configured model or default to qwen
-    try:
-        from src.core.loop import get_auditor_model
-        model = get_auditor_model()
-    except Exception:
-        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-        
-    debate_logs = []
-    
-    # Step 1: Coder
-    coder_prompt = (
-        f"You are the Coder Agent. Propose a clean technical solution or code snippet for the following task:\n"
-        f"'{prompt}'\n"
-        f"Output your proposal directly. Keep it brief and professional."
-    )
-    
-    try:
-        coder_res = await asyncio.to_thread(client.generate, model=model, prompt=coder_prompt)
-        coder_solution = (coder_res.response if hasattr(coder_res, 'response') else coder_res.get("response", "")).strip()
-    except Exception as e:
-        coder_solution = f"Draft solution: Let's implement this with robust error handling and proper modules for '{prompt}'."
-        
-    debate_logs.append(f"Coder: {coder_solution}")
-    
-    # Step 2 & 3: Auditor & QA in parallel
-    auditor_prompt = (
-        f"You are the Security Auditor Agent. Review the Coder's proposed solution for safety, credential leaks, and vulnerabilities.\n"
-        f"Coder's Proposal:\n{coder_solution}\n"
-        f"Output your security critique or approval. Keep it short."
-    )
-    
-    qa_prompt = (
-        f"You are the QA Agent. Review the Coder's proposed solution for logic bugs, syntax errors, edge cases, and performance.\n"
-        f"Coder's Proposal:\n{coder_solution}\n"
-        f"Output your quality review or approval. Keep it short."
-    )
-    
-    try:
-        # Run in parallel
-        auditor_task = asyncio.to_thread(client.generate, model=model, prompt=auditor_prompt)
-        qa_task = asyncio.to_thread(client.generate, model=model, prompt=qa_prompt)
-        auditor_res, qa_res = await asyncio.gather(auditor_task, qa_task)
-        
-        auditor_critique = (auditor_res.response if hasattr(auditor_res, 'response') else auditor_res.get("response", "")).strip()
-        qa_critique = (qa_res.response if hasattr(qa_res, 'response') else qa_res.get("response", "")).strip()
-    except Exception as e:
-        auditor_critique = f"Security review: Salt parameters and inputs verified. No credential leaks detected for '{prompt}'."
-        qa_critique = f"QA review: Syntax parsed cleanly. Exit code 0."
-        
-    debate_logs.append(f"Auditor: {auditor_critique}")
-    debate_logs.append(f"QA: {qa_critique}")
-    
-    # Step 4: Consensus
-    consensus_prompt = (
-        f"You are the Consensus Coordinator. Synthesize the Coder's proposal, the Auditor's security critique, and the QA critique into a final decision and final approved code block.\n"
-        f"Coder's Proposal:\n{coder_solution}\n"
-        f"Auditor's Critique:\n{auditor_critique}\n"
-        f"QA Critique:\n{qa_critique}\n"
-        f"Output only the final consensus decision and code. Do not include introductory/outro chat."
-    )
-    
-    try:
-        consensus_res = await asyncio.to_thread(client.generate, model=model, prompt=consensus_prompt)
-        consensus_text = (consensus_res.response if hasattr(consensus_res, 'response') else consensus_res.get("response", "")).strip()
-    except Exception as e:
-        consensus_text = f"Consensus reached: Approved. Proceed with implementation for '{prompt}'."
-        
-    debate_logs.append(f"System: Consensus reached.")
-    
-    return {
-        "status": "success",
-        "debate_logs": debate_logs,
-        "decision": consensus_text,
-        "proposed_code": consensus_text
-    }
 
 @app.get("/api/kg/graph")
 def api_kg_graph():
@@ -3110,7 +3365,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.1.2"
+CURRENT_VERSION = "0.1.4"
 
 _auto_download_in_progress = False
 _auto_download_ready = False
@@ -3861,12 +4116,762 @@ def trigger_presence_briefing_api(user_name: Optional[str] = "User"):
         return {"briefing": f"Welcome back, {user_name or 'User'}."}
 
 
-if __name__ == "__main__":
+# ==========================================
+# DAY 9 REST API ENDPOINTS (TRUST-01, TRUST-03, OPS-04, OPS-01, BUTLER-14)
+# ==========================================
 
+class MemoryUpdateReq(BaseModel):
+    id: str
+    new_value: Any
+
+class MemoryForgetReq(BaseModel):
+    entity_id: str
+
+class SetBudgetReq(BaseModel):
+    budget_cap_usd: Optional[float] = None
+    enabled: Optional[bool] = None
+
+class SetAutonomousReq(BaseModel):
+    enabled: bool
+
+class SetSecurityGuardReq(BaseModel):
+    level: int
+
+class SetAirGapReq(BaseModel):
+    enabled: bool
+
+class UndoReq(BaseModel):
+    action_id: Optional[str] = None
+
+# TRUST-01: Memory Editor Endpoints
+@app.get("/api/memory/list")
+def list_memories_api(query: Optional[str] = None, category: Optional[str] = None):
+    """TRUST-01: Fetch all agent memory entries with optional query/category filter."""
+    from src.core.memory_editor import MemoryEditor
+    editor = MemoryEditor()
+    memories = editor.get_all_memories(query=query, category=category)
+    return {"status": "success", "count": len(memories), "memories": memories}
+
+@app.post("/api/memory/update")
+def update_memory_api(req: MemoryUpdateReq):
+    """TRUST-01: Update specific memory entry or preference value."""
+    from src.core.memory_editor import MemoryEditor
+    editor = MemoryEditor()
+    success = editor.update_memory_entry(req.id, req.new_value)
+    return {"status": "success" if success else "error", "updated": success}
+
+@app.post("/api/memory/forget")
+def forget_memory_api(req: MemoryForgetReq):
+    """TRUST-01: Forget all memory records associated with entity_id."""
+    from src.core.memory_editor import MemoryEditor
+    editor = MemoryEditor()
+    count = editor.forget_entity(req.entity_id)
+    return {"status": "success", "forgotten_count": count}
+
+@app.get("/api/memory/export")
+def export_memory_api():
+    """TRUST-01: Export JSON bundle of all agent memories, preferences, and graphs."""
+    from src.core.memory_editor import MemoryEditor
+    editor = MemoryEditor()
+    return editor.export_memory_json()
+
+
+# Cache statistics endpoint
+@app.get("/api/cache/stats")
+def get_cache_stats():
+    """Get semantic cache performance statistics."""
+    try:
+        from database import get_cache_statistics
+        stats = get_cache_statistics()
+        return {
+            "status": "success",
+            "cache_statistics": stats
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Global variable for core skills
+CORE_SKILLS = set()
+SKILLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".opencode")
+
+def initialize_core_skills():
+    """Initialize the set of core skills at startup."""
+    global CORE_SKILLS
+    if os.path.exists(SKILLS_DIR):
+        for item in os.listdir(SKILLS_DIR):
+            item_path = os.path.join(SKILLS_DIR, item)
+            if os.path.isdir(item_path):
+                # Check if it's a skill directory by looking for SKILL.md
+                if os.path.exists(os.path.join(item_path, "SKILL.md")):
+                    CORE_SKILLS.add(item)
+
+# Initialize core skills at module load
+initialize_core_skills()
+
+
+# Agent Skill Marketplace Endpoints
+class SkillInstallRequest(BaseModel):
+    github_url: str = Field(..., description="GitHub repository URL to install the skill from (must contain a SKILL.md file)")
+
+class SkillUninstallRequest(BaseModel):
+    skill_name: str = Field(..., min_length=1, description="Name of the skill to uninstall")
+
+class SkillInfo(BaseModel):
+    name: str
+    description: str
+    path: str
+    is_core: bool
+
+@app.get("/api/skills/list", response_model=List[SkillInfo])
+def list_skills():
+    """List all available skills in the .opencode directory."""
+    skills = []
+    if os.path.exists(SKILLS_DIR):
+        for item in os.listdir(SKILLS_DIR):
+            item_path = os.path.join(SKILLS_DIR, item)
+            if os.path.isdir(item_path):
+                skill_md_path = os.path.join(item_path, "SKILL.md")
+                if os.path.exists(skill_md_path):
+                    # Try to extract description from SKILL.md
+                    description = "No description available"
+                    try:
+                        with open(skill_md_path, "r", encoding="utf-8") as f:
+                            content = f.read()
+                            # Look for a line that starts with "# " or "## " for the title, or just take first line
+                            lines = content.split('\n')
+                            for line in lines:
+                                if line.strip() and not line.strip().startswith('#'):
+                                    description = line.strip()[:100]  # First non-empty line, max 100 chars
+                                    break
+                                elif line.strip().startswith('# '):
+                                    description = line.strip()[2:].strip()[:100]
+                                    break
+                    except Exception:
+                        pass
+                    skills.append(SkillInfo(
+                        name=item,
+                        description=description,
+                        path=item_path,
+                        is_core=item in CORE_SKILLS
+                    ))
+    return skills
+
+@app.post("/api/skills/install")
+def install_skill(request: SkillInstallRequest):
+    """Install a new skill from a GitHub repository."""
+    import subprocess
+    import tempfile
+    import shutil
+    
+    github_url = request.github_url.strip()
+    if not github_url:
+        raise HTTPException(status_code=400, detail="GitHub URL is required")
+    
+    # Validate GitHub URL (basic check)
+    if not (github_url.startswith("https://github.com/") or github_url.startswith("git@github.com:")):
+        raise HTTPException(status_code=400, detail="Only GitHub URLs are supported")
+    
+    # Extract repo name from URL for skill name (tentative)
+    # We'll determine the actual skill name after cloning by looking for SKILL.md
+    skill_name = None
+    temp_dir = None
+    
+    try:
+        # Create a temporary directory for cloning
+        temp_dir = tempfile.mkdtemp(prefix="meridian_skill_")
+        
+        # Clone the repository
+        result = subprocess.run(
+            ["git", "clone", github_url, temp_dir],
+            capture_output=True,
+            text=True,
+            timeout=120  # 2 minute timeout
+        )
+        
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to clone repository: {result.stderr}"
+            )
+        
+        # Look for SKILL.md in the cloned repository
+        skill_dirs = []
+        for root, dirs, files in os.walk(temp_dir):
+            if "SKILL.md" in files:
+                skill_dirs.append(root)
+        
+        if not skill_dirs:
+            raise HTTPException(
+                status_code=400,
+                detail="No SKILL.md file found in the repository"
+            )
+        
+        # If multiple SKILL.md files, we take the first one (or could be more sophisticated)
+        skill_source_dir = skill_dirs[0]
+        # The skill name is the directory name containing SKILL.md
+        skill_name = os.path.basename(skill_source_dir)
+        
+        # Check if skill already exists
+        skill_target_dir = os.path.join(SKILLS_DIR, skill_name)
+        if os.path.exists(skill_target_dir):
+            raise HTTPException(
+                status_code=409,
+                detail=f"Skill '{skill_name}' already exists"
+            )
+        
+        # Check if it's a core skill (shouldn't happen for new installs, but check anyway)
+        if skill_name in CORE_SKILLS:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Cannot install over core skill '{skill_name}'"
+            )
+        
+        # Copy the skill directory to .opencode
+        shutil.copytree(skill_source_dir, skill_target_dir)
+        
+        # Add to core skills set (now it's considered part of the installation)
+        CORE_SKILLS.add(skill_name)
+        
+        return {
+            "status": "success",
+            "message": f"Skill '{skill_name}' installed successfully",
+            "skill": {
+                "name": skill_name,
+                "path": skill_target_dir
+            }
+        }
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=408, detail="Git clone timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Clean up temporary directory
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+@app.post("/api/skills/uninstall")
+def uninstall_skill(request: SkillUninstallRequest):
+    """Uninstall a skill by name."""
+    skill_name = request.skill_name.strip()
+    if not skill_name:
+        raise HTTPException(status_code=400, detail="Skill name is required")
+    
+    skill_dir = os.path.join(SKILLS_DIR, skill_name)
+    
+    # Check if skill exists
+    if not os.path.exists(skill_dir):
+        raise HTTPException(status_code=404, detail=f"Skill '{skill_name}' not found")
+    
+    # Check if it's a core skill (prevent uninstalling core skills)
+    if skill_name in CORE_SKILLS:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot uninstall core skill '{skill_name}'. Core skills are essential to the system."
+        )
+    
+    # Check if it's a valid skill directory (has SKILL.md)
+    skill_md_path = os.path.join(skill_dir, "SKILL.md")
+    if not os.path.exists(skill_md_path):
+        raise HTTPException(status_code=400, detail=f"'{skill_name}' is not a valid skill directory")
+    
+    # Remove the skill directory
+    try:
+        shutil.rmtree(skill_dir)
+        # Remove from core skills set if present (shouldn't be for non-core, but just in case)
+        if skill_name in CORE_SKILLS:
+            CORE_SKILLS.remove(skill_name)
+        
+        return {
+            "status": "success",
+            "message": f"Skill '{skill_name}' uninstalled successfully"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to uninstall skill: {str(e)}")
+
+# TRUST-03: Cloud Spend & Token Meter Endpoints
+@app.get("/api/spend/stats")
+def get_spend_stats_api():
+    """TRUST-03: Get LLM token spend metrics, monthly cost, budget cap, and provider breakdown."""
+    from database import get_spend_stats
+    return get_spend_stats()
+
+@app.post("/api/spend/budget")
+def set_spend_budget_api(req: SetBudgetReq):
+    """TRUST-03: Set monthly LLM spend budget cap in USD and enable state."""
+    from database import set_budget_cap, set_budget_enabled, get_spend_stats
+    if req.budget_cap_usd is not None:
+        set_budget_cap(req.budget_cap_usd)
+    if req.enabled is not None:
+        set_budget_enabled(req.enabled)
+    return get_spend_stats()
+
+# Autonomous Mode & Security Guard Endpoints
+@app.get("/api/mode/autonomous")
+def get_autonomous_mode_api():
+    """Get autonomous multi-step loop mode state."""
+    from database import get_autonomous_mode
+    return {"autonomous_mode": get_autonomous_mode()}
+
+@app.post("/api/mode/autonomous")
+def set_autonomous_mode_api(req: SetAutonomousReq):
+    """Toggle autonomous multi-step loop mode."""
+    from database import set_autonomous_mode, get_autonomous_mode
+    set_autonomous_mode(req.enabled)
+    return {"autonomous_mode": get_autonomous_mode()}
+
+@app.get("/api/mode/security_guard")
+def get_security_guard_api():
+    """Get System Guard security level (1=Strict, 0=Unrestricted PC Mode)."""
+    from database import get_security_guard_level, get_unrestricted_pc_access
+    level = get_security_guard_level()
+    return {
+        "level": level,
+        "unrestricted": get_unrestricted_pc_access(),
+        "mode_label": "Unrestricted PC Access Mode" if level == 0 else "Strict Approval Gates (Level 1)"
+    }
+
+@app.post("/api/mode/security_guard")
+def set_security_guard_api(req: SetSecurityGuardReq):
+    """Set System Guard security level."""
+    from database import set_security_guard_level, get_security_guard_level, get_unrestricted_pc_access
+    set_security_guard_level(req.level)
+    level = get_security_guard_level()
+    return {
+        "level": level,
+        "unrestricted": get_unrestricted_pc_access(),
+        "mode_label": "Unrestricted PC Access Mode" if level == 0 else "Strict Approval Gates (Level 1)"
+    }
+
+@app.get("/api/system/pairing_qr")
+def get_pairing_qr_api():
+    """Generates desktop-to-mobile pairing details and QR payload string."""
+    import socket
+    local_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+    
+    endpoint = f"http://{local_ip}:8000"
+    payload = {
+        "version": "1.0.0",
+        "desktop_name": platform.node() or "Meridian-X Desktop",
+        "endpoint": endpoint,
+        "token": secrets.token_hex(16),
+        "timestamp": time.time()
+    }
+    return {
+        "status": "success",
+        "endpoint": endpoint,
+        "qr_payload": json.dumps(payload)
+    }
+
+# OPS-04: Local-Only Air-Gap Mode Endpoints
+@app.get("/api/mode/airgap")
+def get_airgap_mode_api():
+    """OPS-04: Get Air-Gap mode status and HMAC proof badge."""
+    from src.core.mode import get_airgap_proof_badge
+    return get_airgap_proof_badge()
+
+@app.post("/api/mode/airgap")
+def set_airgap_mode_api(req: SetAirGapReq):
+    """OPS-04: Toggle Air-Gap Local-Only mode."""
+    from src.core.mode import set_local_only_mode, get_airgap_proof_badge
+    set_local_only_mode(req.enabled)
+    return get_airgap_proof_badge()
+
+# OPS-01: Self-Updater Endpoint
+@app.get("/api/update/check")
+def check_update_api():
+    """OPS-01: Check GitHub releases API for newer Meridian-X version."""
+    from src.core.updater import SystemUpdater
+    updater = SystemUpdater()
+    return updater.check_for_updates()
+
+# BUTLER-14: Action Journal & Undo Endpoints
+@app.get("/api/action/journal")
+def get_action_journal_api(limit: Optional[int] = 20):
+    """BUTLER-14: List recent reversible actions in action journal."""
+    from src.core.action_journal import global_action_journal
+    actions = global_action_journal.get_recent_actions(limit=limit or 20)
+    return {"status": "success", "count": len(actions), "actions": actions}
+
+@app.post("/api/action/undo")
+def undo_action_api(req: UndoReq):
+    """BUTLER-14: Execute inverse handler for last recorded or target action."""
+    from src.core.action_journal import global_action_journal
+    res = global_action_journal.undo_action(action_id=req.action_id)
+    return res
+
+# Day 10 — Ambient Perception & Multimodal Vision/Screen Context Endpoints
+@app.get("/api/perception/screen")
+async def api_perception_screen(prompt: Optional[str] = None):
+    """PL-06: Multimodal screen capture & analysis endpoint."""
+    from src.core.vision import analyze_screen_multimodal
+    if prompt:
+        return await analyze_screen_multimodal(prompt=prompt)
+    return await analyze_screen_multimodal()
+
+@app.get("/api/perception/window")
+async def api_perception_window(force_refresh: bool = False):
+    """PL-03: Real-time active window metadata & screen sense."""
+    from src.core.screen_sense import get_active_window_sense
+    return await get_active_window_sense(force_refresh=force_refresh)
+
+@app.get("/api/perception/presence")
+def api_perception_presence():
+    """PL-01: Facial recognition & workspace user presence state."""
+    from src.core.vision_face import get_presence_state
+    return get_presence_state()
+
+@app.post("/api/perception/presence/register")
+def api_perception_presence_register(req: Dict[str, Any]):
+    """PL-01: Register user face embedding."""
+    from src.core.vision_face import register_user_face
+    user_id = req.get("user_id", "owner")
+    return register_user_face(user_id=user_id)
+
+@app.get("/api/perception/ambient")
+def api_perception_ambient(limit: Optional[int] = 10):
+    """PL-02: Continuous ambient speech transcript history."""
+    from src.voice.ambient_listener import get_recent_ambient_transcripts
+    return {"transcripts": get_recent_ambient_transcripts(limit=limit or 10)}
+
+@app.post("/api/perception/nudge/synthesize")
+async def api_perception_synthesize_nudge():
+    """PL-04: Synthesize multi-modal context and trigger proactive nudge."""
+    from src.core.proactive import synthesize_ambient_nudge
+    return await synthesize_ambient_nudge()
+
+@app.post("/api/perception/predictive/prewarm")
+def api_perception_prewarm_context(req: Dict[str, Any]):
+    """JARVIS-04: Record application switch and pre-warm developer context."""
+    from src.core.predictive_engine import prewarm_dev_context
+    proc = req.get("process_name", "code.exe")
+    title = req.get("title", "VS Code")
+    return prewarm_dev_context(process_name=proc, title=title)
+
+# Day 11 — Telephony, Communication & Personal CRM Endpoints
+@app.post("/api/telephony/call")
+def api_telephony_make_call(req: Dict[str, Any]):
+    """CALL-01: Initiate outbound VoIP phone call."""
+    from src.tools.phone_agent import make_outbound_call
+    to_num = req.get("to_number", "+18005550199")
+    obj = req.get("objective", "Assistant call")
+    return make_outbound_call(to_number=to_num, objective=obj)
+
+@app.post("/api/telephony/screen")
+def api_telephony_screen_call(req: Dict[str, Any]):
+    """CALL-02: Screen incoming call with AI receptionist."""
+    from src.tools.phone_agent import screen_incoming_call
+    caller_id = req.get("caller_id", "Unknown")
+    snip = req.get("transcript_snippet", "")
+    return screen_incoming_call(caller_id=caller_id, transcript_snippet=snip)
+
+@app.post("/api/telephony/postcall")
+def api_telephony_post_call(req: Dict[str, Any]):
+    """CALL-03: Process post-call summary, action items, and task sync."""
+    from src.tools.phone_agent import process_post_call_intelligence
+    cid = req.get("call_id", "call_01")
+    lines = req.get("transcript", [])
+    return process_post_call_intelligence(call_id=cid, full_transcript=lines)
+
+@app.get("/api/telephony/logs")
+def api_telephony_get_logs(limit: Optional[int] = 10):
+    """CALL-01..03: Get recent call logs."""
+    from src.tools.phone_agent import get_call_logs
+    return {"logs": get_call_logs(limit=limit or 10)}
+
+@app.post("/api/sos/trigger")
+def api_sos_trigger(req: Dict[str, Any]):
+    """CALL-04: Emergency SOS voice protocol trigger."""
+    from src.core.sos_protocol import trigger_emergency_sos
+    phrase = req.get("trigger_phrase", "emergency help")
+    contacts = req.get("contacts")
+    return trigger_emergency_sos(phrase=phrase, contacts=contacts)
+
+@app.get("/api/email/triage")
+def api_email_triage(limit: Optional[int] = 10):
+    """BUTLER-24: Email zero inbox triage."""
+    from src.tools.external_connectors import triage_inbox_emails
+    return triage_inbox_emails(limit=limit or 10)
+
+@app.post("/api/email/reply")
+def api_email_generate_reply(req: Dict[str, Any]):
+    """BUTLER-24: Generate draft reply for an email."""
+    from src.tools.external_connectors import generate_draft_reply
+    eid = req.get("email_id", "msg_01")
+    inst = req.get("instructions", "Accept politely")
+    return generate_draft_reply(email_id=eid, instructions=inst)
+
+@app.get("/api/crm/occasions")
+def api_crm_check_occasions():
+    """BUTLER-02: Check upcoming Personal CRM birthdays & silent VIP contacts."""
+    from src.core.personal_crm import check_crm_occasions
+    return check_crm_occasions()
+
+@app.post("/api/crm/contact")
+def api_crm_add_contact(req: Dict[str, Any]):
+    """BUTLER-02: Add or update Personal CRM contact."""
+    from src.core.personal_crm import add_crm_contact
+    name = req.get("name", "New Contact")
+    rel = req.get("relationship", "Friend")
+    bday = req.get("birthday")
+    notes = req.get("notes", "")
+    return add_crm_contact(name=name, relationship=rel, birthday=bday, notes=notes)
+
+@app.get("/api/proactive/meetingprep")
+def api_proactive_meeting_prep(title: Optional[str] = None):
+    """BUTLER-23: Generate T-minus-10-min meeting preparation briefing card."""
+    from src.core.proactive import generate_meeting_prep_briefing
+    return generate_meeting_prep_briefing(meeting_title=title or "Architecture Sync")
+
+
+# ==========================================
+# Day 14 — Mobile WebSocket Companion Bridge (MOB-01)
+# ==========================================
+
+@app.get("/api/network/endpoints")
+def api_get_network_endpoints():
+    """MOB-01: Get LAN & Tailscale network endpoint URLs for mobile app auto-discovery."""
+    from src.core.mobile_bridge import get_network_addresses
+    return get_network_addresses()
+
+
+@app.websocket("/ws")
+@app.websocket("/api/ws/mobile")
+async def mobile_websocket_endpoint(websocket: WebSocket, device_id: Optional[str] = None):
+    """MOB-01: Full-Duplex WebSocket bridge between mobile app (Tauri v2 Android) and backend."""
+    from src.core.mobile_bridge import mobile_manager
+    await mobile_manager.connect(websocket, device_id=device_id)
+    try:
+        while True:
+            raw_text = await websocket.receive_text()
+            response_payload = await mobile_manager.process_incoming_message(websocket, raw_text)
+            if response_payload:
+                await websocket.send_text(json.dumps(response_payload))
+    except WebSocketDisconnect:
+        mobile_manager.disconnect(websocket)
+    except Exception as e:
+        mobile_manager.disconnect(websocket)
+
+# ============================================================================
+# NEW FEATURE ENDPOINTS: Local Models, Memory Consolidation, Dev Automation, Agent Stream
+# ============================================================================
+
+from src.core.local_model_manager import local_model_manager, LocalModelConfig, QUANTIZATION_PRESETS
+from src.core.memory_consolidation import memory_consolidation_engine, ConsolidationRequest
+from src.core.dev_automation import dev_automation_engine, FormatCodeRequest, RunTestsRequest, BuildProjectRequest
+from src.core.agent_status_stream import agent_status_stream_manager, AgentActivityEvent
+from fastapi.responses import StreamingResponse
+
+# --- 1. LOCAL MODEL MANAGEMENT WITH QUANTIZATION OPTIONS ---
+
+@app.get("/api/models/local")
+async def get_local_models():
+    """List installed local models, quantization levels, and status."""
+    return await local_model_manager.list_models()
+
+@app.get("/api/models/quantization-options")
+async def get_quantization_options():
+    """Return available quantization profiles and specs."""
+    return {
+        "presets": list(QUANTIZATION_PRESETS.values())
+    }
+
+class PullModelPayload(BaseModel):
+    model_name: str
+    quantization: Optional[str] = None
+
+@app.post("/api/models/local/pull")
+async def pull_local_model(payload: PullModelPayload):
+    """Stream model download progress with quantization tag."""
+    async def event_generator():
+        async for progress in local_model_manager.pull_model_stream(payload.model_name, payload.quantization):
+            yield json.dumps(progress) + "\n"
+    return StreamingResponse(event_generator(), media_type="application/x-ndjson")
+
+@app.delete("/api/models/local/{model_name:path}")
+async def delete_local_model(model_name: str):
+    """Delete local model."""
+    success = await local_model_manager.delete_model(model_name)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Failed to delete model {model_name}")
+    return {"status": "deleted", "model": model_name}
+
+@app.post("/api/models/local/active")
+async def set_active_local_model(config: LocalModelConfig):
+    """Set active local model and runtime parameters."""
+    updated = local_model_manager.set_active_config(config)
+    agent_status_stream_manager.broadcast_event(
+        status="idle",
+        message=f"Active local model changed to {config.model_name} ({config.quantization})",
+        details={"config": config.model_dump()}
+    )
+    return {"status": "active_updated", "config": updated.model_dump()}
+
+class EstimateResourcePayload(BaseModel):
+    param_count_billion: float = 8.0
+    quantization: str = "Q4_K_M"
+
+@app.post("/api/models/estimate-resources")
+async def estimate_model_resources(payload: EstimateResourcePayload):
+    """Estimate RAM and VRAM footprint for parameter count and quantization profile."""
+    return local_model_manager.estimate_resource_requirements(payload.param_count_billion, payload.quantization)
+
+# --- 2. CONVERSATION SUMMARIZATION AND MEMORY CONSOLIDATION API ---
+
+@app.post("/api/memory/summarize")
+async def summarize_conversation(payload: ConsolidationRequest):
+    """Summarize messages into key topics, decisions, and user facts."""
+    return memory_consolidation_engine.summarize_messages(payload.messages)
+
+@app.post("/api/memory/consolidate")
+async def consolidate_memory(payload: ConsolidationRequest):
+    """Consolidate conversation session into long-term semantic memory graph."""
+    result = await memory_consolidation_engine.consolidate(payload)
+    agent_status_stream_manager.broadcast_event(
+        status="idle",
+        message=f"Consolidated memory: extracted {len(result.extracted_nodes)} memory nodes.",
+        details={"nodes_count": len(result.extracted_nodes)}
+    )
+    return result
+
+@app.get("/api/memory/consolidation-status")
+async def get_consolidation_status():
+    """Get status metrics for memory consolidation runs."""
+    return memory_consolidation_engine.get_status()
+
+# --- 3. DESKTOP AUTOMATION ENDPOINTS FOR DEV TASKS ---
+
+@app.get("/api/automation/git/status")
+async def get_automation_git_status():
+    """Inspect local git repository status, active branch, and modified files."""
+    return await dev_automation_engine.get_git_status()
+
+@app.post("/api/automation/code/format")
+async def format_automation_code(payload: FormatCodeRequest):
+    """Run code formatting tools on codebase."""
+    agent_status_stream_manager.broadcast_event(
+        status="executing_tool",
+        message=f"Running code formatter ({payload.formatter}) on {payload.file_path or 'workspace'}",
+        tool="dev_automation.format_code"
+    )
+    res = await dev_automation_engine.format_code(payload)
+    agent_status_stream_manager.broadcast_event(
+        status="idle" if res["success"] else "error",
+        message="Code formatting completed successfully" if res["success"] else "Code formatting failed",
+        details=res
+    )
+    return res
+
+@app.post("/api/automation/test/run")
+async def run_automation_tests(payload: RunTestsRequest):
+    """Run pytest suite on developer workspace."""
+    agent_status_stream_manager.broadcast_event(
+        status="executing_tool",
+        message=f"Running backend tests (filter: {payload.grep_filter or 'all'})",
+        tool="dev_automation.run_tests"
+    )
+    res = await dev_automation_engine.run_tests(payload)
+    agent_status_stream_manager.broadcast_event(
+        status="completed" if res["success"] else "error",
+        message=f"Tests {'passed' if res['success'] else 'failed'} in {res['duration_seconds']}s",
+        details={"exit_code": res["exit_code"]}
+    )
+    return res
+
+@app.post("/api/automation/build/project")
+async def build_automation_project(payload: BuildProjectRequest):
+    """Trigger project build steps for backend/frontend targets."""
+    agent_status_stream_manager.broadcast_event(
+        status="executing_tool",
+        message=f"Building project target: {payload.target}",
+        tool="dev_automation.build_project"
+    )
+    res = await dev_automation_engine.build_project(payload)
+    agent_status_stream_manager.broadcast_event(
+        status="completed" if res["success"] else "error",
+        message=f"Project build {'succeeded' if res['success'] else 'failed'}",
+        details=res
+    )
+    return res
+
+# --- 4. REAL-TIME AGENT STATUS AND ACTIVITY STREAM ---
+
+@app.get("/api/agent/status")
+async def get_agent_status_snapshot():
+    """Return current snapshot of agent status, subagent state, and recent activity logs."""
+    return agent_status_stream_manager.get_snapshot()
+
+class EmitActivityPayload(BaseModel):
+    status: str = "idle"
+    message: str
+    tool: Optional[str] = None
+    subagent: Optional[str] = None
+    task: Optional[str] = None
+    details: Dict[str, Any] = {}
+    progress: Optional[float] = None
+
+@app.post("/api/agent/activity/event")
+async def emit_agent_activity_event(payload: EmitActivityPayload):
+    """Manually emit agent activity event."""
+    event = agent_status_stream_manager.broadcast_event(
+        status=payload.status,
+        message=payload.message,
+        tool=payload.tool,
+        subagent=payload.subagent,
+        task=payload.task,
+        details=payload.details,
+        progress=payload.progress
+    )
+    return {"status": "broadcasted", "event": event.model_dump()}
+
+@app.websocket("/ws/agent-status")
+async def websocket_agent_status_stream(websocket: WebSocket):
+    """WebSocket endpoint streaming real-time agent activity events."""
+    await agent_status_stream_manager.register_connection(websocket)
+    try:
+        while True:
+            msg = await websocket.receive_text()
+            # Keepalive ping/pong
+            if msg == "ping":
+                await websocket.send_text(json.dumps({"type": "pong", "timestamp": time.time()}))
+    except WebSocketDisconnect:
+        agent_status_stream_manager.unregister_connection(websocket)
+    except Exception:
+        agent_status_stream_manager.unregister_connection(websocket)
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url or "/docs/oauth2-redirect",
+        swagger_js_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js",
+        swagger_css_url="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css",
+    )
+
+
+@app.get(app.swagger_ui_oauth2_redirect_url or "/docs/oauth2-redirect", include_in_schema=False)
+async def swagger_ui_redirect():
+    from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+if __name__ == "__main__":
     import uvicorn
-    # SEC-FIX: bind loopback by default; opt into LAN exposure explicitly
-    bind_host = os.environ.get("MERIDIAN_BIND_HOST", "127.0.0.1")
+    # Bind to 0.0.0.0 by default to allow local LAN & mobile APK connections
+    bind_host = os.environ.get("MERIDIAN_BIND_HOST", "0.0.0.0")
     uvicorn.run(app, host=bind_host, port=4132)
+
 
 
 

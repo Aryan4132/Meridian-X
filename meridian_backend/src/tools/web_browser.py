@@ -4,10 +4,25 @@ import time
 import re
 import httpx
 from urllib.parse import urlparse
-from selectolax.parser import HTMLParser
-import ollama
+try:
+    from selectolax.parser import HTMLParser
+except ImportError:
+    HTMLParser = None
+try:
+    import ollama
+except ImportError:
+    ollama = None
 from typing import List, Dict, Any, Optional
-from database import get_ollama_client_host, get_vision_model, get_brain_model
+try:
+    from database import get_ollama_client_host, get_vision_model, get_brain_model
+except Exception:
+    def get_ollama_client_host() -> str:  # type: ignore[misc]
+        return "http://localhost:11434"
+    def get_vision_model() -> str:  # type: ignore[misc]
+        return "moondream:1.8b"
+    def get_brain_model() -> str:  # type: ignore[misc]
+        return "llama3.2"
+
 
 def _get_vision_model() -> str:
     """Return the configured vision model name (e.g. moondream:1.8b)."""
@@ -57,7 +72,7 @@ def generate_tech_market_digest(topic: str = "AI Tech & Market News") -> Dict[st
 
 def browser_open(url: str) -> str:
     """Launch headless browser and navigate to a specified URL."""
-    global _playwright, _browser, _page
+    global _playwright, _browser, _page, _viewport_w, _viewport_h
     try:
         from playwright.sync_api import sync_playwright
         if not _playwright:
@@ -75,18 +90,20 @@ def browser_open(url: str) -> str:
             viewport_w = _viewport_w
             viewport_h = _viewport_h
 
+        _viewport_w = viewport_w
+        _viewport_h = viewport_h
+
         if not _page:
             _page = _browser.new_page(viewport={"width": viewport_w, "height": viewport_h})
             
         try:
-            _page.goto(url)
-            # Wait for network idle/load state
-            _page.wait_for_load_state("load")
+            _page.goto(url, wait_until="domcontentloaded", timeout=25000)
         except Exception as e:
             # BUG-34 fix: reset _page to None so the next call creates a fresh page
             # instead of reusing this broken/stale Playwright page.
             _page = None
             return f"Failed to navigate browser: {e}"
+
         return f"Successfully opened visual headless browser context and navigated to: {url}"
     except ImportError:
         return "Error: 'playwright' Python library is not installed or configured. Please install it."
@@ -157,8 +174,7 @@ def browser_screenshot(output_path: str = "browser.png") -> str:
 
 def _locate_element_by_vision(description: str) -> Optional[tuple]:
     """Uses moondream:1.8b to visually locate coordinates on current screenshot."""
-    global _page
-    if not _page:
+    if not _page or not ollama:
         return None
         
     temp_path = "temp_browser_click.png"
@@ -200,40 +216,77 @@ def _locate_element_by_vision(description: str) -> Optional[tuple]:
     return None
 
 def browser_find_and_click(description: str) -> str:
-    """Vision-locate element matching the description on screen and click it."""
+    """Vision-locate element matching description, or fall back to DOM selector / text matching."""
     global _page
     if not _page:
         return "Error: Browser is not open. Call browser_open first."
         
     coords = _locate_element_by_vision(description)
-    if not coords:
-        return f"Vision was unable to locate coordinates for: '{description}'."
-        
-    x, y = coords
-    try:
-        _page.mouse.click(x, y)
-        return f"Visually clicked coordinate ({x}, {y}) corresponding to '{description}'."
-    except Exception as e:
-        return f"Failed to execute click: {e}"
+    if coords:
+        x, y = coords
+        try:
+            _page.mouse.click(x, y)
+            return f"Visually clicked coordinate ({x}, {y}) corresponding to '{description}'."
+        except Exception as e:
+            pass
+
+    # DOM Selector / Text Matching Fallback
+    dom_strategies = [
+        description,
+        f"text={description}",
+        f"button:has-text('{description}')",
+        f"a:has-text('{description}')",
+        f"[aria-label='{description}']",
+        f"[title='{description}']",
+        f"[placeholder='{description}']"
+    ]
+    for strat in dom_strategies:
+        try:
+            if _page.is_visible(strat, timeout=500):
+                _page.click(strat, timeout=3000)
+                return f"Visually or via DOM clicked element matching '{description}' via DOM strategy '{strat}'."
+        except Exception:
+            continue
+
+
+    return f"Failed to locate or click element matching '{description}' via vision or DOM."
 
 def browser_type_in(description: str, text: str, delay: int = 50) -> str:
-    """Vision-locate element matching description, click it, and type text with custom delay (ms)."""
+    """Vision-locate or DOM-locate element matching description, click it, and type text."""
     global _page
     if not _page:
         return "Error: Browser is not open. Call browser_open first."
         
     coords = _locate_element_by_vision(description)
-    if not coords:
-        return f"Vision was unable to locate coordinates for: '{description}'."
-        
-    x, y = coords
-    try:
-        _page.mouse.click(x, y)
-        time.sleep(0.1)
-        _page.keyboard.type(text, delay=delay)
-        return f"Visually selected field '{description}' at ({x}, {y}) and typed key buffer (delay={delay}ms)."
-    except Exception as e:
-        return f"Failed to type in browser field: {e}"
+    if coords:
+        x, y = coords
+        try:
+            _page.mouse.click(x, y)
+            time.sleep(0.1)
+            _page.keyboard.type(text, delay=delay)
+            return f"Visually selected field '{description}' at ({x}, {y}) and typed key buffer (delay={delay}ms)."
+        except Exception:
+            pass
+
+    # DOM Input Fill Fallback
+    dom_strategies = [
+        description,
+        f"input[name='{description}']",
+        f"input[placeholder*='{description}']",
+        f"textarea[name='{description}']",
+        f"[aria-label='{description}']",
+        f"text={description}"
+    ]
+    for strat in dom_strategies:
+        try:
+            if _page.is_visible(strat, timeout=500):
+                _page.fill(strat, text, timeout=3000)
+                return f"Filled input field '{description}' via DOM strategy '{strat}'."
+        except Exception:
+            continue
+
+
+    return f"Failed to locate or type into field matching '{description}' via vision or DOM."
 
 def browser_get_text() -> str:
     """Extract all text contents from the current page viewport."""
@@ -305,6 +358,24 @@ def _is_public_http_url(url: str) -> bool:
         return False
 
 
+def parse_youtube_content(url: str) -> Dict[str, Any]:
+    """Extract metadata from YouTube video/playlist URLs using oEmbed API fallback."""
+    try:
+        oembed_url = f"https://www.youtube.com/oembed?url={url}&format=json"
+        res = httpx.get(oembed_url, timeout=8.0)
+        if res.status_code == 200:
+            data = res.json()
+            return {
+                "title": data.get("title", "YouTube Content"),
+                "author": data.get("author_name", "Unknown Channel"),
+                "provider": data.get("provider_name", "YouTube"),
+                "thumbnail": data.get("thumbnail_url", ""),
+                "url": url
+            }
+    except Exception:
+        pass
+    return {"title": "YouTube Video", "url": url}
+
 def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
     """Scrape a list of URLs and extract fields specified in the schema."""
     results = []
@@ -313,11 +384,22 @@ def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
             if not _is_public_http_url(url):
                 results.append(f"URL: {url} -> Blocked by SSRF guard (non-public or non-http target).")
                 continue
+
+            # YouTube URL Special Handler
+            if "youtube.com" in url or "youtu.be" in url:
+                yt_info = parse_youtube_content(url)
+                results.append(f"URL: {url} (YouTube Content)\nTitle: {yt_info.get('title')}\nAuthor: {yt_info.get('author', 'N/A')}\nProvider: {yt_info.get('provider', 'YouTube')}")
+                continue
+
             res = httpx.get(url, follow_redirects=True, timeout=10.0)
             if res.status_code != 200:
                 results.append(f"URL: {url} -> Failed (Status Code: {res.status_code})")
                 continue
                 
+            if not HTMLParser:
+                results.append(f"URL: {url} -> Error: 'selectolax' library is not installed.")
+                continue
+
             parser = HTMLParser(res.text)
             title = parser.css_first("title")
             title_text = title.text().strip() if title else "No Title"
@@ -328,7 +410,7 @@ def scrape_urls(urls: List[str], extract_schema: str = "") -> str:
             # BUG-37 fix: unified truncation constant for consistency across schema and plain paths.
             SCRAPE_PREVIEW_CHARS = 1000
             # If a schema is specified, ask Ollama to extract structure
-            if extract_schema:
+            if extract_schema and ollama:
                 client = ollama.Client(host=get_ollama_client_host())
                 prompt = (
                     f"Extract fields conforming to this schema: {extract_schema}\n\n"
@@ -350,6 +432,8 @@ def scrape_table(url: str, table_index: int = 0) -> str:
     try:
         if not _is_public_http_url(url):
             return "Blocked by SSRF guard (non-public or non-http target)."
+        if not HTMLParser:
+            return "Error: 'selectolax' library is not installed."
         res = httpx.get(url, follow_redirects=True, timeout=10.0)
         if res.status_code != 200:
             return f"Failed to load URL (Status Code: {res.status_code})"

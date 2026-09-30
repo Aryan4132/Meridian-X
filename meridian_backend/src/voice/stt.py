@@ -14,8 +14,8 @@ def get_whisper_model(model_size: Optional[str] = None):
         try:
             from database import get_user_profile
             model_size = get_user_profile("stt_model_size")
-        except Exception:
-            pass
+        except (ImportError, KeyError, ValueError, AttributeError):
+            model_size = "base"
         if not model_size:
             model_size = "base"
 
@@ -201,4 +201,27 @@ def estimate_pitch_centroid(chunk: np.ndarray, sample_rate: int = 16000) -> floa
         return 0.0
     except Exception:
         return 0.0
+
+
+async def transcribe_audio(audio_bytes: bytes, model_size: Optional[str] = None) -> str:
+    """Transcribe raw 16-bit PCM or WAV audio bytes in-memory."""
+    if not audio_bytes:
+        return ""
+    try:
+        arr = np.frombuffer(audio_bytes, dtype=np.int16)
+        return transcribe_audio_array(arr, model_size=model_size)
+    except Exception:
+        # Fallback to file-based transcription
+        temp_path = tempfile.mktemp(suffix=".wav", prefix="meridian_stt_")
+        try:
+            with open(temp_path, "wb") as f:
+                f.write(audio_bytes)
+            return transcribe_audio_file(temp_path, model_size=model_size)
+        finally:
+            if os.path.exists(temp_path):
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
+
 

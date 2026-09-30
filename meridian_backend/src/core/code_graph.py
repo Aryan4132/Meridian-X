@@ -238,3 +238,5 @@ def analyze_change_impact(target_symbol_or_file: str, workspace_dir: Optional[st
         "impact_score": "HIGH" if len(affected_files) > 5 else "MEDIUM" if len(affected_files) > 0 else "LOW"
     }
 
+get_code_graph = get_codebase_graph_json
+

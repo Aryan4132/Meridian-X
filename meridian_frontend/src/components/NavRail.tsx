@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  MessageSquare, Zap, Clipboard, Timer, Bot, Settings2, Network,
-  Eye, Minus, Square, X
+  MessageSquare, Zap, Clipboard, Timer, Bot, Settings2, Network, Brain,
+  Eye, Minus, Square, X, ChevronRight, ChevronLeft
 } from 'lucide-react';
 import { useApp, TabId } from '../AppContext';
 import { MascotCharacter } from '../Mascot';
@@ -17,12 +17,13 @@ const NAV_ITEMS: { id: TabId; icon: React.ElementType; label: string }[] = [
   { id: 'productivity',icon: Timer,         label: 'Productivity HUD' },
   { id: 'lobby',       icon: Bot,           label: 'Swarm Debate' },
   { id: 'workflows',   icon: Network,       label: 'Workflow Automation' },
+  { id: 'memory',      icon: Brain,         label: 'Memory Editor' },
   { id: 'settings',    icon: Settings2,     label: 'Settings & Hardware' },
 ];
 
-
 export default function NavRail() {
   const { activeTab, setActiveTab } = useApp();
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleMascot = () => {
     if ((window as any).__TAURI_INTERNALS__) {
@@ -46,10 +47,14 @@ export default function NavRail() {
   };
 
   return (
-    <nav
+    <motion.nav
       data-tauri-drag-region
+      initial={false}
+      animate={{ width: isExpanded ? 200 : 64 }}
+      transition={{ duration: 0.25, ease: 'easeInOut' }}
+      onMouseEnter={() => setIsExpanded(true)}
+      onMouseLeave={() => setIsExpanded(false)}
       style={{
-        width: 'var(--nav-width)',
         background: 'var(--bg-void)',
         borderRight: '1px solid var(--border-subtle)',
         display: 'flex',
@@ -59,6 +64,7 @@ export default function NavRail() {
         flexShrink: 0,
         zIndex: 20,
         position: 'relative',
+        overflow: 'hidden',
       }}
     >
       {/* Mascot Logo */}
@@ -68,7 +74,6 @@ export default function NavRail() {
         title="Meridian-X Mascot (Click to summon companion)"
       >
         <MascotCharacter state="default" accentColor="var(--accent)" />
-
       </div>
 
       {/* Nav items */}
@@ -85,14 +90,15 @@ export default function NavRail() {
                 width: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                padding: '10px 0',
+                justifyContent: isExpanded ? 'flex-start' : 'center',
+                padding: '10px 12px',
                 borderRadius: 'var(--radius-sm)',
                 border: 'none',
                 background: 'transparent',
                 cursor: 'pointer',
                 color: isActive ? 'var(--accent)' : 'var(--text-dim)',
-                transition: 'color 0.15s ease',
+                transition: 'all 0.15s ease',
+                gap: 12,
               }}
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text-main)'; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = 'var(--text-dim)'; }}
@@ -108,7 +114,20 @@ export default function NavRail() {
                   }}
                 />
               )}
-              <Icon size={18} style={{ position: 'relative', zIndex: 1 }} />
+              <Icon size={18} style={{ position: 'relative', zIndex: 1, flexShrink: 0 }} />
+              {isExpanded && (
+                <span style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  color: isActive ? 'var(--accent)' : 'var(--text-main)'
+                }}>
+                  {label}
+                </span>
+              )}
             </button>
           );
         })}
@@ -127,18 +146,23 @@ export default function NavRail() {
             onClick={action}
             title={label}
             style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: isExpanded ? 'flex-start' : 'center',
               padding: 8, borderRadius: 'var(--radius-sm)', border: 'none',
-              background: 'transparent', cursor: 'pointer',
+              background: 'transparent', cursor: 'pointer', gap: 10,
               color: 'var(--text-dim)', transition: 'color 0.15s ease',
             }}
             onMouseEnter={e => (e.currentTarget.style.color = danger ? 'var(--danger)' : 'var(--text-main)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-dim)')}
           >
-            <Icon size={danger ? 14 : 16} />
+            <Icon size={danger ? 14 : 16} style={{ flexShrink: 0 }} />
+            {isExpanded && (
+              <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", whiteSpace: 'nowrap' }}>
+                {label}
+              </span>
+            )}
           </button>
         ))}
       </div>
-    </nav>
+    </motion.nav>
   );
 }

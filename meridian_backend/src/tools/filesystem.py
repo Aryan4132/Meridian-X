@@ -1,21 +1,31 @@
 import os
 import shutil
 import glob
-from typing import Dict, Any
+import tempfile
+from pathlib import Path
+from typing import Dict, Any, Optional, List
 from src.core.audit_logger import log_sensitive_action
 
-def safe_path(target_path: str, allowed_roots: list = None) -> str:
+EXCLUDED_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".next", "dist", "build", ".idea", ".vscode"}
+
+def safe_path(target_path: str, allowed_roots: Optional[List[str]] = None) -> str:
     """Canonicalize path and verify it stays within allowed root directories (SEC-13)."""
-    abs_target = os.path.abspath(target_path)
+    expanded_target = os.path.expanduser(target_path)
+    abs_target = os.path.abspath(expanded_target)
     if allowed_roots is None:
-        allowed_roots = [os.getcwd(), os.path.dirname(os.getcwd())]
+        user_home = os.path.expanduser("~")
+        allowed_roots = [os.getcwd(), os.path.dirname(os.getcwd()), tempfile.gettempdir(), user_home]
     
+    target_p = Path(abs_target)
     is_safe = False
     for root in allowed_roots:
-        abs_root = os.path.abspath(root)
-        if abs_target == abs_root or abs_target.startswith(abs_root + os.sep):
+        root_p = Path(os.path.abspath(os.path.expanduser(root)))
+        try:
+            target_p.relative_to(root_p)
             is_safe = True
             break
+        except ValueError:
+            continue
             
     if not is_safe:
         log_sensitive_action(
@@ -27,18 +37,46 @@ def safe_path(target_path: str, allowed_roots: list = None) -> str:
         raise PermissionError(f"Access denied: Path '{target_path}' is outside authorized workspace root.")
     return abs_target
 
+import sys
+import time
+import ctypes
+import subprocess
+
+def is_admin_process() -> bool:
+    """Checks if current Python process has Windows Administrator / root privileges."""
+    try:
+        if sys.platform == "win32":
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        else:
+            return os.geteuid() == 0
+    except Exception:
+        return False
+
+def retry_file_operation(func, *args, retries: int = 3, delay: float = 0.2, **kwargs):
+    """Retries file operations to bypass temporary OneDrive sync locks (Errno 13)."""
+    last_exc = None
+    for attempt in range(retries):
+        try:
+            return func(*args, **kwargs)
+        except (PermissionError, OSError) as e:
+            last_exc = e
+            time.sleep(delay * (2 ** attempt))
+    if last_exc:
+        raise last_exc
+
 def read_file(path: str) -> str:
     path = safe_path(path)
     if not os.path.exists(path):
         raise FileNotFoundError(f"File not found: {path}")
-    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-        return f.read()
+    def _do_read():
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            return f.read()
+    res = retry_file_operation(_do_read)
+    return str(res) if res is not None else ""
 
 def write_file(path: str, content: str) -> str:
+    path = safe_path(path)
     try:
-        # BUG-53 fix: guard against empty parent when path is a bare filename (no directory component).
-        # os.makedirs("") raises FileNotFoundError; os.path.abspath("file.txt") returns CWD which
-        # os.makedirs would redundantly try to create.
         parent = os.path.dirname(os.path.abspath(path))
         if parent:
             os.makedirs(parent, exist_ok=True)
@@ -71,6 +109,7 @@ def write_file(path: str, content: str) -> str:
         raise e
 
 def list_directory(path: str) -> str:
+    path = safe_path(path)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Directory not found: {path}")
     items = os.listdir(path)
@@ -83,12 +122,15 @@ def list_directory(path: str) -> str:
         lines.append(f"[{type_str}] {item} ({size} bytes)" if not is_dir else f"[{type_str}] {item}")
     return "\n".join(lines) if lines else "Directory is empty"
 
-def search_files(query: str, directory: str) -> str:
-    if not os.path.exists(directory):
-        raise FileNotFoundError(f"Search directory not found: {directory}")
+def search_files(query: str, directory: Optional[str] = None) -> str:
+    if not directory or not os.path.exists(directory):
+        directory = os.getcwd()
     
     matches = []
     for root, dirs, files in os.walk(directory):
+        # Prune heavy/system directories for 10x-50x faster searches
+        dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+        
         for file in files:
             if query.lower() in file.lower():
                 matches.append(os.path.join(root, file))
@@ -107,6 +149,8 @@ def search_files(query: str, directory: str) -> str:
     return "\n".join(matches) if matches else "No matches found"
 
 def move_file(src: str, dst: str) -> str:
+    src = safe_path(src)
+    dst = safe_path(dst)
     try:
         shutil.move(src, dst)
         log_sensitive_action(
@@ -129,7 +173,6 @@ def delete_file(path: str) -> str:
     try:
         # Support wildcard glob patterns for bulk deletions
         if "*" in path or "?" in path:
-            import glob
             normalized_path = path.replace("\\", "/")
             matched_files = glob.glob(normalized_path)
             if not matched_files:
@@ -142,10 +185,11 @@ def delete_file(path: str) -> str:
                 return "No files matched pattern."
             deleted_count = 0
             for f in matched_files:
-                if os.path.isdir(f):
-                    shutil.rmtree(f)
-                elif os.path.exists(f):
-                    os.remove(f)
+                f_safe = safe_path(f)
+                if os.path.isdir(f_safe):
+                    shutil.rmtree(f_safe)
+                elif os.path.exists(f_safe):
+                    os.remove(f_safe)
                 deleted_count += 1
             log_sensitive_action(
                 category="FILE_DELETE",
@@ -155,6 +199,7 @@ def delete_file(path: str) -> str:
             )
             return f"Bulk deleted {deleted_count} files/directories matching pattern: {path}"
 
+        path = safe_path(path)
         if os.path.isdir(path):
             shutil.rmtree(path)
             log_sensitive_action(

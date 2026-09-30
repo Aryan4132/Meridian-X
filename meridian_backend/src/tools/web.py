@@ -53,9 +53,12 @@ def search_web(query: str, use_spatial_bias: bool = True) -> str:
         except Exception as e:
             print("[Search] Tavily failed:", e)
 
-    # 2. Fallback: DDGS library (may work in some environments)
+    # 2. Fallback: DDGS library
     try:
-        from duckduckgo_search import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS  # type: ignore
         results = list(DDGS().text(query, max_results=5))
         if results:
             lines = []
@@ -63,7 +66,28 @@ def search_web(query: str, use_spatial_bias: bool = True) -> str:
                 lines.append(f"Title: {r.get('title', '')}\nURL: {r.get('href', '')}\nSnippet: {r.get('body', '')}\n")
             return "\n".join(lines)
     except Exception as e:
-        print("[Search] DDGS fallback failed:", e)
+        print("[Search] DDGS library fallback failed:", e)
+
+    # 3. Direct zero-dependency HTML search fallback via DuckDuckGo HTML endpoint
+    try:
+        url = f"https://html.duckduckgo.com/html/?q={httpx.URL(query).raw_path.decode() if hasattr(httpx, 'URL') else query}"
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        res = httpx.post("https://html.duckduckgo.com/html/", data={"q": query}, headers=headers, timeout=10.0)
+        if res.status_code == 200:
+            import re
+            titles = re.findall(r'<a class="result__a"[^>]*>(.*?)</a>', res.text, re.DOTALL)
+            snippets = re.findall(r'<a class="result__snippet"[^>]*>(.*?)</a>', res.text, re.DOTALL)
+            urls = re.findall(r'<a class="result__url"[^>]*>(.*?)</a>', res.text, re.DOTALL)
+            lines = []
+            for i in range(min(len(titles), 5)):
+                t = re.sub(r'<[^>]+>', '', titles[i]).strip()
+                s = re.sub(r'<[^>]+>', '', snippets[i]).strip() if i < len(snippets) else ''
+                u = re.sub(r'<[^>]+>', '', urls[i]).strip() if i < len(urls) else ''
+                lines.append(f"Title: {t}\nURL: {u}\nSnippet: {s}\n")
+            if lines:
+                return "\n".join(lines)
+    except Exception as e:
+        print("[Search] Direct HTML search fallback failed:", e)
 
     return "Web search returned no results. Configure a Tavily API key in Settings > Integrations for reliable web search."
 
@@ -94,8 +118,12 @@ def parse_page(html: str) -> str:
         # Strip script and style elements
         for element in parser.css('script, style, head, nav, footer'):
             element.decompose()
-        text = parser.body.text(separator='\n')
+        if parser.body:
+            text = parser.body.text(separator='\n')
+        else:
+            text = parser.text(separator='\n')
         # Cleanup double newlines
+
         return "\n".join([line.strip() for line in text.split('\n') if line.strip()])
     except ImportError:
         # Simple regex parser fallback if selectolax failed to install
@@ -193,7 +221,10 @@ def search_news(query: str) -> str:
     """Perform a real-time news search using DuckDuckGo (or fallback to Tavily)."""
     # 1. Primary: Use the standard DDGS news search wrapper
     try:
-        from ddgs import DDGS
+        try:
+            from ddgs import DDGS
+        except ImportError:
+            from duckduckgo_search import DDGS  # type: ignore
         with DDGS() as ddgs:
             results = ddgs.news(query, max_results=5)
             if results:

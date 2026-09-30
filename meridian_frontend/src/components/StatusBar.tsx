@@ -1,10 +1,27 @@
 import React from 'react';
 import { useApp } from '../AppContext';
+import { API_BASE_URL } from '../config';
 import DataBadge from './ui/DataBadge';
 
 export default function StatusBar() {
   const { backendAlive, modelName, systemUsage } = useApp();
+  const [airgapActive, setAirgapActive] = React.useState(false);
   const shortModel = modelName.split(':')[0] + (modelName.includes(':') ? ':' + modelName.split(':')[1]?.slice(0, 6) : '');
+
+  React.useEffect(() => {
+    const checkAirgap = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/mode/airgap`);
+        if (res.ok) {
+          const data = await res.json();
+          setAirgapActive(!!data.airgap_active);
+        }
+      } catch { /* noop */ }
+    };
+    checkAirgap();
+    const interval = setInterval(checkAirgap, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div
@@ -34,15 +51,27 @@ export default function StatusBar() {
         </span>
       </div>
 
-      {/* Center: wordmark */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <svg width="12" height="12" viewBox="0 0 32 32" fill="none">
-          <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke="var(--accent)" strokeWidth="2" />
-          <circle cx="16" cy="16" r="3" fill="var(--accent)" />
-        </svg>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', fontWeight: 600 }}>
-          MERIDIAN-X
-        </span>
+      {/* Center: wordmark & airgap badge */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <svg width="12" height="12" viewBox="0 0 32 32" fill="none">
+            <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke="var(--accent)" strokeWidth="2" />
+            <circle cx="16" cy="16" r="3" fill="var(--accent)" />
+          </svg>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.12em', fontWeight: 600 }}>
+            MERIDIAN-X
+          </span>
+        </div>
+
+        {airgapActive && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
+            background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)',
+            fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em'
+          }}>
+            AIR-GAP VERIFIED
+          </span>
+        )}
       </div>
 
       {/* Right: model + usage */}

@@ -66,7 +66,7 @@ def test_public_health_endpoint_allowed_without_api_key():
 
 def test_protected_endpoint_rejected_without_api_key():
     """Verify protected endpoint /api/system-usage returns 401 without X-API-Key (SEC-01)."""
-    response = client.get("/api/system-usage")
+    response = _request_as_peer("GET", "/api/system-usage", peer=("203.0.113.5", 51234))
     assert response.status_code == 401
 
 def test_protected_endpoint_allowed_with_valid_api_key():

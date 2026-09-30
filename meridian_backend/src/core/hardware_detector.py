@@ -42,6 +42,21 @@ def detect_hardware_specs() -> Dict[str, Any]:
     except Exception as e:
         logger.debug(f"NVIDIA GPU detection skipped: {e}")
 
+    # Fallback for Windows GPU detection if pynvml failed or not installed
+    if not has_gpu and sys_os == "Windows":
+        try:
+            import subprocess
+            out = subprocess.check_output(
+                ["powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                stderr=subprocess.DEVNULL
+            ).decode('utf-8', errors='ignore').strip()
+            if out and "Microsoft Basic" not in out:
+                has_gpu = True
+                gpu_name = out.splitlines()[0]
+                vram_gb = round(ram_gb * 0.5, 1)  # Default estimate if VRAM query unavailable
+        except Exception:
+            pass
+
     # Fallback to Apple Silicon Metal Unified Memory
     if not has_gpu and sys_os == "Darwin":
         try:

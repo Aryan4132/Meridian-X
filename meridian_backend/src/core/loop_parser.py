@@ -94,7 +94,7 @@ def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
             _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
             return result
 
-        result = model_name or "for ex: model name"
+        result = model_name or ""
         _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
         return result
     except Exception as e:

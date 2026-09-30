@@ -1,5 +1,8 @@
-import threading
-from database import get_ollama_client
+try:
+    from database import get_ollama_client
+except ImportError:
+    get_ollama_client = None  # type: ignore
+
 
 # Dictionary to keep track of active pulling tasks: model_name -> status string
 pull_status = {}
