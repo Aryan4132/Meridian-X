@@ -163,13 +163,34 @@ def main() -> None:
         shutil.rmtree(bundle_dir)
 
     system = platform.system()
-    if system == "Windows":
-        bundles = "nsis,msi"
+    # Allow override: `python build_standalone.py --bundles nsis`
+    # or MERIDIAN_BUNDLES=nsis. Needed when WiX servers time out (MSI)
+    # or when you only want the primary installer fast.
+    override = os.environ.get("MERIDIAN_BUNDLES", "").strip()
+    for i, a in enumerate(sys.argv):
+        if a.startswith("--bundles="):
+            override = a.split("=", 1)[1].strip()
+        elif a == "--bundles" and i + 1 < len(sys.argv):
+            override = sys.argv[i + 1].strip()
+    if override:
+        attempts = [override]
+    elif system == "Windows":
+        attempts = ["nsis,msi", "nsis"]  # MSI needs WiX download; fall back to NSIS-only on timeout
     elif system == "Darwin":
-        bundles = "dmg,app"
+        attempts = ["dmg,app", "dmg"]
     else:
-        bundles = "deb,appimage"
-    run_cmd(f"npm run tauri build -- --bundles {bundles}", cwd=frontend_dir)
+        attempts = ["deb"]  # AppImage needs linuxdeploy (flaky); DEB only
+    for bundles in attempts:
+        print(f"\n[Tauri] Trying bundles: {bundles}")
+        res = subprocess.run(f"npm run tauri build -- --bundles {bundles}", shell=True, cwd=frontend_dir)
+        if res.returncode == 0:
+            break
+        print(f"[Warning] Tauri build with bundles '{bundles}' failed (exit {res.returncode}).")
+    else:
+        print("[Error] All Tauri bundle attempts failed.")
+        sys.exit(1)
+    if len(attempts) > 1 and bundles != attempts[0]:
+        print(f"[Info] Fell back to '{bundles}' (full set '{attempts[0]}' failed — likely WiX/network timeout).")
 
     
     # ---------------------------------------------------------

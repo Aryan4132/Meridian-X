@@ -145,7 +145,7 @@ jobs:
             tauri-args: '--bundles dmg,app'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundles deb,appimage'
+            tauri-args: '--bundles deb'
 
     runs-on: ${{ matrix.os }}
 
@@ -209,35 +209,6 @@ jobs:
           libsoup-3.0-dev \
           wmctrl xdotool || true
         sudo apt-get install -y libfuse2t64 || sudo apt-get install -y libfuse2 || true
-        # Clean stale symlinks and install native linuxdeploy, linuxdeploy-plugin-appimage & appimagetool binaries
-        sudo rm -f /usr/local/bin/linuxdeploy /usr/local/bin/linuxdeploy-plugin-appimage /usr/local/bin/appimagetool /usr/bin/linuxdeploy /usr/bin/linuxdeploy-plugin-appimage /usr/bin/appimagetool || true
-        wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage -O /tmp/ld.AppImage || true
-        chmod +x /tmp/ld.AppImage || true
-        /tmp/ld.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -f "squashfs-root/usr/bin/linuxdeploy" ]; then
-          sudo cp -f squashfs-root/usr/bin/linuxdeploy /usr/local/bin/
-          sudo chmod +x /usr/local/bin/linuxdeploy
-          sudo ln -sf /usr/local/bin/linuxdeploy /usr/bin/linuxdeploy || true
-        fi
-        rm -rf squashfs-root /tmp/ld.AppImage
-        wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/download/continuous/linuxdeploy-plugin-appimage-x86_64.AppImage -O /tmp/plugin.AppImage || true
-        chmod +x /tmp/plugin.AppImage || true
-        /tmp/plugin.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -f "squashfs-root/usr/bin/linuxdeploy-plugin-appimage" ]; then
-          sudo cp -f squashfs-root/usr/bin/linuxdeploy-plugin-appimage /usr/local/bin/
-          sudo chmod +x /usr/local/bin/linuxdeploy-plugin-appimage
-          sudo ln -sf /usr/local/bin/linuxdeploy-plugin-appimage /usr/bin/linuxdeploy-plugin-appimage || true
-        fi
-        rm -rf squashfs-root /tmp/plugin.AppImage
-        wget -q https://github.com/AppImage/AppImageKit/releases/download/13/appimagetool-x86_64.AppImage -O /tmp/tool.AppImage || true
-        chmod +x /tmp/tool.AppImage || true
-        /tmp/tool.AppImage --appimage-extract > /dev/null 2>&1 || true
-        if [ -f "squashfs-root/usr/bin/appimagetool" ]; then
-          sudo cp -f squashfs-root/usr/bin/appimagetool /usr/local/bin/
-          sudo chmod +x /usr/local/bin/appimagetool
-          sudo ln -sf /usr/local/bin/appimagetool /usr/bin/appimagetool || true
-        fi
-        rm -rf squashfs-root /tmp/tool.AppImage
 
     - name: Install macOS System Dependencies
       if: matrix.platform == 'macos'
@@ -303,7 +274,7 @@ jobs:
           |----------|-------|
           | Windows  | `*-setup.exe` (NSIS installer) + `*.msi` |
           | macOS    | `*.dmg` + `*.app` bundle |
-          | Linux    | `*.deb` (Debian/Ubuntu package) + `*.AppImage` |
+          | Linux    | `*.deb` (Debian/Ubuntu package) |
         releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'
