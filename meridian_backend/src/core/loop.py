@@ -102,6 +102,13 @@ from src.core.speculative import preheat_tool
 from src.core.loop_parser import resolve_local_model_name, process_final_response, transliterate_to_devanagari
 from src.core.loop_dispatcher import dispatch_tool_batch, check_and_increment_retry, reset_tool_retry_budget
 from src.core.loop_stream import format_sse_event, request_stream_cancellation, is_cancellation_requested, trim_history_to_token_budget
+from src.core.consensus_engine import (
+    build_consensus_qa_prompt,
+    build_consensus_coder_prompt,
+    filter_temporal_false_positives,
+    should_run_debate,
+    should_trigger_consensus_debate,
+)
 
 # Map active confirmations globally (defined above)
 
@@ -162,75 +169,12 @@ def parse_attributes(attr_str: str) -> Dict[str, Any]:
     return attrs
 
 
-def build_consensus_qa_prompt(response_text: str) -> str:
-    """Builds QA Reviewer prompt with dynamic system date and live web search evidence rules."""
-    from datetime import datetime
-    current_date_str = datetime.now().strftime("%Y-%m-%d")
-    return (
-        f"Current System Date: {current_date_str}.\n"
-        "You are the QA Reviewer Agent. Critique the proposed response below.\n"
-        "TEMPORAL AND SEARCH EVIDENCE RULES:\n"
-        f"- Dates up to and including {current_date_str} represent real-time current events.\n"
-        f"- Do NOT flag dates on or before {current_date_str} as 'future dates' or 'temporal hallucinations'.\n"
-        "- When tools like `search_news` or `search_web` return recent facts or real-time data dated up to the current date, treat those retrieved facts as verified truth.\n"
-        "- Do NOT override live search tool evidence using pre-trained static knowledge cutoff assumptions.\n"
-        "Do NOT write any introduction or conclusion, just write a bullet list of issues.\n\n"
-        f"Proposed Response:\n{response_text}"
-    )
-
-
-def build_consensus_coder_prompt(response_text: str, critique: str) -> str:
-    """Builds Lead Coder prompt with dynamic system date context."""
-    from datetime import datetime
-    current_date_str = datetime.now().strftime("%Y-%m-%d")
-    return (
-        f"Current System Date: {current_date_str}.\n"
-        "You are the Lead Coder Agent. Refine the proposed response based on the QA Reviewer's critique.\n"
-        f"Dates on or before {current_date_str} represent current real-time events. Do NOT revert real-time search facts into defensive refusal messages.\n"
-        "Return ONLY the final JSON response block with keys 'chat', 'speech', and 'lang'. No explanation, no markdown.\n\n"
-        f"Original Response:\n{response_text}\n\n"
-        f"Critique:\n{critique}"
-    )
-
-
-def filter_temporal_false_positives(critique: str, current_date_str: str = "", executed_search_tool: bool = False) -> Tuple[str, bool]:
-    """
-    Detects and filters out false-positive temporal hallucination critiques
-    when current search tool evidence was used or dates are on/before current system date.
-    Returns (cleaned_critique, is_false_positive).
-    """
-    if not critique:
-        return critique, False
-
-    if not current_date_str:
-        from datetime import datetime
-        current_date_str = datetime.now().strftime("%Y-%m-%d")
-
-    current_year = current_date_str.split("-")[0]
-    critique_lower = critique.lower()
-
-    temporal_keywords = [
-        "temporal error", "future date", "fabricating \"current\" events",
-        "fabricating current events", "temporal hallucination", "hallucination/temporal error",
-        "future year", "is a future date"
-    ]
-
-    has_temporal_flag = any(kw in critique_lower for kw in temporal_keywords)
-    mentions_current_year = current_year in critique
-
-    if has_temporal_flag and (executed_search_tool or mentions_current_year):
-        lines = critique.split("\n")
-        remaining_lines = []
-        for line in lines:
-            line_l = line.lower()
-            if any(kw in line_l for kw in temporal_keywords):
-                continue
-            remaining_lines.append(line)
-
-        cleaned = "\n".join(remaining_lines).strip()
-        return cleaned, True
-
-    return critique, False
+from src.core.consensus_engine import (
+    build_consensus_qa_prompt,
+    build_consensus_coder_prompt,
+    filter_temporal_false_positives,
+    should_trigger_consensus_debate,
+)
 
 class StreamingXMLParser:
     def __init__(self):
@@ -265,9 +209,8 @@ class StreamingXMLParser:
                     self.buffer = self.buffer[idx:]
                     # Now self.buffer starts with '<'
                 
-                # Check if we have enough characters to match tags
-                # Robust match for <thought> or `<thought ` (space, newline, etc.)
-                thought_match = re.match(r"^<thought[>\s\n]", self.buffer)
+                # Robust match for <thought> or <think> (space, newline, etc.)
+                thought_match = re.match(r"^<(?:thought|think)[>\s\n]", self.buffer)
                 if thought_match:
                     match_len = len(thought_match.group(0))
                     self.buffer = self.buffer[match_len:]
@@ -308,7 +251,7 @@ class StreamingXMLParser:
                 
                 # If it doesn't match any tag, check if it could be a prefix of one of them
                 is_prefix = False
-                for tag in ["<thought>", "<finish>"]:
+                for tag in ["<thought>", "<think>", "<finish>"]:
                     if tag.startswith(self.buffer):
                         is_prefix = True
                         break
@@ -329,16 +272,34 @@ class StreamingXMLParser:
                 self.buffer = self.buffer[1:]
                 
             elif self.state == "thought":
-                tag = "</thought>"
-                end_pos = self.buffer.find(tag)
+                # Match either closing tag </thought> or </think>
+                end_pos_thought = self.buffer.find("</thought>")
+                end_pos_think = self.buffer.find("</think>")
+
+                end_pos = -1
+                tag_len = 0
+                if end_pos_thought != -1 and end_pos_think != -1:
+                    if end_pos_thought < end_pos_think:
+                        end_pos = end_pos_thought
+                        tag_len = len("</thought>")
+                    else:
+                        end_pos = end_pos_think
+                        tag_len = len("</think>")
+                elif end_pos_thought != -1:
+                    end_pos = end_pos_thought
+                    tag_len = len("</thought>")
+                elif end_pos_think != -1:
+                    end_pos = end_pos_think
+                    tag_len = len("</think>")
+
                 if end_pos != -1:
                     self.current_thought += self.buffer[:end_pos]
-                    self.buffer = self.buffer[end_pos + len(tag):]
+                    self.buffer = self.buffer[end_pos + tag_len:]
                     new_text = self.current_thought[self.yielded_thought_len:]
                     events.append({"type": "thought", "text": new_text, "status": "completed"})
                     self.state = "idle"
                 else:
-                    # Check for implicit transition if model forgot </thought>
+                    # Check for implicit transition if model forgot </thought> / </think>
                     implicit_tags = ["<call:", "<finish>"]
                     found_implicit = -1
                     for itag in implicit_tags:
@@ -356,13 +317,13 @@ class StreamingXMLParser:
                         self.state = "idle"
                         continue
                         
-                    # Check if buffer ends with a prefix of </thought>
+                    # Check if buffer ends with a prefix of </thought> or </think>
                     match_len = 0
-                    for i in range(len(tag) - 1, 0, -1):
-                        prefix = tag[:i]
-                        if self.buffer.endswith(prefix):
-                            match_len = i
-                            break
+                    for tag in ["</thought>", "</think>"]:
+                        for i in range(len(tag) - 1, 0, -1):
+                            prefix = tag[:i]
+                            if self.buffer.endswith(prefix) and i > match_len:
+                                match_len = i
                     
                     if match_len > 0:
                         consume_part = self.buffer[:-match_len]
@@ -493,11 +454,12 @@ async def run_memory_summarization_background(ollama_host: str):
             f"Log:\n{conversation_log}"
         )
         
+        from database import get_brain_model, get_auditor_model
         fallback_model = get_auditor_model()
         try:
             res = client.generate(model=fallback_model, prompt=prompt)
         except Exception:
-            model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+            model = get_brain_model()
             res = client.generate(model=model, prompt=prompt)
 
         # GenerateResponse is an object — use attribute access with dict fallback
@@ -993,7 +955,7 @@ def route_model_by_complexity(prompt: str, brain_model: str, model_source: str =
                 return str(sqlite_model)
         except Exception:
             pass
-        fallback_fast = os.environ.get("MERIDIAN_FAST_MODEL", "qwen2.5-coder:1.5b-instruct-q8_0")
+        fallback_fast = os.environ.get("MERIDIAN_FAST_MODEL") or get_auditor_model()
         print(f"[Model Router] Simple task detected. Routing to fast fallback model: '{fallback_fast}'")
         return fallback_fast
         
@@ -1243,6 +1205,16 @@ async def run_react_agent_loop(
             f"\n\n[SEMANTIC MEMORY — Related Prior Response]\n{_near_miss_ctx}"
         )
 
+    # Cognitive Graph Multi-Hop Relational Context
+    try:
+        from src.core.cognitive_graph import get_cognitive_graph
+        _cog_graph = get_cognitive_graph()
+        _graph_ctx = _cog_graph.get_unified_context(prompt)
+        if _graph_ctx:
+            system_prompt += f"\n\n{_graph_ctx}"
+    except Exception as _cg_err:
+        pass  # Non-fatal
+
     history = [{"role": "system", "content": system_prompt}]
     for msg in past_messages:
         history.append({"role": msg["role"], "content": msg["content"]})
@@ -1266,6 +1238,7 @@ async def run_react_agent_loop(
     # Session-scoped manifest to track temporary screenshots for automated cleanup
     created_temp_files = []
     _interrupt_event.clear()  # Reset any stale interrupt signal from a previous run
+    executed_tools_all_turns: List[str] = []
     try:
         while turn < max_turns:
             final_text = ""
@@ -1368,7 +1341,12 @@ async def run_react_agent_loop(
                     response_stream = client.chat(
                         model=active_model,
                         messages=history,
-                        stream=True
+                        stream=True,
+                        options={
+                            "temperature": 0.7,
+                            "repeat_penalty": 1.15,
+                            "top_p": 0.9
+                        }
                     )
                 else:
                     # Cloud APIs Direct Integration (Option 3)
@@ -1457,7 +1435,12 @@ async def run_react_agent_loop(
                         response_stream = client.chat(
                             model=active_model,
                             messages=history,
-                            stream=True
+                            stream=True,
+                            options={
+                                "temperature": 0.7,
+                                "repeat_penalty": 1.15,
+                                "top_p": 0.9
+                            }
                         )
                     except Exception as ex:
                         err_msg = f"Fallback model '{active_model}' execution failed: {str(ex)}"
@@ -1616,7 +1599,37 @@ async def run_react_agent_loop(
                         # to avoid wasting 2 extra LLM calls with zero-length input.
                         if not event["text"].strip():
                             continue
-                        # #9 FIX: Parallel Consensus Overlap.
+
+                        # Smart Gate: Bypass heavy multi-LLM debate for conversational turns (saving 2-6s latency)
+                        is_voice_turn = (user_lang == "voice" or "voice" in str(active_model).lower())
+                        if not should_run_debate(tool_calls=executed_tools_all_turns, goal=prompt, finish_text=event["text"], is_voice=is_voice_turn):
+                            fast_finish = await process_final_response(event["text"], user_lang, client)
+                            final_text = fast_finish
+                            yield sse_event("text", fast_finish)
+                            try:
+                                finish_obj = json.loads(fast_finish)
+                                proactive_suggestions = finish_obj.get("proactive_suggestions")
+                                if proactive_suggestions and isinstance(proactive_suggestions, list):
+                                    yield sse_event("proactive_suggestions", json.dumps({
+                                        "suggestions": proactive_suggestions,
+                                        "timestamp": time.time()
+                                    }))
+                                    from src.core.proactive import publish_nudge_sync
+                                    for sug in proactive_suggestions:
+                                        if isinstance(sug, dict) and sug.get("title"):
+                                            publish_nudge_sync(
+                                                nudge_type="proactive_suggestion",
+                                                title=sug.get("title", "Proactive Suggestion"),
+                                                message=sug.get("action", ""),
+                                                action_hint=sug.get("action", None),
+                                                icon="💡",
+                                                action=sug.get("action", None)
+                                            )
+                            except Exception as p_err:
+                                print(f"[Proactive Suggestions] Dispatch skipped: {p_err}")
+                            continue
+
+                        # #9 FIX: Parallel Consensus Overlap (High-stakes / code mutation tasks).
                         # Run process_final_response and QA Reviewer critique concurrently with asyncio.gather
                         # instead of serial waiting. Saves one full LLM latency round-trip.
                         critique = ""
@@ -1636,6 +1649,8 @@ async def run_react_agent_loop(
                         
                         corrected_finish, qa_res = await asyncio.gather(fmt_task, qa_task)
                         critique = (qa_res or "").strip()
+                        if critique.startswith("Error:"):
+                            critique = ""
 
                         # Filter false-positive temporal error critiques
                         critique, is_false_pos = filter_temporal_false_positives(critique, executed_search_tool=has_search)
@@ -1688,7 +1703,31 @@ async def run_react_agent_loop(
 
                         final_text = debated_finish
                         yield sse_event("text", debated_finish)
+
+                        # Proactive Suggestions Event Dispatch
+                        try:
+                            finish_obj = json.loads(debated_finish)
+                            proactive_suggestions = finish_obj.get("proactive_suggestions")
+                            if proactive_suggestions and isinstance(proactive_suggestions, list):
+                                yield sse_event("proactive_suggestions", json.dumps({
+                                    "suggestions": proactive_suggestions,
+                                    "timestamp": time.time()
+                                }))
+                                from src.core.proactive import publish_nudge_sync
+                                for sug in proactive_suggestions:
+                                    if isinstance(sug, dict) and sug.get("title"):
+                                        publish_nudge_sync(
+                                            nudge_type="proactive_suggestion",
+                                            title=sug.get("title", "Proactive Suggestion"),
+                                            message=sug.get("action", ""),
+                                            action_hint=sug.get("action", None),
+                                            icon="💡",
+                                            action=sug.get("action", None)
+                                        )
+                        except Exception as p_err:
+                            print(f"[Proactive Suggestions] Dispatch skipped: {p_err}")
                     elif event["type"] == "call":
+                        executed_tools_all_turns.append(event["name"])
                         calls_to_execute.append((event["name"], event["args"]))
                         
             # Remove the temporary warning so it doesn't pollute long term history
@@ -1698,6 +1737,10 @@ async def run_react_agent_loop(
 
             # Process any tool calls parsed during the stream
             if calls_to_execute:
+                if _interrupt_event.is_set():
+                    _interrupt_event.clear()
+                    yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
+                    return
                 observations = []
                 
                 # Tree-of-Thoughts (ToT) Branch Setup
@@ -1872,6 +1915,10 @@ async def run_react_agent_loop(
 
                 # --- B. EXECUTE SEQUENTIAL STATE-MODIFYING CALLS ---
                 for tool_name, args, tier in sequential_calls:
+                    if _interrupt_event.is_set():
+                        _interrupt_event.clear()
+                        yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
+                        return
                     audit_id = f"audit-{time.time()}-{random.randint(1000, 9999)}"
                     tool_run_id = f"run-{tool_name}-{time.time()}"
                     pre_executed_result = None
@@ -2006,6 +2053,11 @@ async def run_react_agent_loop(
                         }))
                         add_to_task_log(tool_name, tier, "failed", err_txt)
 
+                    if _interrupt_event.is_set():
+                        _interrupt_event.clear()
+                        yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
+                        return
+
                 # Tree-of-Thoughts Backtracking execution
                 if tot_failed:
                     history = list(tot_checkpoint)
@@ -2030,18 +2082,21 @@ async def run_react_agent_loop(
                     final_text = clean_final_text(full_turn_text)
                     final_text = await process_final_response(final_text, user_lang, client)
 
-                    # 3. Consensus Debate (Runs for local and cloud models)
-                    yield sse_event("thought", json.dumps({
-                        "id": f"debate-init-break-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
-                        "status": "running"
-                    }))
+                    # 3. Consensus Debate (Runs for local and cloud models if triggered by gate)
+                    if should_run_debate(tool_calls=executed_tools_all_turns, goal=prompt, finish_text=final_text):
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-init-break-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                            "status": "running"
+                        }))
                     has_search2 = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
                     qa_prompt = build_consensus_qa_prompt(final_text)
                     from src.core.llm_provider import call_llm
                     critique = await call_llm([{"role": "user", "content": qa_prompt}], model=get_auditor_model(), temperature=0.2)
                     critique = (critique or "").strip()
+                    if critique.startswith("Error:"):
+                        critique = ""
 
                     # Filter false-positive temporal error critiques
                     critique, is_false_pos2 = filter_temporal_false_positives(critique, executed_search_tool=has_search2)

@@ -57,7 +57,7 @@ def resolve_local_model_name(model_name: str, client: ollama.Client) -> str:
                     installed_models.append(name)
 
         if not all_names:
-            result = model_name or "llama3.2:3b"
+            result = model_name or ""
             _model_name_cache[cache_key] = {"result": result, "expires": now + _MODEL_CACHE_TTL}
             return result
 
@@ -107,11 +107,36 @@ def invalidate_model_name_cache() -> None:
     _model_name_cache.clear()
 
 
+TOOL_SIGNATURES: Dict[str, str] = {
+    "browser_use_task": 'browser_use_task(task="<goal_or_instruction>", start_url="<optional_url>", visible=True)',
+    "browser_open": 'browser_open(url="<url>", visible=True)',
+    "browser_navigate": 'browser_navigate(url="<url>")',
+    "browser_click_element": 'browser_click_element(index_or_selector="<1 or selector>")',
+    "browser_type_element": 'browser_type_element(index_or_selector="<1 or selector>", text="<text>", press_enter=True)',
+    "browser_press_key": 'browser_press_key(key="<Enter|Escape|Tab|ArrowDown>")',
+    "browser_scroll": 'browser_scroll(direction="down", amount=500)',
+    "browser_wait": 'browser_wait(seconds=2)',
+    "browser_get_text": 'browser_get_text()',
+    "browser_screenshot": 'browser_screenshot()',
+    "browser_close": 'browser_close()',
+    "read_file": 'read_file(path="<path>")',
+    "write_file": 'write_file(path="<path>", content="<content>")',
+    "list_directory": 'list_directory(path="<path>")',
+    "universal_search": 'universal_search(query="<query>", domain_filter="all|code|docs|memory|files")',
+    "search_web": 'search_web(query="<query>")',
+}
+
+
 def generate_tools_doc() -> str:
-    """Returns formatted string documentation of all registered tools and their tiers."""
+    """Returns formatted string documentation of all registered tools with signatures and tiers."""
     lines = []
     for name, info in TOOL_REGISTRY.items():
-        lines.append(f"- {name}: Tier {info['tier']}")
+        desc = info.get("description", "")
+        sig = TOOL_SIGNATURES.get(name, name)
+        if desc:
+            lines.append(f"- {sig}: Tier {info['tier']} — {desc}")
+        else:
+            lines.append(f"- {sig}: Tier {info['tier']}")
     return "\n".join(lines)
 
 
@@ -227,10 +252,35 @@ async def process_final_response(text: str, user_lang: str, client: ollama.Clien
 
     chat = json_data.get("chat", "")
     speech = json_data.get("speech", "") or chat
-    lang = json_data.get("lang", "en")
+    lang = (json_data.get("lang") or "en").lower().strip()
+    u_lang = (user_lang or "english").lower().strip()
 
-    if user_lang in ["hi", "hi-IN", "hinglish"] or lang in ["hi", "hi-IN", "hinglish"]:
+    # Only transliterate if input/output is explicitly Hindi/Hinglish AND speech is not already in Devanagari script.
+    # Never transliterate if user language is English, eliminating 2-6s unnecessary LLM latency.
+    is_hindi_target = (u_lang in ["hi", "hi-in", "hinglish", "hindi"] or lang in ["hi", "hi-in", "hinglish", "hindi"]) and u_lang not in ["english", "en", "na"]
+    already_devanagari = bool(re.search(r'[\u0900-\u097F]', speech)) if speech else False
+
+    if is_hindi_target and not already_devanagari and speech.strip():
         speech = await transliterate_to_devanagari(speech, client)
 
     json_data["speech"] = speech
+
+    # Preserve and normalize proactive_suggestions if present
+    if "proactive_suggestions" in json_data and isinstance(json_data["proactive_suggestions"], list):
+        sanitized_suggestions = []
+        for item in json_data["proactive_suggestions"]:
+            if isinstance(item, dict) and item.get("title"):
+                sanitized_suggestions.append({
+                    "title": str(item.get("title", "")).strip(),
+                    "action": str(item.get("action", "")).strip(),
+                    "type": str(item.get("type", "suggestion")).strip().lower()
+                })
+            elif isinstance(item, str) and item.strip():
+                sanitized_suggestions.append({
+                    "title": item.strip(),
+                    "action": item.strip(),
+                    "type": "suggestion"
+                })
+        json_data["proactive_suggestions"] = sanitized_suggestions
+
     return json.dumps(json_data, ensure_ascii=False)

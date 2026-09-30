@@ -182,13 +182,32 @@ browser_instance = AutonomousWebBrowser()
 
 
 def browser_navigate_tool(url: str) -> str:
-    """Tool wrapper for browser page navigation."""
+    """Tool wrapper for browser page navigation synchronizing with live web_browser session."""
+    try:
+        from src.tools import web_browser
+        if web_browser._page_alive():
+            nav_res = web_browser.browser_open(url, visible=True)
+            return json.dumps({"status": "success", "url": url, "result": nav_res}, indent=2)
+    except Exception:
+        pass
     res = browser_instance.navigate(url)
     return json.dumps(res, indent=2)
 
 
 def browser_interact_tool(action: str, selector: str, text: str = "") -> str:
-    """Tool wrapper for browser element clicking or form typing."""
+    """Tool wrapper for browser element clicking or form typing with live web_browser session integration."""
+    try:
+        from src.tools import web_browser
+        if web_browser._page_alive():
+            if action == "click":
+                click_res = web_browser.browser_click_element(selector)
+                return json.dumps({"status": "success", "action": "click", "selector": selector, "result": click_res}, indent=2)
+            elif action == "type":
+                type_res = web_browser.browser_type_element(selector, text, press_enter=True)
+                return json.dumps({"status": "success", "action": "type", "selector": selector, "text": text, "result": type_res}, indent=2)
+    except Exception:
+        pass
+
     if action == "click":
         res = browser_instance.click_element(selector)
     elif action == "type":

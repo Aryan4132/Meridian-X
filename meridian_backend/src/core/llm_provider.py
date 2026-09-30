@@ -11,7 +11,11 @@ logger = logging.getLogger("meridian_llm_provider")
 
 SECRET_REGEX_PATTERNS = [
     re.compile(r"sk-[a-zA-Z0-9]{32,}"),
+    re.compile(r"sk-ant-[a-zA-Z0-9_\-]{20,}"),
+    re.compile(r"AIzaSy[a-zA-Z0-9_\-]{30,}"),
+    re.compile(r"hf_[a-zA-Z0-9]{34,}"),
     re.compile(r"ghp_[a-zA-Z0-9]{36}"),
+    re.compile(r"github_pat_[a-zA-Z0-9_]{80,}"),
     re.compile(r"eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}"),
 ]
 
@@ -20,13 +24,21 @@ def scan_and_redact_secrets(text: str) -> str:
     if not text:
         return text
         
+    try:
+        from src.core.audit_logger import log_sensitive_action
+    except ImportError:
+        log_sensitive_action = None
+
     redacted_text = text
+    redacted_count = 0
     for pattern in SECRET_REGEX_PATTERNS:
         matches = pattern.findall(redacted_text)
         for match in matches:
             redacted_text = redacted_text.replace(match, "[REDACTED_SECRET]")
-            from src.core.audit_logger import log_sensitive_action
-            log_sensitive_action("SECURITY_AUDIT", "secret_redacted", {"secret_type": "high_entropy_token"}, "SUCCESS")
+            redacted_count += 1
+
+    if redacted_count > 0 and log_sensitive_action:
+        log_sensitive_action("SECURITY_AUDIT", "secret_redacted", {"secret_type": "high_entropy_token", "count": redacted_count}, "SUCCESS")
             
     return redacted_text
 
@@ -75,46 +87,24 @@ def get_api_key(provider: str) -> Optional[str]:
 
   return None
 
-PROVIDER_CATALOG: Dict[str, List[str]] = {
-    "groq": ["gemma2-9b-it", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
-    "openrouter": ["google/gemma-2-9b-it:free", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b-instruct", "openai/gpt-4o"],
-    "deepseek": ["deepseek-chat", "deepseek-reasoner"],
-    "openai": ["gpt-4o", "gpt-4o-mini", "o3-mini"],
-    "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
-    "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
-}
+CLOUD_PROVIDERS: Tuple[str, ...] = ("groq", "openrouter", "deepseek", "openai", "anthropic", "gemini")
 
 def normalize_provider_and_model(provider: str, model: str) -> Tuple[str, str]:
     """
-    Dynamic model & provider tag normalizer.
-    Parses prefixes and matches raw model requests dynamically against registered provider catalogs.
+    Normalizes provider and model name strictly respecting user selection.
+    Extracts provider prefix if provided in model name (e.g. 'openai/gpt-4o' -> ('openai', 'gpt-4o')).
+    Does not override model names with hardcoded defaults.
     """
     prov = (provider or "ollama").strip().lower()
-    mod = (model or "llama3.2:3b").strip()
+    mod = (model or "").strip()
 
     # Parse prefix if contained in model name
     if "/" in mod and not mod.startswith("http"):
         parts = mod.split("/", 1)
         prefix = parts[0].lower()
-        if prefix in PROVIDER_CATALOG or get_api_key(prefix) is not None or prefix in ("ollama", "mistral", "local"):
+        if prefix in ("groq", "openrouter", "deepseek", "openai", "anthropic", "gemini", "ollama", "mistral", "local") or get_api_key(prefix) is not None:
             prov = prefix
             mod = parts[1]
-
-    # Dynamic catalog matching via family token overlap
-    catalog = PROVIDER_CATALOG.get(prov, [])
-    if catalog and mod not in catalog:
-        # Extract family keywords (alphabetic base tokens: 'gemma', 'llama', 'deepseek', 'claude', 'gpt', 'mixtral', 'reasoner', etc.)
-        mod_families = set(re.findall(r"[a-zA-Z]{3,}", mod.lower()))
-        best_match = None
-        best_score = 0
-        for cat_item in catalog:
-            cat_families = set(re.findall(r"[a-zA-Z]{3,}", cat_item.lower()))
-            overlap = len(mod_families.intersection(cat_families))
-            if overlap > best_score:
-                best_score = overlap
-                best_match = cat_item
-        if best_match:
-            mod = best_match
 
     # Strip prefixes if target provider is local ollama
     if prov == "ollama" and ("/" in mod and not mod.startswith("http")):
@@ -202,26 +192,27 @@ async def generate_completion_stream(
     ollama_host = get_ollama_host()
     url = f"{ollama_host}/api/chat"
     
-    # Resolve fallback model
-    fallback_model = "llama3.2:3b"
+    # Resolve fallback model from user configuration or locally installed models
+    fallback_model = ""
     try:
-      async with httpx.AsyncClient(timeout=3.0) as client:
-        res = await client.get(f"{ollama_host}/api/tags")
-        if res.status_code == 200:
-          models_data = res.json()
-          available = [
-            m["name"] for m in models_data.get("models", []) 
-            if m.get("size", 0) > 1000 and ":cloud" not in m.get("name", "").lower() and "cloud" not in m.get("name", "").lower()
-          ]
-          if available:
-            for am in available:
-              if "qwen" in am or "llama" in am:
-                fallback_model = am
-                break
-            else:
-              fallback_model = available[0]
+      from database import get_brain_model
+      fallback_model = get_brain_model()
     except Exception:
       pass
+    if not fallback_model:
+      try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+          res = await client.get(f"{ollama_host}/api/tags")
+          if res.status_code == 200:
+            models_data = res.json()
+            available = [
+              m["name"] for m in models_data.get("models", []) 
+              if m.get("size", 0) > 1000 and ":cloud" not in m.get("name", "").lower() and "cloud" not in m.get("name", "").lower()
+            ]
+            if available:
+              fallback_model = available[0]
+      except Exception:
+        pass
 
     yield f"\n[System Warning: Remote provider '{provider}' failed. Falling back to local Ollama '{fallback_model}'...]\n"
     
@@ -281,18 +272,24 @@ async def generate_completion_stream(
       logger.warning(f"Ollama connection unreachable at {ollama_host}: {last_err}. Attempting cloud API fallback...")
       # Attempt auto-fallback to available cloud provider with configured API key
       cloud_fallback_provider = None
-      for candidate in PROVIDER_CATALOG.keys():
+      for candidate in CLOUD_PROVIDERS:
         if get_api_key(candidate):
           cloud_fallback_provider = candidate
           break
       if cloud_fallback_provider:
-        yield f"\n[Warning: Ollama connection refused at {ollama_host}. Falling back to cloud provider '{cloud_fallback_provider}'...]\n"
-        fallback_stream = generate_completion_stream(messages, provider=cloud_fallback_provider, model="auto", temperature=temperature)
-        try:
-          async for token in fallback_stream:
-            yield token
-        finally:
-          await fallback_stream.aclose()
+        from database import get_brain_model, get_user_profile
+        fallback_model = get_user_profile("meridian_model") or get_brain_model()
+        if fallback_model:
+          yield f"\n[Warning: Ollama connection refused at {ollama_host}. Falling back to cloud provider '{cloud_fallback_provider}' with model '{fallback_model}'...]\n"
+          fallback_stream = generate_completion_stream(messages, provider=cloud_fallback_provider, model=fallback_model, temperature=temperature)
+          try:
+            async for token in fallback_stream:
+              yield token
+          finally:
+            await fallback_stream.aclose()
+        else:
+          yield f"\n[Warning: Ollama connection refused at {ollama_host}. Cloud provider '{cloud_fallback_provider}' is available, but no model is selected in Settings.]\n"
+          return
       else:
         yield f"Error: Local Ollama service is offline or connection was refused at {ollama_host} [WinError 10061]. Please start Ollama or configure a cloud API key in Settings."
         return
@@ -402,14 +399,20 @@ async def generate_completion_stream(
           or "http://localhost:8000/v1"
       )
       url = custom_base if custom_base.endswith("/chat/completions") else f"{custom_base.rstrip('/')}/chat/completions"
-      api_key = get_api_key(provider) or os.getenv("CUSTOM_LLM_API_KEY") or get_user_profile("custom_llm_api_key") or "bearer-token-placeholder"
+      custom_model = model or get_user_profile("custom_llm_model")
+      if not custom_model:
+        raise ValueError(f"No model specified for provider '{provider}'. Please set a model in settings or request parameters.")
+
+      api_key = get_api_key(provider) or os.getenv("CUSTOM_LLM_API_KEY") or get_user_profile("custom_llm_api_key") or ""
 
       headers = {
-        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json"
       }
+      if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
       payload = {
-        "model": model or get_user_profile("custom_llm_model") or "default",
+        "model": custom_model,
         "messages": messages,
         "temperature": temperature,
         "stream": True
@@ -535,15 +538,27 @@ async def call_llm(
   
   if not provider or not model:
     try:
-      from database import get_brain_model, get_model_source
+      from database import get_brain_model, get_model_source, get_user_profile
       if not model:
         model = get_brain_model()
       if not provider:
-        source = get_model_source()
-        provider = "ollama" if source == "local" else "openrouter"
+        configured_prov = os.getenv("MERIDIAN_PROVIDER") or get_user_profile("meridian_provider")
+        if configured_prov:
+          provider = configured_prov
+        else:
+          source = get_model_source()
+          provider = "ollama" if source == "local" else "openrouter"
     except Exception:
-      provider = provider or "ollama"
-      model = model or "llama3.2:3b"
+      provider = provider or os.getenv("MERIDIAN_PROVIDER") or "ollama"
+      model = model or ""
+
+  # Validate provider has required API key or fallback to configured provider / ollama
+  if provider in ["openrouter", "groq", "mistral", "together", "perplexity", "anthropic", "openai", "gemini", "deepseek"]:
+    if not get_api_key(provider):
+      if os.getenv("MERIDIAN_PROVIDER") and os.getenv("MERIDIAN_PROVIDER") != provider:
+        provider = os.getenv("MERIDIAN_PROVIDER")
+      else:
+        provider = "ollama"
 
   # TRUST-03: Budget Cap Check & Auto-Fallback
   try:
@@ -551,26 +566,35 @@ async def call_llm(
     if provider != "ollama" and check_budget_exceeded():
       logger.warning(f"Monthly budget cap exceeded. Falling back provider '{provider}' -> 'ollama'.")
       provider = "ollama"
-      model = "llama3.2:3b"
   except Exception as e:
     logger.debug(f"Budget check error: {e}")
+
+  # Guarantee non-null provider and model strictly resolved from user choice / profile
+  active_provider: str = provider or "ollama"
+  active_model: str = model or ""
+  if not active_model:
+    try:
+      from database import get_brain_model
+      active_model = get_brain_model()
+    except Exception:
+      pass
 
   # Estimate prompt tokens
   raw_prompt_text = " ".join([m.get("content", "") for m in sanitized_messages])
   prompt_tokens = max(1, len(raw_prompt_text) // 4)
       
   chunks = []
-  async for chunk in generate_completion_stream(sanitized_messages, provider=provider, model=model, temperature=temperature):
+  async for chunk in generate_completion_stream(sanitized_messages, provider=active_provider, model=active_model, temperature=temperature):
     chunks.append(chunk)
 
   result_text = "".join(chunks)
   completion_tokens = max(1, len(result_text) // 4)
-  cost_usd = estimate_llm_cost(provider, prompt_tokens, completion_tokens)
+  cost_usd = estimate_llm_cost(active_provider, prompt_tokens, completion_tokens)
 
   # Record token spend into SQLite
   try:
     from database import record_token_spend
-    record_token_spend(provider, model, prompt_tokens, completion_tokens, cost_usd)
+    record_token_spend(active_provider, active_model, prompt_tokens, completion_tokens, cost_usd)
   except Exception as e:
     logger.debug(f"Failed logging token spend: {e}")
 

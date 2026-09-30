@@ -1,8 +1,11 @@
 import os
 import tempfile
 import threading
+import logging
 from typing import Optional
 import numpy as np
+
+logger = logging.getLogger("meridian.stt")
 
 _cached_whisper_model = None
 _whisper_lock = threading.Lock()
@@ -15,9 +18,9 @@ def get_whisper_model(model_size: Optional[str] = None):
             from database import get_user_profile
             model_size = get_user_profile("stt_model_size")
         except (ImportError, KeyError, ValueError, AttributeError):
-            model_size = "base"
+            model_size = None
         if not model_size:
-            model_size = "base"
+            model_size = "tiny.en"
 
     if _cached_whisper_model is None:
         with _whisper_lock:
@@ -41,13 +44,11 @@ def get_whisper_model(model_size: Optional[str] = None):
                 except Exception as e:
                     print(f"[Whisper STT] Error detecting GPU status: {e}. Defaulting to CPU.")
                 
-                # BUG-50 fix: expanded CPU guard to include all heavy models.
-                # Only 'turbo' was downgraded before; large/large-v2/large-v3 are
-                # equally slow on CPU and should also be swapped to 'base'.
-                CPU_HEAVY_MODELS = {"turbo", "large", "large-v2", "large-v3"}
+                # Expand CPU guard: swap heavy models to tiny.en or base on CPU for fast response
+                CPU_HEAVY_MODELS = {"turbo", "large", "large-v2", "large-v3", "medium"}
                 if device == "cpu" and model_size in CPU_HEAVY_MODELS:
-                    print(f"[Whisper STT] Warning: '{model_size}' model is slow on CPU. Swapping to 'base' for faster performance.")
-                    model_size = "base"
+                    print(f"[Whisper STT] Warning: '{model_size}' model is slow on CPU. Swapping to 'tiny.en' for faster performance.")
+                    model_size = "tiny.en"
                 
                 _cached_whisper_model = WhisperModel(model_size, device=device, compute_type=compute_type)
     return _cached_whisper_model
@@ -103,20 +104,26 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
             silence_timeout = float(silence_timeout_val) if silence_timeout_val is not None else 0.3
             
             threshold_val = get_user_profile("stt_vad_threshold")
-            threshold = float(threshold_val) if threshold_val is not None else 300.0
+            threshold = float(threshold_val) if threshold_val is not None else 180.0
             
             max_duration_val = get_user_profile("stt_max_duration")
-            max_duration_limit = float(max_duration_val) if max_duration_val is not None else 8.0
-        except Exception:
+            max_duration_limit = float(max_duration_val) if max_duration_val is not None else 6.0
+        except Exception as e:
+            logger.debug("Failed loading VAD config from database profile, using defaults: %s", e)
             silence_timeout = 0.3
-            threshold = 300.0
-            max_duration_limit = 8.0
+            threshold = 180.0
+            max_duration_limit = 6.0
 
-        max_duration = max(duration_seconds, max_duration_limit)
+        max_duration = min(duration_seconds, max_duration_limit) if duration_seconds > 0 else max_duration_limit
         start_time = time.time()
+        no_speech_timeout = 2.0
         
         with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
             while time.time() - start_time < max_duration:
+                # Early abort if no speech starts within 2.0 seconds
+                if not speech_detected and (time.time() - start_time > no_speech_timeout):
+                    break
+
                 chunk, overflow = stream.read(block_size)
                 
                 # Calculate root-mean-square (RMS) energy
@@ -171,7 +178,8 @@ def apply_noise_gate(audio_data: np.ndarray, threshold: float = 150.0, attenuati
             if rms < threshold:
                 processed[i:i + frame_size] *= attenuation
         return np.clip(processed, -32768, 32767).astype(np.int16)
-    except Exception:
+    except Exception as e:
+        logger.debug("Noise gate processing error: %s", e, exc_info=True)
         return audio_data
 
 def estimate_pitch_centroid(chunk: np.ndarray, sample_rate: int = 16000) -> float:
@@ -199,7 +207,8 @@ def estimate_pitch_centroid(chunk: np.ndarray, sample_rate: int = 16000) -> floa
             pitch = float(sample_rate / peak_idx)
             return pitch if 80.0 <= pitch <= 350.0 else 0.0
         return 0.0
-    except Exception:
+    except Exception as e:
+        logger.debug("Pitch centroid estimation error: %s", e, exc_info=True)
         return 0.0
 
 
@@ -210,18 +219,19 @@ async def transcribe_audio(audio_bytes: bytes, model_size: Optional[str] = None)
     try:
         arr = np.frombuffer(audio_bytes, dtype=np.int16)
         return transcribe_audio_array(arr, model_size=model_size)
-    except Exception:
+    except Exception as e:
+        logger.debug("In-memory array transcription failed (%s), falling back to temp file", e)
         # Fallback to file-based transcription
-        temp_path = tempfile.mktemp(suffix=".wav", prefix="meridian_stt_")
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav", prefix="meridian_stt_") as f:
+            f.write(audio_bytes)
+            temp_path = f.name
         try:
-            with open(temp_path, "wb") as f:
-                f.write(audio_bytes)
             return transcribe_audio_file(temp_path, model_size=model_size)
         finally:
             if os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
-                except OSError:
-                    pass
+                except OSError as oe:
+                    logger.debug("Failed cleaning up temp audio file %s: %s", temp_path, oe)
 
 

@@ -1,3 +1,5 @@
+import threading
+
 try:
     from database import get_ollama_client
 except ImportError:

@@ -43,10 +43,16 @@ def review_file(path: str) -> str:
         return f"Error reviewing file: {e}"
 
 def review_diff(repo_path: str) -> str:
-    """Review git diff HEAD of the specified repository path."""
+    """Review git diff changes (both staged and unstaged) of the specified repository path."""
     repo_path = os.path.abspath(repo_path)
     if not os.path.exists(repo_path):
         return f"Error: Repository path '{repo_path}' not found."
+    try:
+        from src.tools.auto_reviewer import review_git_changes
+        return review_git_changes(repo_path)
+    except Exception:
+        pass
+
     try:
         cmd = ["git", "diff", "HEAD"]
         try:
@@ -57,7 +63,6 @@ def review_diff(repo_path: str) -> str:
         if not diff_out.strip():
             return "No git diff changes detected against HEAD to review."
 
-            
         sanitized_diff = scan_and_redact_secrets(diff_out)
         prompt = f"Please review this git diff in repository '{repo_path}':\n\n```diff\n{sanitized_diff}\n```"
         

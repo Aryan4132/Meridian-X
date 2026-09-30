@@ -66,7 +66,7 @@ def gui_click(x: int, y: int) -> str:
         return f"Clicked at ({x}, {y})"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "click", {"x": x, "y": y, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def gui_right_click(x: int, y: int) -> str:
     if pyautogui is None:
@@ -77,7 +77,7 @@ def gui_right_click(x: int, y: int) -> str:
         return f"Right-clicked at ({x}, {y})"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "right_click", {"x": x, "y": y, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def gui_double_click(x: int, y: int) -> str:
     if pyautogui is None:
@@ -88,7 +88,7 @@ def gui_double_click(x: int, y: int) -> str:
         return f"Double-clicked at ({x}, {y})"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "double_click", {"x": x, "y": y, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def gui_drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
     if pyautogui is None:
@@ -100,7 +100,7 @@ def gui_drag(x1: int, y1: int, x2: int, y2: int, duration: float = 0.5) -> str:
         return f"Dragged mouse from ({x1}, {y1}) to ({x2}, {y2})"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "drag", {"x1": x1, "y1": y1, "x2": x2, "y2": y2, "duration": duration, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def gui_type(text: str, interval: float = 0.05) -> str:
     if pyautogui is None:
@@ -113,7 +113,7 @@ def gui_type(text: str, interval: float = 0.05) -> str:
         return f"Typed: '{text}' (interval={interval}s)"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "type", {"text_len": len(text), "interval": interval, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def gui_hotkey(keys: Union[str, List[str]]) -> str:
     key_list = [keys] if isinstance(keys, str) else keys
@@ -125,7 +125,7 @@ def gui_hotkey(keys: Union[str, List[str]]) -> str:
         return f"Pressed keys combination: {key_list}"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "hotkey", {"keys": key_list, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 
 def gui_scroll(x: int, y: int, clicks: int) -> str:
@@ -138,7 +138,7 @@ def gui_scroll(x: int, y: int, clicks: int) -> str:
         return f"Scrolled mouse wheel at ({x}, {y}) by {clicks} clicks"
     except Exception as e:
         log_sensitive_action("GUI_INPUT", "scroll", {"x": x, "y": y, "clicks": clicks, "error": str(e)}, "FAILED")
-        raise e
+        return f"GUI action failed: {e}"
 
 def get_mouse_position() -> str:
     if pyautogui is None:

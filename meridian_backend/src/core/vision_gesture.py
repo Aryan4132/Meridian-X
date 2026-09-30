@@ -18,16 +18,38 @@ class VisionGestureSentinel:
         self._action_callbacks: Dict[str, List[Callable]] = {}
 
     def process_gesture_frame(self, landmark_data: Optional[Dict[str, Any]] = None, mock_gesture: Optional[str] = None) -> Dict[str, Any]:
-        gesture = mock_gesture or "swipe_right"
-        if gesture not in GESTURE_TYPES:
-            gesture = "palm_stop"
+        gesture = "none"
+        confidence = 0.0
+
+        if mock_gesture:
+            gesture = mock_gesture if mock_gesture in GESTURE_TYPES else "palm_stop"
+            confidence = 0.95
+        elif landmark_data:
+            # Real landmark extraction logic if landmarks provided
+            landmarks = landmark_data.get("landmarks", [])
+            delta_x = landmark_data.get("delta_x", 0.0)
+            if delta_x > 0.15:
+                gesture = "swipe_right"
+                confidence = 0.90
+            elif delta_x < -0.15:
+                gesture = "swipe_left"
+                confidence = 0.90
+            elif landmark_data.get("is_pinch"):
+                gesture = "pinch"
+                confidence = 0.88
+            elif landmark_data.get("open_palm"):
+                gesture = "palm_stop"
+                confidence = 0.89
+            elif landmarks:
+                gesture = "desk_motion"
+                confidence = 0.75
 
         record = {
             "gesture_id": f"gest-{int(time.time()*1000)}",
             "gesture": gesture,
-            "confidence": 0.92,
+            "confidence": confidence,
             "timestamp": time.time(),
-            "action": self._map_gesture_to_action(gesture),
+            "action": self._map_gesture_to_action(gesture) if gesture != "none" else "no_op",
         }
 
         self._gesture_history.append(record)

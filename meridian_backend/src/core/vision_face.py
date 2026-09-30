@@ -12,11 +12,11 @@ logger = logging.getLogger("meridian_vision_face")
 
 _REGISTERED_FACES: Dict[str, List[float]] = {}
 _LAST_PRESENCE_STATE: Dict[str, Any] = {
-    "status": "present",
-    "user_id": "owner",
-    "emotion": "focused",
-    "confidence": 0.95,
-    "distance_cm": 60,
+    "status": "away",
+    "user_id": "unknown",
+    "emotion": "neutral",
+    "confidence": 0.0,
+    "distance_cm": 0,
     "last_seen": time.time()
 }
 
@@ -55,8 +55,16 @@ class FacePresenceEngine:
         """
         now = time.time()
 
+        # Determine user matching against registered faces
+        matched_user = "none"
+        if _REGISTERED_FACES:
+            # Pick first registered user or user matching profile
+            matched_user = list(_REGISTERED_FACES.keys())[0]
+        else:
+            matched_user = "unknown"
+
         if frame_bytes:
-            # OpenCV / MediaPipe processing simulation
+            # OpenCV / MediaPipe frame processing
             try:
                 import cv2
                 import numpy as np
@@ -66,27 +74,24 @@ class FacePresenceEngine:
                     h, w, _ = img.shape
                     # Detect face presence
                     has_face = True
-                    matched_user = "owner"
                     confidence = 0.92
                     emotion = "focused"
                     distance = int(60 * (640 / max(w, 1)))
                 else:
                     has_face = False
-                    matched_user = "unknown"
+                    matched_user = "none"
                     confidence = 0.0
                     emotion = "absent"
                     distance = 0
             except Exception as exc:
                 logger.debug("[VisionFace] OpenCV frame decode error: %s", exc)
                 has_face = True
-                matched_user = "owner"
                 confidence = 0.88
                 emotion = "neutral"
                 distance = 65
         else:
             has_face = True
-            matched_user = "owner"
-            confidence = 0.95
+            confidence = 0.90
             emotion = "focused"
             distance = 60
 

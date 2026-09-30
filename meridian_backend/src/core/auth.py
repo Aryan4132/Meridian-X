@@ -1,9 +1,42 @@
 import os
 import secrets
 import hmac
+import hashlib
 from typing import Optional, Any, Union
 from fastapi import Header, HTTPException, status, Depends, Request, WebSocket
 from fastapi.security import APIKeyHeader
+
+def compute_sha256(text: str) -> str:
+    """Computes hex SHA-256 hash of a string."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+def verify_provided_token(provided_token: Optional[str]) -> bool:
+    """
+    Verifies an incoming auth token or API key against configured secrets.
+    Supports matching raw MERIDIAN_API_KEY, custom passwords, or SHA-256 derived hashes.
+    """
+    if not provided_token:
+        return False
+    
+    # 1. Match against primary API_KEY
+    if hmac.compare_digest(provided_token, API_KEY):
+        return True
+    
+    # 2. Match against SHA-256 hash of primary API_KEY
+    if hmac.compare_digest(provided_token.lower(), compute_sha256(API_KEY).lower()):
+        return True
+
+    # 3. Check custom password env vars (MERIDIAN_PAIRING_PASSWORD / MERIDIAN_CUSTOM_PASSWORD)
+    for env_var in ("MERIDIAN_PAIRING_PASSWORD", "MERIDIAN_CUSTOM_PASSWORD"):
+        custom_pwd = os.getenv(env_var)
+        if custom_pwd:
+            if hmac.compare_digest(provided_token, custom_pwd):
+                return True
+            if hmac.compare_digest(provided_token.lower(), compute_sha256(custom_pwd).lower()):
+                return True
+
+    return False
+
 
 
 # API Key Header definition
@@ -100,9 +133,10 @@ def bootstrap_webhook_secret():
 API_KEY = bootstrap_api_key()
 
 from fastapi import Header, HTTPException, status, Depends, Request
+from starlette.requests import HTTPConnection
 
 
-def _is_loopback_request(request: Optional[Request]) -> bool:
+def _is_loopback_request(request: Optional[HTTPConnection]) -> bool:
     """Allow same-machine desktop app traffic only when the TCP peer is actually loopback."""
     if request is None:
         return False
@@ -125,7 +159,7 @@ from fastapi import Header, HTTPException, Depends
 import os
 
 def require_admin(
-    request: Request = None,
+    request: Request,
     admin_key: Optional[str] = Header(None, convert_underscores=False),
 ) -> bool:
     """Simple admin protection for privileged endpoints.
@@ -172,6 +206,8 @@ ENDPOINT_PERMISSIONS = {
     "/api/chat/stream": ["user", "api"],
     "/api/chat/clear": ["user", "api"],
     "/api/chat/history": ["user", "api"],
+    "/api/chat/abort": ["user", "api"],
+    "/api/chat/stop": ["user", "api"],
     
     # Voice endpoints
     "/api/voice/record": ["user", "api"],
@@ -228,8 +264,8 @@ def has_permission(user_roles: list, required_permissions: list) -> bool:
 def require_permission(permissions: list):
     """Dependency factory for requiring specific permissions."""
     def permission_checker(
-        request: Request = None,
-        current_user_roles: list = Depends(lambda: get_user_roles_from_request(None))
+        request: Request,
+        current_user_roles: list = Depends(get_user_roles_from_request)
     ):
         if not has_permission(current_user_roles, permissions):
             from fastapi import HTTPException, status
@@ -240,7 +276,7 @@ def require_permission(permissions: list):
         return True
     return permission_checker
 
-def get_user_roles_from_request(request: Request = None) -> list:
+def get_user_roles_from_request(request: Request) -> list:
     """Extract user roles from request (simplified implementation)."""
     # In a real implementation, this would decode JWT token or session
     # For now, we'll check headers or fall back to default
@@ -264,33 +300,30 @@ def get_user_roles_from_request(request: Request = None) -> list:
 
 
 async def require_api_key(
-    request: Request = None,
-    websocket: WebSocket = None,
+    request: HTTPConnection,
 ):
     """
     FastAPI route dependency supporting Dual Auth.
     """
+    req = request
     if os.getenv("DISABLE_AUTH") == "true":
         return True
 
-    if websocket is not None or (request is not None and getattr(request, "scope", {}).get("type") == "websocket"):
+    if req is not None and getattr(req, "scope", {}).get("type") == "websocket":
         return True
 
-
-
-    if request is not None and hasattr(request, "url"):
-        path = request.url.path
+    if req is not None and hasattr(req, "url"):
+        path = req.url.path
         if path in ("/api/health", "/docs", "/redoc", "/openapi.json", "/api/network/endpoints", "/ws") or path.startswith(("/api/auth/oauth", "/api/ws")):
             return True
 
-    if _is_loopback_request(request):
+    if req is not None and _is_loopback_request(req):
         return True
 
-
-    client_ip = getattr(getattr(request, "client", None), "host", "unknown") if request else "unknown"
+    client_ip = getattr(getattr(req, "client", None), "host", "unknown") if req else "unknown"
 
     # 1. Check for Authorization: Bearer <jwt_token>
-    auth_header = request.headers.get("Authorization") if request else None
+    auth_header = req.headers.get("Authorization") if req and hasattr(req, "headers") else None
     if auth_header and auth_header.startswith("Bearer "):
         bearer_token = auth_header.split(" ", 1)[1].strip()
         from src.core.oauth_manager import decode_jwt_token
@@ -298,11 +331,12 @@ async def require_api_key(
         if decoded:
             return True
 
-    # 2. Check X-API-Key header
-    api_key_header = request.headers.get("X-API-Key") if request and hasattr(request, "headers") else None
-    if api_key_header and hmac.compare_digest(api_key_header, API_KEY):
+    # 2. Check X-API-Key header or query parameter
+    api_key_header = req.headers.get("X-API-Key") if req and hasattr(req, "headers") else None
+    if not api_key_header and req and hasattr(req, "query_params"):
+        api_key_header = req.query_params.get("token") or req.query_params.get("apiKey")
+    if api_key_header and verify_provided_token(api_key_header):
         return True
-
 
     # Auth failed
     try:
@@ -310,7 +344,7 @@ async def require_api_key(
         log_sensitive_action(
             category="AUTH_FAILURE",
             action="require_api_key",
-            details={"reason": "Missing or invalid auth credential", "ip": client_ip, "path": getattr(request.url, "path", "unknown") if request else "unknown"},
+            details={"reason": "Missing or invalid auth credential", "ip": client_ip, "path": getattr(req.url, "path", "unknown") if req and hasattr(req, "url") else "unknown"},
             status="FAILED"
         )
     except Exception:

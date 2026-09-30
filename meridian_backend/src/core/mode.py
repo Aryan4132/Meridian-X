@@ -7,12 +7,13 @@ import ollama
 
 # Directives for each mode
 MODE_DIRECTIVES = {
-    "AUTO": "Reason and act balanced. Be helpful and direct. Use any tools required.",
+    "AUTO": "Reason and act balanced. Be helpful and direct. Use any tools required. For web browsing and web navigation tasks, default to `browser_use_task` as the primary autonomous browser agent.",
+    "PROACTIVE": "You are a proactive autonomous intelligence. Anticipate unstated goals, potential project/system bottlenecks, and logical follow-ups. In addition to answering the request, actively inspect relevant states and formulate concrete, actionable next steps. In your final finish JSON response, always provide high-value next actions in 'proactive_suggestions' with title, action, and type.",
     "ENGINEER": "You are a software developer. Be structured, write tests, inspect exit codes, check logs, and iterate on fixing errors. Prioritize developer tools (run_python, write_file, git_commit, search_codebase) and follow the write-test-fix loop.",
     "REVIEWER": "You are a code critic and auditor. Analyze files and diffs meticulously across correctness, security, performance, maintainability, and test coverage. Flag all bugs, warnings, and vulnerabilities.",
     "ANALYST": "You are a systems analyst. Focus on processes, CPU/memory performance metrics, networks, active sockets, logs, and database schemas. Prioritize parallel system analysis tool calls.",
-    "OPERATOR": "You are a desktop automation operator. Execute actions swiftly using clicking, dragging, typing, screenshotting, and window control. Minimize thought length; act decisively.",
-    "RESEARCHER": "You are an information researcher. Investigate local files, RAG knowledge bases, and web search results. Gather information comprehensively, cross-reference sources, and summarize facts clearly before answering."
+    "OPERATOR": "You are a desktop and browser automation operator. For browser or web tasks, ALWAYS default to `browser_use_task` as the primary autonomous browser engine. It executes multi-step web tasks with Set-of-Marks visual index navigation. Use direct granular browser tools (`browser_open`, `browser_click_element`, `browser_type_element`, `browser_press_key`, `browser_scroll`) only when manually controlling an open page.",
+    "RESEARCHER": "You are an information researcher. Investigate local files, RAG knowledge bases, and web search results. For web research and page navigation, ALWAYS default to `browser_use_task` as the primary autonomous browser engine or use `search_web`. Gather information comprehensively and summarize facts clearly."
 }
 
 # The static template for the system prompt
@@ -49,12 +50,20 @@ Every turn you MUST use this structure:
 
 3. FINISH — when the goal is fully resolved:
    <finish>
-     Your final response MUST be a raw JSON object containing exactly three keys:
+     Your final response MUST be a raw JSON object containing these keys:
      {{
        "chat": "Your final chat response to the user, in the user's preferred language/transliteration (e.g. Hinglish: 'Main theek hoon', English: 'I am fine')",
        "speech": "The spoken text. Write this in the exact same language and script used in the 'chat' response (unless directed otherwise by language directives).",
-       "lang": "The 2-letter language code (e.g., 'en' for English, 'hi' for Hindi, 'ja' for Japanese, 'es' for Spanish, 'ru' for Russian)"
+       "lang": "The 2-letter language code (e.g., 'en' for English, 'hi' for Hindi, 'ja' for Japanese, 'es' for Spanish, 'ru' for Russian)",
+       "proactive_suggestions": [
+         {{
+           "title": "Short title of suggested follow-up action",
+           "action": "Concrete command line or follow-up prompt",
+           "type": "command | suggestion | query"
+         }}
+       ]
      }}
+     Note: 'proactive_suggestions' is optional but strongly recommended in PROACTIVE mode.
      Do NOT wrap this JSON block in markdown code blocks.
    </finish>
 
@@ -100,8 +109,16 @@ def classify_mode(prompt: str) -> str:
     """Classify prompt into a cognitive mode based on keyword detection with LLM fallback."""
     p = prompt.lower()
 
-    # Engineer triggers
+    # Proactive triggers
     if any(x in p for x in [
+        "proactive", "proactively", "suggest next", "suggest what", "what to do next",
+        "what should i do", "what's next", "whats next", "anticipate", "take initiative",
+        "butler mode", "recommend next", "recommend improvements", "proactive mode",
+        "suggest steps", "suggest actions", "suggest", "next steps"
+    ]):
+        return "PROACTIVE"
+    # Engineer triggers
+    elif any(x in p for x in [
         "build", "write code", "implement", "fix a bug", "create script", "scaffold", "refactor",
         "debug", "optimize", "function", "class", "module", "error in", "fix the", "fix this",
         "write a", "create a", "update the", "add a", "remove a", "edit the", "change the",
@@ -124,7 +141,7 @@ def classify_mode(prompt: str) -> str:
     # Operator triggers
     elif any(x in p for x in [
         "click", "open app", "type", "screenshot", "hotkey", "double click", "drag", "record",
-        "move mouse", "press key", "automate", "macro"
+        "move mouse", "press key", "automate", "macro", "browser", "website", "browse", "web page", "navigate"
     ]):
         return "OPERATOR"
     # Researcher triggers
@@ -133,6 +150,9 @@ def classify_mode(prompt: str) -> str:
         "look up", "wikipedia", "explain what", "what is", "who is", "tell me about", "news", "latest", "today", "current"
     ]):
         return "RESEARCHER"
+
+    if get_proactive_mode():
+        return "PROACTIVE"
 
     return "AUTO"
 
@@ -167,23 +187,65 @@ def lexical_context_compressor(text: str, query: str, ratio: float = 0.4) -> str
     return " ".join(final_sentences)
 
 def detect_user_language(prompt: str) -> str:
+    """Accurately detects whether prompt is English, Hindi (Devanagari), or Hinglish.
+    Guards against English stopwords ('hi', 'to', 'me', 'it', 'he', 'so') false positives.
+    """
+    if not prompt or not prompt.strip():
+        return "ENGLISH"
+
     # 1. Check if prompt contains Devanagari characters (Hindi script)
     import re
     if re.search(r'[\u0900-\u097F]', prompt):
         return "HINDI"
     
-    # 2. Check for common Hinglish words
+    # Check user profile language preference if explicitly set to English
+    try:
+        from database import get_user_profile
+        pref_lang = (get_user_profile("preferred_language") or "").strip().lower()
+        if pref_lang in ["en", "english", "en-us", "en-gb"]:
+            return "ENGLISH"
+    except Exception:
+        pass
+
+    # 2. Strong Hinglish vocabulary words (pure Hindi romanized markers, zero English collision)
     hinglish_keywords = {
-        "aap", "kaise", "ho", "kya", "kar", "rhe", "rha", "hai", "hain", "hu", "hoon", 
-        "mera", "meri", "mujhe", "tum", "apna", "apni", "nhi", "nahi", "thik", "theek",
-        "karo", "batao", "samjhao", "likho", "dikhao", "chalao", "yaar", "ab", "kab",
-        "sab", "se", "ko", "aur", "ki", "ka", "ke", "hi", "to", "toh"
+        "aap", "kaise", "kya", "karo", "karoge", "karega", "batao", "samjhao", "likho",
+        "dikhao", "chalao", "yaar", "mera", "meri", "mere", "mujhe", "mujhko", "tumhara",
+        "tumhari", "apna", "apni", "apne", "nahi", "nhi", "nahin", "thik", "theek",
+        "shukriya", "dhanyawad", "achha", "achhi", "achhe", "bahut", "bohot", "thoda",
+        "kuch", "kaun", "kahan", "kyun", "kyu", "hain", "hoon", "karna", "raha", "rahe",
+        "rahi", "rha", "rhe", "rhi", "madad", "chahiye", "boliye", "bataiye", "samajh",
+        "kaam", "dost", "namaste", "pranam"
     }
-    words = [w.strip("?,.!:;\"'").lower() for w in prompt.split()]
-    match_count = sum(1 for w in words if w in hinglish_keywords)
-    
-    if match_count >= 2 or (len(words) <= 3 and match_count >= 1):
-        return "HINGLISH"
+
+    words = [w.strip("?,.!:;\"'()[]{}").lower() for w in prompt.split()]
+    words = [w for w in words if w]
+    if not words:
+        return "ENGLISH"
+
+    # English structural signals that confirm English intent
+    english_signals = {
+        "the", "this", "that", "these", "those", "what", "where", "when", "why",
+        "which", "who", "whom", "how", "can", "could", "would", "should", "will",
+        "shall", "please", "run", "do", "does", "did", "test", "tests", "code",
+        "file", "files", "create", "start", "stop", "git", "status", "push", "pull",
+        "commit", "talk", "listen", "play", "show", "open", "close", "help", "you",
+        "your", "hello", "hi", "hey", "good", "morning", "evening", "yes", "no",
+        "okay", "write", "check", "with", "from", "for", "about", "voice", "speech"
+    }
+
+    hinglish_matches = sum(1 for w in words if w in hinglish_keywords)
+    english_matches = sum(1 for w in words if w in english_signals)
+
+    # If prompt contains strong English words and few/no Hinglish markers, it's English
+    if english_matches >= 1 and hinglish_matches < 2:
+        return "ENGLISH"
+
+    # Require at least 2 distinct Hinglish words to avoid one-off typos or loan words
+    if hinglish_matches >= 2:
+        # If words > 4, ensure Hinglish forms a meaningful portion of the sentence
+        if len(words) <= 4 or (hinglish_matches / len(words)) >= 0.20 or hinglish_matches >= 3:
+            return "HINGLISH"
         
     return "ENGLISH"
 
@@ -376,4 +438,30 @@ def get_airgap_proof_badge() -> Dict[str, Any]:
         "signature": badge_hash,
         "verified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
     }
+
+# Proactive Autonomous Mode Management
+_PROACTIVE_MODE = False
+
+def get_proactive_mode() -> bool:
+    """Returns whether Proactive Autonomous mode is enabled."""
+    global _PROACTIVE_MODE
+    try:
+        from database import get_user_profile
+        val = get_user_profile("proactive_mode")
+        if val is not None:
+            return str(val).lower() == "true"
+    except Exception:
+        pass
+    return _PROACTIVE_MODE
+
+def set_proactive_mode(enabled: bool) -> bool:
+    """Enables or disables Proactive Autonomous mode."""
+    global _PROACTIVE_MODE
+    _PROACTIVE_MODE = bool(enabled)
+    try:
+        from database import save_user_preference
+        save_user_preference("proactive_mode", str(_PROACTIVE_MODE))
+    except Exception as e:
+        print(f"[ProactiveMode] Failed saving proactive_mode preference: {e}")
+    return _PROACTIVE_MODE
 

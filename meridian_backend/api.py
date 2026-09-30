@@ -194,6 +194,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to start scheduler:", e)
     try:
+        from src.tools.registry import ensure_plugins_loaded
+        ensure_plugins_loaded()
+    except Exception as e:
+        print("Failed to auto-discover plugins:", e)
+    try:
         from src.core.graph_sync import scan_workspaces
         import threading
         # BUG-71 fix: resolve workspace root explicitly instead of relying on
@@ -228,6 +233,19 @@ async def lifespan(app: FastAPI):
         start_wakeword_monitoring()
     except Exception as e:
         print("Failed to start wake word monitoring:", e)
+    # Bridges are fail-closed: without an allowlist they start but deny
+    # everyone. Say so plainly at startup so a silent bot isn't a mystery.
+    if not os.environ.get("TELEGRAM_BOT_TOKEN"):
+        print("[Startup] Telegram bridge disabled: TELEGRAM_BOT_TOKEN not set.")
+    elif not (os.environ.get("MERIDIAN_ALLOWED_TELEGRAM_IDS", "").strip()
+              or os.environ.get("TELEGRAM_AUTHORIZED_CHAT_ID", "").strip()):
+        print("[Startup] Telegram bridge will deny all chats: set "
+              "MERIDIAN_ALLOWED_TELEGRAM_IDS or TELEGRAM_AUTHORIZED_CHAT_ID.")
+    if not os.environ.get("DISCORD_BOT_TOKEN"):
+        print("[Startup] Discord bridge disabled: DISCORD_BOT_TOKEN not set.")
+    elif not os.environ.get("MERIDIAN_ALLOWED_DISCORD_IDS", "").strip():
+        print("[Startup] Discord bridge will deny all users: set "
+              "MERIDIAN_ALLOWED_DISCORD_IDS.")
     try:
         from src.core.telegram_bridge import start_telegram_bridge
         start_telegram_bridge()
@@ -1034,7 +1052,7 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
         from src.core.llm_provider import get_api_key
         key = api_key or get_api_key("openai")
         if not key:
-            return {"models": ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']}
+            return {"models": []}
         try:
             import httpx
             headers = {"Authorization": f"Bearer {key}"}
@@ -1050,14 +1068,14 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
                         return {"models": sorted(list(set(models)))}
         except Exception:
             pass
-        return {"models": ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo']}
+        return {"models": []}
         
     # 3. DeepSeek
     elif provider == "deepseek":
         from src.core.llm_provider import get_api_key
         key = api_key or get_api_key("deepseek")
         if not key:
-            return {"models": ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder']}
+            return {"models": []}
         try:
             import httpx
             headers = {"Authorization": f"Bearer {key}"}
@@ -1071,14 +1089,14 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
                         return {"models": sorted(list(set(models)))}
         except Exception:
             pass
-        return {"models": ['deepseek-v4-pro', 'deepseek-v4-flash', 'deepseek-chat', 'deepseek-coder']}
+        return {"models": []}
         
     # 4. Gemini
     elif provider == "gemini":
         from src.core.llm_provider import get_api_key
         key = api_key or get_api_key("gemini")
         if not key:
-            return {"models": ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.0-pro']}
+            return {"models": []}
         try:
             import httpx
             headers = {"Authorization": f"Bearer {key}"}
@@ -1107,239 +1125,35 @@ async def get_provider_models(provider: str, host: Optional[str] = None, api_key
                         return {"models": sorted(list(set(models)))}
         except Exception:
             pass
-        return {"models": ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.5-flash', 'gemini-1.0-pro']}
+        return {"models": []}
         
     # 5. Anthropic
     elif provider in ("anthropic", "claude"):
-        return {"models": [
-            'claude-3-5-sonnet-20241022',
-            'claude-3-5-haiku-20241022',
-            'claude-3-opus-20240229'
-        ]}
+        from src.core.llm_provider import get_api_key
+        key = api_key or get_api_key("anthropic")
+        if not key:
+            return {"models": []}
+        try:
+            import httpx
+            headers = {
+                "x-api-key": key,
+                "anthropic-version": "2023-06-01"
+            }
+            async with httpx.AsyncClient() as client:
+                res = await client.get("https://api.anthropic.com/v1/models", headers=headers, timeout=5.0)
+                if res.status_code == 200:
+                    data = res.json()
+                    for m in data.get("data", []):
+                        m_id = m.get("id")
+                        if m_id:
+                            models.append(m_id)
+                    if models:
+                        return {"models": sorted(list(set(models)))}
+        except Exception:
+            pass
+        return {"models": []}
         
     return {"models": []}
-
-def get_react_thoughts(prompt: str, brain_model: str, ocr_model: str) -> Dict[str, Any]:
-    normalized = prompt.lower()
-    
-    # 1. Specialized mock agent simulations for specific demo scripts
-    if any(k in normalized for k in ["open", "start", "run", "launch"]):
-        text = "I have successfully launched and positioned the requested program in your viewport. You can see its window handle active in the background environment logs."
-        thoughts = [
-            {
-                "type": "planning",
-                "text": "Analyzing desktop space for window placement...",
-                "tool": "screencapture",
-                "command": "screencapture -x /tmp/active_screen.png",
-            },
-            {
-                "type": "ocr",
-                "text": f"Parsing OCR for potential window overlaps and active dock/menu dimensions using {ocr_model}",
-                "tool": ocr_model,
-                "command": "python parse_layout.py --image /tmp/active_screen.png",
-            },
-            {
-                "type": "exec",
-                "text": "Locating and resolving shell executable path for application",
-                "tool": "bash",
-                "command": "which xterm || which terminal",
-            },
-            {
-                "type": "exec",
-                "text": "Spawning desktop process with isolated child shell",
-                "tool": "bash",
-                "command": "nohup open -a 'Terminal' > /dev/null 2>&1 &",
-            },
-            {
-                "type": "status",
-                "text": "Process spawned successfully. PID: 49204. Monitoring window visibility...",
-                "tool": "system_api",
-                "command": "osascript -e 'tell application \"System Events\" to get name of first process whose frontmost is true'",
-            }
-        ]
-        return {"text": text, "thoughts": thoughts}
-        
-    elif any(k in normalized for k in ["find", "search", "file", "pdf", "read"]):
-        text = "I searched your file system and organized the matching files as requested. Multiple PDF structures and document handles have been updated."
-        thoughts = [
-            {
-                "type": "planning",
-                "text": "Indexing folder hierarchies across user space paths (~/Documents, ~/Downloads)",
-                "tool": "file_system",
-                "command": "find ~ -maxdepth 3 -name '*.pdf'",
-            },
-            {
-                "type": "exec",
-                "text": "Scanning metadata structures on discovered filesystem elements",
-                "tool": "bash",
-                "command": "ls -laT ~/Downloads/*.pdf",
-            },
-            {
-                "type": "info",
-                "text": "Discovered 4 files matching target file descriptor rules.",
-                "tool": "file_system",
-                "command": "cat /tmp/search_results.json",
-            },
-            {
-                "type": "exec",
-                "text": "Executing structural alignment script to group documents by date/extension",
-                "tool": "bash",
-                "command": "mkdir -p ~/Documents/Receipts && mv ~/Downloads/*receipt*.pdf ~/Documents/Receipts/",
-            },
-            {
-                "type": "status",
-                "text": "Discovered documents remapped. Integrity and links check complete.",
-                "tool": "file_system",
-                "command": "ls ~/Documents/Receipts/",
-            }
-        ]
-        return {"text": text, "thoughts": thoughts}
-        
-    elif any(k in normalized for k in ["web", "weather", "browser", "google", "scrap"]):
-        text = "I completed a localized background browser search query. System logs verify navigation, network stack requests, and target data extraction of search pages."
-        thoughts = [
-            {
-                "type": "planning",
-                "text": "Spawning headless browser container for sandbox safe scraping",
-                "tool": "chrome_driver",
-                "command": "google-chrome --headless --remote-debugging-port=9222",
-            },
-            {
-                "type": "exec",
-                "text": "Querying search engine via background navigation context...",
-                "tool": "chrome_driver",
-                "command": "navigate 'https://www.google.com/search?q=latest+weather+updates'",
-            },
-            {
-                "type": "ocr",
-                "text": f"OCR Screen scanning of search viewport for structured weather cards using {ocr_model}",
-                "tool": ocr_model,
-                "command": "ocr_extract --target '.g-card'",
-            },
-            {
-                "type": "info",
-                "text": "Extracted: Weather shows 24°C, Humidity: 62%, Mild breeze",
-                "tool": "web_search",
-            },
-            {
-                "type": "status",
-                "text": "Closing background web container session cleanly. Telemetry stored.",
-                "tool": "chrome_driver",
-            }
-        ]
-        return {"text": text, "thoughts": thoughts}
-
-    elif "whatsapp" in normalized:
-        contact = "Recipient"
-        message = "Hello!"
-        
-        import re
-        to_match = re.search(r"to\s+(\w+)", normalized)
-        if to_match:
-            contact = to_match.group(1).capitalize()
-            
-        say_match = re.search(r"(?:saying|msg|message|say)\s+(.*)", prompt, re.IGNORECASE)
-        if say_match:
-            message = say_match.group(1).strip("\"'")
-            
-        text = f"I have successfully launched WhatsApp and automated sending your message to '{contact}'."
-        thoughts = [
-            {
-                "type": "planning",
-                "text": f"Detected WhatsApp task. Opening WhatsApp desktop and searching for contact '{contact}'...",
-                "tool": "send_whatsapp_message",
-            },
-            {
-                "type": "exec",
-                "text": f"Executing send_whatsapp_message(contact='{contact}', message='{message}')",
-                "tool": "send_whatsapp_message",
-                "command": f"send_whatsapp_message(contact='{contact}', message='{message}')",
-            },
-            {
-                "type": "status",
-                "text": f"WhatsApp message sent successfully to '{contact}'.",
-            }
-        ]
-        return {"text": text, "thoughts": thoughts}
-
-    # 2. General Queries: Query local Ollama dynamically if online
-    try:
-        import ollama
-        client = ollama.Client(host=get_ollama_client_host())
-
-        # Use the same system prompt builder as the streaming endpoint for consistency
-        try:
-            from src.core.mode import build_system_prompt
-            system_prompt = build_system_prompt(prompt, brain_model, get_ollama_client_host(), "")
-        except Exception:
-            system_prompt = "You are Meridian-X, an intelligent desktop assistant built by Aryan. Be helpful and clear."
-
-        from database import get_conversation_history
-        past_messages = get_conversation_history(limit=10)
-
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in past_messages:
-            # Skip any message whose content matches the current prompt to avoid duplication
-            if msg["content"] == prompt:
-                continue
-            messages.append({"role": msg["role"], "content": msg["content"]})
-
-        # Always append the current user prompt at the end
-        messages.append({"role": "user", "content": prompt})
-
-        res = client.chat(
-            model=brain_model,
-            messages=messages
-        )
-        # ChatResponse is an object, not a dict — access via attribute
-        text = res.message.content if hasattr(res, "message") and hasattr(res.message, "content") else ""
-
-        
-        thoughts = [
-            {
-                "type": "planning",
-                "text": f"Analyzing user intent: '{prompt}' using {brain_model}",
-            },
-            {
-                "type": "exec",
-                "text": "Querying local LLM via Ollama API",
-                "tool": "ollama_api",
-                "command": f"ollama run {brain_model}",
-            },
-            {
-                "type": "status",
-                "text": f"Inference complete. Parsed response from {brain_model}.",
-            }
-        ]
-        return {"text": text, "thoughts": thoughts}
-    except Exception as e:
-        print("Ollama query failed, falling back to simulated placeholder:", e)
-
-    # 3. Fallback placeholder if Ollama is not running/failing
-    text = f"I have received and logged your task: '{prompt}'. I've initialized the system agent to map, inspect, and execute these rules safely within your secure desktop sandbox. Let me know if you need any adjustments."
-    thoughts = [
-        {
-            "type": "planning",
-            "text": f"Parsing input script semantic objectives and variables on model: {brain_model}...",
-            "tool": "brain_model",
-        },
-        {
-            "type": "exec",
-            "text": "Validating current desktop host metrics and window constraints",
-            "tool": "system_api",
-            "command": "uname -a && uptime",
-        },
-        {
-            "type": "info",
-            "text": "Active workspace: Host environment verified. Secure user execution state is Green.",
-            "tool": "system_api",
-        },
-        {
-            "type": "status",
-            "text": "Assistant loop idle, standing by for user command integration...",
-        }
-    ]
-    return {"text": text, "thoughts": thoughts}
 
 # Initialize TTS engine globally
 tts_engine = None
@@ -1354,6 +1168,9 @@ def get_tts_engine():
 
 from fastapi.responses import StreamingResponse
 import tempfile
+import io
+import soundfile as sf
+import numpy as np
 
 class TTSRequest(BaseModel):
     text: str
@@ -1373,22 +1190,31 @@ def tts_synthesize(request: TTSRequest):
         target_lang = request.lang if request.lang else "na"
         wav, duration = engine.synthesize(request.text, voice_style=style, lang=target_lang)
         
-        # Save to temp file
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, f"meridian_tts_{random.randint(1000, 9999)}.wav")
-        engine.save_audio(wav, temp_path)
-        
-        def iterfile():
+        # In-memory WAV encoding (zero disk I/O latency)
+        sample_rate = getattr(engine, 'sample_rate', 24000)
+        try:
+            if hasattr(wav, 'numpy'):
+                audio_data = wav.numpy().squeeze()
+            elif isinstance(wav, np.ndarray):
+                audio_data = wav.squeeze()
+            else:
+                audio_data = np.array(wav, dtype=np.float32).squeeze()
+            
+            buf = io.BytesIO()
+            sf.write(buf, audio_data, samplerate=sample_rate, format='WAV')
+            return Response(content=buf.getvalue(), media_type="audio/wav")
+        except Exception:
+            # Fallback to temp file if direct memory serialization encounters unexpected type
+            temp_dir = tempfile.gettempdir()
+            temp_path = os.path.join(temp_dir, f"meridian_tts_{random.randint(1000, 9999)}.wav")
+            engine.save_audio(wav, temp_path)
+            with open(temp_path, mode="rb") as fh:
+                wav_bytes = fh.read()
             try:
-                with open(temp_path, mode="rb") as fh:
-                    yield from fh
-            finally:
-                try:
-                    os.remove(temp_path)
-                except Exception:
-                    pass
-                
-        return StreamingResponse(iterfile(), media_type="audio/wav")
+                os.remove(temp_path)
+            except Exception:
+                pass
+            return Response(content=wav_bytes, media_type="audio/wav")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {str(e)}")
 
@@ -1482,7 +1308,7 @@ async def chat(request: ChatRequest):
         modelSettings = request.modelSettings
         if not modelSettings:
             provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
-            selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
+            selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or ""
             model_source = get_user_profile("meridian_model_source") or os.environ.get("MERIDIAN_MODEL_SOURCE") or ("local" if provider == "ollama" else "cloud")
             modelSettings = ModelSettings(
                 modelSource=model_source,
@@ -1496,7 +1322,7 @@ async def chat(request: ChatRequest):
 
         model_source = modelSettings.modelSource
         api_provider = modelSettings.apiProvider or get_user_profile("meridian_provider") or "ollama"
-        brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or "llama3.2:3b"
+        brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or ""
         ollama_host = get_ollama_client_host()
 
         accumulated_text = ""
@@ -1561,7 +1387,7 @@ def chat_stream(request: ChatRequest):
     modelSettings = request.modelSettings
     if not modelSettings:
         provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
-        selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or "qwen2.5-coder"
+        selected_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or ""
         model_source = get_user_profile("meridian_model_source") or os.environ.get("MERIDIAN_MODEL_SOURCE") or ("local" if provider == "ollama" else "cloud")
         modelSettings = ModelSettings(
             modelSource=model_source,
@@ -1575,7 +1401,7 @@ def chat_stream(request: ChatRequest):
 
     model_source = modelSettings.modelSource
     api_provider = modelSettings.apiProvider or get_user_profile("meridian_provider") or "ollama"  # BUG-8 fix: read DB provider instead of hardcoding 'gemini'
-    brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or "llama3.2:3b"
+    brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or ""
     ollama_host = get_ollama_client_host()
     
     if (api_provider or "").lower() == "ollama":
@@ -1617,9 +1443,15 @@ def chat_stream(request: ChatRequest):
                     err_msg = json.dumps({"chat": "\n[Stream Error: LLM response timed out after 120s of inactivity.]\n", "speech": "", "lang": "en"})
                     yield f"event: text\ndata: {err_msg}\n\n"
                     break
-        except Exception as e:
-            err_msg = json.dumps({"chat": f"\n[Stream Error: {str(e)}]\n", "speech": "", "lang": "en"})
-            yield f"event: text\ndata: {err_msg}\n\n"
+        except (Exception, asyncio.CancelledError, GeneratorExit) as e:
+            try:
+                from src.core.loop import interrupt_agent_loop
+                interrupt_agent_loop()
+            except Exception:
+                pass
+            if not isinstance(e, (asyncio.CancelledError, GeneratorExit)):
+                err_msg = json.dumps({"chat": f"\n[Stream Error: {str(e)}]\n", "speech": "", "lang": "en"})
+                yield f"event: text\ndata: {err_msg}\n\n"
         finally:
             reset_cancel_flag()
             try:
@@ -1639,10 +1471,24 @@ def chat_stream(request: ChatRequest):
         media_type="text/event-stream"
     )
 
+@app.post("/api/chat/abort")
+@app.post("/api/chat/stop")
+def chat_abort():
+    try:
+        from src.core.loop import interrupt_agent_loop
+        from src.core.loop_stream import request_stream_cancellation
+        request_stream_cancellation("default")
+        interrupt_agent_loop()
+        return {"status": "success", "message": "Chat execution aborted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/chat/clear")
 def chat_clear():
     from database import clear_conversations
+    from src.core.loop import interrupt_agent_loop
     from src.core.loop_stream import reset_cancel_flag
+    interrupt_agent_loop()
     reset_cancel_flag()
     clear_conversations()
     return {"status": "success", "message": "Conversation history cleared."}
@@ -1867,7 +1713,8 @@ def propose_heal(request: ProposeHealRequest):
         import ollama
         ollama_host = get_ollama_client_host()
         client = ollama.Client(host=ollama_host)
-        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+        from database import get_brain_model
+        model = get_brain_model()
 
         is_secret = request.error_message == "secret_leak"
         
@@ -2308,6 +2155,8 @@ def get_developer_stats():
             "failed_tasks": failed_tasks,
             "security_audits": security_audits,
             "pomodoros": pomodoros,
+            "pomodoros_completed": pomodoros,
+            "count": pomodoros,
             "successful_heals": successful_heals,
             "git_commits": git_commits
         }
@@ -2388,8 +2237,8 @@ def sandbox_run(request: SandboxRequest):
                 reasoning = line.split(":", 1)[1].strip()
     except Exception as e:
         try:
-            from database import get_user_profile
-            main_model = os.environ.get("MERIDIAN_MODEL") or get_user_profile("meridian_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
+            from database import get_brain_model
+            main_model = get_brain_model()
             audit_res = client.generate(model=main_model, prompt=audit_prompt)
             audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
             for line in audit_text.split("\n"):
@@ -2684,7 +2533,27 @@ def voice_interrupt():
     try:
         from src.core.loop import interrupt_agent_loop
         interrupt_agent_loop()
+        try:
+            from src.voice.tts import stop_active_tts
+            stop_active_tts()
+        except Exception:
+            pass
         return {"status": "success", "message": "Inference and stream playback interrupted."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/chat/abort")
+@app.post("/api/chat/stop")
+def chat_abort():
+    try:
+        from src.core.loop import interrupt_agent_loop
+        interrupt_agent_loop()
+        try:
+            from src.voice.tts import stop_active_tts
+            stop_active_tts()
+        except Exception:
+            pass
+        return {"status": "success", "message": "Chat execution aborted."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2764,14 +2633,26 @@ def post_p2p_toggle():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/api/p2p/qr")
-def get_p2p_qr_payload():
-    from src.core.p2p import generate_qr_pairing_payload
+@app.get("/api/p2p/pairing-info")
+def get_p2p_pairing_info():
+    """Returns manual pairing connection details (host/port) without secrets.
+    The mobile client enters these manually; the secret is verified via
+    POST /api/p2p/verify-pairing and is never exposed here."""
+    import socket
+    host_ip = "127.0.0.1"
     try:
-        payload = generate_qr_pairing_payload()
-        return {"status": "success", "payload": payload}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        host_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+    try:
+        from src.core.p2p import P2P_PORT
+        port = P2P_PORT
+    except Exception:
+        port = 4133
+    return {"status": "success", "host": host_ip, "port": port}
 
 class VerifyPairingRequest(BaseModel):
     secret: str
@@ -2915,12 +2796,12 @@ def toggle_power_save(request: PowerSaveRequest):
             return {"status": "success", "message": "Power-Saving Mode activated. Using lightweight fallback model."}
         else:
             from database import get_user_profile
-            default_model = get_user_profile("meridian_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
+            default_model = get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL", "")
             os.environ["MERIDIAN_MODEL"] = default_model
-            auditor_model = get_user_profile("meridian_auditor_model") or "qwen2.5-coder:7b-instruct-q4_K_M"
+            auditor_model = get_user_profile("meridian_auditor_model") or os.environ.get("MERIDIAN_AUDITOR_MODEL", "")
             os.environ["MERIDIAN_AUDITOR_MODEL"] = auditor_model
             print(f"[Resource Governor] Power-Saving Mode deactivated. Model restored to {default_model}.")
-            return {"status": "success", "message": f"Power-Saving Mode deactivated. Restored default model {default_model}."}
+            return {"status": "success", "message": f"Power-Saving Mode deactivated. Restored model {default_model}."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -2931,7 +2812,8 @@ def check_startup_enabled():
         return False
     startup_dir = os.path.join(appdata, r"Microsoft\Windows\Start Menu\Programs\Startup")
     vbs_path = os.path.join(startup_dir, "MeridianStartup.vbs")
-    return os.path.exists(vbs_path)
+    lnk_path = os.path.join(startup_dir, "Meridian.lnk")
+    return os.path.exists(vbs_path) or os.path.exists(lnk_path)
 
 class StartupRequest(BaseModel):
     enabled: bool
@@ -3365,7 +3247,7 @@ def api_delete_custom_mcp_server(server_name: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-CURRENT_VERSION = "0.1.4"
+CURRENT_VERSION = "0.1.5"
 
 _auto_download_in_progress = False
 _auto_download_ready = False
@@ -4444,33 +4326,6 @@ def set_security_guard_api(req: SetSecurityGuardReq):
         "mode_label": "Unrestricted PC Access Mode" if level == 0 else "Strict Approval Gates (Level 1)"
     }
 
-@app.get("/api/system/pairing_qr")
-def get_pairing_qr_api():
-    """Generates desktop-to-mobile pairing details and QR payload string."""
-    import socket
-    local_ip = "127.0.0.1"
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        local_ip = s.getsockname()[0]
-        s.close()
-    except Exception:
-        pass
-    
-    endpoint = f"http://{local_ip}:8000"
-    payload = {
-        "version": "1.0.0",
-        "desktop_name": platform.node() or "Meridian-X Desktop",
-        "endpoint": endpoint,
-        "token": secrets.token_hex(16),
-        "timestamp": time.time()
-    }
-    return {
-        "status": "success",
-        "endpoint": endpoint,
-        "qr_payload": json.dumps(payload)
-    }
-
 # OPS-04: Local-Only Air-Gap Mode Endpoints
 @app.get("/api/mode/airgap")
 def get_airgap_mode_api():
@@ -4647,11 +4502,31 @@ def api_get_network_endpoints():
 @app.websocket("/api/ws/mobile")
 async def mobile_websocket_endpoint(websocket: WebSocket, device_id: Optional[str] = None):
     """MOB-01: Full-Duplex WebSocket bridge between mobile app (Tauri v2 Android) and backend."""
-    from src.core.mobile_bridge import mobile_manager
+    from src.core.mobile_bridge import (
+        mobile_manager, verify_mobile_ws_token, is_streaming_request,
+    )
+    if not verify_mobile_ws_token(websocket.query_params.get("token")):
+        await websocket.accept()
+        await websocket.send_text(json.dumps({
+            "type": "command_error",
+            "error": "Authentication required. Please configure your pairing password."
+        }))
+        await websocket.close(code=4401)
+        return
     await mobile_manager.connect(websocket, device_id=device_id)
     try:
         while True:
             raw_text = await websocket.receive_text()
+            try:
+                payload = json.loads(raw_text)
+            except Exception:
+                payload = {"type": "text_message", "content": raw_text}
+            if is_streaming_request(payload):
+                await websocket.send_text(json.dumps({"type": "ack", "received": "user_prompt"}))
+                asyncio.create_task(
+                    mobile_manager.stream_user_prompt(websocket, str(payload.get("content", "")))
+                )
+                continue
             response_payload = await mobile_manager.process_incoming_message(websocket, raw_text)
             if response_payload:
                 await websocket.send_text(json.dumps(response_payload))
@@ -4848,7 +4723,140 @@ async def websocket_agent_status_stream(websocket: WebSocket):
         agent_status_stream_manager.unregister_connection(websocket)
 
 
+# --- DEVELOPER INTELLIGENCE SUITE ENDPOINTS ---
+
+from src.core.proactive_system_guard import system_guard
+from src.core.deep_project_context import DeepProjectContextEngine
+from src.core.workspace_orchestrator import WorkspaceOrchestrator
+from src.core.self_evolving_tooling import SelfEvolvingToolingManager
+from src.core.explain_code_engine import ExplainCodeEngine
+from src.core.experiment_runner import ExperimentRunner
+from src.core.silent_workflow_guardian import SilentWorkflowGuardian
+from src.core.what_broke_detective import WhatBrokeDetective
+from src.core.boilerplate_genie import BoilerplateGenie
+from src.core.commit_whisperer import CommitWhisperer
+
+WORKSPACE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+deep_context_engine = DeepProjectContextEngine(WORKSPACE_ROOT)
+workspace_orchestrator = WorkspaceOrchestrator(WORKSPACE_ROOT)
+self_evolving_manager = SelfEvolvingToolingManager(os.path.join(WORKSPACE_ROOT, "meridian_backend", "src", "tools"))
+explain_engine = ExplainCodeEngine(WORKSPACE_ROOT)
+experiment_runner = ExperimentRunner()
+silent_guardian = SilentWorkflowGuardian(WORKSPACE_ROOT)
+what_broke_detective = WhatBrokeDetective(WORKSPACE_ROOT)
+boilerplate_genie = BoilerplateGenie(WORKSPACE_ROOT)
+commit_whisperer = CommitWhisperer(WORKSPACE_ROOT)
+
+@app.get("/api/guard/resources")
+async def get_system_guard_resources():
+    return system_guard.check_system_resources()
+
+class KillProcessPayload(BaseModel):
+    pid: int
+
+@app.post("/api/guard/kill-process")
+async def kill_system_process(payload: KillProcessPayload):
+    return system_guard.kill_process(payload.pid)
+
+class AutoHealPayload(BaseModel):
+    kill_rogue_processes: bool = False
+
+@app.post("/api/guard/auto-heal")
+async def auto_heal_system_resources(payload: AutoHealPayload):
+    return system_guard.auto_heal_anomalies(kill_rogue_processes=payload.kill_rogue_processes)
+
+@app.post("/api/context/scan")
+async def scan_workspace_context():
+    return deep_context_engine.scan_workspace()
+
+class LaunchPresetPayload(BaseModel):
+    preset: str = "coding"
+
+@app.post("/api/orchestrator/launch")
+async def launch_workspace_preset(payload: LaunchPresetPayload):
+    return workspace_orchestrator.launch_preset(payload.preset)
+
+class PrepareToolPayload(BaseModel):
+    tool_name: str
+    code: str
+    description: str
+
+@app.post("/api/self-evolving/prepare")
+async def prepare_self_evolving_tool(payload: PrepareToolPayload):
+    return self_evolving_manager.prepare_tool_script(payload.tool_name, payload.code, payload.description)
+
+class ExecuteSandboxPayload(BaseModel):
+    sandbox_id: str
+    approved_by_user: bool = False
+
+@app.post("/api/self-evolving/sandbox-execute")
+async def execute_tool_sandbox(payload: ExecuteSandboxPayload):
+    return self_evolving_manager.execute_in_sandbox(payload.sandbox_id, payload.approved_by_user)
+
+class RegisterToolPayload(BaseModel):
+    sandbox_id: str
+
+@app.post("/api/self-evolving/register")
+async def register_permanent_tool(payload: RegisterToolPayload):
+    return self_evolving_manager.register_permanent_tool(payload.sandbox_id)
+
+class ExplainSymbolPayload(BaseModel):
+    file_path: str
+    line_number: int = 1
+    code_snippet: str = ""
+
+@app.post("/api/explain/symbol")
+async def explain_code_symbol(payload: ExplainSymbolPayload):
+    return explain_engine.explain_symbol_or_error(payload.file_path, payload.line_number, payload.code_snippet)
+
+class ExperimentPayload(BaseModel):
+    endpoint: str
+    method: str = "GET"
+    headers: Optional[Dict[str, str]] = None
+    payload: Optional[Dict[str, Any]] = None
+    expected_status: int = 200
+    expected_schema_keys: Optional[List[str]] = None
+
+@app.post("/api/experiment/run")
+async def run_api_experiment(payload: ExperimentPayload):
+    return await experiment_runner.run_experiment(
+        endpoint=payload.endpoint,
+        method=payload.method,
+        headers=payload.headers,
+        payload=payload.payload,
+        expected_status=payload.expected_status,
+        expected_schema_keys=payload.expected_schema_keys
+    )
+
+class GuardianInspectPayload(BaseModel):
+    file_path: str
+    content: str
+
+@app.post("/api/guardian/inspect")
+async def inspect_guardian_changes(payload: GuardianInspectPayload):
+    return {"alerts": silent_guardian.inspect_recent_changes(payload.file_path, payload.content)}
+
+class DetectiveDiagnosePayload(BaseModel):
+    updated_package: str = ""
+
+@app.post("/api/detective/diagnose")
+async def diagnose_what_broke(payload: DetectiveDiagnosePayload):
+    return what_broke_detective.diagnose_failures(payload.updated_package)
+
+class BoilerplateGeniePayload(BaseModel):
+    component_name: str
+    target_dir: str = "meridian_frontend/src/components"
+
+@app.post("/api/boilerplate/generate")
+async def generate_component_boilerplate(payload: BoilerplateGeniePayload):
+    return boilerplate_genie.generate_component_stub(payload.component_name, payload.target_dir)
+
+@app.get("/api/commit-whisperer/inspect")
+async def inspect_commit_status():
+    return commit_whisperer.inspect_staged_commit()
+
 @app.get("/docs", include_in_schema=False)
+
 async def custom_swagger_ui_html():
     from fastapi.openapi.docs import get_swagger_ui_html
     return get_swagger_ui_html(
@@ -4866,11 +4874,58 @@ async def swagger_ui_redirect():
     return get_swagger_ui_oauth2_redirect_html()
 
 
+def ensure_port_available(port: int, host: str = "127.0.0.1") -> bool:
+    """Detects whether port is occupied and frees it from zombie/lingering python instances."""
+    import socket
+    import subprocess
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.3)
+            res = s.connect_ex((host, port))
+            if res != 0:
+                return True  # Port is free
+    except Exception:
+        return True
+
+    print(f"[Port Recovery] Port {port} is already occupied. Attempting to release conflicting listener...")
+    my_pid = os.getpid()
+    if platform.system() == "Windows":
+        try:
+            cmd = f'powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"'
+            out = subprocess.run(cmd, capture_output=True, text=True, shell=True, timeout=5)
+            pids = set()
+            for line in out.stdout.split():
+                if line.strip().isdigit():
+                    pids.add(int(line.strip()))
+            for pid in pids:
+                if pid and pid != my_pid:
+                    print(f"[Port Recovery] Terminating conflicting process PID {pid} on port {port}...")
+                    subprocess.run(f"taskkill /F /PID {pid}", capture_output=True, shell=True)
+            time.sleep(1.0)
+        except Exception as err:
+            print(f"[Port Recovery] Windows port clearance failed: {err}")
+    else:
+        try:
+            subprocess.run(f"fuser -k {port}/tcp", shell=True, capture_output=True)
+            time.sleep(0.5)
+        except Exception as err:
+            print(f"[Port Recovery] POSIX port clearance failed: {err}")
+    return True
+
+
 if __name__ == "__main__":
     import uvicorn
-    # Bind to 0.0.0.0 by default to allow local LAN & mobile APK connections
-    bind_host = os.environ.get("MERIDIAN_BIND_HOST", "0.0.0.0")
-    uvicorn.run(app, host=bind_host, port=4132)
+    # Bind to 0.0.0.0 by default to allow local LAN & mobile companion connections.
+    # Honors MERIDIAN_BIND_HOST/HOST and MERIDIAN_PORT/PORT so docker-compose
+    # environment variables actually take effect (defaults: 0.0.0.0:4132).
+    bind_host = os.environ.get("MERIDIAN_BIND_HOST", os.environ.get("HOST", "0.0.0.0"))
+    port_raw = os.environ.get("MERIDIAN_PORT", os.environ.get("PORT", "4132"))
+    try:
+        bind_port = int(port_raw)
+    except (TypeError, ValueError):
+        bind_port = 4132
+    ensure_port_available(bind_port)
+    uvicorn.run(app, host=bind_host, port=bind_port)
 
 
 

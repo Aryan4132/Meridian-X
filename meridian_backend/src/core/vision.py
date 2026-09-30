@@ -26,12 +26,12 @@ async def analyze_screen_multimodal(
     prompt: str = _DEFAULT_PROMPT,
     crop_box: Optional[Dict[str, int]] = None,
     image_path: Optional[str] = None,
-    preferred_provider: Optional[str] = None
+    preferred_provider: Optional[str] = None,
+    model: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Captures screen or reads image_path, applies optional crop_box ROI,
-    converts to base64, and tries visual LLM providers in fallback sequence:
-    OpenAI (gpt-4o) → Gemini (gemini-1.5-flash) → Anthropic (claude-3-5-sonnet) → Ollama (moondream:1.8b) → Mock.
+    converts to base64, and tries visual LLM providers using user configured model.
     """
     temp_created = False
     target_path = image_path
@@ -78,16 +78,20 @@ async def analyze_screen_multimodal(
         with open(output_path, "rb") as f:
             b64 = base64.b64encode(f.read()).decode("utf-8")
 
+        from database import get_vision_model
+        active_vision_model = model or get_vision_model()
+
         # Provider 1: OpenAI
         openai_key = os.getenv("OPENAI_API_KEY", "")
         if openai_key and (not preferred_provider or preferred_provider == "openai"):
             try:
+                target_model = active_vision_model or "gpt-4o"
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     res = await client.post(
                         "https://api.openai.com/v1/chat/completions",
                         headers={"Authorization": f"Bearer {openai_key}"},
                         json={
-                            "model": "gpt-4o",
+                            "model": target_model,
                             "messages": [{
                                 "role": "user",
                                 "content": [
@@ -100,7 +104,7 @@ async def analyze_screen_multimodal(
                     )
                     if res.status_code == 200:
                         text = res.json()["choices"][0]["message"]["content"].strip()
-                        return {"success": True, "provider": "openai", "model": "gpt-4o", "analysis": text}
+                        return {"success": True, "provider": "openai", "model": target_model, "analysis": text}
             except Exception as exc:
                 logger.warning("[Vision] OpenAI call failed: %s", exc)
 
@@ -108,8 +112,9 @@ async def analyze_screen_multimodal(
         gemini_key = os.getenv("GEMINI_API_KEY", "")
         if gemini_key and (not preferred_provider or preferred_provider == "gemini"):
             try:
+                target_model = active_vision_model or "gemini-1.5-flash"
                 async with httpx.AsyncClient(timeout=120.0) as client:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={gemini_key}"
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={gemini_key}"
                     res = await client.post(url, json={
                         "contents": [{"parts": [
                             {"inline_data": {"mime_type": "image/png", "data": b64}},
@@ -118,14 +123,15 @@ async def analyze_screen_multimodal(
                     })
                     if res.status_code == 200:
                         text = res.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                        return {"success": True, "provider": "gemini", "model": "gemini-1.5-flash", "analysis": text}
+                        return {"success": True, "provider": "gemini", "model": target_model, "analysis": text}
             except Exception as exc:
                 logger.warning("[Vision] Gemini call failed: %s", exc)
 
-        # Provider 3: Anthropic (Claude 3.5 Sonnet)
+        # Provider 3: Anthropic
         anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
         if anthropic_key and (not preferred_provider or preferred_provider == "anthropic"):
             try:
+                target_model = active_vision_model or "claude-3-5-sonnet-20241022"
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     res = await client.post(
                         "https://api.anthropic.com/v1/messages",
@@ -135,7 +141,7 @@ async def analyze_screen_multimodal(
                             "content-type": "application/json"
                         },
                         json={
-                            "model": "claude-3-5-sonnet-20241022",
+                            "model": target_model,
                             "max_tokens": 512,
                             "messages": [{
                                 "role": "user",
@@ -155,34 +161,36 @@ async def analyze_screen_multimodal(
                     )
                     if res.status_code == 200:
                         content_block = res.json()["content"][0]["text"].strip()
-                        return {"success": True, "provider": "anthropic", "model": "claude-3-5-sonnet", "analysis": content_block}
+                        return {"success": True, "provider": "anthropic", "model": target_model, "analysis": content_block}
             except Exception as exc:
                 logger.warning("[Vision] Anthropic call failed: %s", exc)
 
         # Provider 4: Ollama local fallback
         if not preferred_provider or preferred_provider == "ollama":
             try:
+                from database import get_vision_model
+                active_vision_model = model or get_vision_model()
                 ollama_host = get_ollama_host()
                 url = f"{ollama_host.rstrip('/')}/api/generate"
                 async with httpx.AsyncClient(timeout=3.0) as client:
                     res = await client.post(url, json={
-                        "model": "moondream:1.8b",
+                        "model": active_vision_model,
                         "prompt": prompt,
                         "images": [b64],
                         "stream": False
                     })
                     if res.status_code == 200:
                         text = res.json().get("response", "No visual details found.").strip()
-                        return {"success": True, "provider": "ollama", "model": "moondream:1.8b", "analysis": text}
+                        return {"success": True, "provider": "ollama", "model": active_vision_model, "analysis": text}
             except Exception as exc:
                 logger.warning("[Vision] Ollama call failed: %s", exc)
 
 
         return {
-            "success": True,
-            "provider": "mock",
-            "model": "mock",
-            "analysis": "Vision simulation: Active developer workspace detected with clean layout."
+            "success": False,
+            "provider": None,
+            "model": None,
+            "error": "No visual LLM provider succeeded. Please ensure a vision model is active or cloud API keys are set."
         }
     finally:
         try:

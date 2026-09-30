@@ -65,7 +65,8 @@ class LocalModelManager:
         self.ollama_base_url = ollama_base_url or os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434")
         if not self.ollama_base_url.startswith("http://") and not self.ollama_base_url.startswith("https://"):
             self.ollama_base_url = f"http://{self.ollama_base_url}"
-        self.active_config: LocalModelConfig = LocalModelConfig(model_name="llama3:8b-instruct-q4_K_M")
+        from database import get_brain_model
+        self.active_config: LocalModelConfig = LocalModelConfig(model_name=get_brain_model())
 
     def estimate_resource_requirements(self, param_count_b: float, quant_name: str) -> Dict[str, Any]:
         """Estimate VRAM/RAM required for model given parameter count (in Billions) and quantization level."""

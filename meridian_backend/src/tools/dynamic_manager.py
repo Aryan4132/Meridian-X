@@ -13,10 +13,13 @@ from src.core.audit_logger import log_sensitive_action
 logger = logging.getLogger("meridian_dynamic_tools")
 DYNAMIC_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dynamic_tools")
 
-os.makedirs(DYNAMIC_TOOLS_DIR, exist_ok=True)
+
+def _ensure_dynamic_tools_dir() -> None:
+    os.makedirs(DYNAMIC_TOOLS_DIR, exist_ok=True)
 
 def create_dynamic_tool(tool_name: str, description: str, python_code: str, tier: int = 1) -> str:
     """Validates Python code via AST, writes file, and registers dynamic tool (AST-13)."""
+    _ensure_dynamic_tools_dir()
     from src.tools.registry import register_dynamic_tool
     # 1. AST Syntax validation
     try:

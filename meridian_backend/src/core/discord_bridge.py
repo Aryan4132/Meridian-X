@@ -231,14 +231,15 @@ async def _send_tts_reply(message, reply_text: str) -> None:
 def _is_sender_allowed(author_id: int) -> bool:
     """Check if Discord user ID is on the Meridian allowlist.
 
-    Returns True if allowlist is empty (no restriction) or user is in list.
+    Fail-closed: an unset or unparseable allowlist denies everyone, since the
+    bot executes agent commands on the host.
     """
     allowed_ids_raw = os.environ.get("MERIDIAN_ALLOWED_DISCORD_IDS", "")
     if not allowed_ids_raw.strip():
-        return True  # No allowlist configured — open access
+        return False  # No allowlist configured — deny access
     allowed_ids = {int(x.strip()) for x in allowed_ids_raw.split(",") if x.strip().isdigit()}
     if not allowed_ids:
-        return True  # Parsing yielded empty set
+        return False  # Parsing yielded empty set — deny access
     return author_id in allowed_ids
 
 
@@ -256,23 +257,35 @@ async def _run_agent_for_message(message, prompt_text: str, is_voice: bool = Fal
     async with message.channel.typing():
         try:
             from src.core.loop import run_react_agent_loop
-            model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-            ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+            from database import get_user_profile, get_ollama_client_host
+            provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
+            model = (
+                get_user_profile("meridian_model")
+                or os.environ.get("MERIDIAN_MODEL")
+                or ""
+            )
+            model_source = (
+                get_user_profile("meridian_model_source")
+                or os.environ.get("MERIDIAN_MODEL_SOURCE")
+                or ("local" if provider == "ollama" else "api")
+            )
+            ollama_host = get_ollama_client_host()
             if not ollama_host.startswith("http"):
                 ollama_host = f"http://{ollama_host}"
 
             reply_parts = []
-            async for event in run_react_agent_loop(prompt_text, model, ollama_host):
+            async for event in run_react_agent_loop(
+                prompt_text, model, ollama_host,
+                model_source=model_source, api_provider=provider,
+            ):
                 if event.startswith("event: text\n"):
                     for line in event.splitlines():
                         if line.startswith("data: "):
                             reply_parts.append(line[6:])
 
             reply_text = "".join(reply_parts).strip() or "Task completed."
-
-            from database import add_to_conversations
-            add_to_conversations("user", prompt_text)
-            add_to_conversations("assistant", reply_text)
+            # NOTE: run_react_agent_loop already logs user + assistant turns
+            # to conversations — do not duplicate here.
 
             # Send chunked text reply
             await _send_discord_message(message, reply_text)
@@ -596,3 +609,16 @@ def _run_bot(token):
         # BUG-12 fix: always close the private event loop when the bot exits
         if not _loop.is_closed():
             _loop.close()
+
+
+if __name__ == "__main__":
+    print("🚀 [Discord Bridge Daemon] Starting standalone Discord bot daemon...")
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if not token:
+        print("[Discord Bridge] DISCORD_BOT_TOKEN not configured in .env. Bot bridge disabled.")
+    elif not discord:
+        print("[Discord Bridge] discord.py library not installed. Bot bridge disabled.")
+    else:
+        # Run in the foreground: a daemon thread would die with the main thread.
+        _run_bot(token)
+

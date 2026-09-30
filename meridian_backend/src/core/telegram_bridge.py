@@ -182,40 +182,56 @@ def _poll_loop():
                 continue
                 
             for update in data.get("result", []):
-                offset = update["update_id"] + 1
-                message = update.get("message")
-                if not message:
+                # Always advance the offset first so a malformed update can
+                # never trap the poll loop in a busy-spin.
+                try:
+                    offset = int(update.get("update_id", offset)) + 1
+                except Exception:
+                    offset += 1
                     continue
-                    
-                chat = message.get("chat", {})
-                chat_id = chat.get("id")
-                
-                # SEC-17: Telegram Allowlist Check
-                allowed_tg_ids = os.environ.get("MERIDIAN_ALLOWED_TELEGRAM_IDS", "")
-                if allowed_tg_ids:
-                    allowed_set = {int(x.strip()) for x in allowed_tg_ids.split(",") if x.strip().isdigit()}
-                    if allowed_set and chat_id not in allowed_set:
-                        from src.core.audit_logger import log_sensitive_action
-                        log_sensitive_action("SECURITY_VIOLATION", "bridge_unauthorized_sender", {"chat_id": chat_id, "platform": "telegram"}, "FAILED")
+                try:
+                    message = update.get("message")
+                    if not message:
+                        continue
+
+                    chat = message.get("chat", {})
+                    chat_id = chat.get("id")
+
+                    # Fail-closed auth: with neither allowlist nor authorized
+                    # chat ID configured, deny everyone (the bot runs commands).
+                    allowed_tg_ids = os.environ.get("MERIDIAN_ALLOWED_TELEGRAM_IDS", "")
+                    if not allowed_tg_ids.strip() and not auth_chat_id:
+                        print("[Telegram Bridge] No allowlist configured — denying access (fail-closed).")
+                        continue
+
+                    # SEC-17: Telegram Allowlist Check
+                    if allowed_tg_ids.strip():
+                        allowed_set = {int(x.strip()) for x in allowed_tg_ids.split(",") if x.strip().isdigit()}
+                        if not allowed_set or chat_id not in allowed_set:
+                            from src.core.audit_logger import log_sensitive_action
+                            log_sensitive_action("SECURITY_VIOLATION", "bridge_unauthorized_sender", {"chat_id": chat_id, "platform": "telegram"}, "FAILED")
+                            try:
+                                client.post(
+                                    f"https://api.telegram.org/bot{token}/sendMessage",
+                                    json={"chat_id": chat_id, "text": "⚠️ Access Denied: Your Telegram account is not on the Meridian-X allowlist."}
+                                )
+                            except Exception:
+                                pass
+                            continue
+
+                    # Security Check
+                    if auth_chat_id and chat_id != auth_chat_id:
+                        print(f"[Telegram Bridge] Blocked unauthorized access from Chat ID: {chat_id}")
                         try:
                             client.post(
                                 f"https://api.telegram.org/bot{token}/sendMessage",
-                                json={"chat_id": chat_id, "text": "⚠️ Access Denied: Your Telegram account is not on the Meridian-X allowlist."}
+                                json={"chat_id": chat_id, "text": "⚠️ Access Denied: You are not authorized to control this Meridian-X instance."}
                             )
                         except Exception:
                             pass
                         continue
-
-                # Security Check
-                if auth_chat_id and chat_id != auth_chat_id:
-                    print(f"[Telegram Bridge] Blocked unauthorized access from Chat ID: {chat_id}")
-                    try:
-                        client.post(
-                            f"https://api.telegram.org/bot{token}/sendMessage",
-                            json={"chat_id": chat_id, "text": "⚠️ Access Denied: You are not authorized to control this Meridian-X instance."}
-                        )
-                    except Exception:
-                        pass
+                except Exception as e:
+                    print(f"[Telegram Bridge] Skipping malformed update: {e}")
                     continue
 
                 # Rate Limit Check
@@ -240,8 +256,10 @@ def _poll_loop():
                     file_id = voice.get("file_id")
                     # Retrieve file path
                     file_info_res = client.get(f"https://api.telegram.org/bot{token}/getFile", params={"file_id": file_id})
+                    file_path = None
                     if file_info_res.status_code == 200 and file_info_res.json().get("ok"):
-                        file_path = file_info_res.json()["result"].get("file_path")
+                        file_path = (file_info_res.json().get("result") or {}).get("file_path")
+                    if file_path:
                         file_url = f"https://api.telegram.org/file/bot{token}/{file_path}"
                         # BUG-67 fix: stream OGG download in chunks to avoid loading
                         # up to 20MB entirely into RAM before writing to disk.
@@ -249,6 +267,7 @@ def _poll_loop():
                         temp_dir = tempfile.gettempdir()
                         temp_ogg = os.path.join(temp_dir, f"meridian_telegram_voice_{int(time.time())}.ogg")
                         with client.stream("GET", file_url) as r:
+                            r.raise_for_status()
                             with open(temp_ogg, "wb") as f:
                                 for chunk in r.iter_bytes(chunk_size=8192):
                                     f.write(chunk)
@@ -290,16 +309,30 @@ def _poll_loop():
                     # Call local agent loop asynchronously
                     import asyncio
                     from src.core.loop import run_react_agent_loop
-                    
-                    model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
-                    ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-                    
+                    from database import get_user_profile, get_ollama_client_host
+
+                    provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
+                    model = (
+                        get_user_profile("meridian_model")
+                        or os.environ.get("MERIDIAN_MODEL")
+                        or ""
+                    )
+                    model_source = (
+                        get_user_profile("meridian_model_source")
+                        or os.environ.get("MERIDIAN_MODEL_SOURCE")
+                        or ("local" if provider == "ollama" else "api")
+                    )
+                    ollama_host = get_ollama_client_host()
+
                     # BUG-56 fix: use isolated new_event_loop without asyncio.set_event_loop().
                     loop = asyncio.new_event_loop()
                     reply_parts = []
-                    
+
                     async def _run():
-                        async for event in run_react_agent_loop(prompt_text, model, ollama_host):
+                        async for event in run_react_agent_loop(
+                            prompt_text, model, ollama_host,
+                            model_source=model_source, api_provider=provider,
+                        ):
                             if event.startswith("event: text\n"):
                                 for line in event.splitlines():
                                     if line.startswith("data: "):
@@ -308,13 +341,10 @@ def _poll_loop():
                         loop.run_until_complete(_run())
                     finally:
                         loop.close()
-                        
+
                     reply_text = "".join(reply_parts).strip() or "Task completed."
-                    
-                    # Log to database conversation history
-                    from database import add_to_conversations
-                    add_to_conversations("user", prompt_text)
-                    add_to_conversations("assistant", reply_text)
+                    # NOTE: run_react_agent_loop already logs user + assistant
+                    # turns to conversations — do not duplicate here.
                     
                     # 1. Send Text Reply (chunked if > 4096 chars)
                     _send_telegram_message(client, token, chat_id, reply_text)
@@ -377,6 +407,15 @@ def _poll_loop():
             time.sleep(5.0)
         except Exception as e:
             print(f"[Telegram Bridge] Polling error: {e}")
-            time.sleep(5.0)
-            
     client.close()
+
+
+if __name__ == "__main__":
+    print("🚀 [Telegram Bridge Daemon] Starting standalone Telegram bot daemon...")
+    TELEGRAM_ACTIVE = True
+    try:
+        _poll_loop()
+    except KeyboardInterrupt:
+        print("[Telegram Bridge Daemon] Stopping bot daemon...")
+        TELEGRAM_ACTIVE = False
+

@@ -29,24 +29,49 @@ def make_outbound_call(to_number: str, objective: str = "Assistant Check-in") ->
     call_id = f"call_{int(time.time()*1000)}"
     now = time.time()
 
-    status = "initiated"
-    provider = "simulated_voip"
+    if not account_sid or not auth_token:
+        record = {
+            "call_id": call_id,
+            "to_number": to_number,
+            "from_number": from_number,
+            "objective": objective,
+            "direction": "outbound",
+            "provider": "twilio",
+            "status": "failed",
+            "error": "Twilio credentials (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN) not configured.",
+            "timestamp": now,
+            "transcript": []
+        }
+        _RECENT_CALL_LOGS.append(record)
+        return record
 
-    if account_sid and auth_token:
-        try:
-            from twilio.rest import Client
-            client = Client(account_sid, auth_token)
-            twiml_url = os.getenv("TWILIO_TWIML_URL", "http://demo.twilio.com/docs/voice.xml")
-            call = client.calls.create(
-                to=to_number,
-                from_=from_number,
-                url=twiml_url
-            )
-            call_id = call.sid
-            provider = "twilio"
-            status = call.status
-        except Exception as exc:
-            logger.warning("[PhoneAgent] Twilio outbound call failed, fallback to simulation: %s", exc)
+    status = "initiated"
+    provider = "twilio"
+    try:
+        from twilio.rest import Client  # type: ignore
+        client = Client(account_sid, auth_token)
+        twiml_url = os.getenv("TWILIO_TWIML_URL", "http://demo.twilio.com/docs/voice.xml")
+        call = client.calls.create(
+            to=to_number,
+            from_=from_number,
+            url=twiml_url
+        )
+        call_id = call.sid
+        status = call.status
+    except Exception as exc:
+        logger.warning("[PhoneAgent] Twilio outbound call failed: %s", exc)
+        return {
+            "call_id": call_id,
+            "to_number": to_number,
+            "from_number": from_number,
+            "objective": objective,
+            "direction": "outbound",
+            "provider": provider,
+            "status": "failed",
+            "error": str(exc),
+            "timestamp": now,
+            "transcript": []
+        }
 
     record = {
         "call_id": call_id,
@@ -129,7 +154,11 @@ def process_post_call_intelligence(call_id: str, full_transcript: Optional[List[
             "transcript": full_transcript or ["Hello, calling regarding tomorrow's 2 PM strategy meeting."]
         }
 
-    lines = full_transcript if full_transcript else call.get("transcript", [])
+    raw_lines = full_transcript if full_transcript else call.get("transcript", [])
+    if isinstance(raw_lines, list):
+        lines = [str(x) for x in raw_lines]
+    else:
+        lines = [str(raw_lines)]
     joint_transcript = " ".join(lines)
 
     summary = f"Call summary for {call_id}: Discussed key topics ({joint_transcript[:80]}...)"
