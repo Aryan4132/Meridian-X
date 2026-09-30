@@ -212,7 +212,8 @@ def read_document_text(file_path: str) -> str:
             return "\n".join(text_parts)
         else:
             try:
-                import xlrd
+                import importlib
+                xlrd = importlib.import_module("xlrd")
             except ImportError:
                 raise ImportError("The 'xlrd' package is required to read old Excel .xls files.")
             wb = xlrd.open_workbook(file_path)
@@ -221,7 +222,7 @@ def read_document_text(file_path: str) -> str:
                 sheet = wb.sheet_by_index(sheet_index)
                 text_parts.append(f"--- Sheet: {sheet.name} ---")
                 for r in range(sheet.nrows):
-                    row_vals = [str(sheet.cell_value(r, c)) for c in range(sheet.ncols)]
+                    row_vals = [f"{sheet.cell_value(r, c)}" for c in range(sheet.ncols)]
                     text_parts.append(" | " + " | ".join(row_vals) + " |")
             return "\n".join(text_parts)
             
@@ -413,7 +414,8 @@ def create_excel_document(file_path: str, sheets_data: Dict[str, List[List[Any]]
     wb = openpyxl.Workbook()
     # Remove default sheet
     default_sheet = wb.active
-    wb.remove(default_sheet)
+    if default_sheet is not None:
+        wb.remove(default_sheet)
     
     for sheet_name, rows in sheets_data.items():
         ws = wb.create_sheet(title=sheet_name)

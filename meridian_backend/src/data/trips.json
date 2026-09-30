@@ -1,0 +1,74 @@
+[
+  {
+    "id": "trip_1789494037",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-15 23:10:37"
+  },
+  {
+    "id": "trip_1789568474",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-16 19:51:14"
+  },
+  {
+    "id": "trip_1789570909",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-16 20:31:49"
+  },
+  {
+    "id": "trip_1789571608",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-16 20:43:28"
+  },
+  {
+    "id": "trip_1789745156",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-18 20:55:56"
+  },
+  {
+    "id": "trip_1789746142",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-18 21:12:22"
+  },
+  {
+    "id": "trip_1789910232",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-20 18:47:12"
+  },
+  {
+    "id": "trip_1789912922",
+    "destination": "Tokyo",
+    "start_date": "2026-10-01",
+    "end_date": "2026-10-10",
+    "flight_number": "JL001",
+    "hotel": "Grand Hyatt",
+    "created_at": "2026-09-20 19:32:02"
+  }
+]

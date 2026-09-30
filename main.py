@@ -86,10 +86,11 @@ async def run_cli_goal(goal: str, model: str):
                 else:
                     # Fallback to REST confirm call if it was routed to the background API
                     import httpx
+                    target_port = os.environ.get("PORT", os.environ.get("MERIDIAN_PORT", "4132"))
                     try:
-                        httpx.post("http://127.0.0.1:4132/api/chat/confirm", json={"id": conf_id, "approved": approved}, timeout=2.0)
-                    except Exception:
-                        pass
+                        httpx.post(f"http://127.0.0.1:{target_port}/api/chat/confirm", json={"id": conf_id, "approved": approved}, timeout=2.0)
+                    except (httpx.HTTPError, OSError) as req_err:
+                        print("CLI confirmation REST fallback failed:", req_err)
                 print("--------------------------------------------------\n")
             except Exception as e:
                 print("Failed to process CLI confirmation:", e)
@@ -100,15 +101,21 @@ async def run_cli_goal(goal: str, model: str):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Meridian-X: Autonomous Offline Desktop Agent")
     parser.add_argument("--goal", type=str, help="Execute a single goal autonomously via CLI")
-    parser.add_argument("--model", type=str, default="for ex: model name", help="Ollama model override (for ex: model name)")
+    parser.add_argument("--model", type=str, default="", help="Ollama model override (leave blank to auto-detect installed model)")
     args = parser.parse_args()
     
+    port_str = os.environ.get("PORT", os.environ.get("MERIDIAN_PORT", "4132"))
+    try:
+        port_num = int(port_str)
+    except ValueError:
+        port_num = 4132
+
     if args.goal:
         # Before running, launch backend in background so local REST endpoints like confirm/systems are online
         print("[System] Launching background FastAPI server for local API routing...")
         import subprocess
         backend_proc = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "api:app", "--host", "127.0.0.1", "--port", "4132"],
+            [sys.executable, "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", str(port_num)],
             cwd=backend_dir,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
@@ -121,13 +128,17 @@ if __name__ == "__main__":
         finally:
             print("[System] Terminating background FastAPI server...")
             backend_proc.terminate()
-            backend_proc.wait()
+            try:
+                backend_proc.wait(timeout=5.0)
+            except subprocess.TimeoutExpired:
+                print("[System] FastAPI server did not terminate within 5s; sending SIGKILL...")
+                backend_proc.kill()
+                backend_proc.wait()
     else:
         # Default behavior: run FastAPI server in this process
-        print("[System] Starting API Backend server...")
+        print(f"[System] Starting API Backend server on port {port_num}...")
         os.chdir(backend_dir)
         import uvicorn
         from api import app
-        # SEC-FIX: bind loopback by default; opt into LAN exposure explicitly
-        bind_host = os.environ.get("MERIDIAN_BIND_HOST", "127.0.0.1")
-        uvicorn.run(app, host=bind_host, port=4132)
+        bind_host = os.environ.get("MERIDIAN_BIND_HOST", "0.0.0.0")
+        uvicorn.run(app, host=bind_host, port=port_num)

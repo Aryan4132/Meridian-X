@@ -5,7 +5,7 @@ def create_desktop_shortcut():
     print("[Shortcut Creator] Initializing Desktop shortcut creation...")
     
     root_dir = os.path.dirname(os.path.abspath(__file__))
-    bat_path = os.path.join(root_dir, "start_meridian.bat")
+    bat_path = os.path.join(root_dir, "start_desktop.bat")
     
     # Locate user desktop paths
     desktops = []

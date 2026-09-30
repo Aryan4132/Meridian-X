@@ -5,17 +5,24 @@ import json
 import time
 import hashlib
 from typing import List, Dict, Any, Set, Tuple
-from database import get_mongo_db, db, get_sqlite_conn
+try:
+    from database import get_mongo_db, db, get_sqlite_conn
+except ImportError:
+    get_mongo_db = None  # type: ignore
+    db = None  # type: ignore
+    get_sqlite_conn = None  # type: ignore
+
 
 P2P_PORT = 8009
 UDP_DISCOVERY_PORT = 8010
 _server_running = False
 
 try:
-    from zeroconf import Zeroconf, ServiceInfo, ServiceBrowser
+    from zeroconf import Zeroconf, ServiceInfo, ServiceBrowser  # type: ignore
     ZEROCONF_AVAILABLE = True
 except ImportError:
     ZEROCONF_AVAILABLE = False
+
 
 
 class MeridianZeroconfListener:
@@ -124,8 +131,9 @@ def authenticate_p2p_peer_challenge(peer_ip: str, peer_port: int, shared_secret:
     sock = None
     try:
         from src.core.audit_logger import log_sensitive_action
-        sock = socket.create_connection((peer_ip, int(peer_port)), timeout=timeout)
+        sock = socket.create_connection((peer_ip, peer_port), timeout=timeout)
         sock.settimeout(timeout)
+
         sock.sendall(f"MERIDIAN_CHALLENGE:{nonce}".encode("utf-8"))
 
         chunks = []
@@ -530,8 +538,11 @@ class P2PSyncNode:
                     if not existing:
                         ttl = int(cache.get("expires_at", time.time() + 86400) - time.time())
                         if ttl > 0:
-                            add_to_semantic_cache(query_text, response_text, ttl_seconds=ttl)
+                            ttl_hrs = max(1, ttl // 3600)
+                            add_to_semantic_cache(query_text, response_text, ttl_hours=ttl_hrs)
+
                             merged_caches += 1
+
         except Exception as e:
             print(f"[P2P Sync] Turbovec merge failed: {e}")
 
@@ -617,5 +628,38 @@ class P2PSyncNode:
                 
         return "\n".join(sync_summary)
 
+def generate_qr_pairing_payload() -> Dict[str, Any]:
+    """ECO-01: Generates QR pairing configuration payload for Meridian Mobile companion app."""
+    import secrets
+    token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
+    host_ip = "127.0.0.1"
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        host_ip = s.getsockname()[0]
+        s.close()
+    except Exception:
+        pass
+
+    nonce = secrets.token_hex(8)
+    return {
+        "version": "1.0",
+        "app": "Meridian-X",
+        "host": host_ip,
+        "port": P2P_PORT,
+        "secret": token,
+        "nonce": nonce,
+        "timestamp": time.time()
+    }
+
+def verify_mobile_pairing_secret(secret: str) -> bool:
+    """ECO-01: Validates mobile client pairing secret against host P2P_SECRET_TOKEN."""
+    expected_token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
+    if not secret or not expected_token:
+        return False
+    import hmac
+    return hmac.compare_digest(secret.strip(), expected_token.strip())
+
 # Global Node instance
 p2p_node = P2PSyncNode()
+

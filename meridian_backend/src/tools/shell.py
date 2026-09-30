@@ -5,12 +5,19 @@ import time
 import ollama
 from typing import List, Dict, Any
 from src.core.audit_logger import log_sensitive_action
-from database import get_ollama_client_host
-from database import get_mongo_db
+try:
+    from database import get_ollama_client_host
+except ImportError:
+    def get_ollama_client_host():
+        return "http://localhost:11434"
 
 def _get_active_model() -> str:
-    from database import get_brain_model
-    return get_brain_model()
+    try:
+        from database import get_brain_model
+        return get_brain_model()
+    except Exception:
+        return "qwen2.5-coder:7b-instruct-q4_K_M"
+
 
 def nl_to_shell(natural_language: str) -> str:
     """Translate a natural language description into a valid shell command."""

@@ -2,10 +2,14 @@ import threading
 import time
 import os
 import sys
+import logging
 import numpy as np
+logger = logging.getLogger(__name__)
+
 try:
     import sounddevice as sd
-except Exception:
+except (ImportError, OSError) as err:
+    logger.warning("sounddevice module not available for wakeword: %s", err)
     sd = None
 from src.core.proactive import publish_nudge_sync
 
@@ -90,8 +94,8 @@ def _listen_loop():
         custom_filename = get_user_profile("wakeword_model_filename")
         if custom_filename:
             wakeword_filename = str(custom_filename)
-    except Exception:
-        pass
+    except (ImportError, KeyError, ValueError, AttributeError) as err:
+        logger.debug("Using default wakeword filename: %s", err)
 
     if os.path.isabs(wakeword_filename) and os.path.exists(wakeword_filename):
         onnx_path = wakeword_filename

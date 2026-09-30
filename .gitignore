@@ -16,6 +16,11 @@ meridian_frontend/node_modules/
 meridian_frontend/dist/
 meridian_frontend/src-tauri/target/
 meridian_frontend/src-tauri/api/
+meridian_mobile/node_modules/
+meridian_mobile/dist/
+meridian_mobile/src-tauri/target/
+meridian_mobile/src-tauri/gen/
+meridian_mobile/executables/
 
 # PyInstaller build outputs
 meridian_backend/build/

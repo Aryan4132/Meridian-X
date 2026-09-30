@@ -3,9 +3,7 @@ import json
 import httpx
 import logging
 import asyncio
-from typing import AsyncGenerator, List, Dict, Any, Optional
-from database import get_mongo_db
-
+from typing import AsyncGenerator, List, Dict, Any, Optional, Tuple
 import re
 import math
 
@@ -33,9 +31,7 @@ def scan_and_redact_secrets(text: str) -> str:
     return redacted_text
 
 def get_ollama_host() -> str:
-  """
-  Retrieves the normalized Ollama host URL.
-  """
+  """Retrieves the normalized Ollama host URL."""
   try:
     from database import get_ollama_client_host
     return get_ollama_client_host()
@@ -54,14 +50,7 @@ def get_ollama_host() -> str:
     return host
 
 def get_api_key(provider: str) -> Optional[str]:
-  """
-  Retrieves the API key for a provider.
-  Checks:
-  1. Encrypted Vault (via vault_get).
-  2. Environment variables (e.g., OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, DEEPSEEK_API_KEY).
-  3. SQLite/MongoDB user_profile database.
-  """
-  # 1. Check Vault
+  """Retrieves the API key for a provider."""
   try:
     from src.core.vault import vault_get
     key = vault_get(f"{provider.lower()}_key") or vault_get(f"{provider.upper()}_API_KEY")
@@ -70,13 +59,11 @@ def get_api_key(provider: str) -> Optional[str]:
   except Exception:
     pass
 
-  # 2. Check Environment Variables
   env_name = f"{provider.upper()}_API_KEY"
   key = os.getenv(env_name)
   if key:
     return key
 
-  # 3. Fallback to Database Profiles
   try:
     from database import get_user_profile
     profile_key = f"{provider.lower()}_key"
@@ -87,6 +74,53 @@ def get_api_key(provider: str) -> Optional[str]:
     logger.debug(f"Failed to fetch {provider} key from database profile: {e}")
 
   return None
+
+PROVIDER_CATALOG: Dict[str, List[str]] = {
+    "groq": ["gemma2-9b-it", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768"],
+    "openrouter": ["google/gemma-2-9b-it:free", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b-instruct", "openai/gpt-4o"],
+    "deepseek": ["deepseek-chat", "deepseek-reasoner"],
+    "openai": ["gpt-4o", "gpt-4o-mini", "o3-mini"],
+    "anthropic": ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"],
+    "gemini": ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
+}
+
+def normalize_provider_and_model(provider: str, model: str) -> Tuple[str, str]:
+    """
+    Dynamic model & provider tag normalizer.
+    Parses prefixes and matches raw model requests dynamically against registered provider catalogs.
+    """
+    prov = (provider or "ollama").strip().lower()
+    mod = (model or "llama3.2:3b").strip()
+
+    # Parse prefix if contained in model name
+    if "/" in mod and not mod.startswith("http"):
+        parts = mod.split("/", 1)
+        prefix = parts[0].lower()
+        if prefix in PROVIDER_CATALOG or get_api_key(prefix) is not None or prefix in ("ollama", "mistral", "local"):
+            prov = prefix
+            mod = parts[1]
+
+    # Dynamic catalog matching via family token overlap
+    catalog = PROVIDER_CATALOG.get(prov, [])
+    if catalog and mod not in catalog:
+        # Extract family keywords (alphabetic base tokens: 'gemma', 'llama', 'deepseek', 'claude', 'gpt', 'mixtral', 'reasoner', etc.)
+        mod_families = set(re.findall(r"[a-zA-Z]{3,}", mod.lower()))
+        best_match = None
+        best_score = 0
+        for cat_item in catalog:
+            cat_families = set(re.findall(r"[a-zA-Z]{3,}", cat_item.lower()))
+            overlap = len(mod_families.intersection(cat_families))
+            if overlap > best_score:
+                best_score = overlap
+                best_match = cat_item
+        if best_match:
+            mod = best_match
+
+    # Strip prefixes if target provider is local ollama
+    if prov == "ollama" and ("/" in mod and not mod.startswith("http")):
+        mod = mod.split("/")[-1]
+
+    return prov, mod
 
 
 async def generate_completion_stream(
@@ -99,9 +133,33 @@ async def generate_completion_stream(
   Asynchronously streams completions from the chosen provider (Ollama, OpenAI, Anthropic, Gemini, DeepSeek).
   Includes retry logic, timeouts, and fallback behavior.
   """
-  provider = provider.lower()
+  provider, model = normalize_provider_and_model(provider, model)
   retries = 3
-  timeout_config = httpx.Timeout(30.0, connect=5.0, read=30.0)
+  timeout_config = httpx.Timeout(120.0, connect=10.0, read=120.0)
+
+  # OPS-04: Local-Only Air-Gap Mode Check
+  try:
+    from src.core.mode import get_local_only_mode
+    if get_local_only_mode():
+      if provider != "ollama":
+        logger.warning(f"Local-Only Air-Gap Mode active. Blocking remote provider '{provider}' call.")
+        yield "Error: Local-Only Air-Gap Mode is active. All outbound remote API calls are hard-blocked."
+        return
+
+      model_lower = (model or "").lower()
+      if ":cloud" in model_lower or "cloud" in model_lower:
+        logger.warning(f"Local-Only Air-Gap Mode active. Blocking cloud Ollama model '{model}'.")
+        yield f"Error: Local-Only Air-Gap Mode is active. Cloud Ollama model '{model}' is hard-blocked."
+        return
+
+      ollama_host = get_ollama_host().lower()
+      local_loopbacks = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
+      if not any(lh in ollama_host for lh in local_loopbacks):
+        logger.warning(f"Local-Only Air-Gap Mode active. Blocking remote Ollama host '{ollama_host}'.")
+        yield f"Error: Local-Only Air-Gap Mode is active. Remote Ollama host endpoint '{ollama_host}' is hard-blocked."
+        return
+  except Exception:
+    pass
 
   async def stream_with_retries(url: str, method: str = "POST", headers: Optional[dict] = None, json_payload: Optional[dict] = None) -> AsyncGenerator[bytes, None]:
 
@@ -199,13 +257,16 @@ async def generate_completion_stream(
       "stream": True
     }
     
+    ollama_failed = False
+    last_err = ""
     generator = stream_with_retries(url, json_payload=payload)
     try:
       async for line_bytes in generator:
         line = line_bytes.decode('utf-8', errors='ignore').strip()
         if line.startswith("Error:"):
-          yield f"Error: Ollama stream failed. {line}"
-          return
+          ollama_failed = True
+          last_err = line
+          break
         try:
           data = json.loads(line)
           chunk = data.get("message", {}).get("content", "")
@@ -215,6 +276,26 @@ async def generate_completion_stream(
           pass
     finally:
       await generator.aclose()
+
+    if ollama_failed:
+      logger.warning(f"Ollama connection unreachable at {ollama_host}: {last_err}. Attempting cloud API fallback...")
+      # Attempt auto-fallback to available cloud provider with configured API key
+      cloud_fallback_provider = None
+      for candidate in PROVIDER_CATALOG.keys():
+        if get_api_key(candidate):
+          cloud_fallback_provider = candidate
+          break
+      if cloud_fallback_provider:
+        yield f"\n[Warning: Ollama connection refused at {ollama_host}. Falling back to cloud provider '{cloud_fallback_provider}'...]\n"
+        fallback_stream = generate_completion_stream(messages, provider=cloud_fallback_provider, model="auto", temperature=temperature)
+        try:
+          async for token in fallback_stream:
+            yield token
+        finally:
+          await fallback_stream.aclose()
+      else:
+        yield f"Error: Local Ollama service is offline or connection was refused at {ollama_host} [WinError 10061]. Please start Ollama or configure a cloud API key in Settings."
+        return
 
   else:
     # Remote Providers (OpenAI, Anthropic, Gemini, DeepSeek)
@@ -418,6 +499,20 @@ async def generate_completion_stream(
       yield f"Error: Remote provider {provider} call failed: {err_msg}"
 
 
+PROVIDER_RATES = {
+    "openai": {"prompt": 0.0025 / 1000, "completion": 0.010 / 1000},
+    "anthropic": {"prompt": 0.003 / 1000, "completion": 0.015 / 1000},
+    "gemini": {"prompt": 0.000075 / 1000, "completion": 0.0003 / 1000},
+    "deepseek": {"prompt": 0.00014 / 1000, "completion": 0.00028 / 1000},
+    "openrouter": {"prompt": 0.001 / 1000, "completion": 0.002 / 1000},
+    "ollama": {"prompt": 0.0, "completion": 0.0},
+}
+
+def estimate_llm_cost(provider: str, prompt_tokens: int, completion_tokens: int) -> float:
+    rates = PROVIDER_RATES.get(provider.lower(), {"prompt": 0.001 / 1000, "completion": 0.002 / 1000})
+    cost = (prompt_tokens * rates["prompt"]) + (completion_tokens * rates["completion"])
+    return round(cost, 6)
+
 async def call_llm(
   messages: List[Dict[str, str]],
   provider: Optional[str] = None,
@@ -428,6 +523,7 @@ async def call_llm(
   Unified non-streaming completion call for any provider.
   Automatically redacts sensitive secrets in messages.
   Resolves provider/model defaults from database if not supplied.
+  Logs token spend and enforces budget caps & air-gap mode.
   """
   sanitized_messages = []
   for msg in messages:
@@ -448,11 +544,37 @@ async def call_llm(
     except Exception:
       provider = provider or "ollama"
       model = model or "llama3.2:3b"
+
+  # TRUST-03: Budget Cap Check & Auto-Fallback
+  try:
+    from database import check_budget_exceeded, record_token_spend
+    if provider != "ollama" and check_budget_exceeded():
+      logger.warning(f"Monthly budget cap exceeded. Falling back provider '{provider}' -> 'ollama'.")
+      provider = "ollama"
+      model = "llama3.2:3b"
+  except Exception as e:
+    logger.debug(f"Budget check error: {e}")
+
+  # Estimate prompt tokens
+  raw_prompt_text = " ".join([m.get("content", "") for m in sanitized_messages])
+  prompt_tokens = max(1, len(raw_prompt_text) // 4)
       
   chunks = []
   async for chunk in generate_completion_stream(sanitized_messages, provider=provider, model=model, temperature=temperature):
     chunks.append(chunk)
-  return "".join(chunks)
+
+  result_text = "".join(chunks)
+  completion_tokens = max(1, len(result_text) // 4)
+  cost_usd = estimate_llm_cost(provider, prompt_tokens, completion_tokens)
+
+  # Record token spend into SQLite
+  try:
+    from database import record_token_spend
+    record_token_spend(provider, model, prompt_tokens, completion_tokens, cost_usd)
+  except Exception as e:
+    logger.debug(f"Failed logging token spend: {e}")
+
+  return result_text
 
 def call_llm_sync(
   messages: List[Dict[str, str]],
@@ -474,4 +596,5 @@ def call_llm_sync(
       return pool.submit(lambda: asyncio.run(call_llm(messages, provider, model, temperature))).result()
   else:
     return asyncio.run(call_llm(messages, provider, model, temperature))
+
 

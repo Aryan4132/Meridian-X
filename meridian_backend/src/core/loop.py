@@ -11,9 +11,47 @@ import threading
 from typing import Dict, Any, List, AsyncGenerator, Tuple, Optional
 import ollama
 active_confirmations: Dict[str, Any] = {}
+_confirmations_lock: Optional[asyncio.Lock] = None
+
+def get_confirmations_lock() -> asyncio.Lock:
+    global _confirmations_lock
+    if _confirmations_lock is None:
+        _confirmations_lock = asyncio.Lock()
+    return _confirmations_lock
+
+async def register_confirmation(conf_id: str, conf_event: asyncio.Event) -> None:
+    async with get_confirmations_lock():
+        active_confirmations[conf_id] = {
+            "event": conf_event,
+            "approved": False
+        }
+
+async def approve_confirmation(conf_id: str, approved: bool) -> bool:
+    async with get_confirmations_lock():
+        if conf_id in active_confirmations:
+            active_confirmations[conf_id]["approved"] = approved
+            active_confirmations[conf_id]["event"].set()
+            return True
+        return False
+
+async def pop_confirmation(conf_id: str) -> bool:
+    async with get_confirmations_lock():
+        conf_data = active_confirmations.pop(conf_id, {})
+        return conf_data.get("approved", False)
 
 def check_approval_gate(tool_name: str, kwargs: Dict[str, Any]) -> Tuple[bool, str]:
     """Evaluates whether a tool execution requires human approval gate (PL-12)."""
+    # Check force flag or env override or Level 0 Unrestricted Mode
+    if kwargs.get("force") or kwargs.get("bypass_guard") or os.getenv("MERIDIAN_DISABLE_SYSTEM_GUARD") == "1":
+        return False, ""
+
+    try:
+        from database import get_unrestricted_pc_access
+        if get_unrestricted_pc_access():
+            return False, ""
+    except Exception:
+        pass
+
     if tool_name in ("delete_file", "db_execute", "kill_process"):
         return True, f"Action '{tool_name}' requires explicit user confirmation."
     if tool_name in ("run_command", "nl_run"):
@@ -518,7 +556,7 @@ def clean_final_text(text: str) -> str:
     return text.strip()
 
 def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama.Client, model_source: str = "local") -> Tuple[bool, str, str]:
-    """Inspects tool signature and code blocks locally to auto-correct errors."""
+    """Inspects tool signature and code blocks locally/cloud to auto-correct errors."""
     try:
         # Check registry first
         if tool_name not in TOOL_REGISTRY:
@@ -531,23 +569,21 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
         try:
             args = json.loads(args_str) if args_str.strip() else {}
         except Exception as e:
-            if model_source == "cloud":
-                return False, args_str, f"Malformed JSON arguments for tool '{tool_name}': {e}"
-            # Broken JSON: correct via LLM for local models
+            # Broken JSON: correct via LLM for local and cloud models
             prompt = (
                 f"You are a syntax recovery engine. Correct the following invalid JSON arguments for tool '{tool_name}' so it is well-formed.\n"
                 f"Invalid JSON:\n{args_str}\n\n"
                 f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
             )
-            res = client.generate(model=get_auditor_model(), prompt=prompt)
-            corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-            if corrected.startswith("```"):
-                corrected = corrected.strip("`").replace("json\n", "").strip()
             try:
+                from src.core.llm_provider import call_llm_sync
+                corrected = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
+                if corrected.startswith("```"):
+                    corrected = corrected.strip("`").replace("json\n", "").strip()
                 json.loads(corrected)
                 return True, corrected, "Auto-corrected malformed JSON arguments."
             except Exception:
-                return False, args_str, f"Failed to auto-correct malformed JSON: {e}"
+                return False, args_str, f"Malformed JSON arguments for tool '{tool_name}': {e}"
 
         # 1. Tool Signature Verification
         import inspect
@@ -561,11 +597,30 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             required_params = []
             valid_params = set()
 
-            for name, param in sig.parameters.items():
-                if param.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
-                    valid_params.add(name)
-                    if param.default is inspect.Parameter.empty:
-                        required_params.append(name)
+            for param_name, param in sig.parameters.items():
+                if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                    valid_params.add(param_name)
+                    if param.default == inspect.Parameter.empty:
+                        required_params.append(param_name)
+
+            # Auto-remapping for common parameter name aliases
+            PARAM_ALIASES = {
+                "filepath": "path", "file_path": "path", "filename": "path", "TargetFile": "path",
+                "command_str": "command", "cmd": "command",
+                "query_str": "query", "search_term": "query",
+                "content_str": "content", "CodeContent": "content"
+            }
+            remapped = False
+            for p in list(args.keys()):
+                if p not in valid_params and p in PARAM_ALIASES:
+                    canonical = PARAM_ALIASES[p]
+                    if canonical in valid_params and canonical not in args:
+                        args[canonical] = args.pop(p)
+                        remapped = True
+                        break
+
+            if remapped:
+                args_str = json.dumps(args)
 
             # Check missing required params
             missing = [p for p in required_params if p not in args]
@@ -573,14 +628,6 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
             unexpected = [p for p in args if p not in valid_params] if not has_var_keyword else []
 
             if missing or unexpected:
-                if model_source == "cloud":
-                    sig_err_msg = ""
-                    if missing:
-                        sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
-                    if unexpected:
-                        sig_err_msg += f"Unexpected parameter(s): {', '.join(unexpected)}."
-                    return False, args_str, f"Signature validation failed: {sig_err_msg} Expected: {str(sig)}"
-                # Signature mismatch: try to correct it via auditor model for local models
                 sig_err_msg = ""
                 if missing:
                     sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
@@ -594,12 +641,12 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     f"Validation Error: {sig_err_msg}\n\n"
                     f"Correct or map the keys in the arguments to match the expected signature. Output ONLY the corrected JSON string. Do not include markdown code block syntax."
                 )
-                res = client.generate(model=get_auditor_model(), prompt=prompt)
-                corrected = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-                if corrected.startswith("```"):
-                    corrected = corrected.strip("`").replace("json\n", "").strip()
-
                 try:
+                    from src.core.llm_provider import call_llm_sync
+                    corrected = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
+                    if corrected.startswith("```"):
+                        corrected = corrected.strip("`").replace("json\n", "").strip()
+
                     corrected_args = json.loads(corrected)
                     # Re-verify after correction
                     missing_corr = [p for p in required_params if p not in corrected_args]
@@ -633,29 +680,25 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 code_to_validate = content
                 code_type = "json"
 
-            if not code_to_validate:
-                return True, args_str, ""
-
+        if code_to_validate:
             if code_type == "python":
                 try:
                     ast.parse(code_to_validate)
                 except SyntaxError as se:
-                    if model_source == "cloud":
-                        return False, args_str, f"Python syntax error on line {se.lineno}: {se}"
-                    # Syntax error: request correction from LLM for local models
+                    # Syntax error: request correction from LLM
                     prompt = (
                         f"You are a code-healing assistant. The following Python code contains a syntax error:\n"
                         f"Error: {se}\n\n"
                         f"Code:\n```python\n{code_to_validate}\n```\n\n"
                         f"Rewrite the code to fix the syntax error. Output ONLY the raw corrected Python code, no explanation, no markdown blocks."
                     )
-                    res = client.generate(model=get_auditor_model(), prompt=prompt)
-                    corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-                    if corrected_code.startswith("```"):
-                        corrected_code = corrected_code.strip("`").replace("python\n", "").strip()
-                    
-                    # Verify corrected code
                     try:
+                        from src.core.llm_provider import call_llm_sync
+                        corrected_code = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
+                        if corrected_code.startswith("```"):
+                            corrected_code = corrected_code.strip("`").replace("python\n", "").strip()
+                        
+                        # Verify corrected code
                         ast.parse(corrected_code)
                         if tool_name in ["run_python", "create_dynamic_tool"]:
                             args["code"] = corrected_code
@@ -665,41 +708,39 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                             elif "CodeContent" in args:
                                 args["CodeContent"] = corrected_code
                         return True, json.dumps(args), f"Auto-healed Python code syntax error on line {se.lineno}."
-                    except SyntaxError as se2:
-                        return False, args_str, f"Python syntax check failed: {se} (Auto-healing also failed with syntax error on line {se2.lineno}: {se2})"
+                    except Exception as se2:
+                        return False, args_str, f"Python syntax check failed: {se} (Auto-healing also failed: {se2})"
 
-                # Python code is syntactically valid via AST.
-                # Skip LLM linter check when model_source is cloud
-                if model_source != "cloud":
-                    lint_prompt = (
-                        f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
-                        f"Code:\n```python\n{code_to_validate}\n```\n\n"
-                        f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
-                    )
-                    res = client.generate(model=get_auditor_model(), prompt=lint_prompt)
-                    lint_resp = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
+                # Python code is syntactically valid via AST. Perform LLM linter check
+                lint_prompt = (
+                    f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
+                    f"Code:\n```python\n{code_to_validate}\n```\n\n"
+                    f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
+                )
+                try:
+                    from src.core.llm_provider import call_llm_sync
+                    lint_resp = call_llm_sync([{"role": "user", "content": lint_prompt}], model=get_auditor_model()).strip()
                     if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
                         return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
+                except Exception:
+                    pass
 
             elif code_type == "json":
                 try:
                     json.loads(code_to_validate)
                 except Exception as e:
-                    if model_source == "cloud":
-                        return False, args_str, f"JSON content syntax error: {e}"
-
-                    # Invalid JSON content: correct via LLM for local models
+                    # Invalid JSON content: correct via LLM
                     prompt = (
                         f"You are a syntax recovery engine. Correct the following invalid JSON content to make it well-formed.\n"
                         f"Invalid JSON:\n{code_to_validate}\n\n"
                         f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
                     )
-                    res = client.generate(model=get_auditor_model(), prompt=prompt)
-                    corrected_code = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-                    if corrected_code.startswith("```"):
-                        corrected_code = corrected_code.strip("`").replace("json\n", "").strip()
-
                     try:
+                        from src.core.llm_provider import call_llm_sync
+                        corrected_code = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
+                        if corrected_code.startswith("```"):
+                            corrected_code = corrected_code.strip("`").replace("json\n", "").strip()
+
                         json.loads(corrected_code)
                         if "content" in args:
                             args["content"] = corrected_code
@@ -709,7 +750,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     except Exception as e2:
                         return False, args_str, f"JSON syntax check failed: {e} (Auto-healing failed: {e2})"
 
-        return True, args_str, ""  # BUG-25 fix: True = validated OK (no correction needed)
+        return True, args_str, ""
     except Exception as e:
         return False, args_str, f"Critique verification failed: {e}"
 
@@ -731,20 +772,18 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
         role_label = "Assistant" if turn["role"] == "assistant" else "User"
         log_text += f"{role_label}: {turn['content']}\n"
         
-    # Summarize via LLM (skip Ollama client call when model_source is cloud)
-    if model_source != "cloud":
-        prompt = (
-            "You are an executive memory compressor. Synthesize the following sequence of assistant actions, "
-            "commands executed, decisions, and observations into a concise bulleted summary of key facts and progress.\n\n"
-            f"Sequence:\n{log_text}"
-        )
-        try:
-            res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=prompt)
-            summary = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-        except Exception:
-            summary = "Older context consolidated by System."
-    else:
-        summary = f"Older context ({len(compress_turns)} turns) consolidated."
+    # Summarize via LLM (supports local and cloud models)
+    prompt = (
+        "You are an executive memory compressor. Synthesize the following sequence of assistant actions, "
+        "commands executed, decisions, and observations into a concise bulleted summary of key facts and progress.\n\n"
+        f"Sequence:\n{log_text}"
+    )
+    try:
+        from src.core.llm_provider import call_llm
+        summary = await call_llm([{"role": "user", "content": prompt}], model=get_auditor_model())
+        summary = (summary or "").strip()
+    except Exception:
+        summary = "Older context consolidated by System."
         
     # Index raw turns into Turbovec RAG as archived memory
     try:
@@ -787,8 +826,8 @@ async def execute_single_tool_async(
 
     args_str = json.dumps(args)
     
-    # 1. Security Auditor local consensus verification (Skip Ollama generate for cloud models)
-    if tier >= 2 and model_source != "cloud":
+    # 1. Security Auditor consensus verification (Runs for local and cloud models)
+    if tier >= 2:
         auditor_model = get_auditor_model()
         await event_bus.publish("agent_thoughts", {
             "agent": "Security Auditor", 
@@ -805,12 +844,12 @@ async def execute_single_tool_async(
         )
         
         try:
-            audit_res = await asyncio.to_thread(client.generate, model=auditor_model, prompt=audit_prompt)
-            audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
+            from src.core.llm_provider import call_llm
+            audit_text = await call_llm([{"role": "user", "content": audit_prompt}], model=auditor_model)
         except Exception:
             try:
-                audit_res = await asyncio.to_thread(client.generate, model=active_model, prompt=audit_prompt)
-                audit_text = (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
+                from src.core.llm_provider import call_llm
+                audit_text = await call_llm([{"role": "user", "content": audit_prompt}], model=active_model)
             except Exception:
                 audit_text = "REASONING: Auditor model unreachable. Failing secure.\nDECISION: REJECTED_UNREACHABLE"
         
@@ -1210,7 +1249,11 @@ async def run_react_agent_loop(
     history.append({"role": "user", "content": prompt})
 
 
-    max_turns = 10
+    try:
+        from database import get_autonomous_mode
+        max_turns = 25 if get_autonomous_mode() else 1
+    except Exception:
+        max_turns = 20
     turn = 0
     final_text = ""
     active_model = route_model_by_complexity(prompt, brain_model, model_source)
@@ -1258,8 +1301,8 @@ async def run_react_agent_loop(
                 # and an unnecessary LLM call on every short-context request.
                 history = await prune_and_compress_history(history, client, model_source=model_source)
 
-            # 2. Self-Questioning Check (Trigger only when prompt targets codebase/file paths)
-            if model_source == "local" and any(k in prompt.lower() for k in ["file", "path", "directory", "folder", "config", "refactor", "codebase"]):
+            # 2. Self-Questioning Check (Trigger when prompt targets codebase/file paths)
+            if any(k in prompt.lower() for k in ["file", "path", "directory", "folder", "config", "refactor", "codebase"]):
                 is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
             else:
                 is_verified, warning_msg = True, ""
@@ -1294,6 +1337,33 @@ async def run_react_agent_loop(
             
             # Start response stream
             try:
+                # OPS-04: Local-Only Air-Gap Mode Check
+                try:
+                    from src.core.mode import get_local_only_mode
+                    if get_local_only_mode():
+                        if (api_provider or "").lower() != "ollama" or model_source in ("cloud", "api"):
+                            err_msg = "Error: Local-Only Air-Gap Mode is active. Outbound cloud API requests are hard-blocked."
+                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
+                            yield sse_event("text", f"\n{err_msg}\n")
+                            return
+
+                        model_lower = (active_model or brain_model or "").lower()
+                        if ":cloud" in model_lower or "cloud" in model_lower:
+                            err_msg = f"Error: Local-Only Air-Gap Mode is active. Cloud Ollama model '{active_model}' is hard-blocked."
+                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
+                            yield sse_event("text", f"\n{err_msg}\n")
+                            return
+
+                        host_lower = (ollama_host or "").lower()
+                        local_loopbacks = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
+                        if not any(lh in host_lower for lh in local_loopbacks):
+                            err_msg = f"Error: Local-Only Air-Gap Mode is active. Remote Ollama host '{ollama_host}' is hard-blocked."
+                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
+                            yield sse_event("text", f"\n{err_msg}\n")
+                            return
+                except Exception:
+                    pass
+
                 if model_source == "local" or (api_provider or "").lower() == "ollama":
                     response_stream = client.chat(
                         model=active_model,
@@ -1550,59 +1620,56 @@ async def run_react_agent_loop(
                         # Run process_final_response and QA Reviewer critique concurrently with asyncio.gather
                         # instead of serial waiting. Saves one full LLM latency round-trip.
                         critique = ""
-                        if model_source != "cloud":
-                            yield sse_event("thought", json.dumps({
-                                "id": f"debate-init-{time.time()}",
-                                "type": "planning",
-                                "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop (parallel)...",
-                                "status": "running"
-                            }))
-                            has_search = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
-                            qa_prompt = build_consensus_qa_prompt(event["text"])
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-init-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop (parallel)...",
+                            "status": "running"
+                        }))
+                        has_search = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
+                        qa_prompt = build_consensus_qa_prompt(event["text"])
 
-                            # Run formatting and QA critique in parallel
-                            fmt_task = process_final_response(event["text"], user_lang, client)
-                            qa_task = asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt, options={"temperature": 0.2})
-                            
-                            corrected_finish, qa_res = await asyncio.gather(fmt_task, qa_task)
-                            critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+                        # Run formatting and QA critique in parallel
+                        from src.core.llm_provider import call_llm
+                        fmt_task = process_final_response(event["text"], user_lang, client)
+                        qa_task = call_llm([{"role": "user", "content": qa_prompt}], model=get_auditor_model(), temperature=0.2)
+                        
+                        corrected_finish, qa_res = await asyncio.gather(fmt_task, qa_task)
+                        critique = (qa_res or "").strip()
 
-                            # Filter false-positive temporal error critiques
-                            critique, is_false_pos = filter_temporal_false_positives(critique, executed_search_tool=has_search)
+                        # Filter false-positive temporal error critiques
+                        critique, is_false_pos = filter_temporal_false_positives(critique, executed_search_tool=has_search)
 
-                            yield sse_event("thought", json.dumps({
-                                "id": f"debate-critique-{time.time()}",
-                                "type": "planning",
-                                "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
-                                "status": "completed"
-                            }))
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-critique-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
+                            "status": "completed"
+                        }))
 
-                            if critique:
-                                coder_prompt = build_consensus_coder_prompt(corrected_finish, critique)
-                                coder_res = await asyncio.to_thread(client.generate, model=active_model, prompt=coder_prompt, options={"temperature": 0.5})
-                                refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
+                        if critique:
+                            coder_prompt = build_consensus_coder_prompt(corrected_finish, critique)
+                            refined = await call_llm([{"role": "user", "content": coder_prompt}], model=active_model, temperature=0.5)
+                            refined = (refined or "").strip()
 
-                                if refined.startswith("```"):
-                                    refined = refined.strip("`").replace("json\n", "").strip()
+                            if refined.startswith("```"):
+                                refined = refined.strip("`").replace("json\n", "").strip()
 
-                                try:
-                                    json.loads(refined)
-                                    if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in corrected_finish.lower()):
-                                        debated_finish = corrected_finish
-                                    else:
-                                        debated_finish = await process_final_response(refined, user_lang, client)
-                                except Exception:
+                            try:
+                                json.loads(refined)
+                                if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in corrected_finish.lower()):
                                     debated_finish = corrected_finish
-                            else:
+                                else:
+                                    debated_finish = await process_final_response(refined, user_lang, client)
+                            except Exception:
                                 debated_finish = corrected_finish
                         else:
-                            corrected_finish = await process_final_response(event["text"], user_lang, client)
                             debated_finish = corrected_finish
 
                         _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
                         active_debates[_debate_key] = {
                             "draft": corrected_finish,
-                            "critique": critique if model_source != "cloud" else "",
+                            "critique": critique,
                             "refined": debated_finish
                         }
                         # BUG-10 fix: cap active_debates at 50 entries to prevent
@@ -1612,24 +1679,22 @@ async def run_react_agent_loop(
                             for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
                                 del active_debates[_old_k]
 
-                        if model_source != "cloud":
-                            yield sse_event("thought", json.dumps({
-                                "id": f"debate-complete-{time.time()}",
-                                "type": "planning",
-                                "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
-                                "status": "completed"
-                            }))
+                        yield sse_event("thought", json.dumps({
+                            "id": f"debate-complete-{time.time()}",
+                            "type": "planning",
+                            "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
+                            "status": "completed"
+                        }))
 
                         final_text = debated_finish
                         yield sse_event("text", debated_finish)
                     elif event["type"] == "call":
                         calls_to_execute.append((event["name"], event["args"]))
                         
-            # Update assistant history for loop tracking
-            history.append({"role": "assistant", "content": full_turn_text})
             # Remove the temporary warning so it doesn't pollute long term history
-            if temp_sys_idx != -1:
+            if temp_sys_idx != -1 and temp_sys_idx < len(history):
                 history.pop(temp_sys_idx)
+                temp_sys_idx = -1
 
             # Process any tool calls parsed during the stream
             if calls_to_execute:
@@ -1698,23 +1763,26 @@ async def run_react_agent_loop(
                             last_tool_call = call_signature
                         
                         if consecutive_repeat_count >= 3:
-                            err_msg = f"Loop Guardrail: The agent tried calling '{tool_name}' with the same arguments {consecutive_repeat_count} times consecutively. Halting execution."
+                            err_msg = f"Loop Guardrail & Critic Switcher: Tool '{tool_name}' called {consecutive_repeat_count} times with identical parameters."
                             yield sse_event("thought", json.dumps({
                                 "id": f"loop-detected-{time.time()}",
-                                "type": "error",
-                                "text": f"⚠️ [Loop Guardrail] {err_msg}",
-                                "status": "failed"
+                                "type": "warning",
+                                "text": f"⚠️ [Critic Strategy Switcher] {err_msg} Injecting strategy-shift instruction...",
+                                "status": "running"
                             }))
                             add_to_task_log(tool_name, tier, "failed", err_msg)
                             
-                            # Build the final aborted JSON response for the user
-                            final_text = json.dumps({
-                                "chat": f"I aborted the operation because I entered an infinite loop trying to run the `{tool_name}` tool repeatedly with the same parameters. Please review your prompt or environment constraints.",
-                                "speech": "I had to abort the operation because I entered an infinite loop.",
-                                "lang": "en"
-                            }, ensure_ascii=False)
-                            yield sse_event("text", final_text)
-                            return
+                            # Inject Critic Nudge to force model strategy switch
+                            critic_nudge = (
+                                f"[CRITIC STRATEGY NUDGE — Mandatory Approach Switch]\n"
+                                f"The tool '{tool_name}' with parameters {sorted_args_str} has failed or repeated {consecutive_repeat_count} times.\n"
+                                f"You MUST NOT call '{tool_name}' with these exact parameters again.\n"
+                                f"Switch your strategy immediately (e.g. use alternative tools like `run_command` via OS/python, search alternative directories, or report blocked state)."
+                            )
+                            history.append({"role": "user", "content": critic_nudge})
+                            consecutive_repeat_count = 0
+                            observations.append(f"<observation:{tool_name}>[CRITIC NUDGE] Repeated tool execution blocked. Strategy shift required: try an alternative tool or path.</observation:{tool_name}>")
+                            continue
                     
                     # BUG-29 fix: removed dead majority-vote stub (vote_passed was always True,
                     # making the if-not-vote_passed branch unreachable dead code that misled users
@@ -1806,116 +1874,30 @@ async def run_react_agent_loop(
                 for tool_name, args, tier in sequential_calls:
                     audit_id = f"audit-{time.time()}-{random.randint(1000, 9999)}"
                     tool_run_id = f"run-{tool_name}-{time.time()}"
-                    
-                    # Security Auditor local consensus verification
-                    # SEC-FIX: the audit previously ran only for local models;
-                    # cloud-driven sessions executed Tier>=2 tools unaudited.
                     pre_executed_result = None
-                    if tier >= 2:
-                        auditor_model = get_auditor_model()
-                        yield sse_event("thought", json.dumps({
-                            "id": audit_id,
-                            "type": "planning",
-                            "text": f"[Security Auditor] Auditing tool '{tool_name}' (Tier {tier}) security footprint...",
-                            "status": "running",
-                            "mascot_state": "diagnostic",
-                            "mascot_wardrobe": "detective_hat"
-                        }))
-                        await event_bus.publish("agent_thoughts", {
-                            "agent": "Security Auditor", 
-                            "thought": f"Auditing '{tool_name}' execution with arguments: {json.dumps(args)}"
-                        })
-                        
-                        audit_prompt = (
-                            f"You are the Meridian Security Auditor. Assess if the following tool execution is safe and does not contain vulnerabilities, dangerous deletions, shell injects, or system risks.\n"
-                            f"Tool: {tool_name}\n"
-                            f"Arguments: {json.dumps(args)}\n\n"
-                            f"Respond ONLY in this exact format:\n"
-                            f"REASONING: <brief analysis of the arguments>\n"
-                            f"DECISION: <APPROVED or REJECTED>"
-                        )
-                        
-                        async def _do_audit():
-                            try:
-                                audit_res = await asyncio.to_thread(client.generate, model=auditor_model, prompt=audit_prompt)
-                                return (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
-                            except Exception:
-                                try:
-                                    audit_res = await asyncio.to_thread(client.generate, model=active_model, prompt=audit_prompt)
-                                    return (audit_res.response if hasattr(audit_res, "response") else audit_res.get("response", "")).strip()
-                                except Exception:
-                                    return "REASONING: Auditor model unreachable. Failing secure.\nDECISION: REJECTED_UNREACHABLE"
 
-                        audit_text = await _do_audit()
-
-                        decision = "APPROVED"
-                        reasoning = ""
-                        for line in audit_text.split("\n"):
-                            if line.upper().startswith("DECISION:"):
-                                decision = line.split(":", 1)[1].strip().upper()
-                            elif line.upper().startswith("REASONING:"):
-                                reasoning = line.split(":", 1)[1].strip()
-                                
-                        yield sse_event("thought", json.dumps({
-                            "id": audit_id,
-                            "type": "planning",
-                            "text": f"[Security Auditor Decision] {decision}. Reasoning: {reasoning or 'Assessment complete.'}",
-                            "status": "completed",
-                            "mascot_state": "default",
-                            "mascot_wardrobe": "none"
-                        }))
-                        await event_bus.publish("agent_thoughts", {
-                            "agent": "Security Auditor", 
-                            "thought": f"Audit Result for '{tool_name}': {decision}. Reasoning: {reasoning}"
-                        })
-                        
-                        if "REJECTED" in decision:
-                            if "UNREACHABLE" in decision:
-                                tier = max(tier, 3)
-                                yield sse_event("thought", json.dumps({
-                                    "id": audit_id,
-                                    "type": "warning",
-                                    "text": f"Security Gate: Auditor unreachable. Elevating security tier for tool '{tool_name}' to require manual user approval.",
-                                    "status": "completed",
-                                    "mascot_state": "tired",
-                                    "mascot_wardrobe": "construction_hat"
-                                }))
-                            else:
-                                obs_text = f"Blocked by Security Auditor: {reasoning}"
-                                yield sse_event("thought", json.dumps({
-                                    "id": audit_id,
-                                    "type": "warning",
-                                    "text": f"Security Gate: Blocked execution of tool '{tool_name}' due to: {reasoning}",
-                                    "status": "failed",
-                                    "mascot_state": "disapproving",
-                                    "mascot_wardrobe": "none"
-                                }))
-                                observations.append(f"<observation:{tool_name}>{obs_text}</observation:{tool_name}>")
-                                continue
-                    
-                    # Check if confirmation is required (Tier >= 3)
-                    if tier >= 3:
+                    # Evaluate System Guard Level 1 vs Level 0 Unrestricted Mode
+                    requires_approval, approval_reason = check_approval_gate(tool_name, args)
+                    if requires_approval:
                         conf_id = f"conf-{uuid.uuid4()}"
                         conf_event = asyncio.Event()
-                        active_confirmations[conf_id] = {
-                            "event": conf_event,
-                            "approved": False
-                        }
+                        await register_confirmation(conf_id, conf_event)
                         
                         # Yield confirmation prompt event to UI
                         yield sse_event("confirmation", json.dumps({
                             "id": conf_id,
                             "tool": tool_name,
                             "args": args,
-                            "tier": tier
+                            "tier": tier,
+                            "reason": approval_reason
                         }))
                         
-                        # Wait until user approves/rejects (with timeout to prevent indefinite hang)
+                        # Wait until user approves/rejects
                         try:
                             await asyncio.wait_for(conf_event.wait(), timeout=120.0)
                         except asyncio.TimeoutError:
-                            pass  # treat timeout as rejection
-                        approved = active_confirmations.pop(conf_id, {}).get("approved", False)
+                            pass
+                        approved = await pop_confirmation(conf_id)
                         
                         if not approved:
                             obs_text = "Tool execution rejected by user safety gate."
@@ -2048,57 +2030,56 @@ async def run_react_agent_loop(
                     final_text = clean_final_text(full_turn_text)
                     final_text = await process_final_response(final_text, user_lang, client)
 
-                    # BUG-3b fix: Consensus Debate uses Ollama client.generate() — skip for cloud providers.
-                    if model_source != "cloud":
-                        # 3. Consensus Debate (Upgrade 6)
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-init-break-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
-                            "status": "running"
-                        }))
-                        has_search2 = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
-                        qa_prompt = build_consensus_qa_prompt(final_text)
-                        qa_res = await asyncio.to_thread(client.generate, model=get_auditor_model(), prompt=qa_prompt, options={"temperature": 0.2})  # #6 FIX: Low temp = critical/nitpicky QA
-                        critique = (qa_res.response if hasattr(qa_res, "response") else qa_res.get("response", "")).strip()
+                    # 3. Consensus Debate (Runs for local and cloud models)
+                    yield sse_event("thought", json.dumps({
+                        "id": f"debate-init-break-{time.time()}",
+                        "type": "planning",
+                        "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
+                        "status": "running"
+                    }))
+                    has_search2 = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
+                    qa_prompt = build_consensus_qa_prompt(final_text)
+                    from src.core.llm_provider import call_llm
+                    critique = await call_llm([{"role": "user", "content": qa_prompt}], model=get_auditor_model(), temperature=0.2)
+                    critique = (critique or "").strip()
 
-                        # Filter false-positive temporal error critiques
-                        critique, is_false_pos2 = filter_temporal_false_positives(critique, executed_search_tool=has_search2)
+                    # Filter false-positive temporal error critiques
+                    critique, is_false_pos2 = filter_temporal_false_positives(critique, executed_search_tool=has_search2)
 
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-critique-break-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
-                            "status": "completed"
-                        }))
+                    yield sse_event("thought", json.dumps({
+                        "id": f"debate-critique-break-{time.time()}",
+                        "type": "planning",
+                        "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
+                        "status": "completed"
+                    }))
 
-                        if critique:
-                            coder_prompt = build_consensus_coder_prompt(final_text, critique)
-                            coder_res = await asyncio.to_thread(client.generate, model=active_model, prompt=coder_prompt, options={"temperature": 0.5})  # #6 FIX: Higher temp = creative Lead Coder; use brain model not auditor
-                            refined = (coder_res.response if hasattr(coder_res, "response") else coder_res.get("response", "")).strip()
-                            if refined.startswith("```"):
-                                refined = refined.strip("`").replace("json\n", "").strip()
+                    if critique:
+                        coder_prompt = build_consensus_coder_prompt(final_text, critique)
+                        refined = await call_llm([{"role": "user", "content": coder_prompt}], model=active_model, temperature=0.5)
+                        refined = (refined or "").strip()
+                        if refined.startswith("```"):
+                            refined = refined.strip("`").replace("json\n", "").strip()
 
-                            try:
-                                json.loads(refined)
-                                if has_search2 and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in final_text.lower()):
-                                    pass
-                                else:
-                                    final_text = refined
-                            except Exception:
+                        try:
+                            json.loads(refined)
+                            if has_search2 and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in final_text.lower()):
                                 pass
+                            else:
+                                final_text = refined
+                        except Exception:
+                            pass
 
-                        _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
-                        active_debates[_debate_key2] = {
-                            "draft": final_text,
-                            "critique": critique,
-                            "refined": final_text
-                        }
-                        # BUG-10 fix: same cap as above — prune oldest entries
-                        _MAX_DEBATES = 50
-                        if len(active_debates) > _MAX_DEBATES:
-                            for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
-                                del active_debates[_old_k]
+                    _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
+                    active_debates[_debate_key2] = {
+                        "draft": final_text,
+                        "critique": critique,
+                        "refined": final_text
+                    }
+                    # BUG-10 fix: same cap as above — prune oldest entries
+                    _MAX_DEBATES = 50
+                    if len(active_debates) > _MAX_DEBATES:
+                        for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+                            del active_debates[_old_k]
 
                     yield sse_event("text", final_text)
                 break

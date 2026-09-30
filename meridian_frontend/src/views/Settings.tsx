@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
+import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, DollarSign, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { API_BASE_URL, getApiBaseUrl, getApiKey } from '../config';
 import { SystemUsage } from '../types';
@@ -16,6 +16,7 @@ const SETTINGS_TABS = [
   { id: 'mascot', label: 'Mascot & Style', icon: Sparkles },
   { id: 'voice', label: 'Voice & Audio', icon: Mic },
   { id: 'guard', label: 'System Guard', icon: ShieldCheck },
+  { id: 'spend', label: 'Spend & Air-Gap', icon: DollarSign },
   { id: 'integrations', label: 'Integrations', icon: Plug },
 ] as const;
 
@@ -91,13 +92,13 @@ function PasswordInput({ label, value, onChange, placeholder }: { label: string;
 export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
   const { isLowRam, toggleLowRamMode } = useLowRamMode();
-  const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'integrations'>('models');
+  const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'spend' | 'integrations'>('models');
   const [provider, setProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [modelSource, setModelSource] = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
   const [ollamaHost, setOllamaHost] = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
-  const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || 'for ex: model name');
-  const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || 'for ex: model name');
-  const [embeddingModel, setEmbeddingModel] = useState(() => localStorage.getItem('EMBEDDING_MODEL') || localStorage.getItem('embedding_model') || 'for ex: model name');
+  const [brainModel, setBrainModel] = useState(() => localStorage.getItem('MERIDIAN_MODEL') || '');
+  const [visionModel, setVisionModel] = useState(() => localStorage.getItem('MERIDIAN_VISION_MODEL') || '');
+  const [embeddingModel, setEmbeddingModel] = useState(() => localStorage.getItem('EMBEDDING_MODEL') || localStorage.getItem('embedding_model') || '');
   const [availableBrainModels, setAvailableBrainModels] = useState<string[]>([]);
   const [availableOllamaModels, setAvailableOllamaModels] = useState<string[]>([]);
   const [showAllVisionModels, setShowAllVisionModels] = useState(() => localStorage.getItem('meridian_show_all_vision_models') === 'true');
@@ -150,6 +151,121 @@ export default function Settings() {
   const [continuousActive, setContinuousActive] = useState(false);
   const [continuousRemaining, setContinuousRemaining] = useState(0);
   const [biometricsCount, setBiometricsCount] = useState(0);
+
+  // Day 9 Spend & Air-Gap state
+  const [spendStats, setSpendStats] = useState<any>({ monthly_cost_usd: 0, budget_cap_usd: 10, budget_exceeded: false, by_provider: {} });
+  const [newBudgetCap, setNewBudgetCap] = useState('10.00');
+  const [airgapStatus, setAirgapStatus] = useState<any>({ airgap_active: false, proof_badge: '' });
+  const [budgetEnabled, setBudgetEnabled] = useState<boolean>(true);
+  const [autonomousMode, setAutonomousMode] = useState<boolean>(true);
+  const [securityGuardLevel, setSecurityGuardLevel] = useState<number>(1);
+  const [pairingQrData, setPairingQrData] = useState<any>(null);
+
+  const fetchSpendAndAirgap = async () => {
+    try {
+      const resSpend = await fetch(`${API_BASE_URL}/api/spend/stats`);
+      if (resSpend.ok) {
+        const data = await resSpend.json();
+        setSpendStats(data);
+        if (data.budget_cap_usd) setNewBudgetCap(String(data.budget_cap_usd));
+        if (typeof data.budget_enabled === 'boolean') setBudgetEnabled(data.budget_enabled);
+      }
+      const resAirgap = await fetch(`${API_BASE_URL}/api/mode/airgap`);
+      if (resAirgap.ok) {
+        const data = await resAirgap.json();
+        setAirgapStatus(data);
+      }
+      const resGuard = await fetch(`${API_BASE_URL}/api/mode/security_guard`);
+      if (resGuard.ok) {
+        const data = await resGuard.json();
+        if (typeof data.level === 'number') setSecurityGuardLevel(data.level);
+      }
+      const resAuto = await fetch(`${API_BASE_URL}/api/mode/autonomous`);
+      if (resAuto.ok) {
+        const data = await resAuto.json();
+        if (typeof data.autonomous_mode === 'boolean') setAutonomousMode(data.autonomous_mode);
+      }
+    } catch { /* noop */ }
+  };
+
+  const handleUpdateBudgetCap = async () => {
+    const val = parseFloat(newBudgetCap);
+    if (isNaN(val) || val <= 0) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/spend/budget`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_cap_usd: val, enabled: budgetEnabled })
+      });
+      if (res.ok) fetchSpendAndAirgap();
+    } catch { /* noop */ }
+  };
+
+  const handleToggleBudgetEnabled = async (enabled: boolean) => {
+    setBudgetEnabled(enabled);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/spend/budget`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget_cap_usd: parseFloat(newBudgetCap) || 10.0, enabled })
+      });
+      if (res.ok) fetchSpendAndAirgap();
+    } catch { /* noop */ }
+  };
+
+  const handleToggleSecurityGuard = async (level: number) => {
+    setSecurityGuardLevel(level);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/mode/security_guard`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.level === 'number') setSecurityGuardLevel(data.level);
+      }
+    } catch { /* noop */ }
+  };
+
+  const handleToggleAutonomous = async (enabled: boolean) => {
+    setAutonomousMode(enabled);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/mode/autonomous`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data.autonomous_mode === 'boolean') setAutonomousMode(data.autonomous_mode);
+      }
+    } catch { /* noop */ }
+  };
+
+  const handleGeneratePairingQr = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/system/pairing_qr`);
+      if (res.ok) {
+        const data = await res.json();
+        setPairingQrData(data);
+      }
+    } catch { /* noop */ }
+  };
+
+  const handleToggleAirgap = async (enabled: boolean) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/mode/airgap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAirgapStatus(data);
+      }
+    } catch { /* noop */ }
+  };
 
   const fetchVoiceStatus = async () => {
     try {
@@ -229,6 +345,7 @@ export default function Settings() {
       .catch(() => { });
     fetchCustomMcpServers();
     fetchVoiceStatus();
+    fetchSpendAndAirgap();
   }, []);
 
   const handleInstallMcp = async (serverId: string) => {
@@ -290,7 +407,7 @@ export default function Settings() {
     } catch { }
   };
 
-  const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || 'for ex: model name');
+  const [auditorModel, setAuditorModel] = useState(() => localStorage.getItem('meridian_auditor_model') || '');
   const [contextTokenLimit, setContextTokenLimit] = useState(() => parseInt(localStorage.getItem('context_token_limit') || '8192'));
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
   const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
@@ -670,7 +787,8 @@ export default function Settings() {
       .then(r => r?.json())
       .then(d => {
         if (d?.models) {
-          setAvailableOllamaModels(d.models.map((m: any) => m.name || m));
+          const names = d.models.map((m: any) => m.name || m);
+          setAvailableOllamaModels(Array.from(new Set(names)));
         }
       })
       .catch(() => { });
@@ -689,7 +807,8 @@ export default function Settings() {
       .then(r => r?.json())
       .then(d => {
         if (d?.models) {
-          setAvailableBrainModels(d.models.map((m: any) => m.name || m));
+          const names = d.models.map((m: any) => m.name || m);
+          setAvailableBrainModels(Array.from(new Set(names)));
         }
       })
       .catch(() => { });
@@ -762,7 +881,6 @@ export default function Settings() {
       GAME_MODE: gameMode ? 'true' : 'false',
       meridian_auditor_model: auditorModel,
       EMBEDDING_MODEL: embeddingModel,
-      embedding_model: embeddingModel,
       meridian_tts_voice: ttsVoice,
       wakeword_threshold: String(wakewordThreshold),
       wakeword_model_filename: wakewordModel,
@@ -900,6 +1018,199 @@ export default function Settings() {
       <form onSubmit={handleSave} style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16 }}>
         {/* Left: config */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Category: Spend & Air-Gap */}
+          {activeCategory === 'spend' && (
+            <>
+              {/* Cloud Spend & Token Meter */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Cloud Spend & Token Meter</span>
+                  {spendStats.budget_exceeded && (
+                    <span style={{ fontSize: 10, background: 'rgba(239,68,68,0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                      BUDGET EXCEEDED — LOCAL FALLBACK ACTIVE
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                  {/* Progress Bar */}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6, color: 'var(--text-main)', fontWeight: 600 }}>
+                      <span>30-Day LLM Spend: ${spendStats.monthly_cost_usd?.toFixed(4)} USD</span>
+                      <span>Cap: ${spendStats.budget_cap_usd?.toFixed(2)} USD</span>
+                    </div>
+                    <div style={{ width: '100%', height: 8, background: 'rgba(0,0,0,0.4)', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${Math.min(100, ((spendStats.monthly_cost_usd || 0) / (spendStats.budget_cap_usd || 1)) * 100)}%`,
+                          background: spendStats.budget_exceeded ? '#ef4444' : 'var(--accent)',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Budget Cap Setter */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <label style={{ fontSize: 11, color: 'var(--text-dim)', minWidth: 120 }}>Monthly Cap (USD):</label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={newBudgetCap}
+                      onChange={e => setNewBudgetCap(e.target.value)}
+                      style={{ width: 100, padding: '6px 10px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontSize: 12 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUpdateBudgetCap}
+                      style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--accent)', border: 'none', color: '#000', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                    >
+                      Update Cap
+                    </button>
+                  </div>
+
+                  {/* Budget Enable/Disable Toggle */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>Enforce Spend Budget Cap</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically fall back to local model when cap is reached.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/api/spend/budget`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ enabled: !spendStats.budget_enabled })
+                          });
+                          if (res.ok) fetchSpendAndAirgap();
+                        } catch { /* noop */ }
+                      }}
+                      style={{
+                        padding: '6px 14px', borderRadius: 16, border: 'none',
+                        background: spendStats.budget_enabled !== false ? '#22c55e' : 'rgba(255,255,255,0.1)',
+                        color: spendStats.budget_enabled !== false ? '#000' : 'var(--text-dim)',
+                        fontWeight: 700, fontSize: 11, cursor: 'pointer'
+                      }}
+                    >
+                      {spendStats.budget_enabled !== false ? 'ENFORCING' : 'DISABLED'}
+                    </button>
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Mobile Pairing & QR Code */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Mobile App Pairing & QR Link</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    Scan QR code from the Meridian-X Android/iOS App to instantly pair desktop endpoint and security key.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`${API_BASE_URL}/api/system/pairing_qr`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          alert(`Pairing Payload:\nEndpoint: ${data.endpoint}\nScan via Mobile App`);
+                        }
+                      } catch { alert('Failed generating pairing code.'); }
+                    }}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8, background: 'var(--accent)', color: '#000',
+                      fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', alignSelf: 'flex-start'
+                    }}
+                  >
+                    Generate Mobile Pairing QR
+                  </button>
+                </div>
+              </GlowCard>
+
+              {/* Local-Only Air-Gap Control */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">Local-Only Air-Gap Mode (OPS-04)</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>Hard Network Air-Gap</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Blocks all non-loopback outbound cloud and remote API requests.</div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAirgap(!airgapStatus.airgap_active)}
+                      style={{
+                        padding: '8px 18px', borderRadius: 20, border: 'none',
+                        background: airgapStatus.airgap_active ? '#22c55e' : 'rgba(255,255,255,0.1)',
+                        color: airgapStatus.airgap_active ? '#000' : 'var(--text-dim)',
+                        fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {airgapStatus.airgap_active ? 'ENABLED (AIR-GAPPED)' : 'DISABLED'}
+                    </button>
+                  </div>
+
+                  {airgapStatus.airgap_active && (
+                    <div style={{ padding: 12, borderRadius: 8, background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.3)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#4ade80' }}>PROOF BADGE: {airgapStatus.proof_badge}</span>
+                        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Verified: {airgapStatus.verified_at}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                        Sig: {airgapStatus.signature}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </GlowCard>
+            </>
+          )}
+
+          {/* Category: System Guard */}
+          {activeCategory === 'guard' && (
+            <>
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">System Guard & PC Execution Security</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
+                  <div style={{ padding: 12, borderRadius: 8, background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f87171', marginBottom: 4 }}>
+                      Unrestricted PC Access Mode (Level 0)
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                      Grants Meridian-X full automated execution rights across the PC. Bypasses confirmation gates for system commands, process management, and file operations.
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>Level 1 Security (Human Confirmation Gates)</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Require confirmation before running destructive OS actions.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_BASE_URL}/api/mode/security_guard`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ level: 0 })
+                          });
+                          if (res.ok) alert('Unrestricted PC Access Mode Enabled.');
+                        } catch { /* noop */ }
+                      }}
+                      style={{ padding: '6px 14px', borderRadius: 16, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}
+                    >
+                      Bypass / Enable Level 0 Mode
+                    </button>
+                  </div>
+                </div>
+              </GlowCard>
+            </>
+          )}
 
           {/* Category 1: AI Models */}
           {activeCategory === 'models' && (
@@ -2341,6 +2652,230 @@ export default function Settings() {
                     <div>
                       <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
                       <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
+                    </div>
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Security Guard Level 0/1 */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">🛡️ System Guard & Execution Rights</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSecurityGuard(1)}
+                      style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        borderRadius: 'var(--radius-sm)',
+                        border: securityGuardLevel === 1 ? '1.5px solid var(--accent)' : '1px solid var(--border-subtle)',
+                        background: securityGuardLevel === 1 ? 'var(--bg-surface)' : 'var(--bg-panel)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700, color: securityGuardLevel === 1 ? 'var(--accent)' : 'var(--text-bright)' }}>
+                        Level 1: Standard Guard
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                        Requires confirmation prompt before running OS shell commands or mutating files.
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSecurityGuard(0)}
+                      style={{
+                        padding: 12,
+                        textAlign: 'left',
+                        borderRadius: 'var(--radius-sm)',
+                        border: securityGuardLevel === 0 ? '1.5px solid var(--danger)' : '1px solid var(--border-subtle)',
+                        background: securityGuardLevel === 0 ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-panel)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 700, color: securityGuardLevel === 0 ? 'var(--danger)' : 'var(--text-bright)' }}>
+                        Level 0: Unrestricted PC Access Mode
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
+                        Bypasses approval gates. Allows Meridian-X full unrestricted OS execution without confirmation prompts.
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </GlowCard>
+
+              {/* Continuous Autonomous Loop Mode */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">🔄 Autonomous Continuous Loop Mode</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Continuous Autonomous ReAct Loop</div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+                      Auto-continues multi-turn tool execution without requiring manual "continue" prompts.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAutonomous(!autonomousMode)}
+                    style={{
+                      padding: '6px 14px',
+                      fontSize: 11,
+                      fontFamily: 'JetBrains Mono',
+                      fontWeight: 600,
+                      borderRadius: 'var(--radius-sm)',
+                      border: autonomousMode ? '1px solid var(--accent-2)' : '1px solid var(--border-subtle)',
+                      background: autonomousMode ? 'rgba(52, 211, 153, 0.15)' : 'var(--bg-panel)',
+                      color: autonomousMode ? 'var(--accent-2)' : 'var(--text-dim)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {autonomousMode ? '⚡ ENABLED (AUTO)' : '⏸️ MANUAL STEP'}
+                  </button>
+                </div>
+              </GlowCard>
+
+              {/* Mobile QR Pairing */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">📱 Desktop-to-Mobile App QR Pairing</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+                    Pair Meridian Mobile app (`meridian_mobile`) to sync backend control, voice triggers, and agent status.
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleGeneratePairingQr}>
+                      Generate Pairing QR Code
+                    </HoloButton>
+                  </div>
+                  {pairingQrData && (
+                    <div style={{ padding: 12, background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'JetBrains Mono', fontSize: 11 }}>
+                      <div style={{ color: 'var(--accent)', fontWeight: 600 }}>Endpoint: {pairingQrData.endpoint}</div>
+                      <div style={{ color: 'var(--text-main)', wordBreak: 'break-all' }}>Token: {pairingQrData.pairing_token || pairingQrData.token}</div>
+                      <div style={{ marginTop: 8, background: '#FFF', padding: 12, borderRadius: 8, alignSelf: 'start' }}>
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(JSON.stringify(pairingQrData))}`}
+                          alt="Mobile Pairing QR"
+                          width={150}
+                          height={150}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </GlowCard>
+            </>
+          )}
+
+          {/* Category: Spend & Air-Gap */}
+          {activeCategory === 'spend' && (
+            <>
+              {/* Air-Gap Mode */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">🔒 Air-Gap Mode & Network Isolation</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Local-Only Air-Gap Isolation</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+                        Hard-blocks all cloud AI providers, remote Ollama servers, and external network calls. Forces 100% local model inference.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAirgap(!airgapStatus.airgap_active)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: 11,
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: 600,
+                        borderRadius: 'var(--radius-sm)',
+                        border: airgapStatus.airgap_active ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
+                        background: airgapStatus.airgap_active ? 'rgba(52, 211, 153, 0.15)' : 'var(--bg-panel)',
+                        color: airgapStatus.airgap_active ? 'var(--success)' : 'var(--text-main)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {airgapStatus.airgap_active ? '🔒 AIR-GAP ACTIVE' : '🌐 CLOUD ALLOWED'}
+                    </button>
+                  </div>
+                  {airgapStatus.proof_badge && (
+                    <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', background: 'var(--accent-muted)', padding: '6px 10px', borderRadius: 'var(--radius-sm)' }}>
+                      Proof Badge: {airgapStatus.proof_badge}
+                    </div>
+                  )}
+                </div>
+              </GlowCard>
+
+              {/* Monthly Spend Budget Cap & Toggle */}
+              <GlowCard className="glass" style={{ padding: 16 }}>
+                <div className="section-label">💰 Monthly LLM Spend Budget & Cap Controls</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  
+                  {/* Enable / Disable Budget Enforcement Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Enforce Spend Budget Cap</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
+                        Automatically block API calls when monthly spend exceeds your cap threshold.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleBudgetEnabled(!budgetEnabled)}
+                      style={{
+                        padding: '6px 14px',
+                        fontSize: 11,
+                        fontFamily: 'JetBrains Mono',
+                        fontWeight: 600,
+                        borderRadius: 'var(--radius-sm)',
+                        border: budgetEnabled ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
+                        background: budgetEnabled ? 'var(--accent-muted)' : 'var(--bg-panel)',
+                        color: budgetEnabled ? 'var(--accent)' : 'var(--text-dim)',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {budgetEnabled ? 'ON (ENFORCED)' : 'OFF (DISABLED)'}
+                    </button>
+                  </div>
+
+                  {/* Budget Limit Input */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Monthly Spend Cap ($ USD)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.50"
+                        min="1.00"
+                        value={newBudgetCap}
+                        onChange={e => setNewBudgetCap(e.target.value)}
+                        className="input-base"
+                        style={{ fontFamily: 'JetBrains Mono' }}
+                      />
+                    </div>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleUpdateBudgetCap}>
+                      Save Cap
+                    </HoloButton>
+                  </div>
+
+                  {/* Current Monthly Cost Stats Meter */}
+                  <div style={{ padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 11, color: 'var(--text-main)', fontFamily: 'JetBrains Mono' }}>Current Month Spend</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
+                        ${Number(spendStats.monthly_cost_usd || 0).toFixed(4)} / ${Number(spendStats.budget_cap_usd || 10).toFixed(2)}
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: 6, background: 'var(--bg-panel)', borderRadius: 3, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${Math.min(100, ((spendStats.monthly_cost_usd || 0) / (spendStats.budget_cap_usd || 10)) * 100)}%`,
+                          height: '100%',
+                          background: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)',
+                          transition: 'width 0.3s ease'
+                        }}
+                      />
                     </div>
                   </div>
                 </div>

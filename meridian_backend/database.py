@@ -368,7 +368,19 @@ def init_tables():
             session_id TEXT,
             step_index INTEGER,
             thought_text TEXT,
-            tool_name TEXT
+            metadata TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS token_spend_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp REAL,
+            provider TEXT,
+            model TEXT,
+            prompt_tokens INTEGER,
+            completion_tokens INTEGER,
+            cost_usd REAL
         )
     """)
     
@@ -412,15 +424,34 @@ db = None
 # ----------------- SEMANTIC CACHE HELPERS -----------------
 
 from collections import OrderedDict
+import threading
+
+# Cache statistics for monitoring
+_cache_stats = {
+    "hits": 0,
+    "misses": 0,
+    "tier1_hits": 0,
+    "tier2_hits": 0,
+    "requests": 0
+}
+_cache_stats_lock = threading.Lock()
+
 _exact_match_cache: OrderedDict = OrderedDict()
 _EXACT_CACHE_MAX_SIZE = 500
 
 def check_semantic_cache(query_text: str) -> Optional[str]:
+    global _cache_stats
+    with _cache_stats_lock:
+        _cache_stats["requests"] += 1
+    
     # Tier-1: Exact Match LRU/Memory cache (0ms, skips embedding generation)
     if query_text in _exact_match_cache:
         val, expires_at = _exact_match_cache[query_text]
         if expires_at > time.time():
             _exact_match_cache.move_to_end(query_text)
+            with _cache_stats_lock:
+                _cache_stats["hits"] += 1
+                _cache_stats["tier1_hits"] += 1
             print(f"[Semantic Cache] Tier-1 Exact Match HIT: '{query_text}'")
             return val
         else:
@@ -457,10 +488,13 @@ def check_semantic_cache(query_text: str) -> Optional[str]:
                             )
                             res = cursor.fetchone()
                             if res and res["response_text"] and res["response_text"].strip() and res["expires_at"] > time.time():
-                                print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
-                                # Store back to Tier-1
-                                _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])
-                                return res["response_text"]
+                                 print(f"[Semantic Cache] Tier-2 Vector Match HIT: '{query_text}' (similarity: {score:.4f})")
+                                 # Store back to Tier-1
+                                 _exact_match_cache[query_text] = (res["response_text"], res["expires_at"])
+                                 with _cache_stats_lock:
+                                     _cache_stats["hits"] += 1
+                                     _cache_stats["tier2_hits"] += 1
+                                 return res["response_text"]
     except Exception as e:
         print("[Semantic Cache] Search failed:", e)
     finally:
@@ -496,6 +530,32 @@ def get_near_miss_semantic_cache(query_text: str, min_score: float = 0.60, max_s
         if conn:
             conn.close()
     return None
+
+
+def get_cache_statistics() -> dict:
+    """Get current cache statistics."""
+    global _cache_stats
+    with _cache_stats_lock:
+        stats = _cache_stats.copy()
+    
+    # Calculate hit rate
+    total_requests = stats["requests"]
+    if total_requests > 0:
+        hit_rate = (stats["hits"] / total_requests) * 100
+        tier1_rate = (stats["tier1_hits"] / total_requests) * 100
+        tier2_rate = (stats["tier2_hits"] / total_requests) * 100
+    else:
+        hit_rate = tier1_rate = tier2_rate = 0.0
+    
+    stats.update({
+        "hit_rate_percent": round(hit_rate, 2),
+        "tier1_rate_percent": round(tier1_rate, 2),
+        "tier2_rate_percent": round(tier2_rate, 2),
+        "cache_size": len(_exact_match_cache),
+        "max_cache_size": _EXACT_CACHE_MAX_SIZE
+    })
+    
+    return stats
 
 def add_to_semantic_cache(query_text: str, response_text: str, ttl_hours: int = 24):
     ttl_seconds = ttl_hours * 3600
@@ -659,8 +719,24 @@ def get_thought_logs(session_id: str = "default", limit: int = 50) -> List[Dict[
 
 # ----------------- CONVERSATIONS HELPERS -----------------
 
+TRANSIENT_CONVERSATION_PHRASES = {
+    "try again", "retry", "redo", "again", "try again.", "retry.", "redo.",
+    "ok", "okay", "yes", "no", "thanks", "thank you", "nevermind", "never mind",
+    "clear", "cancel", "stop", "continue", "go ahead", "k", "kk", "sure", "yep", "nope"
+}
+
+def is_transient_phrase(text: str) -> bool:
+    """Returns True if input text is a short transient filler phrase that should not be saved into DB history."""
+    if not text or not text.strip():
+        return True
+    cleaned = re.sub(r"[^\w\s]", "", text.strip().lower())
+    return cleaned in TRANSIENT_CONVERSATION_PHRASES
 
 def add_to_conversations(role: str, content: str, summary: str = ""):
+    if is_transient_phrase(content):
+        print(f"[Conversations Log] Skipped storing transient phrase: '{content.strip()}'")
+        return
+
     conn = None
     inserted_id = None
     try:
@@ -1084,7 +1160,24 @@ def save_user_profile(key: str, value: Any):
         except Exception as e:
             print("[MongoDB User Profile] Save failed:", e)
 
-def get_user_profile(key: str) -> Optional[Any]:
+def get_user_profile(key: Optional[str] = None) -> Any:
+    """Retrieves single user profile value by key, or dictionary of all preferences if key is None."""
+    if key is None:
+        conn = None
+        results = {}
+        try:
+            conn = get_sqlite_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT key, value FROM user_profile")
+            for r in cursor.fetchall():
+                results[r["key"]] = _open_profile_value(r["value"])
+        except Exception as e:
+            print(f"[SQLite User Profile] Fetch all failed: {e}")
+        finally:
+            if conn:
+                conn.close()
+        return results
+
     if key in _user_profile_cache:
         val, cached_at = _user_profile_cache[key]
         if time.time() - cached_at < _PROFILE_CACHE_TTL:
@@ -1441,6 +1534,140 @@ def resolve_whatsapp_contact(identifier: str) -> Optional[Dict[str, Any]]:
             return c
     return None
 
+def record_token_spend(provider: str, model: str, prompt_tokens: int, completion_tokens: int, cost_usd: float):
+    """Records LLM token usage and estimated USD cost into SQLite token_spend_logs (TRUST-03)."""
+    conn = get_sqlite_conn()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO token_spend_logs (timestamp, provider, model, prompt_tokens, completion_tokens, cost_usd)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (time.time(), provider, model, prompt_tokens, completion_tokens, cost_usd))
+        conn.commit()
+    except Exception as e:
+        print(f"[Database] Failed recording token spend: {e}")
+    finally:
+        conn.close()
+
+def get_spend_stats() -> Dict[str, Any]:
+    """Returns token spend summary, breakdown by provider, monthly cost, and budget cap status."""
+    conn = get_sqlite_conn()
+    try:
+        cursor = conn.cursor()
+        # Monthly total
+        thirty_days_ago = time.time() - (30 * 86400)
+        cursor.execute("SELECT SUM(cost_usd), SUM(prompt_tokens), SUM(completion_tokens) FROM token_spend_logs WHERE timestamp >= ?", (thirty_days_ago,))
+        row = cursor.fetchone()
+        monthly_cost = row[0] or 0.0
+        prompt_t = row[1] or 0
+        completion_t = row[2] or 0
+
+        # Breakdown by provider
+        cursor.execute("""
+            SELECT provider, SUM(cost_usd), SUM(prompt_tokens + completion_tokens)
+            FROM token_spend_logs
+            WHERE timestamp >= ?
+            GROUP BY provider
+        """, (thirty_days_ago,))
+        by_provider = {r[0]: {"cost": round(r[1] or 0.0, 4), "tokens": r[2] or 0} for r in cursor.fetchall()}
+
+        budget_cap = get_budget_cap()
+        budget_enabled = get_budget_enabled()
+        exceeded = (monthly_cost >= budget_cap) if budget_enabled else False
+
+        return {
+            "monthly_cost_usd": round(monthly_cost, 4),
+            "total_prompt_tokens": prompt_t,
+            "total_completion_tokens": completion_t,
+            "total_tokens": prompt_t + completion_t,
+            "budget_cap_usd": budget_cap,
+            "budget_enabled": budget_enabled,
+            "budget_exceeded": exceeded,
+            "by_provider": by_provider
+        }
+    except Exception as e:
+        print(f"[Database] Failed retrieving spend stats: {e}")
+        return {"monthly_cost_usd": 0.0, "total_tokens": 0, "budget_cap_usd": 10.0, "budget_enabled": True, "budget_exceeded": False, "by_provider": {}}
+    finally:
+        conn.close()
+
+def get_budget_cap() -> float:
+    """Gets configured monthly budget cap in USD (default $10.00)."""
+    try:
+        val = get_user_profile("monthly_budget_cap")
+        return float(val) if val else 10.0
+    except Exception:
+        return 10.0
+
+def set_budget_cap(cap_usd: float) -> bool:
+    """Sets monthly budget cap limit."""
+    try:
+        save_user_preference("monthly_budget_cap", str(cap_usd))
+        return True
+    except Exception:
+        return False
+
+def get_budget_enabled() -> bool:
+    """Gets whether monthly budget cap enforcement is enabled (default True)."""
+    try:
+        val = get_user_profile("monthly_budget_enabled")
+        return str(val).lower() != "false" if val is not None else True
+    except Exception:
+        return True
+
+def set_budget_enabled(enabled: bool) -> bool:
+    """Sets whether monthly budget cap enforcement is enabled."""
+    try:
+        save_user_preference("monthly_budget_enabled", str(enabled))
+        return True
+    except Exception:
+        return False
+
+def check_budget_exceeded() -> bool:
+    """Checks if current month LLM expenditure exceeds user budget cap."""
+    if not get_budget_enabled():
+        return False
+    stats = get_spend_stats()
+    return stats.get("budget_exceeded", False)
+
+def get_autonomous_mode() -> bool:
+    """Returns whether autonomous multi-step loop mode is enabled (default True)."""
+    try:
+        val = get_user_profile("autonomous_loop_mode")
+        return str(val).lower() != "false" if val is not None else True
+    except Exception:
+        return True
+
+def set_autonomous_mode(enabled: bool) -> bool:
+    """Sets whether autonomous multi-step loop mode is enabled."""
+    try:
+        save_user_preference("autonomous_loop_mode", str(enabled))
+        return True
+    except Exception:
+        return False
+
+def get_security_guard_level() -> int:
+    """Gets current System Guard security level (1=Strict Gates, 0=Unrestricted PC Mode). Default 1."""
+    try:
+        val = get_user_profile("security_guard_level")
+        return int(val) if val is not None else 1
+    except Exception:
+        return 1
+
+def set_security_guard_level(level: int) -> bool:
+    """Sets System Guard security level (1=Strict, 0=Unrestricted)."""
+    try:
+        save_user_preference("security_guard_level", str(level))
+        return True
+    except Exception:
+        return False
+
+def get_unrestricted_pc_access() -> bool:
+    """Returns whether Unrestricted PC Access mode is active."""
+    return get_security_guard_level() == 0
+
 # Trigger automatic loading of profile keys on module import
 load_db_keys_to_env()
+
+
 

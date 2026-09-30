@@ -4,8 +4,7 @@ import { API_BASE_URL } from './config';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, emit } from '@tauri-apps/api/event';
 
-
-export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'workflows' | 'settings';
+export type TabId = 'timeline' | 'jobs' | 'clipboard' | 'productivity' | 'lobby' | 'workflows' | 'memory' | 'settings';
 
 export type IslandPosition = 'top-center' | 'top-right' | 'bottom-right' | 'top-left' | 'bottom-left' | 'bottom-center';
 
@@ -14,6 +13,8 @@ interface AppContextValue {
   setActiveTab: (tab: TabId) => void;
   theme: string;
   setTheme: (theme: string) => void;
+  accentColor: string;
+  setAccentColor: (color: string) => void;
   islandPosition: IslandPosition;
   setIslandPosition: (pos: IslandPosition) => void;
   backendAlive: boolean;
@@ -30,7 +31,8 @@ const AppCtx = createContext<AppContextValue | null>(null);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
-  const [theme, _setTheme] = useState(() => localStorage.getItem('theme') || 'frost');
+  const [theme, _setTheme] = useState(() => localStorage.getItem('theme') || 'cyberslate');
+  const [accentColor, _setAccentColor] = useState(() => localStorage.getItem('MERIDIAN_ACCENT_COLOR') || '#00F0FF');
   const [islandPosition, _setIslandPosition] = useState<IslandPosition>(
     () => (localStorage.getItem('ISLAND_POSITION') as IslandPosition) || 'bottom-right'
   );
@@ -43,11 +45,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [systemUsage, setSystemUsage] = useState<SystemUsage>({ cpu: 0, ram: 0 });
   const [gameMode, _setGameMode] = useState(false);
 
+  const setAccentColor = (color: string) => {
+    _setAccentColor(color);
+    localStorage.setItem('MERIDIAN_ACCENT_COLOR', color);
+    document.documentElement.style.setProperty('--accent', color);
+  };
+
   const setGameMode = async (enabled: boolean) => {
     _setGameMode(enabled);
     localStorage.setItem('GAME_MODE', enabled ? 'true' : 'false');
     
-    // Sync to Tauri (Rust)
     if ((window as any).__TAURI_INTERNALS__) {
       try {
         await invoke('toggle_game_mode', { enabled });
@@ -56,7 +63,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Sync to Python Backend
     try {
       await fetch(`${API_BASE_URL}/api/game-mode`, {
         method: 'POST',
@@ -79,14 +85,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Apply theme on mount
+  const setIslandPosition = (pos: IslandPosition) => {
+    _setIslandPosition(pos);
+    localStorage.setItem('ISLAND_POSITION', pos);
+  };
+
   useEffect(() => {
     const t = localStorage.getItem('theme') || 'cyberslate';
     document.documentElement.setAttribute('data-theme', t);
     document.documentElement.className = `theme-${t}`;
+
+    const color = localStorage.getItem('MERIDIAN_ACCENT_COLOR') || '#00F0FF';
+    document.documentElement.style.setProperty('--accent', color);
   }, []);
 
-  // Update model name when localStorage or model changes
   useEffect(() => {
     const update = () => {
       const m = localStorage.getItem('MERIDIAN_MODEL');
@@ -100,128 +112,71 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Poll backend health + usage
   useEffect(() => {
-    const poll = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/system-usage`).catch(() => null);
-        if (res?.ok) {
-          const data = await res.json();
-          setBackendAlive(true);
-          setSystemUsage({ cpu: data.cpu || 0, ram: data.ram || 0 });
-        } else {
-          setBackendAlive(false);
+    let unlisten: (() => void) | undefined;
+    if ((window as any).__TAURI_INTERNALS__) {
+      listen<any>('meridian-model-changed', (event) => {
+        if (event.payload?.model) {
+          setModelName(event.payload.model);
         }
-      } catch {
-        setBackendAlive(false);
-      }
-    };
-    poll();
-    const t = setInterval(poll, 5000);
-    return () => clearInterval(t);
-  }, []);
-
-  // Sync initial game mode (off by default) to Tauri and Python Backend on mount
-  useEffect(() => {
-    const initialMode = false;
-    localStorage.setItem('GAME_MODE', 'false');
-    if ((window as any).__TAURI_INTERNALS__) {
-      invoke('toggle_game_mode', { enabled: initialMode }).catch(err =>
-        console.error("Failed to sync initial game mode in Tauri:", err)
-      );
-    }
-
-    // Sync to Python Backend
-    fetch(`${API_BASE_URL}/api/game-mode`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: initialMode }),
-    }).catch(err =>
-      console.error("Failed to sync initial game mode on backend:", err)
-    );
-  }, []);
-
-  // Listen to system tray menu events
-  useEffect(() => {
-    let unlisten: any;
-    if ((window as any).__TAURI_INTERNALS__) {
-      listen('tray-toggle-game-mode', () => {
-        const current = localStorage.getItem('GAME_MODE') === 'true';
-        setGameMode(!current);
-      }).then(u => {
-        unlisten = u;
-      }).catch(err => console.error("Failed to setup tray listener:", err));
+      }).then(un => { unlisten = un; }).catch(() => {});
     }
     return () => {
       if (unlisten) unlisten();
     };
   }, []);
 
-  // Listen to proactive nudge stream for game mode auto-detection
-  const [reconnectKey, setReconnectKey] = useState(0);
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/health`);
+        setBackendAlive(res.ok);
+      } catch {
+        setBackendAlive(false);
+      }
+    };
+    checkBackend();
+    const interval = setInterval(checkBackend, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!backendAlive) return;
-
-    const eventSource = new EventSource(`${API_BASE_URL}/api/proactive/stream`);
-
-    eventSource.addEventListener('nudge', (e) => {
+    const fetchUsage = async () => {
       try {
-        const nudge = JSON.parse(e.data);
-        if (nudge.type === 'game_mode_changed') {
-          const enabled = nudge.message === 'enabled';
-          _setGameMode(enabled);
-          localStorage.setItem('GAME_MODE', enabled ? 'true' : 'false');
-          // Sync to Tauri (Rust)
-          if ((window as any).__TAURI_INTERNALS__) {
-            invoke('toggle_game_mode', { enabled }).catch(err =>
-              console.error("Failed to toggle game mode in Tauri from auto-nudge:", err)
-            );
-          }
+        const res = await fetch(`${API_BASE_URL}/api/system-usage`);
+        if (res.ok) {
+          const data = await res.json();
+          setSystemUsage({ cpu: data.cpu_percent || 0, ram: data.ram_percent || 0 });
         }
-      } catch (err) {
-        console.error("Failed to parse proactive nudge:", err);
-      }
-    });
-
-    // FIX: track the reconnect timer so it is cancelled on unmount (no ghost
-    // reconnect after teardown) and use exponential backoff instead of a
-    // fixed 3s hammer while the backend is down.
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let backoffMs = 3000;
-    eventSource.onerror = () => {
-      console.warn("EventSource disconnected, scheduling reconnect...");
-      eventSource.close();
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      reconnectTimer = setTimeout(() => {
-        setReconnectKey(prev => prev + 1);
-      }, backoffMs);
-      backoffMs = Math.min(backoffMs * 2, 30000);
+      } catch { /* noop */ }
     };
-
-    return () => {
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      eventSource.close();
-    };
-  }, [backendAlive, reconnectKey]);
-
-  const setIslandPosition = (pos: IslandPosition) => {
-    _setIslandPosition(pos);
-    localStorage.setItem('ISLAND_POSITION', pos);
-    window.dispatchEvent(new Event('meridian-island-position-changed'));
-  };
+    fetchUsage();
+    const interval = setInterval(fetchUsage, 3000);
+    return () => clearInterval(interval);
+  }, [backendAlive]);
 
   return (
-    <AppCtx.Provider value={{
-      activeTab, setActiveTab,
-      theme, setTheme,
-      islandPosition, setIslandPosition,
-      backendAlive,
-      modelName,
-      setModelName,
-      rightDrawerOpen, setRightDrawerOpen,
-      systemUsage,
-      gameMode, setGameMode,
-    }}>
+    <AppCtx.Provider
+      value={{
+        activeTab,
+        setActiveTab,
+        theme,
+        setTheme,
+        accentColor,
+        setAccentColor,
+        islandPosition,
+        setIslandPosition,
+        backendAlive,
+        modelName,
+        setModelName,
+        rightDrawerOpen,
+        setRightDrawerOpen,
+        systemUsage,
+        gameMode,
+        setGameMode,
+      }}
+    >
       {children}
     </AppCtx.Provider>
   );
@@ -229,6 +184,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 export function useApp() {
   const ctx = useContext(AppCtx);
-  if (!ctx) throw new Error('useApp must be used inside AppProvider');
+  if (!ctx) throw new Error('useApp must be used within AppProvider');
   return ctx;
 }

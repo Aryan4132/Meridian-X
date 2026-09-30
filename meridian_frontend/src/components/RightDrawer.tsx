@@ -48,6 +48,7 @@ const DRAWER_TITLES: Record<TabId, string> = {
   lobby:        'Agent Legend',
   settings:     'Hardware Vitals',
   workflows:    'Workflows & Nodes',
+  memory:       'Memory Inspector',
 };
 
 export default function RightDrawer({

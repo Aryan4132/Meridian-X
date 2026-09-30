@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square } from 'lucide-react';
+import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square, RotateCcw } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { Message } from '../types';
@@ -706,9 +706,44 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Timeline Logs</h1>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Execution audit · ReAct thought stream</p>
         </div>
-        <HoloButton variant="danger" size="sm" onClick={clearChat}>
-          <Trash2 size={12} /> Clear
-        </HoloButton>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                const res = await fetch(`${API_BASE_URL}/api/action/undo`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({})
+                });
+                if (res.ok) {
+                  const data = await res.json();
+                  setMessages(prev => [...prev, {
+                    id: Date.now(),
+                    role: 'assistant',
+                    timestamp: Date.now(),
+                    content: data.success ? `↺ **Undo Executed:** ${data.message}` : `✕ **Undo Warning:** ${data.message}`
+                  }]);
+                }
+              } catch (err: any) {
+                setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: `✕ **Undo Failed:** ${err.message || 'Server unreachable'}` }]);
+              }
+            }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6,
+              background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)',
+              color: '#facc15', cursor: 'pointer', fontSize: 11, fontWeight: 600
+            }}
+            title="Undo last reversible action (BUTLER-14)"
+          >
+            <RotateCcw size={12} /> Undo Last Action
+          </button>
+
+          <HoloButton variant="danger" size="sm" onClick={clearChat}>
+            <Trash2 size={12} /> Clear
+          </HoloButton>
+        </div>
       </div>
 
       {/* Messages */}

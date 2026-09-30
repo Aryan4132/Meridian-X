@@ -112,5 +112,5 @@ def get_chrome_profile_status() -> Dict[str, Any]:
         "chrome_installed": chrome_path is not None,
         "chrome_path": chrome_path or "Not Found",
         "user_data_dir": user_data,
-        "media_account_email": get_user_preference("media_account_email", "aryanshukla4132@gmail.com")
+        "media_account_email": get_user_preference("media_account_email", os.getenv("DEFAULT_MEDIA_EMAIL", ""))
     }

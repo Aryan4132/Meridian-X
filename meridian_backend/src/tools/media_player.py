@@ -1,4 +1,5 @@
 import time
+import os
 import urllib.parse
 from typing import Optional, Dict, Any
 from database import get_user_preference, save_user_preference
@@ -51,9 +52,9 @@ def play_youtube_music(
     max_retries: int = 3
 ) -> str:
     """Butler Media Engine: Plays requested track/artist on YouTube Music via Chrome authenticated profile with visual verification & auto-retry."""
-    email = account_email or get_user_preference("media_account_email", "aryanshukla4132@gmail.com")
-    # Save user preference for account memory
-    save_user_preference("media_account_email", email)
+    email = account_email or os.getenv("DEFAULT_MEDIA_EMAIL") or get_user_preference("media_account_email", "")
+    if email:
+        save_user_preference("media_account_email", email)
 
     encoded_query = urllib.parse.quote(song_query)
     search_url = f"https://music.youtube.com/search?q={encoded_query}"

@@ -1,7 +1,12 @@
 import os
 import sys
 import logging
+import uuid
 from logging.handlers import RotatingFileHandler
+from contextvars import ContextVar
+
+# Context variable for correlation ID
+correlation_id: ContextVar[str] = ContextVar('correlation_id', default='')
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -12,6 +17,7 @@ class JSONFormatter(logging.Formatter):
             "filename": record.filename,
             "lineno": record.lineno,
             "message": record.getMessage(),
+            "correlation_id": correlation_id.get()
         }
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)

@@ -32,7 +32,13 @@ const PRESET_DISTRACTIONS = [
   { id: 'steam', label: 'Steam', target: 'steam.exe' },
 ];
 
+import { LocalModelManager } from '../components/LocalModelManager';
+import { MemoryConsolidationView } from '../components/MemoryConsolidationView';
+import { DevAutomationPanel } from '../components/DevAutomationPanel';
+import { AgentStatusStream } from '../components/AgentStatusStream';
+
 export default function Productivity({ isActive = true }: { isActive?: boolean }) {
+  const [activeTab, setActiveTab] = useState<'focus' | 'local_models' | 'memory' | 'automation' | 'agent_stream'>('focus');
   const [stats, setStats] = useState<DeveloperStats>({ total: 0, success: 0, failed: 0, audits: 0, heals: 0, gitCommits: 0, pomodoros: 0 });
   const [durationMins, setDurationMins] = useState(25);
   const [secsLeft, setSecsLeft] = useState(25 * 60);
@@ -126,12 +132,65 @@ export default function Productivity({ isActive = true }: { isActive?: boolean }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px', overflow: 'hidden' }}>
-      <div style={{ marginBottom: 20, flexShrink: 0 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Productivity HUD</h1>
-        <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Performance auditing metrics · Focus intervals</p>
+      <div style={{ marginBottom: 16, flexShrink: 0, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Productivity & Developer HUD</h1>
+          <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Local Models · Memory Consolidation · Dev Automation · Agent Telemetry</p>
+        </div>
+      </div>
+
+      {/* Sub Tab Navigation */}
+      <div className="flex items-center gap-2 mb-4 p-1 bg-slate-900/80 border border-slate-800 rounded-xl overflow-x-auto text-xs flex-shrink-0">
+        <button
+          onClick={() => setActiveTab('focus')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition ${
+            activeTab === 'focus' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Focus HUD
+        </button>
+        <button
+          onClick={() => setActiveTab('local_models')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition ${
+            activeTab === 'local_models' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Local Models & Quantization
+        </button>
+        <button
+          onClick={() => setActiveTab('memory')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition ${
+            activeTab === 'memory' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Memory Consolidation
+        </button>
+        <button
+          onClick={() => setActiveTab('automation')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition ${
+            activeTab === 'automation' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Dev Automation
+        </button>
+        <button
+          onClick={() => setActiveTab('agent_stream')}
+          className={`px-3 py-1.5 rounded-lg font-medium transition ${
+            activeTab === 'agent_stream' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          Agent Activity Stream
+        </button>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {activeTab === 'local_models' && <LocalModelManager />}
+        {activeTab === 'memory' && <MemoryConsolidationView />}
+        {activeTab === 'automation' && <DevAutomationPanel />}
+        {activeTab === 'agent_stream' && <AgentStatusStream />}
+
+        {activeTab === 'focus' && (
+          <>
         {/* Stats grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
           <StatCard label="Success Rate" value={`${successRate}%`} sub={`${stats.success}/${stats.total} tasks`} color="var(--success)" />
@@ -343,6 +402,8 @@ export default function Productivity({ isActive = true }: { isActive?: boolean }
             </div>
           </GlowCard>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

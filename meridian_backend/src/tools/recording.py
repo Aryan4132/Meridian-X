@@ -9,9 +9,12 @@ try:
 except Exception:
     pyautogui = None
 import ollama
-from typing import List, Dict, Any
-from database import get_ollama_client_host
-from database import get_mongo_db
+try:
+    from database import get_ollama_client_host
+except ImportError:
+    def get_ollama_client_host():
+        return "http://localhost:11434"
+
 
 # Active recording states
 _recording_active = False
@@ -206,3 +209,61 @@ def list_workflows() -> str:
         return "\n".join(lines)
     except Exception as e:
         return f"Error listing workflows: {e}"
+
+
+def export_video_mp4(frame_dir: str, output_file: str = "output.mp4", fps: float = 10.0) -> str:
+    """Compile captured frame directory into an MP4 video file using OpenCV."""
+    try:
+        import cv2
+        frames = sorted(glob.glob(os.path.join(frame_dir, "frame_*.png")))
+        if not frames:
+            return f"No image frames found in '{frame_dir}'."
+
+        first_img = cv2.imread(frames[0])
+        if first_img is None:
+            return "Failed to read initial frame."
+        height, width, _ = first_img.shape
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+        for fpath in frames:
+            img = cv2.imread(fpath)
+            if img is not None:
+                out.write(img)
+        out.release()
+        return f"Successfully compiled {len(frames)} frames into video '{output_file}'."
+    except Exception as exc:
+        return f"Export MP4 failed: {exc}"
+
+
+def record_webcam_video(output_file: str = "webcam_recording.mp4", duration_seconds: float = 5.0, fps: float = 15.0) -> str:
+    """Record live webcam video directly to an MP4 video file."""
+    try:
+        import cv2
+        cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            return "Error: Webcam unavailable or in use by another application."
+
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)) or 640
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 480
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
+
+        start_time = time.time()
+        frames_recorded = 0
+
+        while time.time() - start_time < duration_seconds:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            out.write(frame)
+            frames_recorded += 1
+            time.sleep(max(0.001, (1.0 / fps) - 0.005))
+
+        cap.release()
+        out.release()
+        return f"Successfully recorded {frames_recorded} frames ({duration_seconds}s) of webcam video to '{output_file}'."
+    except Exception as exc:
+        return f"Webcam video recording failed: {exc}"
+

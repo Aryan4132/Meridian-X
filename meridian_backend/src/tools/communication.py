@@ -25,6 +25,7 @@ def read_emails(query: str = "") -> str:
     return f"No new unread emails matching '{query}'."
 
 import os
+import platform
 import subprocess
 
 def send_whatsapp_message(contact: str = "", message: str = "", phone_number: str = "") -> str:
@@ -50,7 +51,7 @@ def send_whatsapp_message(contact: str = "", message: str = "", phone_number: st
 
             # 1. Open WhatsApp desktop
             if os.name == "nt":
-                os.system("start whatsapp:")
+                subprocess.Popen(["cmd", "/c", "start", "whatsapp:"])
             else:
                 subprocess.Popen(["whatsapp"])
             time.sleep(6)
@@ -135,3 +136,27 @@ def send_native_toast_notification(title: str, message: str) -> str:
 def triage_and_read_emails() -> str:
     """Triages recent email inbox messages."""
     return "Inbox triaged: 0 urgent emails requiring attention."
+
+def send_discord_message(target: str = "", message: str = "", channel_id: str = "") -> str:
+    """Sends a message to Discord via Discord Bot bridge or Webhook URL."""
+    log_sensitive_action("DISCORD_SENT", "send_discord_message", {"target": target, "channel_id": channel_id, "message_len": len(message)}, "SUCCESS")
+    from src.core.discord_bridge import send_discord_msg
+    return send_discord_msg(target=target, message=message, channel_id=channel_id)
+
+def read_discord_messages(channel_id: str = "", limit: int = 10) -> str:
+    """Reads recent messages from Discord channel or bot message buffer."""
+    from src.core.discord_bridge import read_discord_msgs
+    return read_discord_msgs(channel_id=channel_id, limit=limit)
+
+def add_discord_reaction(message_id: str, emoji: str, channel_id: str = "") -> str:
+    """Adds an emoji reaction to a Discord message by ID."""
+    log_sensitive_action("DISCORD_REACTION", "add_discord_reaction", {"message_id": message_id, "emoji": emoji, "channel_id": channel_id}, "SUCCESS")
+    from src.core.discord_bridge import add_discord_reaction_msg
+    return add_discord_reaction_msg(message_id=message_id, emoji=emoji, channel_id=channel_id)
+
+def list_discord_channels() -> str:
+    """Lists servers and text channels accessible to the Discord bot bridge."""
+    from src.core.discord_bridge import list_discord_channels_info
+    return list_discord_channels_info()
+
+

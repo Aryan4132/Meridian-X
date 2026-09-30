@@ -11,10 +11,14 @@ DEFAULT_ALLOWED_ORIGINS = {
     "tauri://localhost",
     "https://tauri.localhost",
     "http://tauri.localhost",
+    "http://localhost",
+    "https://localhost",
     "http://localhost:5173",
     "http://localhost:4132",
+    "http://localhost:8080",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:4132",
+    "http://10.0.2.2:4132",
 }
 
 class HTTPSecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -58,7 +62,6 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
 
         return await call_next(request)
 
-
 class TrustedOriginMiddleware(BaseHTTPMiddleware):
     """
     Validates Origin/Referer headers on state-mutating requests (POST/PUT/DELETE/PATCH).
@@ -75,15 +78,23 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
             referer = request.headers.get("referer")
 
             # Check Origin if present
-            if origin and origin.lower() not in self.allowed_origins:
-                logger.warning(
-                    f"[SECURITY] Rejected untrusted Origin '{origin}'. "
-                    f"Path: {request.url.path}, IP: {request.client.host if request.client else 'unknown'}"
+            if origin:
+                lower_origin = origin.lower()
+                is_lan_or_tunnel = (
+                    lower_origin.startswith("http://192.168.")
+                    or lower_origin.startswith("http://10.")
+                    or lower_origin.startswith("http://172.")
+                    or "trycloudflare.com" in lower_origin
                 )
-                return JSONResponse(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    content={"detail": f"Access forbidden. Untrusted origin header: {origin}"}
-                )
+                if lower_origin not in self.allowed_origins and not is_lan_or_tunnel:
+                    logger.warning(
+                        f"[SECURITY] Rejected untrusted Origin '{origin}'. "
+                        f"Path: {request.url.path}, IP: {request.client.host if request.client else 'unknown'}"
+                    )
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={"detail": f"Access forbidden. Untrusted origin header: {origin}"}
+                    )
 
             # Fallback to Referer check if no Origin header
             if not origin and referer:
@@ -113,3 +124,29 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         return response
+
+
+class AirGapSecurityMiddleware(BaseHTTPMiddleware):
+    """
+    Enforces Local-Only Air-Gap Mode by blocking external cloud-bound request paths (OPS-04).
+    """
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        try:
+            from src.core.mode import get_local_only_mode
+            if get_local_only_mode():
+                # Allow local management endpoints, block external integrations
+                path = request.url.path.lower()
+                if any(ext in path for ext in ["/api/external/", "/api/cloud/", "/api/oauth/remote"]):
+                    logger.warning(f"[AirGap] Hard-blocked external route: {path}")
+                    return JSONResponse(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        content={
+                            "detail": "Air-Gap Local-Only mode is active. Outbound external requests are blocked.",
+                            "airgap_active": True
+                        }
+                    )
+        except Exception as e:
+            logger.debug(f"[AirGapMiddleware] Error: {e}")
+
+        return await call_next(request)
+

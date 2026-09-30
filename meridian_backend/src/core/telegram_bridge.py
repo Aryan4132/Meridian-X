@@ -95,7 +95,8 @@ def _handle_slash_command(client: httpx.Client, token: str, chat_id: int, comman
         return True
     elif cmd == "/status":
         try:
-            res = httpx.get("http://localhost:4132/api/health", timeout=5.0)
+            port = os.getenv("PORT", os.getenv("MERIDIAN_PORT", "4132"))
+            res = httpx.get(f"http://localhost:{port}/api/health", timeout=5.0)
             if res.status_code == 200:
                 data = res.json()
                 status_text = (
@@ -148,6 +149,9 @@ def stop_telegram_bridge():
 def _poll_loop():
     global TELEGRAM_ACTIVE
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
+        print("[Telegram Bridge] TELEGRAM_BOT_TOKEN not configured. Exiting bridge loop.")
+        return
     auth_chat_id = os.environ.get("TELEGRAM_AUTHORIZED_CHAT_ID")
     
     if auth_chat_id:

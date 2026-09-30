@@ -333,3 +333,47 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
         kg_facts=kg_facts,
         rlef_feedback=rlef_feedback
     )
+
+# Air-Gap Local-Only Mode Management (OPS-04)
+_LOCAL_ONLY_MODE = False
+
+def get_local_only_mode() -> bool:
+    """Returns whether Air-Gap Local-Only mode is enabled."""
+    global _LOCAL_ONLY_MODE
+    try:
+        from database import get_user_profile
+        val = get_user_profile("local_only_mode")
+        if val is not None:
+            return str(val).lower() == "true"
+    except Exception:
+        pass
+    return _LOCAL_ONLY_MODE
+
+def set_local_only_mode(enabled: bool) -> bool:
+    """Enables or disables Air-Gap Local-Only mode."""
+    global _LOCAL_ONLY_MODE
+    _LOCAL_ONLY_MODE = enabled
+    try:
+        from database import save_user_preference
+        save_user_preference("local_only_mode", str(_LOCAL_ONLY_MODE))
+    except Exception as e:
+        print(f"[AirGap] Failed saving local_only_mode preference: {e}")
+    return _LOCAL_ONLY_MODE
+
+def get_airgap_proof_badge() -> Dict[str, Any]:
+    """Generates an HMAC-signed audit proof badge verifying the active local air-gap state."""
+    import hmac
+    import hashlib
+    ts = time.time()
+    active = get_local_only_mode()
+    raw = f"AIRGAP:{active}:{ts}:MERIDIAN-X-SECRET"
+    badge_hash = hmac.new(b"meridian_airgap_secret", raw.encode("utf-8"), hashlib.sha256).hexdigest()
+    
+    return {
+        "airgap_active": active,
+        "timestamp": ts,
+        "proof_badge": f"AG-{badge_hash[:16].upper()}",
+        "signature": badge_hash,
+        "verified_at": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))
+    }
+

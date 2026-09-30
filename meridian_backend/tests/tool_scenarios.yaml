@@ -1,0 +1,28 @@
+version: "1.0"
+scenarios:
+  - id: SCENARIO-01
+    prompt: "Search the codebase for function extract_text_from_file"
+    expected_tool: "search_codebase"
+    required_args:
+      query: "extract_text_from_file"
+
+  - id: SCENARIO-02
+    prompt: "Play YouTube Music song Shape of You"
+    expected_tool: "play_youtube_music"
+    required_args:
+      song_query: "Shape of You"
+
+  - id: SCENARIO-03
+    prompt: "Check memory for facts about user"
+    expected_tool: "get_all_memories"
+    required_args: {}
+
+  - id: SCENARIO-04
+    prompt: "Show system token spend and budget usage"
+    expected_tool: "get_spend_stats"
+    required_args: {}
+
+  - id: SCENARIO-05
+    prompt: "Undo my last file edit action"
+    expected_tool: "undo_last_action"
+    required_args: {}
