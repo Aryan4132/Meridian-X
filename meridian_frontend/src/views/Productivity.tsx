@@ -16,7 +16,7 @@ function StatCard({ label, value, sub, color }: { label: string; value: string |
       style={{ padding: '14px 16px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}
     >
       <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 1, background: color, opacity: 0.6 }} />
-      <div style={{ fontSize: 26, fontWeight: 700, color, fontFamily: "'Space Grotesk', sans-serif", lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 26, fontWeight: 700, color, fontFamily: 'var(--font-heading)', lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: 4 }}>{label}</div>
       <div style={{ fontSize: 10, color: 'var(--text-ghost)', marginTop: 2 }}>{sub}</div>
     </div>
@@ -36,9 +36,11 @@ import { LocalModelManager } from '../components/LocalModelManager';
 import { MemoryConsolidationView } from '../components/MemoryConsolidationView';
 import { DevAutomationPanel } from '../components/DevAutomationPanel';
 import { AgentStatusStream } from '../components/AgentStatusStream';
+import DeveloperSuitePanel from '../components/DeveloperSuitePanel';
 
 export default function Productivity({ isActive = true }: { isActive?: boolean }) {
-  const [activeTab, setActiveTab] = useState<'focus' | 'local_models' | 'memory' | 'automation' | 'agent_stream'>('focus');
+  const [activeTab, setActiveTab] = useState<'focus' | 'dev_suite' | 'local_models' | 'memory' | 'automation' | 'agent_stream'>('focus');
+
   const [stats, setStats] = useState<DeveloperStats>({ total: 0, success: 0, failed: 0, audits: 0, heals: 0, gitCommits: 0, pomodoros: 0 });
   const [durationMins, setDurationMins] = useState(25);
   const [secsLeft, setSecsLeft] = useState(25 * 60);
@@ -46,8 +48,12 @@ export default function Productivity({ isActive = true }: { isActive?: boolean }
   const intervalRef = useRef<any>(null);
 
   const [blockedTargets, setBlockedTargets] = useState<string[]>(() => {
-    const saved = localStorage.getItem('distraction_targets');
-    return saved ? JSON.parse(saved) : ['youtube.com', 'reddit.com', 'x.com'];
+    try {
+      const saved = localStorage.getItem('distraction_targets');
+      return saved ? JSON.parse(saved) : ['youtube.com', 'reddit.com', 'x.com'];
+    } catch {
+      return ['youtube.com', 'reddit.com', 'x.com'];
+    }
   });
   const [customTarget, setCustomTarget] = useState('');
 
@@ -82,7 +88,7 @@ export default function Productivity({ isActive = true }: { isActive?: boolean }
           audits:     data.security_audits  ?? prev.audits,
           heals:      data.successful_heals ?? prev.heals,
           gitCommits: data.git_commits      ?? prev.gitCommits,
-          pomodoros:  data.pomodoros_completed ?? data.pomodoros ?? prev.pomodoros,
+          pomodoros:  data.pomodoros_completed ?? data.pomodoros ?? data.count ?? prev.pomodoros ?? 0,
         }));
       }
     } catch { /* noop */ }
@@ -132,62 +138,46 @@ export default function Productivity({ isActive = true }: { isActive?: boolean }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px', overflow: 'hidden' }}>
-      <div style={{ marginBottom: 16, flexShrink: 0, display: 'flex', alignItems: 'center', justifyBetween: 'space-between' }}>
+      <div style={{ marginBottom: 16, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Productivity & Developer HUD</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Productivity & Developer HUD</h1>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Local Models · Memory Consolidation · Dev Automation · Agent Telemetry</p>
         </div>
       </div>
 
       {/* Sub Tab Navigation */}
-      <div className="flex items-center gap-2 mb-4 p-1 bg-slate-900/80 border border-slate-800 rounded-xl overflow-x-auto text-xs flex-shrink-0">
-        <button
-          onClick={() => setActiveTab('focus')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition ${
-            activeTab === 'focus' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Focus HUD
-        </button>
-        <button
-          onClick={() => setActiveTab('local_models')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition ${
-            activeTab === 'local_models' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Local Models & Quantization
-        </button>
-        <button
-          onClick={() => setActiveTab('memory')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition ${
-            activeTab === 'memory' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Memory Consolidation
-        </button>
-        <button
-          onClick={() => setActiveTab('automation')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition ${
-            activeTab === 'automation' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Dev Automation
-        </button>
-        <button
-          onClick={() => setActiveTab('agent_stream')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition ${
-            activeTab === 'agent_stream' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          Agent Activity Stream
-        </button>
+      <div className="flex items-center gap-2 mb-4 p-1 rounded-xl overflow-x-auto text-xs flex-shrink-0" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)' }}>
+        {([
+          { id: 'focus', label: 'Focus HUD' },
+          { id: 'dev_suite', label: '🧠 Dev Intelligence Suite' },
+          { id: 'local_models', label: 'Local Models & Quantization' },
+          { id: 'memory', label: 'Memory Consolidation' },
+          { id: 'automation', label: 'Dev Automation' },
+          { id: 'agent_stream', label: 'Agent Activity Stream' },
+        ] as const).map(tab => {
+          const active = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className="px-3 py-1.5 rounded-lg font-medium transition"
+              style={active
+                ? { background: 'var(--accent-muted)', color: 'var(--accent)', border: '1px solid var(--border-active)' }
+                : { color: 'var(--text-dim)', border: '1px solid transparent' }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {activeTab === 'dev_suite' && <DeveloperSuitePanel />}
         {activeTab === 'local_models' && <LocalModelManager />}
         {activeTab === 'memory' && <MemoryConsolidationView />}
         {activeTab === 'automation' && <DevAutomationPanel />}
         {activeTab === 'agent_stream' && <AgentStatusStream />}
+
 
         {activeTab === 'focus' && (
           <>

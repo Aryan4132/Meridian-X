@@ -125,7 +125,7 @@ export default function Jobs({ onRunsUpdate, isActive = true }: JobsProps & { is
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px' }}>
       <div style={{ marginBottom: 20, flexShrink: 0 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Background Jobs</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Background Jobs</h1>
         <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>APScheduler · OS-level task automations</p>
       </div>
 

@@ -33,7 +33,7 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [specs, setSpecs] = useState<HardwareSpecs | null>(null);
   const [ollamaStatus, setOllamaStatus] = useState<OllamaStatus | null>(null);
-  const [selectedModel, setSelectedModel] = useState<string>('llama3.2:3b');
+  const [selectedModel, setSelectedModel] = useState<string>('');
   const [downloading, setDownloading] = useState(false);
   const [progress, setProgress] = useState<{ status: string; percentage: number }>({
     status: 'Ready',
@@ -142,27 +142,30 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-8 text-white shadow-2xl space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-md p-4" style={{ background: 'color-mix(in srgb, var(--bg-void) 90%, transparent)' }}>
+      <div className="rounded-3xl max-w-xl w-full p-8 shadow-2xl space-y-6" style={{ background: 'var(--bg-float)', border: '1px solid var(--border-subtle)', color: 'var(--text-bright)' }}>
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-indigo-600/20 text-indigo-400 text-3xl mb-2">
+          <div
+            className="inline-flex items-center justify-center w-14 h-14 rounded-2xl text-3xl mb-2"
+            style={{ background: 'var(--accent-muted)', color: 'var(--accent)' }}
+          >
             🚀
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome to Meridian-X</h2>
-          <p className="text-slate-400 text-sm">Let's set up your offline AI brain in 30 seconds</p>
+          <h2 className="text-2xl font-bold tracking-tight" style={{ fontFamily: 'var(--font-heading)' }}>Welcome to Meridian-X</h2>
+          <p className="text-sm" style={{ color: 'var(--text-dim)' }}>Let's set up your offline AI brain in 30 seconds</p>
         </div>
 
         {/* Hardware Status Banner */}
         {specs && (
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex items-center justify-between text-xs">
+          <div className="rounded-2xl p-4 flex items-center justify-between text-xs" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)' }}>
             <div className="space-y-1">
-              <span className="text-slate-400 font-medium">Detected Hardware:</span>
-              <div className="font-semibold text-slate-200">
+              <span className="font-medium" style={{ color: 'var(--text-dim)' }}>Detected Hardware:</span>
+              <div className="font-semibold" style={{ color: 'var(--text-main)' }}>
                 {specs.ram_gb} GB RAM • {specs.cpu_cores} CPU Cores {specs.gpu.has_gpu && `• ${specs.gpu.name}`}
               </div>
             </div>
-            <span className="px-3 py-1 bg-indigo-950 border border-indigo-700 text-indigo-300 rounded-full font-medium">
+            <span className="px-3 py-1 rounded-full font-medium" style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-active)', color: 'var(--accent)' }}>
               {specs.hardware_tier.toUpperCase()} TIER
             </span>
           </div>
@@ -170,16 +173,16 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
 
         {/* Existing Ollama Status Alert */}
         {ollamaStatus?.running && ollamaStatus.models.length > 0 && (
-          <div className="bg-emerald-950/50 border border-emerald-800 rounded-2xl p-4 text-xs text-emerald-300 space-y-2">
+          <div className="rounded-2xl p-4 text-xs space-y-2" style={{ background: 'color-mix(in srgb, var(--success) 10%, transparent)', border: '1px solid var(--success)', color: 'var(--success)' }}>
             <div className="font-semibold flex items-center gap-2">
               <span>✅</span> Local AI Engine Detected ({ollamaStatus.models.length} model(s) ready)
             </div>
-            <div className="text-slate-300">
+            <div style={{ color: 'var(--text-main)' }}>
               Installed: {ollamaStatus.models.join(', ')}
             </div>
             <button
               onClick={finishOnboarding}
-              className="mt-2 text-xs font-semibold underline hover:text-white"
+              className="mt-2 text-xs font-semibold underline"
             >
               Use pre-installed local models and skip download →
             </button>
@@ -188,33 +191,32 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
 
         {/* Model Selector Cards */}
         <div className="space-y-3">
-          <label className="text-xs font-medium text-slate-300">Choose AI Model Size:</label>
+          <label className="text-xs font-medium" style={{ color: 'var(--text-main)' }}>Choose AI Model Size:</label>
           <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
             {specs?.options.map((opt) => (
               <div
                 key={opt.id}
                 onClick={() => setSelectedModel(opt.id)}
-                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                  selectedModel === opt.id
-                    ? 'border-indigo-500 bg-indigo-950/30'
-                    : 'border-slate-800 bg-slate-950/50 hover:border-slate-700'
-                }`}
+                className="p-3.5 rounded-xl transition-all cursor-pointer flex items-center justify-between"
+                style={selectedModel === opt.id
+                  ? { border: '1px solid var(--accent)', background: 'var(--accent-muted)' }
+                  : { border: '1px solid var(--border-subtle)', background: 'var(--bg-panel)' }}
               >
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-white">{opt.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-medium">
+                    <span className="font-semibold text-sm" style={{ color: 'var(--text-bright)' }}>{opt.name}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--bg-surface)', color: 'var(--text-main)' }}>
                       {opt.tier}
                     </span>
                     {specs.recommended_model === opt.id && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-950 border border-amber-700 text-amber-300 font-medium">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-active)', color: 'var(--accent)' }}>
                         Best for your PC
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">{opt.description}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--text-dim)' }}>{opt.description}</p>
                 </div>
-                <div className="text-xs text-slate-400 font-mono text-right pl-3">
+                <div className="text-xs text-right pl-3" style={{ color: 'var(--text-dim)', fontFamily: 'var(--font-main)' }}>
                   {opt.size}
                 </div>
               </div>
@@ -224,15 +226,15 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
 
         {/* Progress Bar when downloading */}
         {downloading && (
-          <div className="space-y-2 bg-slate-950 p-4 rounded-2xl border border-slate-800">
-            <div className="flex justify-between text-xs text-slate-300 font-medium">
+          <div className="space-y-2 p-4 rounded-2xl" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)' }}>
+            <div className="flex justify-between text-xs font-medium" style={{ color: 'var(--text-main)' }}>
               <span>{progress.status}</span>
               <span>{progress.percentage}%</span>
             </div>
-            <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+            <div className="w-full rounded-full h-2.5 overflow-hidden" style={{ background: 'var(--bg-surface)' }}>
               <div
-                className="bg-indigo-500 h-2.5 rounded-full transition-all duration-300"
-                style={{ width: `${progress.percentage}%` }}
+                className="h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${progress.percentage}%`, background: 'var(--accent)' }}
               ></div>
             </div>
           </div>
@@ -240,7 +242,7 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
 
         {/* Error message */}
         {error && (
-          <div className="text-xs text-rose-400 bg-rose-950/50 border border-rose-800 p-3 rounded-xl">
+          <div className="text-xs p-3 rounded-xl" style={{ color: 'var(--danger)', background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid var(--danger)' }}>
             {error}
           </div>
         )}
@@ -249,14 +251,16 @@ export const OnboardingWizard: React.FC<{ onComplete: () => void }> = ({ onCompl
         <div className="flex items-center justify-between pt-2">
           <button
             onClick={finishOnboarding}
-            className="text-xs text-slate-500 hover:text-slate-400"
+            className="text-xs"
+            style={{ color: 'var(--text-ghost)' }}
           >
             Skip for now (Use Cloud/API key)
           </button>
           <button
             onClick={handleStartPullModel}
             disabled={downloading}
-            className="py-3 px-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg disabled:opacity-50"
+            className="py-3 px-6 font-semibold text-sm rounded-xl transition-all shadow-lg disabled:opacity-50"
+            style={{ background: 'var(--accent)', color: 'var(--bg-void)' }}
           >
             {downloading ? 'Setting Up...' : 'Download & Get Started'}
           </button>

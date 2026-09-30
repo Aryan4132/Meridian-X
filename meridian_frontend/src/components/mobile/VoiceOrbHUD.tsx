@@ -118,23 +118,23 @@ export const VoiceOrbHUD: React.FC<VoiceOrbHUDProps> = ({
       <div className="relative flex items-center justify-center cursor-pointer group" onClick={onToggleListening}>
         <canvas ref={canvasRef} width={220} height={220} className="w-[180px] h-[180px] sm:w-[220px] sm:h-[220px]" />
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="p-3.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 shadow-xl group-hover:scale-110 transition-transform duration-300">
+          <div className="p-3.5 rounded-full bg-[var(--bg-void)]/60 backdrop-blur-md border border-[var(--border-subtle)] shadow-xl group-hover:scale-110 transition-transform duration-300">
             {isSpeaking ? (
-              <Volume2 className="w-6 h-6 text-cyan-400 animate-bounce" />
+              <Volume2 className="w-6 h-6 text-[var(--accent)] animate-bounce" />
             ) : isListening ? (
-              <Mic className="w-6 h-6 text-purple-400 animate-pulse" />
+              <Mic className="w-6 h-6 text-[var(--accent-2)] animate-pulse" />
             ) : (
-              <MicOff className="w-6 h-6 text-slate-400" />
+              <MicOff className="w-6 h-6 text-[var(--text-dim)]" />
             )}
           </div>
         </div>
       </div>
 
       {/* Dynamic Status Text Badge */}
-      <div className="mt-1 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md text-xs font-mono text-slate-300 flex items-center gap-2 shadow-lg">
+      <div className="mt-1 px-4 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] backdrop-blur-md text-xs font-mono text-[var(--text-main)] flex items-center gap-2 shadow-lg">
         <span
           className={`w-2 h-2 rounded-full ${
-            isSpeaking ? "bg-cyan-400 animate-ping" : isListening ? "bg-purple-400 animate-pulse" : "bg-slate-500"
+            isSpeaking ? "bg-[var(--accent)] animate-ping" : isListening ? "bg-[var(--accent-2)] animate-pulse" : "bg-[var(--text-ghost)]"
           }`}
         />
         <span>{statusText}</span>

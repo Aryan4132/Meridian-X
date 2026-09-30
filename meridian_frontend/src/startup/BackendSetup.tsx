@@ -127,41 +127,46 @@ export function BackendSetup({ onComplete }: BackendSetupProps) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950 text-white font-sans overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden" style={{ background: 'var(--bg-void)', color: 'var(--text-bright)' }}>
       {/* Background glowing particles effect */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(232,160,32,0.12)_0,transparent_70%)] pointer-events-none" />
+      <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at center, var(--accent-muted) 0, transparent 70%)' }} />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="relative w-full max-w-lg p-8 rounded-2xl bg-slate-900/90 border border-amber-500/20 backdrop-blur-xl shadow-2xl shadow-amber-500/10 text-center"
+        className="relative w-full max-w-lg p-8 rounded-2xl backdrop-blur-xl shadow-2xl text-center"
+        style={{ background: 'var(--bg-float)', border: '1px solid var(--border-active)' }}
       >
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+        <div
+          className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl"
+          style={{ background: 'var(--accent-muted)', border: '1px solid var(--border-active)', color: 'var(--accent)' }}
+        >
           {status === 'complete' ? (
-            <CheckCircle2 className="h-8 w-8 text-emerald-400 animate-bounce" />
+            <CheckCircle2 className="h-8 w-8 animate-bounce" style={{ color: 'var(--success)' }} />
           ) : status === 'error' ? (
-            <AlertTriangle className="h-8 w-8 text-rose-400" />
+            <AlertTriangle className="h-8 w-8" style={{ color: 'var(--danger)' }} />
           ) : (
-            <Cpu className="h-8 w-8 animate-pulse text-amber-400" />
+            <Cpu className="h-8 w-8 animate-pulse" style={{ color: 'var(--accent)' }} />
           )}
         </div>
 
-        <h2 className="text-2xl font-bold tracking-tight text-slate-100 mb-2">
+        <h2 className="text-2xl font-bold tracking-tight mb-2" style={{ color: 'var(--text-bright)', fontFamily: 'var(--font-heading)' }}>
           {status === 'complete' ? 'Backend Engine Ready' : 'Setting Up Meridian Engine'}
         </h2>
-        <p className="text-sm text-slate-400 mb-6">
+        <p className="text-sm mb-6" style={{ color: 'var(--text-dim)' }}>
           {status === 'complete'
             ? 'Sidecar intelligence core initialized.'
             : `Downloading Python AI engine sidecar for ${platformName}...`}
         </p>
 
         {status === 'error' ? (
-          <div className="mb-6 rounded-xl bg-rose-500/10 border border-rose-500/30 p-4 text-left">
-            <p className="text-xs font-semibold text-rose-400 mb-1">Installation Failed</p>
-            <p className="text-xs text-rose-200">{errorMessage}</p>
+          <div className="mb-6 rounded-xl p-4 text-left" style={{ background: 'color-mix(in srgb, var(--danger) 10%, transparent)', border: '1px solid var(--danger)' }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: 'var(--danger)' }}>Installation Failed</p>
+            <p className="text-xs" style={{ color: 'var(--text-main)' }}>{errorMessage}</p>
             <button
               onClick={startDownloadAndExtract}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-medium text-white transition-all shadow-lg"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-all shadow-lg"
+              style={{ background: 'var(--danger)', color: '#fff' }}
             >
               <RefreshCw className="h-4 w-4" /> Retry Download
             </button>
@@ -169,14 +174,14 @@ export function BackendSetup({ onComplete }: BackendSetupProps) {
         ) : (
           <div className="space-y-4">
             {/* Progress bar container */}
-            <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-800 border border-slate-700">
+            <div className="relative h-3 w-full overflow-hidden rounded-full" style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
               <motion.div
-                className="h-full bg-gradient-to-r from-amber-500 to-amber-300 transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                className="h-full transition-all duration-300"
+                style={{ width: `${progress}%`, background: 'var(--accent)' }}
               />
             </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center justify-between text-xs" style={{ color: 'var(--text-dim)' }}>
               <span>
                 {status === 'extracting'
                   ? 'Extracting binaries...'
@@ -184,7 +189,7 @@ export function BackendSetup({ onComplete }: BackendSetupProps) {
                   ? 'Ready'
                   : `${downloadedMb} MB / ${totalMb > 0 ? totalMb + ' MB' : '...'}`}
               </span>
-              <span className="font-mono text-amber-400 font-semibold">{progress}%</span>
+              <span className="font-semibold" style={{ fontFamily: 'var(--font-main)', color: 'var(--accent)' }}>{progress}%</span>
               <span>{status === 'downloading' ? speed : ''}</span>
             </div>
           </div>

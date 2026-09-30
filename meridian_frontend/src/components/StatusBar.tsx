@@ -65,9 +65,9 @@ export default function StatusBar() {
 
         {airgapActive && (
           <span style={{
-            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 4,
-            background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', border: '1px solid rgba(34, 197, 94, 0.3)',
-            fontFamily: "'JetBrains Mono', monospace", letterSpacing: '0.05em'
+            fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 'var(--radius-sm)',
+            background: 'color-mix(in srgb, var(--success) 15%, transparent)', color: 'var(--success)', border: '1px solid var(--success)',
+            fontFamily: 'var(--font-main)', letterSpacing: '0.05em'
           }}>
             AIR-GAP VERIFIED
           </span>

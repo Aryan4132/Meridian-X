@@ -205,7 +205,7 @@ export default function RightDrawer({
                 {[
                   { role: 'CODER', color: 'var(--success)', desc: 'Proposes implementation' },
                   { role: 'AUDITOR', color: 'var(--warning)', desc: 'Validates security + safety' },
-                  { role: 'QA', color: '#60A5FA', desc: 'Runs syntax + logic checks' },
+                  { role: 'QA', color: 'var(--accent-2)', desc: 'Runs syntax + logic checks' },
                 ].map(({ role, color, desc }) => (
                   <div key={role} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
                     <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color, paddingTop: 2, minWidth: 54 }}>{role}</span>

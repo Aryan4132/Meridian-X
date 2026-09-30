@@ -70,7 +70,7 @@ export default function Clipboard({ isActive = true }: { isActive?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px' }}>
       <div style={{ marginBottom: 14, flexShrink: 0 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Clipboard History</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Clipboard History</h1>
         <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Real-time pastebuffer surveillance · 50 slots persistent</p>
       </div>
 
@@ -78,15 +78,15 @@ export default function Clipboard({ isActive = true }: { isActive?: boolean }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10, marginBottom: 14, flexShrink: 0, alignItems: 'center' }}>
         <div style={{ padding: '8px 12px', background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
           <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>Total Clips</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: "'Space Grotesk', sans-serif" }}>{items.length}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'var(--font-heading)' }}>{items.length}</div>
         </div>
         <div style={{ padding: '8px 12px', background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
           <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>URLs</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-2)', fontFamily: "'Space Grotesk', sans-serif" }}>{urlCount}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent-2)', fontFamily: 'var(--font-heading)' }}>{urlCount}</div>
         </div>
         <div style={{ padding: '8px 12px', background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
           <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase' }}>Code Snippets</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)', fontFamily: "'Space Grotesk', sans-serif" }}>{codeCount}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warning)', fontFamily: 'var(--font-heading)' }}>{codeCount}</div>
         </div>
         <HoloButton type="button" variant="ghost" size="sm" onClick={clearHistory} disabled={items.length === 0} title="Clear all clipboard history">
           <Trash2 size={12} /> Clear All
@@ -132,7 +132,7 @@ export default function Clipboard({ isActive = true }: { isActive?: boolean }) {
                       cursor: 'pointer',
                       display: 'flex',
                       flexDirection: 'column',
-                      justify: 'space-between',
+                      justifyContent: 'space-between',
                       gap: 10,
                       transition: 'all 0.15s ease',
                       boxShadow: 'var(--card-shadow)',

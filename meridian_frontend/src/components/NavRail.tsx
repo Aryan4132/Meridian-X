@@ -40,11 +40,14 @@ export default function NavRail() {
       try { getCurrentWindow().toggleMaximize(); } catch { /* noop */ }
     }
   };
-  const handleClose = () => {
-    if ((window as any).__TAURI_INTERNALS__) {
-      try { invoke('close_application'); } catch { /* noop */ }
-    }
-  };
+   const handleClose = () => {
+     if ((window as any).__TAURI_INTERNALS__) {
+       // Show confirmation dialog to prevent accidental closure
+       if (window.confirm('Are you sure you want to close Meridian-X? This will stop all background processes.')) {
+         try { invoke('close_application'); } catch { /* noop */ }
+       }
+     }
+   };
 
   return (
     <motion.nav
@@ -110,7 +113,8 @@ export default function NavRail() {
                     inset: 0,
                     borderRadius: 'var(--radius-sm)',
                     background: 'var(--accent-muted)',
-                    borderLeft: '2px solid var(--accent)',
+                    borderLeft: '3px solid var(--accent)',
+                    boxShadow: '0 0 16px var(--accent-muted)',
                   }}
                 />
               )}
@@ -119,10 +123,11 @@ export default function NavRail() {
                 <span style={{
                   position: 'relative',
                   zIndex: 1,
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
-                  fontFamily: "'JetBrains Mono', monospace",
+                  fontFamily: "var(--font-main, sans-serif)",
+                  letterSpacing: '-0.01em',
                   color: isActive ? 'var(--accent)' : 'var(--text-main)'
                 }}>
                   {label}

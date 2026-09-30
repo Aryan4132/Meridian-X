@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Cpu, Download, HardDrive, Trash2, CheckCircle2, Layers, AlertCircle, RefreshCw, Zap } from 'lucide-react';
 import { useToast } from './ui/ToastContext';
+import { API_BASE_URL } from '../config';
 
 interface QuantPreset {
   name: string;
@@ -24,7 +25,7 @@ export const LocalModelManager: React.FC = () => {
   const { showToast } = useToast();
   const [models, setModels] = useState<LocalModel[]>([]);
   const [presets, setPresets] = useState<QuantPreset[]>([]);
-  const [activeModel, setActiveModel] = useState<string>('llama3:8b-instruct-q4_K_M');
+  const [activeModel, setActiveModel] = useState<string>(() => localStorage.getItem('MERIDIAN_MODEL') || localStorage.getItem('meridian_model') || '');
   const [loading, setLoading] = useState<boolean>(false);
   const [pullModelName, setPullModelName] = useState<string>('');
   const [selectedQuant, setSelectedQuant] = useState<string>('Q4_K_M');
@@ -45,7 +46,7 @@ export const LocalModelManager: React.FC = () => {
   const fetchModels = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/models/local');
+      const res = await fetch(`${API_BASE_URL}/api/models/local`);
       if (res.ok) {
         const data = await res.json();
         setModels(data.models || []);
@@ -60,7 +61,7 @@ export const LocalModelManager: React.FC = () => {
 
   const fetchQuantOptions = async () => {
     try {
-      const res = await fetch('/api/models/quantization-options');
+      const res = await fetch(`${API_BASE_URL}/api/models/quantization-options`);
       if (res.ok) {
         const data = await res.json();
         setPresets(data.presets || []);
@@ -72,7 +73,7 @@ export const LocalModelManager: React.FC = () => {
 
   const calculateEstimate = async () => {
     try {
-      const res = await fetch('/api/models/estimate-resources', {
+      const res = await fetch(`${API_BASE_URL}/api/models/estimate-resources`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ param_count_billion: estimateParams, quantization: selectedQuant })
@@ -89,7 +90,7 @@ export const LocalModelManager: React.FC = () => {
 
   const handleSetActive = async (modelName: string, quant: string) => {
     try {
-      const res = await fetch('/api/models/local/active', {
+      const res = await fetch(`${API_BASE_URL}/api/models/local/active`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model_name: modelName, quantization: quant })
@@ -107,7 +108,7 @@ export const LocalModelManager: React.FC = () => {
   const handleDelete = async (modelName: string) => {
     if (!confirm(`Are you sure you want to delete ${modelName}?`)) return;
     try {
-      const res = await fetch(`/api/models/local/${encodeURIComponent(modelName)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/models/local/${encodeURIComponent(modelName)}`, {
         method: 'DELETE'
       });
       if (res.ok) {
@@ -124,7 +125,7 @@ export const LocalModelManager: React.FC = () => {
     setPullProgress({ status: 'Initiating download...', percentage: 0 });
 
     try {
-      const res = await fetch('/api/models/local/pull', {
+      const res = await fetch(`${API_BASE_URL}/api/models/local/pull`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model_name: pullModelName, quantization: selectedQuant })
@@ -165,22 +166,22 @@ export const LocalModelManager: React.FC = () => {
   const strokeDashoffset = 251.2 - (251.2 * vramPercent) / 100;
 
   return (
-    <div className="space-y-6 text-slate-100">
+    <div className="space-y-6 text-[var(--text-bright)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-slate-900/80 border border-slate-800 rounded-xl backdrop-blur-md">
+      <div className="flex items-center justify-between p-4 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-            <Cpu className="w-6 h-6 text-cyan-400" />
+          <div className="p-2.5 bg-[var(--accent-muted)] border border-[var(--border-active)] rounded-lg">
+            <Cpu className="w-6 h-6 text-[var(--accent)]" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100">Local Model & Quantization Manager</h2>
-            <p className="text-xs text-slate-400">Deploy, profile, and switch quantized local LLMs (Ollama / GGUF)</p>
+            <h2 className="text-lg font-bold text-[var(--text-bright)]">Local Model & Quantization Manager</h2>
+            <p className="text-xs text-[var(--text-dim)]">Deploy, profile, and switch quantized local LLMs (Ollama / GGUF)</p>
           </div>
         </div>
         <button
           onClick={fetchModels}
           disabled={loading}
-          className="flex items-center gap-2 px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-lg transition"
+          className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-main)] border border-[var(--border-subtle)] rounded-lg transition"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           Refresh Models
@@ -192,8 +193,8 @@ export const LocalModelManager: React.FC = () => {
         {/* Left Column: Installed Models & Pull */}
         <div className="lg:col-span-2 space-y-6">
           {/* Pull New Model Card */}
-          <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-xl backdrop-blur-md space-y-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-cyan-400">
+          <div className="p-5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--accent)]">
               <Download className="w-4 h-4" /> Pull New Model with Quantization
             </h3>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -202,12 +203,12 @@ export const LocalModelManager: React.FC = () => {
                 placeholder="Model Tag (e.g. llama3:8b, mistral:7b, qwen2.5:7b)"
                 value={pullModelName}
                 onChange={(e) => setPullModelName(e.target.value)}
-                className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:border-cyan-500 outline-none"
+                className="flex-1 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs focus:border-[var(--accent)] outline-none"
               />
               <select
                 value={selectedQuant}
                 onChange={(e) => setSelectedQuant(e.target.value)}
-                className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:border-cyan-500 outline-none text-slate-300"
+                className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs focus:border-[var(--accent)] outline-none text-[var(--text-main)]"
               >
                 {presets.map((p) => (
                   <option key={p.name} value={p.name}>
@@ -218,7 +219,7 @@ export const LocalModelManager: React.FC = () => {
               <button
                 onClick={handlePullModel}
                 disabled={!pullModelName.trim() || !!pullProgress}
-                className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-xs rounded-lg shadow-lg shadow-cyan-500/20 transition disabled:opacity-50"
+                className="px-4 py-2 bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-[var(--bg-void)] font-medium text-xs rounded-lg shadow-lg transition disabled:opacity-50"
               >
                 Pull Model
               </button>
@@ -226,13 +227,13 @@ export const LocalModelManager: React.FC = () => {
 
             {pullProgress && (
               <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-xs text-slate-300">
+                <div className="flex justify-between text-xs text-[var(--text-main)]">
                   <span>{pullProgress.status}</span>
                   <span className="font-mono">{pullProgress.percentage}%</span>
                 </div>
-                <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+                <div className="w-full bg-[var(--bg-panel)] rounded-full h-2 overflow-hidden border border-[var(--border-subtle)]">
                   <div
-                    className="bg-gradient-to-r from-cyan-400 to-blue-500 h-full transition-all duration-300"
+                    className="bg-[var(--accent)] h-full transition-all duration-300"
                     style={{ width: `${pullProgress.percentage}%` }}
                   />
                 </div>
@@ -241,13 +242,13 @@ export const LocalModelManager: React.FC = () => {
           </div>
 
           {/* Installed Models List */}
-          <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-xl backdrop-blur-md space-y-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
-              <HardDrive className="w-4 h-4 text-emerald-400" /> Installed Models
+          <div className="p-5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--text-main)]">
+              <HardDrive className="w-4 h-4 text-[var(--success)]" /> Installed Models
             </h3>
 
             {models.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+              <div className="p-6 text-center text-xs text-[var(--text-ghost)] border border-dashed border-[var(--border-subtle)] rounded-xl">
                 No local models detected. Make sure Ollama or local LLM server is running.
               </div>
             ) : (
@@ -257,23 +258,23 @@ export const LocalModelManager: React.FC = () => {
                     key={m.name}
                     className={`flex items-center justify-between p-3.5 rounded-xl border transition ${
                       m.active
-                        ? 'bg-cyan-950/30 border-cyan-500/50 shadow-md shadow-cyan-500/10'
-                        : 'bg-slate-950/40 border-slate-800 hover:border-slate-700'
+                        ? 'bg-[var(--accent-muted)] border-[var(--accent)] shadow-md'
+                        : 'bg-[var(--bg-panel)] border-[var(--border-subtle)] hover:border-[var(--border-active)]'
                     }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-semibold text-xs text-slate-100">{m.name}</span>
+                        <span className="font-mono font-semibold text-xs text-[var(--text-bright)]">{m.name}</span>
                         {m.active && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-[color-mix(in_srgb,var(--success)_12%,transparent)] border border-[var(--success)] text-[var(--success)] rounded-full">
                             <CheckCircle2 className="w-3 h-3" /> Active
                           </span>
                         )}
-                        <span className="px-2 py-0.5 text-[10px] font-mono bg-slate-800 border border-slate-700 text-cyan-400 rounded">
+                        <span className="px-2 py-0.5 text-[10px] font-mono bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-[var(--accent)] rounded">
                           {m.quantization || 'Q4_K_M'}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                      <div className="flex items-center gap-3 text-[11px] text-[var(--text-dim)]">
                         <span>Disk: {m.size_gb} GB</span>
                         <span>Params: {m.parameter_size}</span>
                       </div>
@@ -283,14 +284,14 @@ export const LocalModelManager: React.FC = () => {
                       {!m.active && (
                         <button
                           onClick={() => handleSetActive(m.name, m.quantization)}
-                          className="px-3 py-1 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg transition"
+                          className="px-3 py-1 text-xs bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-[var(--text-main)] border border-[var(--border-subtle)] rounded-lg transition"
                         >
                           Set Active
                         </button>
                       )}
                       <button
                         onClick={() => handleDelete(m.name)}
-                        className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition"
+                        className="p-1.5 text-[var(--text-ghost)] hover:text-[var(--danger)] rounded-lg hover:bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] transition"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -305,15 +306,15 @@ export const LocalModelManager: React.FC = () => {
         {/* Right Column: Quantization Presets & VRAM Ring Meter */}
         <div className="space-y-6">
           {/* Animated SVG Radial Gauge VRAM / RAM Estimator */}
-          <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-xl backdrop-blur-md space-y-4">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-amber-400">
+          <div className="p-5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md space-y-4">
+            <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--warning)]">
               <Zap className="w-4 h-4" /> VRAM / RAM Radial Footprint Gauge
             </h3>
 
             {/* SVG Ring Meter */}
             <div className="flex items-center justify-center py-2 relative">
               <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" className="text-slate-800" fill="transparent" />
+                <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8" className="text-[var(--text-ghost)]" fill="transparent" />
                 <circle
                   cx="50" cy="50" r="40"
                   stroke="url(#vramGradient)" strokeWidth="8" strokeDasharray="251.2"
@@ -329,36 +330,36 @@ export const LocalModelManager: React.FC = () => {
                 </defs>
               </svg>
               <div className="absolute flex flex-col items-center justify-center text-center">
-                <span className="text-lg font-bold font-mono text-cyan-400">{estimateResult?.estimated_vram_gb} GB</span>
-                <span className="text-[10px] text-slate-400 font-mono">VRAM ({vramPercent}%)</span>
+                <span className="text-lg font-bold font-mono text-[var(--accent)]">{estimateResult?.estimated_vram_gb} GB</span>
+                <span className="text-[10px] text-[var(--text-dim)] font-mono">VRAM ({vramPercent}%)</span>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-[11px] text-slate-400 block mb-1">Parameter Count (Billions)</label>
+                <label className="text-[11px] text-[var(--text-dim)] block mb-1">Parameter Count (Billions)</label>
                 <input
                   type="number"
                   value={estimateParams}
                   onChange={(e) => setEstimateParams(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-100 outline-none"
+                  className="w-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs text-[var(--text-bright)] outline-none"
                 />
               </div>
               <button
                 onClick={calculateEstimate}
-                className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-xs font-medium transition"
+                className="w-full py-1.5 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] border border-[var(--border-subtle)] text-[var(--text-main)] rounded-lg text-xs font-medium transition"
               >
                 Estimate Hardware Footprint
               </button>
               {estimateResult && (
-                <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-lg text-xs space-y-1">
-                  <div className="flex justify-between text-slate-300">
+                <div className="p-3 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg text-xs space-y-1">
+                  <div className="flex justify-between text-[var(--text-main)]">
                     <span>Est. VRAM Required:</span>
-                    <span className="font-mono text-cyan-400 font-bold">{estimateResult.estimated_vram_gb} GB</span>
+                    <span className="font-mono text-[var(--accent)] font-bold">{estimateResult.estimated_vram_gb} GB</span>
                   </div>
-                  <div className="flex justify-between text-slate-300">
+                  <div className="flex justify-between text-[var(--text-main)]">
                     <span>Est. System RAM:</span>
-                    <span className="font-mono text-emerald-400 font-bold">{estimateResult.estimated_ram_gb} GB</span>
+                    <span className="font-mono text-[var(--success)] font-bold">{estimateResult.estimated_ram_gb} GB</span>
                   </div>
                 </div>
               )}
@@ -366,20 +367,20 @@ export const LocalModelManager: React.FC = () => {
           </div>
 
           {/* Quantization Profiles Reference */}
-          <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-xl backdrop-blur-md space-y-3">
-            <h3 className="text-sm font-semibold flex items-center gap-2 text-purple-400">
+          <div className="p-5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md space-y-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--accent-2)]">
               <Layers className="w-4 h-4" /> Quantization Presets
             </h3>
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {presets.map((p) => (
-                <div key={p.name} className="p-3 bg-slate-950/50 border border-slate-800/80 rounded-lg space-y-1">
+                <div key={p.name} className="p-3 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-xs text-slate-200">{p.name}</span>
-                    <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 border border-purple-500/30 text-purple-300 rounded-full">
+                    <span className="font-mono font-bold text-xs text-[var(--text-main)]">{p.name}</span>
+                    <span className="text-[10px] px-2 py-0.5 bg-[var(--accent-muted)] border border-[var(--border-active)] text-[var(--accent-2)] rounded-full">
                       {p.bits_per_weight} bpw
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">{p.description}</p>
+                  <p className="text-[11px] text-[var(--text-dim)]">{p.description}</p>
                 </div>
               ))}
             </div>

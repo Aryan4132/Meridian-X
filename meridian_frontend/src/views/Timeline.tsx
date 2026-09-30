@@ -9,6 +9,7 @@ import GlowCard from '../components/ui/GlowCard';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { API_BASE_URL } from '../config';
+import { streamingAudio } from '../services/streamingAudioPlayer';
 
 // Preprocessor for LaTeX math symbols, arrows, and formatting (e.g. \rightarrow, $\rightarrow$, \Rightarrow, \textbf)
 const preprocessLatex = (text: string): string => {
@@ -209,13 +210,13 @@ function HealBlock({ heal, onApply }: { heal: any; onApply: (path: string, code:
       </div>
       <p style={{ fontSize: 10, fontFamily: "'JetBrains Mono', monospace", color: 'var(--text-dim)', margin: '0 0 8px' }}>{heal.file_path}</p>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
-        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
+        <div style={{ background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', padding: '6px 8px', border: '1px solid var(--border-subtle)' }}>
           <p style={{ fontSize: 9, color: 'var(--danger)', fontFamily: 'JetBrains Mono', marginBottom: 4, fontWeight: 600 }}>ORIGINAL</p>
           <pre style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 120, overflow: 'auto' }}>
             {heal.original_code || heal.original}
           </pre>
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 'var(--radius-sm)', padding: '6px 8px' }}>
+        <div style={{ background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', padding: '6px 8px', border: '1px solid var(--border-subtle)' }}>
           <p style={{ fontSize: 9, color: 'var(--success)', fontFamily: 'JetBrains Mono', marginBottom: 4, fontWeight: 600 }}>CORRECTION</p>
           <pre style={{ fontSize: 10, color: 'var(--text-main)', fontFamily: 'JetBrains Mono', margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', maxHeight: 120, overflow: 'auto' }}>
             {heal.proposed_code || heal.proposed}
@@ -229,12 +230,40 @@ function HealBlock({ heal, onApply }: { heal: any; onApply: (path: string, code:
   );
 }
 
+const STARTER_PROMPTS = [
+  {
+    icon: '🔍',
+    title: 'Audit Git Changes',
+    desc: 'Review staged & unstaged diffs and propose atomic commits',
+    prompt: 'Review git changes, explain modified files, and propose commit messages.'
+  },
+  {
+    icon: '⚡',
+    title: 'Run Dev Health Check',
+    desc: 'Inspect background daemons, port bindings, and test suites',
+    prompt: 'Check project health, inspect running services, and verify backend status.'
+  },
+  {
+    icon: '🤖',
+    title: 'Start Swarm Debate',
+    desc: 'Launch multi-agent consensus to evaluate system design',
+    prompt: 'Start a multi-agent debate to evaluate architecture options for this project.'
+  },
+  {
+    icon: '🎯',
+    title: 'Start Focus Sprint',
+    desc: 'Engage focus mode, mute distractions, and track 25m sprint',
+    prompt: 'Activate focus mode, mute distractions, and start a 25-minute Pomodoro.'
+  },
+];
+
 export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [messages, setMessages] = useState<any[]>([{
     id: 'init', role: 'assistant', timestamp: Date.now(),
     content: 'System loaded. Standing by for autonomous instructions.',
   }]);
   const [input, setInput] = useState('');
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState('');
   const [streamThoughts, setStreamThoughts] = useState<string[]>([]);
@@ -246,6 +275,12 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [taskQueue, setTaskQueue] = useState<{ id: number; text: string }[]>([]);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const generationIdRef = useRef(0);
+
+  const stopActiveAudio = () => {
+    generationIdRef.current++;
+    streamingAudio.stopAllAudio();
+  };
 
   useEffect(() => {
     const textarea = textareaRef.current;
@@ -257,24 +292,8 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
 
   const speakMessage = async (text: string) => {
     if (!text.trim()) return;
-    try {
-      const voice = localStorage.getItem('meridian_tts_voice') || 'M1';
-      const volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
-      const res = await fetch(`${API_BASE_URL}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voice, lang: 'na' }),
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.volume = volume;
-        await audio.play();
-      }
-    } catch (e) {
-      console.warn("Failed to play TTS in Dashboard:", e);
-    }
+    streamingAudio.resetSession();
+    streamingAudio.dispatchImmediateText(text);
   };
 
   useEffect(() => {
@@ -292,16 +311,19 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       const href = anchor.getAttribute('href');
       if (href && !href.startsWith('#')) {
         e.preventDefault();
-        invoke('open_url', { url: href }).catch(err => {
-          console.error("Failed to open URL externally:", err);
-        });
+        if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+          invoke('open_url', { url: href }).catch(err => {
+            console.error("Failed to open URL externally:", err);
+          });
+        } else {
+          window.open(href, '_blank', 'noopener,noreferrer');
+        }
       }
     }
   };
 
   const clearChat = async () => {
-    // FIX: abort any in-flight stream so an orphaned response can't append
-    // messages after the chat has been cleared.
+    stopActiveAudio();
     if (abortControllerRef.current) {
       try { abortControllerRef.current.abort(); } catch { /* noop */ }
       abortControllerRef.current = null;
@@ -314,13 +336,30 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   };
 
   // The backend wraps final responses as {"chat":"...","speech":"...","lang":"..."}
+  const deduplicateContent = (text: string): string => {
+    const trimmed = text.trim();
+    if (!trimmed) return text;
+    const len = trimmed.length;
+    if (len >= 20 && len % 2 === 0) {
+      const half = len / 2;
+      if (trimmed.slice(0, half) === trimmed.slice(half)) {
+        return trimmed.slice(0, half);
+      }
+    }
+    return trimmed;
+  };
+
   // This extracts just the human-readable chat portion from that wrapper.
   const extractChatText = (raw: string): string => {
     const trimmed = raw.trim();
     if (trimmed.startsWith('{')) {
       try {
         const parsed = JSON.parse(trimmed);
+        if (parsed.type === 'error' || parsed.error) {
+          return `\n✕ Error: ${parsed.error || parsed.message || parsed.detail || 'Execution failed'}`;
+        }
         if (parsed.chat) return parsed.chat;
+        if (parsed.text) return parsed.text;
       } catch { /* not JSON, return as-is */ }
     }
     return raw;
@@ -381,6 +420,12 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       // Buffer accumulates partial TCP chunks; we split on \n\n (SSE event separator)
       let buffer = '';
 
+      const currentGen = ++generationIdRef.current;
+      stopActiveAudio();
+      if (ttsEnabled) {
+        streamingAudio.resetSession();
+      }
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -433,10 +478,27 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               }
             } catch { /* non-JSON thought, skip */ }
           } else if (eventType === 'text') {
-            // text events carry raw text chunks (not JSON)
-            // Some chunks may be the final JSON wrapper — extract the chat field
+            // text events carry raw text chunks (not JSON) or the final JSON wrapper
+            const trimmedPayload = payload.trim();
+            const isJson = trimmedPayload.startsWith('{');
             const chunk = extractChatText(payload);
-            finalContent += chunk;
+
+            if (isJson && chunk) {
+              finalContent = chunk;
+              if (ttsEnabled) {
+                streamingAudio.dispatchImmediateText(chunk, currentGen);
+              }
+            } else if (chunk && finalContent && (chunk === finalContent || chunk.startsWith(finalContent))) {
+              finalContent = chunk;
+              if (ttsEnabled) {
+                streamingAudio.dispatchImmediateText(chunk, currentGen);
+              }
+            } else {
+              finalContent += chunk;
+              if (ttsEnabled && chunk) {
+                streamingAudio.feedText(chunk, currentGen);
+              }
+            }
             setStreaming(finalContent);
           } else if (eventType === 'confirmation') {
             try {
@@ -461,10 +523,15 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           }
         }
       }
+
+      if (ttsEnabled) {
+        streamingAudio.flush(currentGen);
+      }
+
       // Final: extract chat text from any JSON wrapper and strip duplicate content
       // The backend may stream chunks then send the full text again as final event
       const thoughtsList = finalThoughts.map(t => t.text);
-      const cleanedContent = extractChatText(finalContent);
+      const cleanedContent = deduplicateContent(extractChatText(finalContent));
       const fallbackText = thoughtsList.length > 0 
         ? 'Operation completed.' 
         : 'No response returned by AI model. Please verify your LLM model selection or API keys in Settings.';
@@ -479,14 +546,15 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           timestamp: Date.now()
         }).catch(console.error);
       }
-
-      // If dashboard TTS is enabled, read response out loud
-      if (ttsEnabled && cleanedContent) {
-        speakMessage(cleanedContent);
-      }
     } catch (err: any) {
       if (err.name === 'AbortError') {
-        setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Execution interrupted.' }]);
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && typeof lastMsg.content === 'string' && lastMsg.content.includes('stopped by user')) {
+            return prev;
+          }
+          return [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: '⛔ **Execution stopped by user.**' }];
+        });
       } else {
         setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
       }
@@ -617,18 +685,38 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   };
 
   const handleInterrupt = async () => {
+    stopActiveAudio();
     setTaskQueue([]);
     if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
+      try {
+        abortControllerRef.current.abort();
+      } catch {}
       abortControllerRef.current = null;
     }
     setLoading(false);
     setStreaming('');
     setStreamThoughts([]);
+    setMessages(prev => [...prev, {
+      id: Date.now(),
+      role: 'assistant',
+      timestamp: Date.now(),
+      content: '⛔ **Execution stopped by user.**',
+    }]);
+    try {
+      await fetch(`${API_BASE_URL}/api/chat/abort`, { method: 'POST' });
+    } catch {}
     try {
       await fetch(`${API_BASE_URL}/api/voice/interrupt`, { method: 'POST' });
     } catch (e) {
       console.warn("Failed to send interrupt request:", e);
+    }
+    if ((window as any).__TAURI_INTERNALS__) {
+      await emit('agent-status-update', {
+        isRunning: false,
+        latestThought: { text: 'Stopped by user', type: 'status' },
+        thoughts: [],
+        timestamp: Date.now()
+      }).catch(console.error);
     }
   };
 
@@ -703,7 +791,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
         <div>
-          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Timeline Logs</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Timeline Logs</h1>
           <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 0', fontFamily: "'JetBrains Mono', monospace" }}>Execution audit · ReAct thought stream</p>
         </div>
 
@@ -731,9 +819,9 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               }
             }}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 6,
-              background: 'rgba(234, 179, 8, 0.12)', border: '1px solid rgba(234, 179, 8, 0.3)',
-              color: '#facc15', cursor: 'pointer', fontSize: 11, fontWeight: 600
+              display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 'var(--radius-sm)',
+              background: 'color-mix(in srgb, var(--warning) 12%, transparent)', border: '1px solid var(--warning)',
+              color: 'var(--warning)', cursor: 'pointer', fontSize: 11, fontWeight: 600
             }}
             title="Undo last reversible action (BUTLER-14)"
           >
@@ -758,104 +846,174 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           {messages.map((msg, i) => {
             const isUser = msg.role === 'user';
             return (
-              <motion.div
-                key={msg.id ?? i}
-                initial={{ opacity: 0, y: 8, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                  display: 'flex',
-                  flexDirection: isUser ? 'row-reverse' : 'row',
-                  gap: 10,
-                  alignItems: 'flex-start',
-                  paddingLeft: isUser ? 48 : 0,
-                  paddingRight: isUser ? 0 : 48,
-                }}
-              >
-                {/* Avatar */}
-                <div style={{
-                  width: 32, height: 32, borderRadius: 'var(--radius-sm)', flexShrink: 0,
-                  background: isUser ? 'color-mix(in srgb, var(--accent-2) 15%, transparent)' : 'color-mix(in srgb, var(--accent) 12%, transparent)',
-                  border: `1px solid ${isUser ? 'color-mix(in srgb, var(--accent-2) 30%, transparent)' : 'color-mix(in srgb, var(--accent) 25%, transparent)'}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: isUser ? 'var(--accent-2)' : 'var(--accent)',
-                }}>
-                  {isUser ? <User size={15} /> : <Bot size={15} />}
-                </div>
-
-                {/* Bubble */}
-                <div style={{
-                  flex: 1,
-                  background: isUser ? 'var(--bg-surface)' : 'var(--bg-panel)',
-                  border: `1px solid var(--border-subtle)`,
-                  borderLeft: `2px solid ${isUser ? 'var(--accent-2)' : 'var(--accent)'}`,
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '10px 12px',
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: isUser ? 'var(--accent-2)' : 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      {msg.role}
-                    </span>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace" }}>
-                      {reltime(msg.timestamp)}
-                    </span>
+              <React.Fragment key={msg.id ?? i}>
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  style={{
+                    display: 'flex',
+                    flexDirection: isUser ? 'row-reverse' : 'row',
+                    gap: 12,
+                    alignItems: 'flex-start',
+                    paddingLeft: isUser ? 64 : 0,
+                    paddingRight: isUser ? 0 : 64,
+                  }}
+                >
+                  {/* Avatar */}
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 'var(--radius-md)', flexShrink: 0,
+                    background: isUser ? 'color-mix(in srgb, var(--accent-2) 16%, transparent)' : 'color-mix(in srgb, var(--accent) 14%, transparent)',
+                    border: `1px solid ${isUser ? 'color-mix(in srgb, var(--accent-2) 35%, transparent)' : 'color-mix(in srgb, var(--accent) 30%, transparent)'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: isUser ? 'var(--accent-2)' : 'var(--accent)',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+                  }}>
+                    {isUser ? <User size={16} /> : <Bot size={16} />}
                   </div>
 
-                  {msg.fileAttachment && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '8px 12px',
-                      background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-panel))',
-                      border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
-                      borderRadius: 'var(--radius-sm)',
-                      marginBottom: msg.content ? 8 : 0,
-                    }}>
-                      <Paperclip size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
-                        <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-main)', fontFamily: "'JetBrains Mono', monospace", wordBreak: 'break-all' }}>
-                          {msg.fileAttachment.name}
-                        </span>
-                        <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
-                          {msg.fileAttachment.status === 'ingesting' ? 'Ingesting into Turbovec RAG...' :
-                           msg.fileAttachment.status === 'success' ? 'Ready in knowledge base' :
-                           'Ingestion failed'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                        {msg.fileAttachment.status === 'ingesting' && (
-                          <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-                            style={{
-                              width: 12, height: 12,
-                              border: '2px solid var(--accent)',
-                              borderTopColor: 'transparent',
-                              borderRadius: '50%'
-                            }}
-                          />
-                        )}
-                        {msg.fileAttachment.status === 'success' && (
-                          <Check size={13} style={{ color: 'var(--success)' }} />
-                        )}
-                        {msg.fileAttachment.status === 'failed' && (
-                          <X size={13} style={{ color: 'var(--danger)' }} />
-                        )}
-                      </div>
+                  {/* Bubble */}
+                  <div style={{
+                    flex: 1,
+                    background: isUser ? 'color-mix(in srgb, var(--accent-2) 8%, var(--bg-surface))' : 'color-mix(in srgb, var(--bg-panel) 94%, transparent)',
+                    border: isUser ? '1px solid color-mix(in srgb, var(--accent-2) 25%, transparent)' : '1px solid var(--border)',
+                    borderLeft: `3px solid ${isUser ? 'var(--accent-2)' : 'var(--accent)'}`,
+                    borderRadius: 'var(--radius-md)',
+                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
+                    padding: '12px 16px',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: isUser ? 'var(--accent-2)' : 'var(--accent)', fontFamily: "var(--font-mono, monospace)", textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        {isUser ? 'Operator' : 'Meridian-X Core'}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "var(--font-mono, monospace)" }}>
+                        {reltime(msg.timestamp)}
+                      </span>
                     </div>
-                  )}
 
-                  {msg.thoughts?.length > 0 && <ThoughtsBlock thoughts={msg.thoughts} />}
-                  <div
-                    className="markdown-content"
-                    style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
-                    dangerouslySetInnerHTML={renderMarkdown(msg.content)}
-                  />
-                  {msg.confirmation && <SafetyGate gate={msg.confirmation} onConfirm={handleConfirm} />}
-                  {msg.proposedHeal && <HealBlock heal={msg.proposedHeal} onApply={handleApplyHeal} />}
-                </div>
-              </motion.div>
+                    {msg.fileAttachment && (
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '8px 12px',
+                        background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-panel))',
+                        border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
+                        borderRadius: 'var(--radius-sm)',
+                        marginBottom: msg.content ? 8 : 0,
+                      }}>
+                        <Paperclip size={13} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text-main)', fontFamily: "var(--font-mono, monospace)", wordBreak: 'break-all' }}>
+                            {msg.fileAttachment.name}
+                          </span>
+                          <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
+                            {msg.fileAttachment.status === 'ingesting' ? 'Ingesting into Turbovec RAG...' :
+                             msg.fileAttachment.status === 'success' ? 'Ready in knowledge base' :
+                             'Ingestion failed'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                          {msg.fileAttachment.status === 'ingesting' && (
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
+                              style={{
+                                width: 12, height: 12,
+                                border: '2px solid var(--accent)',
+                                borderTopColor: 'transparent',
+                                borderRadius: '50%'
+                              }}
+                            />
+                          )}
+                          {msg.fileAttachment.status === 'success' && (
+                            <Check size={13} style={{ color: 'var(--success)' }} />
+                          )}
+                          {msg.fileAttachment.status === 'failed' && (
+                            <X size={13} style={{ color: 'var(--danger)' }} />
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {msg.thoughts?.length > 0 && <ThoughtsBlock thoughts={msg.thoughts} />}
+                    <div
+                      className="markdown-content"
+                      style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
+                      dangerouslySetInnerHTML={renderMarkdown(msg.content)}
+                    />
+                    {msg.confirmation && <SafetyGate gate={msg.confirmation} onConfirm={handleConfirm} />}
+                    {msg.proposedHeal && <HealBlock heal={msg.proposedHeal} onApply={handleApplyHeal} />}
+                  </div>
+                </motion.div>
+
+                {/* Show starter suggestions when conversation is fresh */}
+                {i === 0 && messages.length <= 1 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    style={{
+                      marginTop: 10,
+                      marginBottom: 10,
+                      padding: '16px 20px',
+                      background: 'color-mix(in srgb, var(--bg-panel) 80%, transparent)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--radius-lg)',
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>
+                        Quick Autonomous Workflows
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--accent)', background: 'var(--accent-muted)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', fontFamily: "var(--font-mono, monospace)", fontWeight: 600 }}>
+                        1-CLICK STARTERS
+                      </span>
+                    </div>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                      gap: 10,
+                    }}>
+                      {STARTER_PROMPTS.map((item, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => {
+                            setInput(item.prompt);
+                            textareaRef.current?.focus();
+                          }}
+                          className="glass-hover"
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 4,
+                            padding: '12px 14px',
+                            textAlign: 'left',
+                            background: 'var(--bg-surface)',
+                            border: '1px solid var(--border-subtle)',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 16 }}>{item.icon}</span>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>
+                              {item.title}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                            {item.desc}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </React.Fragment>
             );
           })}
         </AnimatePresence>
@@ -878,9 +1036,37 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               flex: 1, background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
               borderLeft: '2px solid var(--accent)', borderRadius: 'var(--radius-sm)', padding: '10px 12px',
             }}>
-              <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace', animation: 'blink-cursor 1s step-end infinite'" }}>
-                THINKING...
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: streamThoughts.length > 0 ? 6 : 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--accent)', fontFamily: "var(--font-mono, monospace)", display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', opacity: 0.85 }} />
+                  {streaming ? 'GENERATING RESPONSE...' : 'REASONING & THINKING...'}
+                </span>
+                {streamThoughts.length > 0 && (
+                  <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "var(--font-mono, monospace)" }}>
+                    Step {streamThoughts.length}
+                  </span>
+                )}
+              </div>
+
+              {streamThoughts.length > 0 && (
+                <div style={{
+                  padding: '6px 10px',
+                  background: 'color-mix(in srgb, var(--accent) 5%, var(--bg-surface))',
+                  border: '1px solid color-mix(in srgb, var(--accent) 15%, transparent)',
+                  borderRadius: 'var(--radius-xs)',
+                  fontSize: 11,
+                  fontFamily: "var(--font-mono, monospace)",
+                  color: 'var(--text-dim)',
+                  lineHeight: 1.5,
+                  maxHeight: 120,
+                  overflowY: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  marginBottom: streaming ? 8 : 0,
+                }}>
+                  {streamThoughts[streamThoughts.length - 1]}
+                </div>
+              )}
+
               {streaming && (
                 <div
                   className="markdown-content"
@@ -907,13 +1093,13 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           marginBottom: 8,
           fontSize: 11,
           color: 'var(--text-dim)',
-          fontFamily: 'Space Grotesk, sans-serif'
+          fontFamily: 'var(--font-main)'
         }}>
           <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Queued Tasks ({taskQueue.length}):</span>
           <div style={{ display: 'flex', gap: 6, overflowX: 'auto', flex: 1 }}>
             {taskQueue.map((task, idx) => (
               <span key={task.id} style={{
-                background: 'rgba(0,0,0,0.2)',
+                background: 'var(--bg-surface)',
                 padding: '2px 6px',
                 borderRadius: 'var(--radius-xs)',
                 whiteSpace: 'nowrap',
@@ -926,11 +1112,16 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         </div>
       )}
 
-      {/* Input */}
+      {/* Input HUD */}
       <form onSubmit={onSubmitPrompt} style={{
         display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0,
-        background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)', padding: '8px 12px',
+        background: 'color-mix(in srgb, var(--bg-panel) 94%, transparent)',
+        border: isInputFocused ? '1px solid var(--border-active)' : '1px solid var(--border)',
+        boxShadow: isInputFocused ? '0 0 24px var(--accent-muted), 0 8px 32px rgba(0, 0, 0, 0.45)' : '0 4px 20px rgba(0, 0, 0, 0.3)',
+        borderRadius: 'var(--radius-lg)', padding: '10px 14px',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
       }}>
         {stagedFile && (
           <div style={{
@@ -942,7 +1133,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             alignSelf: 'flex-start',
             fontSize: 11,
             color: 'var(--text-main)',
-            fontFamily: "'JetBrains Mono', monospace",
+            fontFamily: "var(--font-mono, monospace)",
           }}>
             <Paperclip size={12} style={{ color: 'var(--accent)' }} />
             <span style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -988,6 +1179,8 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             ref={textareaRef}
             value={input}
             onChange={e => setInput(e.target.value)}
+            onFocus={() => setIsInputFocused(true)}
+            onBlur={() => setIsInputFocused(false)}
             onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -998,9 +1191,9 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             rows={1}
             style={{
               flex: 1, background: 'transparent', border: 'none', outline: 'none',
-              color: 'var(--text-main)', fontSize: 13, fontFamily: "'Space Grotesk', sans-serif",
-              resize: 'none', maxHeight: 120, minHeight: 20, paddingTop: 4, paddingBottom: 4,
-              lineHeight: '1.4', overflowY: 'auto'
+              color: 'var(--text-main)', fontSize: 13, fontFamily: 'var(--font-main)',
+              resize: 'none', maxHeight: 120, minHeight: 24, paddingTop: 4, paddingBottom: 4,
+              lineHeight: '1.5', overflowY: 'auto'
             }}
           />
           {/* Speak Toggle Button */}
@@ -1028,6 +1221,27 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           <HoloButton type="submit" variant="primary" size="sm" disabled={!input.trim() && !stagedFile} title="Send Task">
             <Send size={14} />
           </HoloButton>
+        </div>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: 2,
+          paddingTop: 6,
+          borderTop: '1px solid var(--border-subtle)',
+          fontSize: 10,
+          color: 'var(--text-ghost)',
+          fontFamily: "var(--font-mono, monospace)"
+        }}>
+          <div style={{ display: 'flex', gap: 12 }}>
+            <span><strong style={{ color: 'var(--text-dim)' }}>↵ Enter</strong> send</span>
+            <span><strong style={{ color: 'var(--text-dim)' }}>⇧ ↵</strong> newline</span>
+            <span><strong style={{ color: 'var(--text-dim)' }}>⌘ / Ctrl+K</strong> palette</span>
+          </div>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', boxShadow: '0 0 6px var(--success)' }} />
+            <span style={{ color: 'var(--text-dim)' }}>Autonomous Agent Ready</span>
+          </div>
         </div>
       </form>
     </div>

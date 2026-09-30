@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, Bot, RefreshCw, CheckCircle } from 'lucide-react';
 import HoloButton from '../components/ui/HoloButton';
 import { API_BASE_URL } from '../config';
+import { hasKeyLockPassword, setKeyLockPassword } from '../utils/keyLock';
 
 interface SetupWizardProps { onComplete: () => void; }
 
@@ -63,6 +64,12 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
   const [geminiKey, setGeminiKey]               = useState(() => localStorage.getItem('GEMINI_API_KEY') || '');
   const [deepseekKey, setDeepseekKey]           = useState(() => localStorage.getItem('DEEPSEEK_API_KEY') || '');
 
+  // Step 4 — key-reveal security password (required to unmask API keys in Settings)
+  const [lockPassword, setLockPassword] = useState('');
+  const [lockConfirm, setLockConfirm] = useState('');
+  const [lockError, setLockError] = useState('');
+  const [lockAlreadySet] = useState(() => hasKeyLockPassword());
+
   // Set default models when provider changes
   useEffect(() => {
     if (selectedProvider !== 'ollama') {
@@ -91,6 +98,21 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
       } else { setOllamaStatus('fail'); }
     } catch { setOllamaStatus('fail'); }
     finally { setLoading(false); }
+  };
+
+  const saveKeyLockPassword = async (): Promise<boolean> => {
+    if (lockAlreadySet && !lockPassword) return true; // keep existing password
+    if (lockPassword.length < 4) {
+      setLockError('Password must be at least 4 characters.');
+      return false;
+    }
+    if (lockPassword !== lockConfirm) {
+      setLockError('Passwords do not match.');
+      return false;
+    }
+    setLockError('');
+    await setKeyLockPassword(lockPassword);
+    return true;
   };
 
   const saveSettings = async () => {
@@ -166,7 +188,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               <polygon points="16,2 28,9 28,23 16,30 4,23 4,9" fill="none" stroke="var(--accent)" strokeWidth="2" />
               <circle cx="16" cy="16" r="4" fill="var(--accent)" />
             </svg>
-            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-bright)', fontFamily: "'Space Grotesk', sans-serif" }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-bright)', fontFamily: 'var(--font-heading)' }}>
               Meridian-X Setup
             </span>
           </div>
@@ -186,7 +208,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               {/* ── Step 1: Welcome ── */}
               {step === 1 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                  <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>
                     Welcome to<br />
                     <span style={{ color: 'var(--accent)' }}>Meridian-X</span>
                   </h1>
@@ -222,7 +244,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               {step === 2 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: '0 0 4px', fontFamily: "'Space Grotesk', sans-serif" }}>Connect Your Services</h2>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: '0 0 4px', fontFamily: 'var(--font-heading)' }}>Connect Your Services</h2>
                     <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>All optional. Configure later in Settings.</p>
                   </div>
 
@@ -255,7 +277,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
               {step === 3 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   <div>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: '0 0 4px', fontFamily: "'Space Grotesk', sans-serif" }}>Intelligence Engine</h2>
+                    <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: '0 0 4px', fontFamily: 'var(--font-heading)' }}>Intelligence Engine</h2>
                     <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>Select your primary AI provider.</p>
                   </div>
 
@@ -360,7 +382,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                 </div>
               )}
 
-              {/* ── Step 4: Complete ── */}
+              {/* ── Step 4: Key protection password + Complete ── */}
               {step === 4 && (
                 <div style={{ textAlign: 'center', padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                   <motion.div
@@ -371,10 +393,27 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                   >
                     <CheckCircle size={64} />
                   </motion.div>
-                  <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Configuration Complete</h2>
+                  <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Configuration Complete</h2>
                   <p style={{ fontSize: 13, color: 'var(--text-dim)', maxWidth: 320, lineHeight: 1.6, margin: 0 }}>
                     Settings saved and intelligence parameters registered. Meridian-X is ready.
                   </p>
+                  <div style={{ width: '100%', maxWidth: 360, textAlign: 'left', padding: '14px 16px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>🔒 Protect your API keys</div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                      {lockAlreadySet
+                        ? 'A key-reveal password is already set. Enter a new one to change it, or leave blank to keep it.'
+                        : 'Set a password. It will be required in Settings to reveal API keys and secrets.'}
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>KEY-REVEAL PASSWORD</label>
+                      <input type="password" value={lockPassword} onChange={e => setLockPassword(e.target.value)} placeholder={lockAlreadySet ? '(unchanged)' : 'min. 4 characters'} className="input-base" />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4 }}>CONFIRM PASSWORD</label>
+                      <input type="password" value={lockConfirm} onChange={e => setLockConfirm(e.target.value)} placeholder="repeat password" className="input-base" />
+                    </div>
+                    {lockError && <div style={{ fontSize: 11, color: 'var(--danger)' }}>{lockError}</div>}
+                  </div>
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
                     {['Alt+M  Toggle Shell', 'Alt+V  Voice PTT', 'Alt+Shift+M  Mascot'].map(hint => (
                       <div key={hint} style={{
@@ -402,7 +441,14 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
                 Continue <ArrowRight size={14} />
               </HoloButton>
             ) : (
-              <HoloButton variant="primary" size="md" onClick={onComplete}>
+              <HoloButton variant="primary" size="md" onClick={async () => {
+                if (!lockAlreadySet && lockPassword.length < 4) {
+                  setLockError('Set a key-reveal password (min. 4 characters) to continue.');
+                  return;
+                }
+                const ok = await saveKeyLockPassword();
+                if (ok) onComplete();
+              }}>
                 Launch Meridian-X <Bot size={14} />
               </HoloButton>
             )}

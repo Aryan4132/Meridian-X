@@ -16,6 +16,7 @@ import MemoryEditor from '../views/MemoryEditor';
 import Settings from '../views/Settings';
 
 import AmbientParticles from './ui/AmbientParticles';
+import ProactiveGuardBanner from './ProactiveGuardBanner';
 
 export default function Shell() {
   const { activeTab, setActiveTab } = useApp();
@@ -60,7 +61,9 @@ export default function Shell() {
 
   return (
     <ToastProvider>
+      <ProactiveGuardBanner />
       <div style={{
+
         display: 'flex',
         height: '100vh',
         width: '100vw',
@@ -79,31 +82,43 @@ export default function Shell() {
 
           {/* Content area */}
           <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-              <div style={{ display: activeTab === 'timeline' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <Timeline onThoughtsUpdate={setThoughtsFeed} />
-              </div>
-              <div style={{ display: activeTab === 'jobs' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <Jobs onRunsUpdate={setRecentRuns} isActive={activeTab === 'jobs'} />
-              </div>
-              <div style={{ display: activeTab === 'clipboard' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <Clipboard isActive={activeTab === 'clipboard'} />
-              </div>
-              <div style={{ display: activeTab === 'productivity' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <Productivity isActive={activeTab === 'productivity'} />
-              </div>
-              <div style={{ display: activeTab === 'lobby' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <SwarmDebate />
-              </div>
-              <div style={{ display: activeTab === 'workflows' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <WorkflowBuilder />
-              </div>
-              <div style={{ display: activeTab === 'memory' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <MemoryEditor />
-              </div>
-              <div style={{ display: activeTab === 'settings' ? 'flex' : 'none', flex: 1, flexDirection: 'column', overflow: 'hidden' }}>
-                <Settings />
-              </div>
+            <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+              {[
+                { id: 'timeline', component: <Timeline onThoughtsUpdate={setThoughtsFeed} /> },
+                { id: 'jobs', component: <Jobs onRunsUpdate={setRecentRuns} isActive={activeTab === 'jobs'} /> },
+                { id: 'clipboard', component: <Clipboard isActive={activeTab === 'clipboard'} /> },
+                { id: 'productivity', component: <Productivity isActive={activeTab === 'productivity'} /> },
+                { id: 'lobby', component: <SwarmDebate /> },
+                { id: 'workflows', component: <WorkflowBuilder /> },
+                { id: 'memory', component: <MemoryEditor /> },
+                { id: 'settings', component: <Settings /> },
+              ].map(({ id, component }) => {
+                const isCurrent = activeTab === id;
+                return (
+                  <motion.div
+                    key={id}
+                    initial={false}
+                    animate={{
+                      opacity: isCurrent ? 1 : 0,
+                      scale: isCurrent ? 1 : 0.99,
+                      y: isCurrent ? 0 : 4,
+                    }}
+                    transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden',
+                      pointerEvents: isCurrent ? 'auto' : 'none',
+                      visibility: isCurrent ? 'visible' : 'hidden',
+                      zIndex: isCurrent ? 1 : 0,
+                    }}
+                  >
+                    {component}
+                  </motion.div>
+                );
+              })}
             </div>
 
           </main>
