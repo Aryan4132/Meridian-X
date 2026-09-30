@@ -2,17 +2,23 @@ import psutil
 import os
 import sys
 import logging
-from typing import Dict, Any, TypedDict
+from typing import Dict, Any, TypedDict, Optional
 
 logger = logging.getLogger(__name__)
+
+_CACHED_HARDWARE_SPECS: Optional[Dict[str, Any]] = None
 
 class GpuInfo(TypedDict):
     has_gpu: bool
     vram_gb: float
     name: str
 
-def detect_hardware_specs() -> Dict[str, Any]:
-    """Detect CPU, RAM, and GPU capabilities to recommend optimal offline model."""
+def detect_hardware_specs(force_refresh: bool = False) -> Dict[str, Any]:
+    """Detect CPU, RAM, and GPU capabilities to recommend optimal offline model with caching."""
+    global _CACHED_HARDWARE_SPECS
+    if not force_refresh and _CACHED_HARDWARE_SPECS is not None:
+        return dict(_CACHED_HARDWARE_SPECS)
+
     cpu_count = psutil.cpu_count(logical=True) or 4
     mem_info = psutil.virtual_memory()
     ram_gb = round(mem_info.total / (1024 ** 3), 1)
@@ -46,16 +52,28 @@ def detect_hardware_specs() -> Dict[str, Any]:
     if not has_gpu and sys_os == "Windows":
         try:
             import subprocess
+            import json as _json
+            ps_script = "Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM | ConvertTo-Json -Compress"
             out = subprocess.check_output(
-                ["powershell", "-NoProfile", "-Command", "Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name"],
+                ["powershell", "-NoProfile", "-Command", ps_script],
                 stderr=subprocess.DEVNULL
             ).decode('utf-8', errors='ignore').strip()
-            if out and "Microsoft Basic" not in out:
-                has_gpu = True
-                gpu_name = out.splitlines()[0]
-                vram_gb = round(ram_gb * 0.5, 1)  # Default estimate if VRAM query unavailable
-        except Exception:
-            pass
+            if out:
+                parsed = _json.loads(out)
+                items = parsed if isinstance(parsed, list) else [parsed]
+                for item in items:
+                    c_name = item.get("Name", "")
+                    if c_name and "Microsoft Basic" not in c_name:
+                        has_gpu = True
+                        gpu_name = c_name
+                        raw_vram = item.get("AdapterRAM") or 0
+                        if raw_vram and raw_vram > 0:
+                            vram_gb = round(float(raw_vram) / (1024 ** 3), 1)
+                        else:
+                            vram_gb = round(ram_gb * 0.5, 1)
+                        break
+        except Exception as e:
+            logger.debug(f"Windows CIM GPU detection fallback failed: {e}")
 
     # Fallback to Apple Silicon Metal Unified Memory
     if not has_gpu and sys_os == "Darwin":
@@ -141,7 +159,7 @@ def detect_hardware_specs() -> Dict[str, Any]:
         }
     ]
 
-    return {
+    res = {
         "cpu_cores": cpu_count,
         "ram_gb": ram_gb,
         "gpu": gpu_info,
@@ -151,3 +169,6 @@ def detect_hardware_specs() -> Dict[str, Any]:
         "description": description,
         "options": available_options
     }
+    _CACHED_HARDWARE_SPECS = res
+    return dict(res)
+

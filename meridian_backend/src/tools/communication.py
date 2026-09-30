@@ -11,9 +11,13 @@ from src.core.audit_logger import log_sensitive_action
 logger = logging.getLogger("meridian_communication")
 
 def send_notification(title: str, message: str) -> str:
-    """Sends a desktop notification."""
+    """Sends a desktop notification using the native OS toast engine."""
     log_sensitive_action("NOTIFICATION_SENT", "send_notification", {"title": title, "message": message}, "SUCCESS")
-    return f"Notification sent: {title} - {message}"
+    try:
+        toast_status = send_native_toast_notification(title, message)
+        return f"Notification sent: {title} - {message} ({toast_status})"
+    except Exception as e:
+        return f"Notification sent: {title} - {message} (Native popup note: {e})"
 
 def send_email(recipient: str, subject: str, body: str) -> str:
     """Sends an email."""
@@ -131,7 +135,15 @@ def send_native_toast_notification(title: str, message: str) -> str:
             subprocess.Popen(["notify-send", title, message], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return f"Native toast notification displayed: '{title}' - '{message}'"
     except Exception as e:
-        return send_notification(title, message)
+        try:
+            log_sensitive_action(
+                "NOTIFICATION_FALLBACK", "send_native_toast_notification",
+                {"title": title, "error": str(e)}, "FAILED",
+            )
+        except Exception:
+            pass
+        fallback = send_notification(title, message)
+        return f"{fallback} (native toast failed: {e})"
 
 def triage_and_read_emails() -> str:
     """Triages recent email inbox messages."""

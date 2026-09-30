@@ -37,16 +37,31 @@ def db_connect(type: str, path_or_dsn: str) -> str:
                 _conn = psycopg2.connect(path_or_dsn)
                 _conn_type = "postgresql"
                 _conn_dsn = path_or_dsn
-                return f"Successfully connected to local PostgreSQL database."
+                return "Successfully connected to local PostgreSQL database."
                 
             elif db_type == "mysql":
                 import pymysql
-                # Parse simple dsn or host parameters
-                # Assumes format: username:password@host:port/dbname
-                _conn = pymysql.connect(dsn=path_or_dsn)
+                # Parse simple DSN format: username:password@host:port/dbname
+                # (pymysql.connect takes keyword args, not a dsn= kwarg)
+                import re as _re
+                m = _re.match(
+                    r"^(?:(?P<user>[^:]+)(?::(?P<password>[^@]*))?@)?"
+                    r"(?P<host>[^:/]+)(?::(?P<port>\d+))?(?:/(?P<db>.+))?$",
+                    path_or_dsn,
+                )
+                if not m:
+                    return f"Error: Invalid MySQL DSN '{path_or_dsn}'. Expected username:password@host:port/dbname."
+                parts = m.groupdict()
+                _conn = pymysql.connect(
+                    host=parts["host"] or "localhost",
+                    port=int(parts["port"]) if parts["port"] else 3306,
+                    user=parts["user"] or "",
+                    password=parts["password"] or "",
+                    database=parts["db"] or "",
+                )
                 _conn_type = "mysql"
                 _conn_dsn = path_or_dsn
-                return f"Successfully connected to local MySQL database."
+                return "Successfully connected to local MySQL database."
                 
             else:
                 return f"Error: Unsupported database type '{type}'. Supported: sqlite, postgresql, mysql."
@@ -100,6 +115,8 @@ def db_query(sql: str) -> str:
         try:
             cursor = _conn.cursor()
             cursor.execute(sql)
+            if cursor.description is None:
+                return "Query completed (no result set returned)."
             columns = [desc[0] for desc in cursor.description]
             rows = cursor.fetchall()
             
@@ -129,7 +146,11 @@ def db_execute(sql: str) -> str:
     validation_err = validate_sql_safety(sql)
     if validation_err:
         return validation_err
-            
+
+    with _db_lock:
+        if not _conn:
+            return "Error: No active database connection. Call db_connect first."
+
         try:
             cursor = _conn.cursor()
             cursor.execute(sql)

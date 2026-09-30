@@ -6,7 +6,10 @@ import ast
 import re
 import math
 import numpy as np
+import logging
 from typing import List, Tuple, Dict, Any
+
+logger = logging.getLogger("meridian.doc_indexer")
 
 try:
     from turbovec import IdMapIndex  # type: ignore # pyright: ignore[reportMissingImports]
@@ -35,8 +38,10 @@ def init_docs_index():
         
         try:
             cursor.execute("ALTER TABLE offline_docs ADD COLUMN embedding TEXT")
-        except Exception:
+        except sqlite3.OperationalError:
             pass
+        except Exception as e:
+            logger.debug("Failed adding embedding column to offline_docs: %s", e, exc_info=True)
             
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS indexed_files (
@@ -47,12 +52,14 @@ def init_docs_index():
         """)
         try:
             cursor.execute("ALTER TABLE indexed_files ADD COLUMN sha256 TEXT")
-        except Exception:
+        except sqlite3.OperationalError:
             pass
+        except Exception as e:
+            logger.debug("Failed adding sha256 column to indexed_files: %s", e, exc_info=True)
         conn.commit()
         conn.close()
     except Exception as e:
-        print("[Docs Indexer] SQLite initialization failed:", e)
+        logger.error("[Docs Indexer] SQLite initialization failed: %s", e, exc_info=True)
 
     if docs_index is not None or IdMapIndex is None:
         return
@@ -88,8 +95,8 @@ def _extract_ast_chunks(code_text: str) -> List[Tuple[str, str]]:
                 end_line = getattr(node, 'end_lineno', start_line + 30)
                 body = "\n".join(lines[start_line:end_line])
                 chunks.append((sec_name, body))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("AST parse error in code chunking: %s", e, exc_info=True)
     if not chunks:
         chunks.append(("Code", code_text))
     return chunks
@@ -142,7 +149,8 @@ def index_docs_directory(docs_dir: str):
                 while chunk := f.read(8192):
                     h.update(chunk)
             return h.hexdigest()
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed computing file sha256 for %s: %s", filepath, e, exc_info=True)
             return ""
 
     conn = get_sqlite_conn()
@@ -236,8 +244,8 @@ def index_docs_directory(docs_dir: str):
                             vector = json.loads(r["embedding"])
                             ids_to_add.append(r["id"])
                             vectors_to_add.append(normalize_vector(vector))
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning("Corrupt embedding json for doc %s: %s", r["id"], e, exc_info=True)
 
                 if ids_to_add:
                     ids_np = np.array(ids_to_add, dtype=np.uint64)
@@ -281,8 +289,9 @@ def search_offline_docs(query: str, limit: int = 5):
                         doc_v = np.array(normalize_vector(json.loads(doc["embedding"])), dtype=np.float32)
                         sim = float(np.dot(query_arr, doc_v))
                         dense_scores.append((doc["id"], sim))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        import logging
+                        logging.getLogger("meridian.indexer").debug(f"Failed to calculate similarity for doc {doc.get('id')}: {e}")
             dense_scores.sort(key=lambda x: x[1], reverse=True)
             for rank, (doc_id, _) in enumerate(dense_scores):
                 dense_ranks[doc_id] = rank + 1

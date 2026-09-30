@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import asyncio
 import logging
 from typing import Dict, Any, List, Optional
@@ -34,8 +35,9 @@ class McpClient:
       full_env.update(self.env)
       
       # Spawn subprocess
+      resolved_command = shutil.which(self.command) or self.command
       self.process = await asyncio.create_subprocess_exec(
-        self.command,
+        resolved_command,
         *self.args,
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,

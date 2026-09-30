@@ -11,8 +11,11 @@ import logging
 from typing import Dict, Any, List, Optional
 try:
     from src.core.mcp_client import McpClient
-except ImportError:
-    from meridian_backend.src.core.mcp_client import McpClient
+except ImportError:  # pragma: no cover - fallback for non-standard sys.path layouts
+    try:
+        from core.mcp_client import McpClient  # type: ignore[no-redef]
+    except ImportError:
+        from meridian_backend.src.core.mcp_client import McpClient  # type: ignore[no-redef]
 
 logger = logging.getLogger("meridian_mcp_executor")
 

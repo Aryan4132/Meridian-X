@@ -24,7 +24,7 @@ def gmail_send_mail(to: str, subject: str, body: str) -> str:
     """Sends an email via Gmail OAuth API."""
     headers = _get_bearer_header("google")
     if not headers:
-        return f"[Mock Gmail Send] OAuth token for Google not connected. Simulated email to {to}: Subject='{subject}'"
+        return f"Error: OAuth token for Google Workspace is not connected. Please connect Google account in settings."
         
     try:
         import base64
@@ -73,7 +73,7 @@ def calendar_schedule_event(summary: str, start_time: str, end_time: str, descri
     """Schedules an event on Google Calendar via OAuth API."""
     headers = _get_bearer_header("google")
     if not headers:
-        return f"[Mock Calendar] Scheduled event '{summary}' from {start_time} to {end_time}."
+        return f"Error: Google OAuth token not connected. Cannot schedule '{summary}'."
         
     event = {
         "summary": summary,
@@ -99,7 +99,7 @@ def contacts_search(query: str) -> List[Dict[str, Any]]:
     """Searches Google Contacts via OAuth API."""
     headers = _get_bearer_header("google")
     if not headers:
-        return [{"name": "Demo Contact", "email": f"{query.lower().replace(' ', '')}@example.com"}]
+        return [{"error": "Google OAuth token not connected. Cannot search contacts."}]
     try:
         resp = requests.get(
             f"https://people.googleapis.com/v1/people:searchContacts?query={query}&readMask=names,emailAddresses",
@@ -120,7 +120,7 @@ def github_manage_repo(action: str, repo: str, title: str = "", body: str = "") 
     """Performs repository actions on GitHub (create_issue, create_pr, list_prs)."""
     headers = _get_bearer_header("github")
     if not headers:
-        return f"[Mock GitHub Action] Action='{action}' on repo='{repo}'. Title='{title}'."
+        return f"Error: GitHub OAuth token not connected. Cannot perform action '{action}' on repo '{repo}'."
         
     try:
         if action == "create_issue":
@@ -144,11 +144,9 @@ def cloudflare_check_domain(domain: str) -> Dict[str, Any]:
     headers = _get_bearer_header("cloudflare")
     if not headers:
         return {
+            "error": "Cloudflare API token not configured.",
             "domain": domain,
-            "status": "active",
-            "ssl": "full_strict",
-            "name_servers": ["ns1.cloudflare.com", "ns2.cloudflare.com"],
-            "mock": True
+            "connected": False
         }
     try:
         resp = requests.get(
@@ -170,7 +168,7 @@ def chat_send_message(platform: str, channel: str, message: str) -> str:
     """Sends a notification message to Slack, Discord, or Telegram."""
     headers = _get_bearer_header(platform.lower())
     if not headers:
-        return f"[Mock {platform.title()} Notification] Sent to #{channel}: '{message}'"
+        return f"Error: {platform.title()} integration not connected. Message not sent."
     return f"Successfully sent message to {platform} #{channel}."
 
 
@@ -178,7 +176,7 @@ def workspace_sync_page(platform: str, page_title: str, content: str) -> str:
     """Syncs a document or record to Notion, Obsidian, or Airtable."""
     headers = _get_bearer_header(platform.lower())
     if not headers:
-        return f"[Mock {platform.title()} Sync] Synced page '{page_title}' with {len(content)} characters."
+        return f"Error: {platform.title()} integration not connected. Cannot sync page '{page_title}'."
     return f"Successfully synced page '{page_title}' to {platform}."
 
 

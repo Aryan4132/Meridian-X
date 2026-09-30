@@ -9,13 +9,18 @@ try:
 except ImportError:
     pypdf = None
 
-# PDF generation
+# PDF generation (all-or-nothing so partial imports can't NameError later)
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 except ImportError:
+    letter = None
     SimpleDocTemplate = None
+    Paragraph = None
+    Spacer = None
+    getSampleStyleSheet = None
+    ParagraphStyle = None
 
 # Word documents
 try:
@@ -29,12 +34,14 @@ try:
 except ImportError:
     openpyxl = None
 
-# PowerPoint presentations
+# PowerPoint presentations (all-or-nothing so partial imports can't NameError later)
 try:
     from pptx import Presentation
     from pptx.util import Inches, Pt
 except ImportError:
     Presentation = None
+    Inches = None
+    Pt = None
 
 
 def parse_receipt_subscription(file_path_or_text: str) -> Dict[str, Any]:

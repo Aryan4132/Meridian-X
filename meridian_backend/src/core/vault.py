@@ -53,11 +53,19 @@ _key_cache: Dict[str, tuple] = {}
 _CACHE_TTL = 300  # 5 minutes
 _VAULT_FROZEN = False
 
+def zeroize_key(key_obj: Any) -> None:
+    """Explicitly overwrites sensitive key memory with zeros before deallocation."""
+    if isinstance(key_obj, bytearray):
+        for i in range(len(key_obj)):
+            key_obj[i] = 0
+
 def freeze_vault() -> None:
-    """Freezes vault access during Emergency Lockdown."""
+    """Freezes vault access during Emergency Lockdown and zeroizes cached keys."""
     global _VAULT_FROZEN
     with _cache_lock:
         _VAULT_FROZEN = True
+        for dk, _ in _key_cache.values():
+            zeroize_key(dk)
         _key_cache.clear()
 
 def unfreeze_vault() -> None:
@@ -79,18 +87,23 @@ def _get_or_derive_key(passphrase: str, salt: bytes, kdf_type: str = "argon2id")
     with _cache_lock:
         entry = _key_cache.get(pass_hash)
         if entry is not None:
-            dk, expires_at = entry
+            dk_buf, expires_at = entry
             if _time.time() < expires_at:
-                return dk
+                return bytes(dk_buf)
+            else:
+                zeroize_key(dk_buf)
+                _key_cache.pop(pass_hash, None)
         # Cache miss or expired — derive fresh key
         dk = _derive_key(passphrase, salt, kdf_type=kdf_type)
-        _key_cache[pass_hash] = (dk, _time.time() + _CACHE_TTL)
+        _key_cache[pass_hash] = (bytearray(dk), _time.time() + _CACHE_TTL)
         return dk
 
 
 def _invalidate_key_cache() -> None:
-    """Evict all cached keys (called on vault write since a new salt is generated)."""
+    """Evict and zeroize all cached keys (called on vault write since a new salt is generated)."""
     with _cache_lock:
+        for dk_buf, _ in _key_cache.values():
+            zeroize_key(dk_buf)
         _key_cache.clear()
 
 

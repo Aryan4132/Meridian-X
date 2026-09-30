@@ -44,7 +44,20 @@ def schedule_once(goal: str, run_at: str) -> str:
             args=[goal],
             name=goal[:50]
         )
-        return f"Successfully scheduled one-shot job. Job ID: {job.id} to run at {run_at}"
+
+        # Attempt OS-level native task persistence so tasks survive app shutdown
+        native_status = ""
+        try:
+            from src.tools.task_scheduler import schedule_once as native_schedule_once
+            clean_name = f"task_{job.id[:8]}"
+            date_str = dt.strftime("%Y-%m-%d")
+            time_str = dt.strftime("%H:%M")
+            native_res = native_schedule_once(clean_name, goal, date_str, time_str)
+            native_status = f" | OS Native: {native_res}"
+        except Exception:
+            pass
+
+        return f"Successfully scheduled one-shot job. Job ID: {job.id} to run at {run_at}{native_status}"
     except Exception as e:
         return f"Error scheduling one-shot job: {e}"
 

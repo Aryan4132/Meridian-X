@@ -151,3 +151,23 @@ class MemoryConsolidationEngine:
         }
 
 memory_consolidation_engine = MemoryConsolidationEngine()
+_last_consolidated_turn: int = 0
+
+def check_milestone_memory_consolidation(current_turn: int, threshold: int = 5) -> bool:
+    """Proactively triggers memory consolidation at conversation turn milestones."""
+    global _last_consolidated_turn
+    if current_turn < threshold:
+        return False
+
+    if current_turn - _last_consolidated_turn < threshold:
+        return False
+
+    _last_consolidated_turn = current_turn
+    try:
+        from database import consolidate_memory_sleep_cycle
+        consolidate_memory_sleep_cycle()
+        logger.info(f"[MemoryConsolidation] Proactive milestone consolidation executed at turn {current_turn}.")
+        return True
+    except Exception as e:
+        logger.debug(f"[MemoryConsolidation] Milestone consolidation skipped: {e}")
+        return False

@@ -3,20 +3,22 @@ import platform
 import subprocess
 import time
 import ollama
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from src.core.audit_logger import log_sensitive_action
 try:
-    from database import get_ollama_client_host
+    from database import get_ollama_client_host, get_mongo_db
 except ImportError:
     def get_ollama_client_host():
         return "http://localhost:11434"
+    def get_mongo_db():
+        return None
 
 def _get_active_model() -> str:
     try:
         from database import get_brain_model
         return get_brain_model()
     except Exception:
-        return "qwen2.5-coder:7b-instruct-q4_K_M"
+        return os.environ.get("MERIDIAN_MODEL", "")
 
 
 def nl_to_shell(natural_language: str) -> str:
@@ -77,40 +79,48 @@ def validate_shell_ast_denylist(command: str) -> tuple[bool, str]:
         
     return False, ""
 
-def nl_run(natural_language: str) -> str:
+def nl_run(natural_language: str = "", command: Optional[str] = None, **kwargs) -> str:
     """Translate a natural language command and execute it on the host OS after verifying safety checks."""
-    command = nl_to_shell(natural_language)
-    if command.startswith("Error"):
-        log_sensitive_action(
-            category="SHELL_EXECUTION",
-            action=natural_language,
-            details={"error": command},
-            status="FAILED"
-        )
-        return command
+    nl_input = natural_language or command or kwargs.get("cmd") or ""
+    if not nl_input:
+        return "Error: No natural language instruction or command provided."
+    cmd = nl_to_shell(nl_input)
+    if cmd.startswith("Error"):
+        # If input looks like a direct CLI command, fall back to executing it directly
+        if any(nl_input.strip().startswith(prefix) for prefix in ["playwright ", "python ", "pip ", "npm ", "npx ", "cargo ", "git "]):
+            cmd = nl_input.strip()
+        else:
+            log_sensitive_action(
+                category="SHELL_EXECUTION",
+                action=nl_input,
+                details={"error": cmd},
+                status="FAILED"
+            )
+            return cmd
         
-    is_blocked, reason = validate_shell_ast_denylist(command)
+    is_blocked, reason = validate_shell_ast_denylist(cmd)
     if is_blocked:
         log_sensitive_action(
             category="SHELL_EXECUTION",
-            action=command,
-            details={"natural_language": natural_language, "reason": reason},
+            action=cmd,
+            details={"natural_language": nl_input, "reason": reason},
             status="BLOCKED"
         )
         return (
-            f"Blocked execution of translated command: '{command}'\n"
+            f"Blocked execution of translated command: '{cmd}'\n"
             f"Reason: {reason}\n"
             f"Safety Gate blocked this operation. Refusing execution."
         )
         
-    print(f"[NL Shell] Running translated command: '{command}'")
+    exec_command: str = cmd
+    print(f"[NL Shell] Running translated command: '{exec_command}'")
     try:
         sys_os = platform.system()
         # Run shell command dynamically based on OS platform
         if sys_os == "Windows":
-            cmd_args = ["powershell", "-Command", command]
+            cmd_args: List[str] = ["powershell", "-Command", exec_command]
         else:
-            cmd_args = ["/bin/sh", "-c", command]
+            cmd_args = ["/bin/sh", "-c", exec_command]
 
         res = subprocess.run(
             cmd_args,
@@ -122,9 +132,9 @@ def nl_run(natural_language: str) -> str:
         status = "SUCCESS" if res.returncode == 0 else "FAILED"
         log_sensitive_action(
             category="SHELL_EXECUTION",
-            action=command,
+            action=exec_command,
             details={
-                "natural_language": natural_language,
+                "natural_language": nl_input,
                 "returncode": res.returncode,
                 "stdout_len": len(res.stdout),
                 "stderr_len": len(res.stderr)
@@ -144,7 +154,7 @@ def nl_run(natural_language: str) -> str:
                 shell_name = "Windows PowerShell" if sys_os == "Windows" else "Bash/Zsh terminal"
                 prompt = (
                     f"You are a command line terminal self-healing assistant. A {shell_name} command just failed.\n"
-                    f"Failed Command: {command}\n"
+                    f"Failed Command: {exec_command}\n"
                     f"Exit Code: {res.returncode}\n"
                     f"Error Output (stderr):\n{res.stderr}\n"
                     f"Standard Output (stdout):\n{res.stdout}\n\n"
@@ -165,12 +175,12 @@ def nl_run(natural_language: str) -> str:
                     publish_nudge_sync(
                         nudge_type="terminal_heal",
                         title="💻 Terminal Execution Failed",
-                        message=f"Command '{command[:30]}...' failed. Speculative fix generated.",
+                        message=f"Command '{exec_command[:30]}...' failed. Speculative fix generated.",
                         action_hint=f"Execute: {fix_command}",
                         icon="💻",
                         mascot_state="diagnostic",
                         action="run_repair",
-                        patch={"file_path": "Terminal" if sys_os != "Windows" else "PowerShell", "proposed": fix_command, "original": command, "error_message": res.stderr}
+                        patch={"file_path": "Terminal" if sys_os != "Windows" else "PowerShell", "proposed": fix_command, "original": exec_command, "error_message": res.stderr}
                     )
                 except Exception as ex:
                     print(f"[Terminal Self-Healing] Failed to dispatch nudge: {ex}")
@@ -182,15 +192,15 @@ def nl_run(natural_language: str) -> str:
             output.append(f"STDERR:\n{res.stderr}")
             
         result = "\n".join(output) if output else "Command executed successfully with no console output."
-        return f"Translated Command: {command}\n\nExecution Result:\n{result}"
+        return f"Translated Command: {exec_command}\n\nExecution Result:\n{result}"
     except Exception as e:
         log_sensitive_action(
             category="SHELL_EXECUTION",
-            action=command,
-            details={"natural_language": natural_language, "error": str(e)},
+            action=exec_command,
+            details={"natural_language": nl_input, "error": str(e)},
             status="FAILED"
         )
-        return f"Failed to execute command '{command}': {e}"
+        return f"Failed to execute command '{exec_command}': {e}"
 
 def shell_history(n: int = 10) -> str:
     """List the last N natural language shell translations and execution records."""

@@ -536,7 +536,7 @@ def get_cache_statistics() -> dict:
     """Get current cache statistics."""
     global _cache_stats
     with _cache_stats_lock:
-        stats = _cache_stats.copy()
+        stats: dict[str, Any] = dict(_cache_stats)
     
     # Calculate hit rate
     total_requests = stats["requests"]
@@ -1261,7 +1261,7 @@ def get_brain_model() -> str:
             return str(model)
     except Exception:
         pass
-    return os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+    return os.environ.get("MERIDIAN_MODEL", "")
 
 def get_vision_model() -> str:
     try:
@@ -1270,7 +1270,7 @@ def get_vision_model() -> str:
             return str(model)
     except Exception:
         pass
-    return os.environ.get("MERIDIAN_VISION_MODEL", "moondream:1.8b")
+    return os.environ.get("MERIDIAN_VISION_MODEL", "")
 
 
 

@@ -7,9 +7,21 @@ import threading
 import logging
 from typing import Optional, List
 
+logger = logging.getLogger("meridian_tts")
+
 # Global variable to cache the TTS engine
 _cached_tts_engine = None
 _tts_lock = threading.Lock()
+_tts_stop_event = threading.Event()
+
+def stop_active_tts():
+    """Interrupts any active host audio playback and stops pending chunk synthesis."""
+    _tts_stop_event.set()
+    try:
+        import sounddevice as sd
+        sd.stop()
+    except Exception as e:
+        logger.debug(f"Failed to stop active sounddevice playback: {e}")
 
 def get_tts_engine():
     """Initializes and returns the singleton Supertonic TTS engine."""
@@ -183,8 +195,8 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
         try:
             from database import get_user_profile
             voice_name = get_user_profile("meridian_voice")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not load meridian_voice from user profile: {e}")
         if not voice_name:
             voice_name = "M1"
     try:
@@ -202,10 +214,10 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
             if hasattr(engine, "list_voices"):
                 available_voices = engine.list_voices()
                 if voice_name not in available_voices:
-                    print(f"[TTS] Warning: voice '{voice_name}' not found. Available: {available_voices}. Falling back to first.")
+                    logger.warning(f"Voice '{voice_name}' not found. Available: {available_voices}. Falling back to first.")
                     voice_name = available_voices[0] if available_voices else voice_name
-        except Exception:
-            pass  # If list_voices() is unavailable, proceed anyway
+        except Exception as e:
+            logger.debug(f"Error checking available voices: {e}")
         style = engine.get_voice_style(voice_name=voice_name)
         
         # 2. Split text into optimized synthesis chunks
@@ -214,6 +226,7 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
             return "No speakable text provided."
             
         # 3. Queue-based producer-consumer setup
+        _tts_stop_event.clear()
         audio_queue = queue.Queue()
         error_container = []
         
@@ -221,6 +234,8 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
             sample_rate = getattr(engine, 'sample_rate', 24000)
             import numpy as np
             for i, chunk in enumerate(chunks):
+                if _tts_stop_event.is_set():
+                    break
                 try:
                     # Synthesize chunk
                     wav, duration = engine.synthesize(chunk, voice_style=style, lang="na")
@@ -231,20 +246,24 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
                     elif isinstance(wav, np.ndarray):
                         data = wav.squeeze()
                     else:
-                        temp_dir = tempfile.gettempdir()
-                        temp_path = os.path.join(
-                            temp_dir, 
-                            f"meridian_tts_chunk_{random.randint(1000, 9999)}_{i}.wav"
-                        )
-                        if hasattr(engine, "save_audio"):
-                            engine.save_audio(wav, temp_path)
-                            data, sample_rate = sf.read(temp_path)
-                            try:
-                                os.remove(temp_path)
-                            except Exception:
-                                pass
-                        else:
-                            data = np.zeros(16000, dtype=np.float32)
+                        try:
+                            data = np.array(wav, dtype=np.float32).squeeze()
+                        except Exception as e:
+                            logger.debug("Failed direct numpy conversion, falling back to temp file: %s", e)
+                            temp_dir = tempfile.gettempdir()
+                            temp_path = os.path.join(
+                                temp_dir, 
+                                f"meridian_tts_chunk_{random.randint(1000, 9999)}_{i}.wav"
+                            )
+                            if hasattr(engine, "save_audio"):
+                                engine.save_audio(wav, temp_path)
+                                data, sample_rate = sf.read(temp_path)
+                                try:
+                                    os.remove(temp_path)
+                                except Exception as e:
+                                    logger.debug(f"Failed to remove temp WAV file {temp_path}: {e}")
+                            else:
+                                data = np.zeros(16000, dtype=np.float32)
                         
                     audio_queue.put((data, sample_rate))
                 except Exception as e:
@@ -262,6 +281,12 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
         # 4. Playback loop on the main thread
         played_chunks_count = 0
         while True:
+            if _tts_stop_event.is_set():
+                try:
+                    sd.stop()
+                except Exception as e:
+                    logger.debug(f"Error stopping playback on interrupt: {e}")
+                break
             item = audio_queue.get()
             if item is None:
                 audio_queue.task_done()
@@ -278,6 +303,9 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
                 max_wait = (len(data) / fs) + 2.0
                 deadline = _time.monotonic() + max_wait
                 while sd.get_stream().active and _time.monotonic() < deadline:
+                    if _tts_stop_event.is_set():
+                        sd.stop()
+                        break
                     _time.sleep(0.05)
                 played_chunks_count += 1
             except Exception as e:

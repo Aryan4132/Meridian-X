@@ -628,10 +628,10 @@ class P2PSyncNode:
                 
         return "\n".join(sync_summary)
 
-def generate_qr_pairing_payload() -> Dict[str, Any]:
-    """ECO-01: Generates QR pairing configuration payload for Meridian Mobile companion app."""
-    import secrets
-    token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
+def get_manual_pairing_info() -> Dict[str, Any]:
+    """ECO-01: Returns manual pairing connection details for the Meridian
+    Mobile companion app (host/port only — the secret is never exposed here;
+    it is entered manually and verified via verify_mobile_pairing_secret)."""
     host_ip = "127.0.0.1"
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -641,14 +641,11 @@ def generate_qr_pairing_payload() -> Dict[str, Any]:
     except Exception:
         pass
 
-    nonce = secrets.token_hex(8)
     return {
         "version": "1.0",
         "app": "Meridian-X",
         "host": host_ip,
         "port": P2P_PORT,
-        "secret": token,
-        "nonce": nonce,
         "timestamp": time.time()
     }
 

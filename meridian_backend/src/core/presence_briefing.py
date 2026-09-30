@@ -36,6 +36,7 @@ class PresenceBriefingEngine:
         return {
             "user_name": name,
             "briefing": briefing_text,
+            "text": briefing_text,
             "duration_seconds": 15,
             "timestamp": now,
             "tts_payload": {

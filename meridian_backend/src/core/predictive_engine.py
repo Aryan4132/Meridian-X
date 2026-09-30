@@ -83,17 +83,39 @@ class PredictiveContextPrewarmer:
 
         result = {
             "prewarmed": True,
+            "target_app": process_name,
             "timestamp": time.time(),
             "git_summary": git_summary,
             "ast_summary": ast_summary,
             "context_prompt": f"Pre-warmed dev context for {process_name} ({title})"
         }
         _PREWARMED_CACHE[cache_key] = result
+        _PREWARMED_CACHE[process_name] = result
         logger.info("[PredictiveEngine] Pre-warmed context for '%s'", process_name)
         return result
 
+    def prewarm_context_for_app(self, process_name: str, title: str) -> Dict[str, Any]:
+        """Direct context pre-warming for a given process and title."""
+        res = self.prewarm_context(process_name, title)
+        if "target_app" not in res:
+            res["target_app"] = process_name
+        return res
+
 
 _global_prewarmer = PredictiveContextPrewarmer()
+
+
+def get_prewarmed_context(query: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Returns prewarmed developer context matching query, process name, or latest cache."""
+    if not _PREWARMED_CACHE:
+        return None
+    if query:
+        for k, v in _PREWARMED_CACHE.items():
+            if query.lower() in k.lower():
+                return v
+    # Return most recent cached entry
+    sorted_entries = sorted(_PREWARMED_CACHE.values(), key=lambda x: x.get("timestamp", 0), reverse=True)
+    return sorted_entries[0] if sorted_entries else None
 
 
 def predict_next_action(context: Optional[List[Any]] = None) -> Dict[str, Any]:

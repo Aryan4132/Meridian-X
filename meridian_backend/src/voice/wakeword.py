@@ -87,6 +87,9 @@ def resume_wakeword():
 
 def _listen_loop():
     global WAKEWORD_ACTIVE, WAKEWORD_PAUSED
+    if sd is None:
+        WAKEWORD_ACTIVE = False
+        return
     
     wakeword_filename = "hey_meridian.onnx"
     try:
@@ -126,14 +129,29 @@ def _listen_loop():
     sample_rate = 16000
     chunk_size = 1280
     
+    threshold = 0.6
+    wakeword_phrase_val = "Hey Meridian"
+    try:
+        from database import get_user_profile
+        t_val = get_user_profile("wakeword_threshold")
+        if t_val is not None:
+            threshold = float(t_val)
+        custom_phrase = get_user_profile("wakeword_phrase")
+        if custom_phrase:
+            wakeword_phrase_val = str(custom_phrase)
+    except Exception:
+        pass
+
     while WAKEWORD_ACTIVE:
         if WAKEWORD_PAUSED:
             time.sleep(0.2)
             continue
             
         try:
+            if sd is None:
+                break
             with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
-                print("[Wake Word] Audio stream opened successfully. Monitoring for 'Hey Meridian'...")
+                print(f"[Wake Word] Audio stream opened successfully. Monitoring for '{wakeword_phrase_val}'...")
                 while WAKEWORD_ACTIVE:
                     if WAKEWORD_PAUSED:
                         break
@@ -157,30 +175,9 @@ def _listen_loop():
                         break
 
                     predictions = oww_model.predict(audio_data)
-
                     score = max(predictions.values()) if predictions else 0.0
-                    
-                    try:
-                        from database import get_user_profile
-                        threshold = get_user_profile("wakeword_threshold")
-                        if threshold is None:
-                            threshold = 0.6
-                        else:
-                            threshold = float(threshold)
-                    except Exception:
-                        threshold = 0.6
 
                     if score > threshold:
-                        # Load custom wake word phrase from database profile
-                        wakeword_phrase_val = "Hey Meridian"
-                        try:
-                            from database import get_user_profile
-                            custom_phrase = get_user_profile("wakeword_phrase")
-                            if custom_phrase:
-                                wakeword_phrase_val = str(custom_phrase)
-                        except Exception:
-                            pass
-
                         print(f"[Wake Word] Wake word '{wakeword_phrase_val}' detected with score {score:.3f}! Pausing and triggering action.")
                         pause_wakeword()
                         

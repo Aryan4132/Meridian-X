@@ -2,15 +2,28 @@ import os
 from typing import List, Dict, Any
 from src.core.vault import save_secret, get_secret, load_all_secrets, VAULT_FILE
 
+class _MissingVaultKey(Exception):
+    pass
+
+
 def _get_master_passphrase() -> str:
     key = os.environ.get("MERIDIAN_VAULT_KEY")
     if not key:
-        raise EnvironmentError("MERIDIAN_VAULT_KEY environment variable is not set. Cannot access vault in secure mode.")
+        raise _MissingVaultKey(
+            "MERIDIAN_VAULT_KEY environment variable is not set. Cannot access vault in secure mode."
+        )
     return key
+
+
+def _vault_key_error() -> str:
+    return "Error: MERIDIAN_VAULT_KEY is not set. Cannot access vault in secure mode."
 
 def vault_set(name: str, value: str) -> str:
     """Encrypt and store a secret in the vault."""
-    passphrase = _get_master_passphrase()
+    try:
+        passphrase = _get_master_passphrase()
+    except _MissingVaultKey:
+        return _vault_key_error()
     try:
         return save_secret(name, value, passphrase)
     except Exception as e:
@@ -18,7 +31,10 @@ def vault_set(name: str, value: str) -> str:
 
 def vault_get(name: str) -> str:
     """Decrypt and return a secret value from the vault (for internal tool usage only)."""
-    passphrase = _get_master_passphrase()
+    try:
+        passphrase = _get_master_passphrase()
+    except _MissingVaultKey:
+        return _vault_key_error()
     val = get_secret(name, passphrase)
     if val is None:
         return f"Secret '{name}' not found."
@@ -26,7 +42,10 @@ def vault_get(name: str) -> str:
 
 def vault_list() -> str:
     """List all secret names in the vault (values are hidden)."""
-    passphrase = _get_master_passphrase()
+    try:
+        passphrase = _get_master_passphrase()
+    except _MissingVaultKey:
+        return _vault_key_error()
     if not os.path.exists(VAULT_FILE):
         return "Secrets vault is empty (no file found)."
     try:
@@ -39,7 +58,10 @@ def vault_list() -> str:
 
 def vault_delete(name: str) -> str:
     """Remove a secret from the vault."""
-    passphrase = _get_master_passphrase()
+    try:
+        passphrase = _get_master_passphrase()
+    except _MissingVaultKey:
+        return _vault_key_error()
     if not os.path.exists(VAULT_FILE):
         return "Secrets vault is empty."
     try:

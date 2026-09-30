@@ -9,11 +9,15 @@ from apscheduler.jobstores.sqlalchemy import SQLAlchemyJobStore
 from src.core.config import DB_DIR
 db_path = os.path.join(DB_DIR, "scheduler.db")
 
-# Define job store
+# Define job store & defaults
 jobstores = {
     'default': SQLAlchemyJobStore(url=f'sqlite:///{db_path}')
 }
-scheduler = BackgroundScheduler(jobstores=jobstores)
+job_defaults = {
+    'coalesce': True,
+    'misfire_grace_time': 3600  # 1 hour grace time to suppress missed-job warnings after reboot
+}
+scheduler = BackgroundScheduler(jobstores=jobstores, job_defaults=job_defaults)
 
 def is_resource_throttled() -> bool:
     """Checks system indicators to determine if resource-heavy tasks should be throttled."""
@@ -28,7 +32,7 @@ def is_resource_throttled() -> bool:
             
         # GPU utilization check using pynvml
         try:
-            import pynvml
+            import pynvml  # type: ignore
             pynvml.nvmlInit()
             device_count = pynvml.nvmlDeviceGetCount()
             gpu_throttle_pct = float(os.environ.get("MERIDIAN_GPU_THROTTLE_PCT", "85.0"))
@@ -47,7 +51,7 @@ def is_resource_throttled() -> bool:
             print(f"[Resource Governor] GPU status check skipped: {gpue}")
             
         from src.core.proactive import get_active_process_and_title
-        proc_name, window_title = get_active_process_and_title()
+        proc_name, window_title, _ = get_active_process_and_title()
         proc_name = proc_name.lower()
         window_title = window_title.lower()
         heavy_keywords = ["valorant", "cyberpunk", "blender", "unity", "unreal", "steam", "render", "visual studio", "compiler", "csgo", "cs2", "dota2", "leagueoflegends", "minecraft", "javaw"]
@@ -82,10 +86,10 @@ def execute_scheduled_goal(goal: str, priority: str = "normal"):
         from src.core.loop import run_react_agent_loop
         # BUG-39 fix: import from database instead of api to avoid circular import
         # (api.py imports scheduler.py at startup; scheduler importing from api creates a cycle).
-        from database import get_ollama_client_host
+        from database import get_brain_model, get_ollama_client_host
         import json
         
-        brain_model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+        brain_model = get_brain_model()
         ollama_host = get_ollama_client_host()
         
         # BUG-39 fix: use asyncio.run() instead of new_event_loop+set_event_loop pattern
@@ -191,7 +195,8 @@ def start_scheduler():
             from src.core.proactive import (
                 check_system_health, check_idle_time, check_followups,
                 check_active_window, check_battery_status, check_git_status,
-                check_circadian_reminders, check_network_status, check_pomodoro_timer
+                check_circadian_reminders, check_network_status, check_pomodoro_timer,
+                check_continuous_work_ergonomics, check_proactive_commits
             )
             if not scheduler.get_job("proactive_health_job"):
                 scheduler.add_job(
@@ -274,6 +279,24 @@ def start_scheduler():
                     replace_existing=True
                 )
                 print("[Scheduler] Registered proactive Pomodoro timer monitor (every 10 sec).")
+            if not scheduler.get_job("proactive_ergonomics_job"):
+                scheduler.add_job(
+                    check_continuous_work_ergonomics,
+                    trigger='interval',
+                    minutes=1,
+                    id='proactive_ergonomics_job',
+                    replace_existing=True
+                )
+                print("[Scheduler] Registered proactive continuous work ergonomics monitor (every 1 min).")
+            if not scheduler.get_job("proactive_commits_job"):
+                scheduler.add_job(
+                    check_proactive_commits,
+                    trigger='interval',
+                    minutes=2,
+                    id='proactive_commits_job',
+                    replace_existing=True
+                )
+                print("[Scheduler] Registered proactive commit whisperer monitor (every 2 min).")
         except Exception as e:
             print(f"[Scheduler] Failed to register proactive jobs: {e}")
 

@@ -5,31 +5,90 @@ and Meridian-X Backend over Local LAN (192.168.x.x) and Tailscale VPN (100.x.y.z
 """
 
 import os
-import sys
 import json
 import time
-import asyncio
 import logging
 import socket
-from typing import Dict, List, Set, Any, Optional
-from fastapi import WebSocket, WebSocketDisconnect
+from typing import Dict, List, Any, Optional
+from fastapi import WebSocket
 
 logger = logging.getLogger("meridian.mobile_bridge")
 
 
-def get_network_addresses() -> Dict[str, Any]:
+def collect_telemetry() -> Dict[str, Any]:
+    """Builds a live telemetry snapshot for mobile clients (cpu/mem via psutil)."""
+    cpu_pct = 0.0
+    mem_mb = 0.0
+    try:
+        import psutil
+        # interval=0 is non-blocking (returns value since last call, 0.0 on
+        # first call) so ping handling never stalls the event loop.
+        cpu_pct = float(psutil.cpu_percent(interval=0))
+        mem_mb = float(psutil.virtual_memory().used / (1024 * 1024))
+    except Exception:
+        pass
+    return {
+        "cpu_percent": round(cpu_pct, 1),
+        "memory_mb": round(mem_mb, 1),
+        "ping_ms": 0,
+        "anti_hallucination": True,
+    }
+
+
+def is_ws_auth_required() -> bool:
+    """True when the server has an explicit mobile pairing password or strict auth configured."""
+    if os.getenv("DISABLE_AUTH") == "true":
+        return False
+    if os.getenv("MERIDIAN_REQUIRE_MOBILE_AUTH", "false").lower() in ("true", "1"):
+        return True
+    return bool(
+        os.getenv("MERIDIAN_PAIRING_PASSWORD")
+        or os.getenv("MERIDIAN_CUSTOM_PASSWORD")
+    )
+
+
+def verify_mobile_ws_token(token: Optional[str]) -> bool:
+    """Validates a mobile WebSocket ?token= against API key (raw or SHA-256),
+    custom pairing passwords, or the P2P pairing secret. Open LAN access is
+    allowed when no explicit pairing password is configured."""
+    if not is_ws_auth_required():
+        if not token:
+            return True
+    if not token:
+        return False
+    try:
+        from src.core.auth import verify_provided_token
+        if verify_provided_token(token):
+            return True
+    except Exception:
+        pass
+    try:
+        from src.core.p2p import verify_mobile_pairing_secret
+        if verify_mobile_pairing_secret(token):
+            return True
+    except Exception:
+        pass
+    if not is_ws_auth_required():
+        return True
+    return False
+
+
+def get_network_addresses(port: Optional[int] = None) -> Dict[str, Any]:
     """
     Detects active network interfaces to surface LAN IPs (192.168.x.x, 10.x.x.x, 172.16.x.x)
     and Tailscale mesh network IPs (100.x.y.z) & hostnames.
     """
-    addresses = {
+    effective_port = port or int(os.getenv("PORT", "4132"))
+    addresses: Dict[str, Any] = {
         "local_ips": [],
         "tailscale_ips": [],
         "hostname": socket.gethostname(),
         "tailscale_fqdn": None,
-        "default_port": int(os.getenv("PORT", "4132")),
+        "default_port": effective_port,
         "endpoints": []
     }
+
+
     
     # Attempt hostname resolution
     try:
@@ -124,6 +183,7 @@ class MobileConnectionManager:
         """Accepts and registers incoming WebSocket connection."""
         await websocket.accept()
         self.active_connections.append(websocket)
+        connected_clients.add(websocket)
         dev_id = device_id or f"device_{id(websocket)}"
         self.device_registry[dev_id] = {
             "websocket": websocket,
@@ -146,6 +206,7 @@ class MobileConnectionManager:
         """Unregisters disconnected WebSocket connection."""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+        connected_clients.discard(websocket)
         
         # Clean up device registry
         to_delete = [dev_id for dev_id, info in self.device_registry.items() if info["websocket"] == websocket]
@@ -192,9 +253,9 @@ class MobileConnectionManager:
             data = {"type": "text_message", "content": raw_text}
             
         msg_type = data.get("type", "ping")
-        
+
         if msg_type == "ping":
-            return {"type": "pong", "timestamp": time.time()}
+            return {"type": "pong", "timestamp": time.time(), "telemetry": collect_telemetry()}
             
         elif msg_type == "command":
             secret = data.get("secret", "")
@@ -218,6 +279,132 @@ class MobileConnectionManager:
             "received": data
         }
 
+    async def stream_user_prompt(self, websocket: WebSocket, prompt: str) -> None:
+        """Runs a mobile prompt through the ReAct agent loop and streams
+        thought_step + agent_reply messages back over the socket, using the
+        same event parsing as POST /api/chat."""
+        import datetime
+
+        async def send(payload: Dict[str, Any]) -> bool:
+            try:
+                await websocket.send_text(json.dumps(payload))
+                return True
+            except Exception:
+                return False
+
+        step_no = 0
+
+        def iso_now() -> str:
+            return datetime.datetime.now().isoformat()
+
+        if not await send({
+            "type": "thought_step",
+            "data": {
+                "id": f"mstep-{time.time()}",
+                "step_number": step_no,
+                "title": "Analyzing Prompt",
+                "detail": prompt,
+                "status": "running",
+                "timestamp": iso_now(),
+            },
+        }):
+            return
+
+        try:
+            from database import get_user_profile, get_ollama_client_host
+            from src.core.loop import run_react_agent_loop
+
+            provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER") or "ollama"
+            brain_model = (
+                get_user_profile("meridian_model")
+                or os.environ.get("MERIDIAN_MODEL")
+                or ""
+            )
+            model_source = (
+                get_user_profile("meridian_model_source")
+                or os.environ.get("MERIDIAN_MODEL_SOURCE")
+                or ("local" if provider == "ollama" else "api")
+            )
+            ollama_host = get_ollama_client_host()
+
+            accumulated_text = ""
+            async for event_str in run_react_agent_loop(
+                prompt, brain_model, ollama_host,
+                model_source=model_source, api_provider=provider,
+            ):
+                for line in event_str.splitlines():
+                    if not line.startswith("data: "):
+                        continue
+                    raw_data = line[6:]
+                    try:
+                        parsed = json.loads(raw_data)
+                    except Exception:
+                        if not raw_data.startswith("{"):
+                            accumulated_text += raw_data
+                        continue
+                    if isinstance(parsed, dict):
+                        if "text" in parsed and "type" in parsed:
+                            step_no += 1
+                            if not await send({
+                                "type": "thought_step",
+                                "data": {
+                                    "id": f"mstep-{time.time()}-{step_no}",
+                                    "step_number": step_no,
+                                    "title": str(parsed.get("type", "thought")).title(),
+                                    "detail": str(parsed.get("text", "")),
+                                    "status": "completed",
+                                    "timestamp": iso_now(),
+                                },
+                            }):
+                                return
+                        elif "chat" in parsed:
+                            accumulated_text = parsed["chat"]
+
+            await send({"type": "agent_reply", "content": accumulated_text})
+        except Exception as e:
+            logger.warning(f"Mobile agent stream failed: {e}")
+            await send({"type": "agent_reply", "content": f"Mobile agent run failed: {e}"})
+
+
+def is_streaming_request(data: Dict[str, Any]) -> bool:
+    """True when a parsed WS payload needs multi-message streaming
+    (handled via MobileConnectionManager.stream_user_prompt)."""
+    return isinstance(data, dict) and data.get("type") == "user_prompt" and bool(str(data.get("content", "")).strip())
+
 
 # Singleton mobile connection manager
 mobile_manager = MobileConnectionManager()
+connected_clients = set()
+
+def broadcast_proactive_event_to_mobile(payload: Dict[str, Any]) -> int:
+    """Dispatches proactive event notification and action pills to all connected mobile clients."""
+    if not connected_clients:
+        return 0
+    text_data = json.dumps(payload)
+    sent_count = 0
+    disconnected = []
+    for client in list(connected_clients):
+        try:
+            send_fn = getattr(client, "send_text", None)
+            if send_fn:
+                import inspect
+                import asyncio
+                res = send_fn(text_data)
+                if inspect.isawaitable(res):
+                    async def _await_res(aw):
+                        await aw
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(_await_res(res))
+                    except RuntimeError:
+                        asyncio.run(_await_res(res))
+                sent_count += 1
+        except Exception as e:
+            logger.warning(f"[MobileBridge] Failed dispatching proactive event: {e}")
+            disconnected.append(client)
+
+    for dead in disconnected:
+        connected_clients.discard(dead)
+
+    return sent_count

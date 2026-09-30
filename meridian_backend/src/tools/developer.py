@@ -159,6 +159,28 @@ def git_diff(repo_path: str) -> str:
     except Exception as e:
         return f"Git diff failed: {str(e)}"
 
+def git_create_snapshot(repo_path: str = ".") -> str:
+    """Creates a temporary pre-task stash/snapshot so broken modifications can be reverted."""
+    try:
+        import time
+        status = subprocess.check_output(["git", "status", "--porcelain"], cwd=repo_path, shell=False).decode('utf-8').strip()
+        if not status:
+            return "Workspace clean. No unstaged snapshot needed."
+        snap_tag = f"meridian_auto_snap_{int(time.time())}"
+        subprocess.check_call(["git", "stash", "create", snap_tag], cwd=repo_path, shell=False)
+        return f"Snapshot created: {snap_tag}"
+    except Exception as e:
+        return f"Failed to create snapshot: {e}"
+
+def git_rollback(repo_path: str = ".") -> str:
+    """Discards uncommitted changes and restores the workspace to the last clean git state."""
+    try:
+        subprocess.check_call(["git", "checkout", "--", "."], cwd=repo_path, shell=False)
+        subprocess.check_call(["git", "clean", "-fd"], cwd=repo_path, shell=False)
+        return "Workspace rolled back cleanly. All modified files restored to HEAD."
+    except Exception as e:
+        return f"Rollback failed: {e}"
+
 def search_codebase(query: str, path: str) -> str:
     # Use ripgrep or fallback to manual python file search inside the path
     # N-2 fix: shell=False with list; query passed as a separate arg to prevent injection.

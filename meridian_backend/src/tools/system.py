@@ -634,4 +634,9 @@ def clipboard_get() -> str:
 
 def clipboard_set(text: str) -> str:
     pyperclip.copy(text)
+    try:
+        from database import save_clipboard_history
+        save_clipboard_history(text)
+    except Exception:
+        pass
     return "Successfully set clipboard content."

@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import time
 from typing import Optional, Dict, Any
-from database import get_user_preference, save_user_preference
+from database import get_user_preference
 
 def find_chrome_executable() -> Optional[str]:
     """Resolves installed Google Chrome binary path across Windows, macOS, and Linux."""

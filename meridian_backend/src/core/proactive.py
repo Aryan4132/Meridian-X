@@ -288,9 +288,113 @@ IDLE_SUGGESTIONS = [
     ("🗂️ Session summary", "Want me to summarize what we've accomplished in this session so far?"),
 ]
 
+_last_arrival_briefing: float = 0.0
+ARRIVAL_BRIEFING_COOLDOWN: float = 300.0
+
+_last_commit_whisper_time: float = 0.0
+COMMIT_WHISPER_COOLDOWN: float = 300.0
+
+_continuous_work_start_time: float = time.time()
+_last_ergonomics_nudge_time: float = 0.0
+ERGONOMICS_COOLDOWN: float = 45 * 60
+
+def check_presence_arrival(user_name: Optional[str] = "User") -> bool:
+    """Checks if the user has returned after being away (>= 300s) and triggers executive briefing."""
+    global _last_arrival_briefing, _last_activity_time
+    now = time.time()
+    idle_seconds = now - _last_activity_time
+    if idle_seconds >= 300.0 and (now - _last_arrival_briefing) >= ARRIVAL_BRIEFING_COOLDOWN:
+        _last_arrival_briefing = now
+        _last_activity_time = now
+        try:
+            from src.core.presence_briefing import PresenceBriefingEngine
+            engine = PresenceBriefingEngine()
+            briefing = engine.generate_presence_briefing(user_name=user_name)
+            publish_nudge_sync(
+                nudge_type="room_arrival_briefing",
+                title="👋 Executive Room Arrival",
+                message=briefing.get("text", briefing.get("briefing", "")),
+                icon="🎙️",
+                action="play_voice_briefing"
+            )
+            return True
+        except Exception as e:
+            print(f"[Proactive] Room arrival briefing error: {e}")
+    return False
+
+def check_proactive_commits(workspace_root: Optional[str] = None) -> bool:
+    """Proactively inspects staged changes and suggests semantic commit messages."""
+    global _last_commit_whisper_time
+    now = time.time()
+    if (now - _last_commit_whisper_time) < COMMIT_WHISPER_COOLDOWN:
+        return False
+
+    try:
+        from src.core.commit_whisperer import CommitWhisperer
+        ws = workspace_root or os.getcwd()
+        whisperer = CommitWhisperer(ws)
+        res = whisperer.inspect_staged_commit()
+        if res.get("has_staged"):
+            _last_commit_whisper_time = now
+            msg = res.get("suggested_message", "commit staged changes")
+            publish_nudge_sync(
+                nudge_type="commit_suggestion",
+                title="📜 Proactive Git Commit",
+                message=f"Changes ready to commit: '{msg}'",
+                action_hint=f"git commit -m \"{msg}\"",
+                icon="🌿",
+                action="git_commit"
+            )
+            return True
+    except Exception as e:
+        print(f"[Proactive] Commit whisper check error: {e}")
+    return False
+
+def trigger_what_broke_auto_fix(error_text: str = "", workspace_root: Optional[str] = None) -> bool:
+    """Proactively analyzes recent breakage/error and dispatches actionable patch suggestions."""
+    try:
+        from src.core.what_broke_detective import WhatBrokeDetective
+        ws = workspace_root or os.getcwd()
+        detective = WhatBrokeDetective(ws)
+        diag = detective.diagnose_failures(error_text=error_text)
+        if diag.get("breakage_detected"):
+            patch_data = diag.get("recommended_patch")
+            publish_nudge_sync(
+                nudge_type="what_broke_patch",
+                title="🕵️‍♂️ Breakage Auto-Fix Suggestion",
+                message=diag.get("error_summary", "Detected code issue"),
+                action_hint="Apply Fix Patch",
+                icon="🔧",
+                patch=patch_data,
+                action="apply_auto_fix_patch"
+            )
+            return True
+    except Exception as e:
+        print(f"[Proactive] What broke auto-fix error: {e}")
+    return False
+
+def check_continuous_work_ergonomics() -> bool:
+    """Tracks continuous work duration and pushes ergonomic/Pomodoro stretch nudges."""
+    global _last_ergonomics_nudge_time
+    now = time.time()
+    work_duration = now - _continuous_work_start_time
+    if work_duration >= (45 * 60) and (now - _last_ergonomics_nudge_time) >= ERGONOMICS_COOLDOWN:
+        _last_ergonomics_nudge_time = now
+        publish_nudge_sync(
+            nudge_type="pomodoro_stretch_nudge",
+            title="🧘 Continuous Deep Work (45m)",
+            message="Great focus! Time for a 2-minute eye rest or stretch to stay sharp.",
+            action_hint="Take 2m break",
+            icon="☕",
+            action="take_stretch_break"
+        )
+        return True
+    return False
+
 def record_user_activity():
-    """Call this every time the user sends a message."""
+    """Call this every time the user sends a message or returns."""
     global _last_activity_time
+    check_presence_arrival()
     _last_activity_time = time.time()
 
 def check_idle_time():
@@ -299,6 +403,9 @@ def check_idle_time():
     now = time.time()
     idle_seconds = now - _last_activity_time
     idle_minutes = idle_seconds / 60.0
+
+    # Ergonomics check
+    check_continuous_work_ergonomics()
 
     # Sleep cycles: active memory consolidation and doc generation when user is idle for >= 30 minutes
     if idle_minutes >= 30.0 and (now - _last_memory_consolidation) > MEMORY_CONSOLIDATION_COOLDOWN:
@@ -461,7 +568,8 @@ def on_clipboard_proactive(text: str):
                             ollama_host = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
                             
                         client = ollama.Client(host=ollama_host)
-                        model = os.environ.get("MERIDIAN_MODEL", "qwen2.5-coder:7b-instruct-q4_K_M")
+                        from database import get_brain_model
+                        model = get_brain_model()
                         
                         prompt = (
                             f"You are a self-healing compiler assistant. The user copied a traceback highlighting an error in this file:\n"

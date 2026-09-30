@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 # Import existing core tool functions
 from src.tools.filesystem import read_file, write_file, list_directory, search_files, move_file, delete_file
 from src.tools.web import search_web, search_news, fetch_page, parse_page, download_file, autonomous_research, ingest_url
+from src.tools.search_hub import universal_search
 from src.tools.geo_location import resolve_location, get_localized_weather, bias_query_spatially
 from src.tools.desktop import (
     screenshot, screenshot_region, ocr_screen, vision_analyze, find_on_screen,
@@ -20,10 +21,10 @@ from src.tools.system import (
     get_system_info, get_hardware_info, get_disk_info, get_battery_status, get_temperature,
     list_processes, get_process_detail, kill_process, list_startup_items, list_installed_apps,
     list_services, start_service, stop_service, get_network_connections, get_wifi_networks, ping_host,
-    clipboard_get, clipboard_set
+    clipboard_get, clipboard_set, control_media_playback
 )
 from src.tools.developer import (
-    run_python, open_editor, git_status, git_commit, git_diff, search_codebase,
+    run_python, open_editor, git_status, git_commit, git_diff, git_create_snapshot, git_rollback, search_codebase,
     scaffold_project, run_tests, install_package, lint_file, format_file,
     lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
 )
@@ -43,7 +44,14 @@ from src.tools.auto_reviewer import generate_unit_tests, review_git_changes
 from src.tools.shell import nl_to_shell, nl_run, shell_history, monitor_process
 from src.tools.db_query import db_connect, db_query, db_execute, db_schema, db_nl_query, db_disconnect
 from src.tools.exporter import export_session, export_goal, list_sessions, export_finetune_data, finetune_stats, mark_correction
-from src.tools.web_browser import browser_open, browser_screenshot, browser_find_and_click, browser_type_in, browser_get_text, browser_close, scrape_urls, scrape_table, schedule_scrape
+from src.tools.web_browser import (
+    browser_open, browser_screenshot, browser_find_and_click, browser_type_in,
+    browser_get_text, browser_close, scrape_urls, scrape_table, schedule_scrape,
+    browser_press_key, browser_scroll, browser_wait, browser_click_element,
+    browser_type_element, browser_highlight_elements, browser_get_interactive_elements
+)
+from src.tools.browser_use_agent import browser_use_task
+from src.tools.browser_agent import browser_navigate_tool, browser_interact_tool
 from src.tools.recording import record_screen, stop_recording, analyze_recording, save_workflow, replay_workflow, list_workflows, export_video_mp4, record_webcam_video
 from src.tools.video_editor import trim_video, concat_videos, change_video_speed, add_text_watermark, convert_video_to_gif, add_auto_subtitles
 
@@ -53,7 +61,6 @@ from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
 from src.tools.papercoder import generate_paper2code
 from src.tools.chrome_manager import launch_chrome_with_profile, get_chrome_profile_status
-from src.tools.media_player import play_youtube_music, verify_media_playing, control_media_playback
 from database import save_user_preference, get_user_preference
 
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
@@ -139,6 +146,39 @@ def _search_offline_docs(query: str) -> str:
         lines.append(f"[File: {r['file_path']} | Section: {r['section']} (score: {r['score']:.4f})]\n{r['content']}")
     return "\n---\n".join(lines) if lines else "No similar documentation discovered."
 
+
+def query_cognitive_graph(query: str = "", start_node: str = "", max_hops: int = 2) -> str:
+    """Traverse and query the Unified Cognitive Graph linking code, APIs, views, memories, and workflows."""
+    from src.core.cognitive_graph import get_cognitive_graph
+    cg = get_cognitive_graph()
+
+    if start_node:
+        subgraph = cg.traverse(start_node, max_hops=max_hops)
+        if not subgraph.get("nodes"):
+            return f"No related graph nodes found starting from '{start_node}'."
+        lines = [f"Cognitive Graph neighborhood for '{start_node}' (hops <= {max_hops}):"]
+        lines.append(f"Discovered {subgraph['total_nodes']} nodes, {subgraph['total_edges']} edges:")
+        for n in subgraph["nodes"]:
+            lines.append(f"  • [hop {n.get('hop', 0)}] ({n['type']}) {n['name']} (ID: {n['id']})")
+        for e in subgraph["edges"]:
+            lines.append(f"    └── [{e['source']}] --({e['relation']})--> [{e['target']}]")
+        return "\n".join(lines)
+
+    if query:
+        nodes = cg.find_nodes(query, limit=5)
+        if not nodes:
+            return f"No cognitive graph nodes found matching query: '{query}'."
+        lines = [f"Cognitive Graph search matches for '{query}':"]
+        for n in nodes:
+            lines.append(f"• [{n['type']}] {n['name']} (ID: {n['id']})")
+            neighbors = cg.get_neighbors(n["id"], direction="both")
+            for nb in neighbors[:3]:
+                arrow = "-->" if nb["direction"] == "out" else "<--"
+                lines.append(f"    └── {arrow} ({nb['relation']}) [{nb['node']['type']}] {nb['node']['name']}")
+        return "\n".join(lines)
+
+    return "Please specify either a 'query' to search nodes or 'start_node' to traverse relations."
+
 # Main Tool Configuration Registry
 TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     # Filesystem
@@ -161,6 +201,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "edit_pdf_document": {"tier": 1, "func": edit_pdf_document},
     
     # Web & Network
+    "universal_search": {"tier": 0, "func": universal_search, "description": "Unified cross-system search across AST code symbols, RAG knowledge docs, conversation memories, and workspace files."},
+    "query_cognitive_graph": {"tier": 0, "func": query_cognitive_graph, "description": "Multi-hop relational search across the Unified Cognitive Graph linking code AST, frontend views, backend routes, and episodic memories."},
     "search_web": {"tier": 0, "func": search_web},
     "search_news": {"tier": 0, "func": search_news},
     "fetch_page": {"tier": 0, "func": fetch_page},
@@ -198,8 +240,6 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "open_url_in_browser": {"tier": 1, "func": open_url_in_browser},
     "launch_chrome_with_profile": {"tier": 1, "func": launch_chrome_with_profile},
     "get_chrome_profile_status": {"tier": 0, "func": get_chrome_profile_status},
-    "play_youtube_music": {"tier": 1, "func": play_youtube_music},
-    "verify_media_playing": {"tier": 0, "func": verify_media_playing},
     "control_media_playback": {"tier": 1, "func": control_media_playback},
     "save_user_preference": {"tier": 1, "func": save_user_preference},
     "get_user_preference": {"tier": 0, "func": get_user_preference},
@@ -240,6 +280,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "git_status": {"tier": 0, "func": git_status},
     "git_commit": {"tier": 2, "func": git_commit},
     "git_diff": {"tier": 0, "func": git_diff},
+    "git_create_snapshot": {"tier": 0, "func": git_create_snapshot},
+    "git_rollback": {"tier": 2, "func": git_rollback},
     "search_codebase": {"tier": 0, "func": search_codebase},
     "scaffold_project": {"tier": 1, "func": scaffold_project},
     "run_tests": {"tier": 2, "func": run_tests},
@@ -373,12 +415,20 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "mark_correction": {"tier": 1, "func": mark_correction},
 
     # Playwright Browser Automation & Scraper
-    "browser_open": {"tier": 1, "func": browser_open},
-    "browser_screenshot": {"tier": 0, "func": browser_screenshot},
-    "browser_find_and_click": {"tier": 2, "func": browser_find_and_click},
-    "browser_type_in": {"tier": 2, "func": browser_type_in},
-    "browser_get_text": {"tier": 0, "func": browser_get_text},
-    "browser_close": {"tier": 1, "func": browser_close},
+    "browser_use_task": {"tier": 1, "func": browser_use_task, "description": "Primary default autonomous browser agent. Executes complex multi-step web tasks (search, navigate, click, fill forms, extract) live on screen with Set-of-Marks perception."},
+    "browser_open": {"tier": 1, "func": browser_open, "description": "Open visible or headless browser window and navigate to URL."},
+    "browser_navigate": {"tier": 1, "func": browser_navigate_tool, "description": "Navigate active browser to target URL."},
+    "browser_click_element": {"tier": 2, "func": browser_click_element, "description": "Click element by Set-of-Marks numerical index '[1]' or selector."},
+    "browser_type_element": {"tier": 2, "func": browser_type_element, "description": "Type text into element by index '[1]' or selector, with optional press_enter."},
+    "browser_press_key": {"tier": 1, "func": browser_press_key, "description": "Press a keyboard key in the browser ('Enter', 'Escape', 'Tab', etc.)."},
+    "browser_scroll": {"tier": 0, "func": browser_scroll, "description": "Scroll the active browser window up or down."},
+    "browser_wait": {"tier": 0, "func": browser_wait, "description": "Wait for browser page to settle or animations to complete."},
+    "browser_interact": {"tier": 2, "func": browser_interact_tool, "description": "Interact with browser element (action='click' or 'type')."},
+    "browser_screenshot": {"tier": 0, "func": browser_screenshot, "description": "Capture screenshot of current browser viewport."},
+    "browser_find_and_click": {"tier": 2, "func": browser_find_and_click, "description": "Find and click element by visual description or text."},
+    "browser_type_in": {"tier": 2, "func": browser_type_in, "description": "Type into input field matching description."},
+    "browser_get_text": {"tier": 0, "func": browser_get_text, "description": "Extract all readable text from current browser viewport."},
+    "browser_close": {"tier": 1, "func": browser_close, "description": "Close active browser session."},
     "scrape_urls": {"tier": 1, "func": scrape_urls},
     "scrape_table": {"tier": 0, "func": scrape_table},
     "schedule_scrape": {"tier": 1, "func": schedule_scrape},
@@ -569,12 +619,24 @@ def reload_plugins_wrapper() -> str:
     from src.core.plugins import reload_dynamic_plugins
     return reload_dynamic_plugins(TOOL_REGISTRY)
 
-# Auto-discover plugins at runtime
-try:
-    from src.core.plugins import load_plugins
-    load_plugins(TOOL_REGISTRY)
-except Exception as e:
-    print("[Plugins] Auto-discovery activation failed:", e)
+# Auto-discover plugins at runtime — LAZY by design. Importing this module must
+# not spawn threads or print: use ensure_plugins_loaded() at explicit entry
+# points (API startup, call_tool, ToolRegistry accessors).
+_plugins_loaded = False
+
+
+def ensure_plugins_loaded() -> None:
+    """Idempotent plugin auto-discovery (imports plugin tools + starts the
+    hot-reload watcher). Safe to call from any entry point."""
+    global _plugins_loaded
+    if _plugins_loaded:
+        return
+    _plugins_loaded = True
+    try:
+        from src.core.plugins import load_plugins
+        load_plugins(TOOL_REGISTRY)
+    except Exception as e:
+        print("[Plugins] Auto-discovery activation failed:", e)
 
 # Register Day 16, 17, 18 Tools
 try:
@@ -597,6 +659,7 @@ except Exception as _tool_err:
 
 
 async def call_tool(name: str, args: Dict[str, Any]) -> str:
+    ensure_plugins_loaded()
     if name not in TOOL_REGISTRY:
         raise ValueError(f"Unknown tool: '{name}'")
         
@@ -665,9 +728,11 @@ def unregister_tool(name: str) -> bool:
 class ToolRegistry:
     """Class wrapper for tool registry operations."""
     def list_tools(self) -> list:
+        ensure_plugins_loaded()
         return [{"name": k, "description": v.get("description", ""), "tier": v.get("tier", 1)} for k, v in TOOL_REGISTRY.items()]
 
     def get_tool(self, name: str) -> Optional[Any]:
+        ensure_plugins_loaded()
         info = TOOL_REGISTRY.get(name)
         return info["func"] if info else None
 
