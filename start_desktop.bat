@@ -12,6 +12,7 @@ taskkill /f /im python.exe /fi "WINDOWTITLE eq Meridian-X Daemon" >nul 2>&1
 taskkill /f /im api.exe >nul 2>&1
 taskkill /f /im app.exe >nul 2>&1
 powershell -Command "Get-CimInstance Win32_Process -Filter \"Name = 'python.exe' or Name = 'pythonw.exe'\" | Where-Object {$_.CommandLine -like '*api.py*'} | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }" >nul 2>&1
+powershell -Command "Get-NetTCPConnection -LocalPort 4132, 4133, 8765 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 timeout /t 1 /nobreak >nul
 
 :: 1.5 Sync root .env to meridian_backend/.env so API keys are loaded correctly
@@ -21,8 +22,8 @@ if exist ".env" (
     echo [System] Root .env synced to meridian_backend\.env
 )
 
-:: 2. Launch the backend python daemon on port 4132
-echo [2/4] Starting backend daemon server on port 4132 (minimized)...
+:: 2. Launch the Mobile Bridge Daemon (Port 8765) and Main Backend Daemon (Port 4132)
+echo [2/4] Starting Mobile Bridge Daemon (8765) & Main Backend Daemon (4132)...
 cd meridian_backend
 if not exist "venv\Scripts\python.exe" (
     echo [System] Creating Python virtual environment...
@@ -31,8 +32,10 @@ if not exist "venv\Scripts\python.exe" (
     echo [System] Installing dependencies...
     pip install -r requirements.txt
 )
+start "Meridian-X Mobile Bridge Daemon" /min cmd /c "call venv\Scripts\activate.bat && python mobile_bridge_service.py"
 start "Meridian-X Daemon" /min cmd /c "call venv\Scripts\activate.bat && python api.py"
 cd ..
+
 
 :: Wait for FastAPI Backend to bind to port 4132
 echo Waiting for backend daemon to initialize...

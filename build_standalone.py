@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
-Meridian-X Standalone Desktop & Mobile Builder
-Compiles Python backend sidecar (PyInstaller), packages Tauri desktop shell, and builds Android APK into executables/.
+Meridian-X Standalone Desktop Builder
+Compiles Python backend sidecar (PyInstaller) and packages Tauri desktop shell into executables/.
 """
 
 import os
@@ -109,7 +109,7 @@ def main() -> None:
 
     pyinstaller_cmd = (
         f'"{pyinstaller_exe}" --name api --onedir --clean --noconfirm '
-        f'--collect-all fastapi --collect-all uvicorn --collect-all pydantic --collect-all starlette '
+        f'--collect-all fastapi --collect-all uvicorn --collect-all pydantic --collect-all starlette --collect-all websockets '
         f'{add_data_str} '
         f'api.py'
     )
@@ -162,7 +162,14 @@ def main() -> None:
         print("Clearing old installer bundle directory...")
         shutil.rmtree(bundle_dir)
 
-    run_cmd("npm run tauri build -- --bundles nsis", cwd=frontend_dir)
+    system = platform.system()
+    if system == "Windows":
+        bundles = "nsis,msi"
+    elif system == "Darwin":
+        bundles = "dmg,app"
+    else:
+        bundles = "deb,appimage"
+    run_cmd(f"npm run tauri build -- --bundles {bundles}", cwd=frontend_dir)
 
     
     # ---------------------------------------------------------
@@ -199,23 +206,7 @@ def main() -> None:
     if not found_any:
         print("[Warning] No compiled desktop installer packages were found in bundle output!")
 
-    # ---------------------------------------------------------
-    # 6. Build Meridian-X Mobile APK
-    # ---------------------------------------------------------
-    print("\n=== Step 6: Compiling Meridian-X Mobile App (APK) ===")
-    mobile_dir = os.path.join(root_dir, "meridian_mobile")
-    build_apk_script = os.path.join(mobile_dir, "build_apk.py")
-    if os.path.exists(build_apk_script):
-        if root_dir not in sys.path:
-            sys.path.insert(0, root_dir)
-        try:
-            from meridian_mobile import build_apk
-            build_apk.build_apk(target_dir=executables_dir)
-        except Exception as e:
-            print(f"[Notice] Mobile APK build via import fallback ({e}), executing runner script...")
-            subprocess.run([sys.executable, build_apk_script], cwd=mobile_dir, shell=True)
-
-    print("\n[Success] Standalone build process complete! Desktop EXE and Mobile APK ready in executables/")
+    print("\n[Success] Standalone build process complete! Desktop EXE ready in executables/")
 
 
 if __name__ == "__main__":

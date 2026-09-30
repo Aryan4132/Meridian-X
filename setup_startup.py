@@ -22,8 +22,8 @@ def enable_startup_windows():
     os.makedirs(appdata_dir, exist_ok=True)
     bat_path = os.path.join(appdata_dir, "start_silent.bat")
     
-    release_exe_relative = r"meridian_frontend\src-tauri\target\release\app.exe"
-    release_sidecar_relative = r"meridian_frontend\src-tauri\target\release\api\api.exe"
+    release_exe = os.path.join(project_dir, r"meridian_frontend\src-tauri\target\release\app.exe")
+    release_sidecar = os.path.join(project_dir, r"meridian_frontend\src-tauri\target\release\api\api.exe")
     
     bat_content = f"""@echo off
 cd /d "{project_dir}"
@@ -31,7 +31,8 @@ cd /d "{project_dir}"
 :: 1. Clean up any stale backend/frontend instances before startup
 taskkill /f /im api.exe >nul 2>&1
 taskkill /f /im app.exe >nul 2>&1
-powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'python.exe' or Name = 'pythonw.exe'\\" | Where-Object {{$_.CommandLine -like '*api.py*'}} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}" >nul 2>&1
+powershell -Command "Get-CimInstance Win32_Process -Filter \\"Name = 'python.exe' or Name = 'pythonw.exe'\\" | Where-Object {{$_.CommandLine -like '*api.py*' -or $_.CommandLine -like '*mobile_bridge_service.py*'}} | ForEach-Object {{ Stop-Process -Id $_.ProcessId -Force }}" >nul 2>&1
+powershell -Command "Get-NetTCPConnection -LocalPort 4132, 4133, 8765 -ErrorAction SilentlyContinue | ForEach-Object {{ Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }}" >nul 2>&1
 
 :: 2. Sync the root .env configuration to backend and production AppData folder
 if exist ".env" (
@@ -42,33 +43,46 @@ if exist ".env" (
     copy /Y ".env" "%LOCALAPPDATA%\\com.meridian.x\\Meridian\\.env" >nul 2>&1
 )
 
-:: 3. Launch compiled release or fallback to development mode
-if exist "{release_exe_relative}" (
-    if exist "{release_sidecar_relative}" (
+:: 3. Launch compiled release if both binary and sidecar exist
+if exist "{release_exe}" (
+    if exist "{release_sidecar}" (
         echo [System] Starting compiled production release...
-        cd /d "{project_dir}\\meridian_frontend\\src-tauri\\target\\release"
-        start "" "{project_dir}\\meridian_frontend\\src-tauri\\target\\release\\app.exe"
+        cd /d "{os.path.dirname(release_exe)}"
+        start "" "{release_exe}"
         goto :EOF
     )
 )
 
-echo [System] Production binary or sidecar missing/incomplete. Falling back to development mode...
-echo [System] Starting FastAPI Backend...
-cd meridian_backend
-if not exist venv (
+:: 4. Fallback to live source mode: Start backend daemons with environment activated
+echo [System] Starting FastAPI Backend from live source...
+cd /d "{project_dir}\\meridian_backend"
+if not exist "venv\\Scripts\\activate.bat" (
     echo [System] Creating Python virtual environment...
     python -m venv venv
     call venv\\Scripts\\activate.bat
     echo [System] Checking dependencies...
     pip install -r requirements.txt
 )
-start "" "venv\\Scripts\\pythonw.exe" api.py
+
+:: Ensure venv is activated for python environment variables and PATH
+call venv\\Scripts\\activate.bat
+
+:: Start mobile bridge daemon on 4133 silently
+start "Meridian-X Mobile Bridge" /min cmd /c "call venv\\Scripts\\activate.bat && python mobile_bridge_service.py"
+
+:: Start FastAPI backend on 4132 silently
+start "Meridian-X Backend" /min cmd /c "call venv\\Scripts\\activate.bat && python api.py"
+
 echo [System] Waiting for FastAPI Backend to bind to port 4132...
 powershell -Command "$retry = 0; while ($retry -lt 120) {{ try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', 4132); if ($c.Connected) {{ $c.Close(); break; }} }} catch {{}} Start-Sleep -Milliseconds 500; $retry++ }}"
-echo [System] FastAPI Backend online! Starting Tauri Desktop App...
-cd /d "{project_dir}"
-cd meridian_frontend
-start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
+
+echo [System] FastAPI Backend online! Starting Desktop Frontend...
+cd /d "{project_dir}\\meridian_frontend"
+if exist "src-tauri\\target\\release\\app.exe" (
+    start "" "src-tauri\\target\\release\\app.exe"
+) else (
+    start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
+)
 """
     
     try:
@@ -92,7 +106,7 @@ start "Meridian-X Dev Frontend" cmd /c "npx tauri dev"
     vbs_content = (
         'Set WshShell = CreateObject("WScript.Shell")\r\n'
         f'WshShell.CurrentDirectory = "{project_dir}"\r\n'
-        f'WshShell.Run "cmd.exe /c """ & "{bat_path}" & """", 0, False\r\n'
+        f'WshShell.Run "cmd.exe /s /c " & Chr(34) & "{bat_path}" & Chr(34), 0, False\r\n'
     )
     
     try:

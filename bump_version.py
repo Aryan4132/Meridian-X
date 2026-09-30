@@ -24,32 +24,17 @@ def bump_version(new_version):
         except Exception as e:
             print(f"  [Error] Failed to update tauri.conf.json: {e}")
             
-    # 2. Update package.json files (frontend & mobile)
-    mobile_package_json = os.path.join(root_dir, "meridian_mobile", "package.json")
-    mobile_tauri_conf = os.path.join(root_dir, "meridian_mobile", "src-tauri", "tauri.conf.json")
-    
-    for pjson in [package_json_path, mobile_package_json]:
-        if os.path.exists(pjson):
-            try:
-                with open(pjson, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                data["version"] = new_version
-                with open(pjson, "w", encoding="utf-8") as f:
-                    json.dump(data, f, indent=2)
-                print(f"  [OK] Updated {os.path.relpath(pjson, root_dir)}")
-            except Exception as e:
-                print(f"  [Error] Failed to update {pjson}: {e}")
-
-    if os.path.exists(mobile_tauri_conf):
+    # 2. Update package.json file
+    if os.path.exists(package_json_path):
         try:
-            with open(mobile_tauri_conf, "r", encoding="utf-8") as f:
+            with open(package_json_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
             data["version"] = new_version
-            with open(mobile_tauri_conf, "w", encoding="utf-8") as f:
+            with open(package_json_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
-            print(f"  [OK] Updated {os.path.relpath(mobile_tauri_conf, root_dir)}")
+            print(f"  [OK] Updated {os.path.relpath(package_json_path, root_dir)}")
         except Exception as e:
-            print(f"  [Error] Failed to update mobile tauri.conf.json: {e}")
+            print(f"  [Error] Failed to update {package_json_path}: {e}")
             
     # 3. Update Cargo.toml
     if os.path.exists(cargo_toml_path):

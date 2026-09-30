@@ -15,7 +15,6 @@ Meridian-X/
     └── custom_weather.py
 ```
 
-
 ---
 
 ## Plugin Manifest & Permission Tiers
