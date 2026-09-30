@@ -6,6 +6,9 @@
 *.njsproj
 *.sln
 *.swp
+.DS_Store
+Thumbs.db
+desktop.ini
 
 # Node / Frontend dependencies and builds
 node_modules/
@@ -15,12 +18,24 @@ dist-ssr/
 meridian_frontend/node_modules/
 meridian_frontend/dist/
 meridian_frontend/src-tauri/target/
+meridian_frontend/src-tauri/gen/
 meridian_frontend/src-tauri/api/
-meridian_mobile/node_modules/
-meridian_mobile/dist/
-meridian_mobile/src-tauri/target/
-meridian_mobile/src-tauri/gen/
-meridian_mobile/executables/
+
+# Mobile (Flutter) build outputs and tools
+meridian_mobile/.dart_tool/
+meridian_mobile/.flutter-plugins-dependencies
+meridian_mobile/.pub-cache/
+meridian_mobile/.pub/
+meridian_mobile/build/
+meridian_mobile/android/.gradle/
+meridian_mobile/android/local.properties
+meridian_mobile/*.iml
+meridian_mobile/android/*.iml
+meridian_mobile/ios/Flutter/Generated.xcconfig
+meridian_mobile/ios/Flutter/ephemeral/
+meridian_mobile/macos/Flutter/ephemeral/
+*.apk
+*.aab
 
 # PyInstaller build outputs
 meridian_backend/build/
@@ -41,29 +56,38 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
 
-# Local database files and memory states
-meridian_memory/
+# Local database files, logs, and runtime data
+**/meridian_memory/
+**/meridian_data/
+**/.meridian/
 *.db
 *.db-journal
 *.tq
 *.sqlite3
+finetune_data.jsonl
+logs/
+*.log
 
 # Environment credentials
 .env
 .env.*
+!.env.template
+!.env.example
 meridian_backend/.env
+meridian_backend/.env.*
 
-# Local logging, test output, and analytics data
-finetune_data.jsonl
-logs/
-*.log
+# Local test output and analytics data
 test_database_dir/
 test_logging_dir/
 test_tools_dir/
 meridian_backend/test_database_dir/
 meridian_backend/test_logging_dir/
 meridian_backend/test_tools_dir/
+dummy_test_data_dir/
+generated_repos/
 
 # CodeGraph files
 .codegraph/
@@ -71,9 +95,15 @@ meridian_backend/test_tools_dir/
 # Compiled Installers & Encrypted Vaults
 executables/
 vault.enc
+*.enc
+meridian_snapshots/
 *.exe
 *.msi
 .quarantine/
+
+# Data snapshots, certs, and memory states
+meridian_backend/certs/
+meridian_backend/src/data/screenshot_memory/
 
 # Internal task tracking & agent context docs
 TIMELINE.md
@@ -82,6 +112,4 @@ PROJECT_CONTEXT.md
 SPEC.md
 tasks.md
 tasks/
-
-
-
+fixes.md

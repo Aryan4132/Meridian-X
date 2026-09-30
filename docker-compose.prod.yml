@@ -7,6 +7,8 @@ services:
     env_file:
       - .env
     environment:
+      - MERIDIAN_BIND_HOST=0.0.0.0
+      - MERIDIAN_PORT=4132
       - HOST=0.0.0.0
       - PORT=4132
       - OLLAMA_HOST=http://ollama:11434

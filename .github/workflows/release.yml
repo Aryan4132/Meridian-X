@@ -89,7 +89,8 @@ jobs:
         fi
         $PY - <<'EOF'
         import importlib
-        mods = ["fastapi", "uvicorn", "httpx", "cryptography", "jwt", "apscheduler", "sqlalchemy", "psutil", "pydantic"]
+        mods = ["fastapi", "uvicorn", "httpx", "cryptography", "jwt", "apscheduler", "sqlalchemy", "psutil", "pydantic",
+                "prometheus_client", "yaml", "cv2", "trustme", "requests", "PIL", "supertonic", "turbovec"]
         missing = []
         for m in mods:
             try:
@@ -123,7 +124,7 @@ jobs:
 
 # ────────────────────────────────────────────────────────────────
 # JOB 2 — Build Tauri app (embeds sidecar) & publish release
-# One installer per OS: Windows=NSIS .exe | macOS=DMG | Linux=AppImage
+# All bundles per OS: Windows=NSIS .exe + MSI | macOS=DMG + .app | Linux=DEB + AppImage
 # ────────────────────────────────────────────────────────────────
   build-tauri:
     needs: build-backend
@@ -138,19 +139,32 @@ jobs:
         include:
           - os: windows-latest
             platform: windows
-            tauri-args: '--bundles nsis'
+            tauri-args: '--bundles nsis,msi'
           - os: macos-latest
             platform: macos
-            tauri-args: '--bundles dmg'
+            tauri-args: '--bundles dmg,app'
           - os: ubuntu-latest
             platform: linux
-            tauri-args: '--bundles deb'
+            tauri-args: '--bundles deb,appimage'
 
     runs-on: ${{ matrix.os }}
 
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
+
+    - name: Verify Tag Matches App Version
+      shell: bash
+      run: |
+        TAG="${GITHUB_REF_NAME#v}"
+        PKG=$(python -c "import json; print(json.load(open('meridian_frontend/package.json'))['version'])")
+        TAURI=$(python -c "import json; print(json.load(open('meridian_frontend/src-tauri/tauri.conf.json'))['version'])")
+        CARGO=$(python -c "import re; print(re.search(r'(?m)^version\s*=\s*\"([^\"]+)\"', open('meridian_frontend/src-tauri/Cargo.toml').read()).group(1))")
+        echo "Tag: $TAG | package.json: $PKG | tauri.conf: $TAURI | Cargo.toml: $CARGO"
+        if [ "$PKG" != "$TAG" ] || [ "$TAURI" != "$TAG" ] || [ "$CARGO" != "$TAG" ]; then
+          echo "::error::Tag v$TAG does not match app version (package.json=$PKG, tauri.conf=$TAURI, Cargo.toml=$CARGO). Run: python bump_version.py $TAG, commit, re-tag."
+          exit 1
+        fi
 
     - name: Download Sidecar Artifact
       uses: actions/download-artifact@v4
@@ -258,10 +272,10 @@ jobs:
       with:
         workspaces: 'meridian_frontend/src-tauri'
 
-    - name: Install NSIS (Windows only)
+    - name: Install NSIS + WiX (Windows only)
       if: matrix.platform == 'windows'
       shell: pwsh
-      run: choco install nsis -y
+      run: choco install nsis wixtoolset -y
 
     - name: Clean Previous Release Bundles
       shell: bash
@@ -283,13 +297,13 @@ jobs:
         releaseBody: |
           ## Meridian-X ${{ github.ref_name }}
 
-          Single installer per platform — bundles the full AI backend and desktop UI.
+          Full installer set per platform — bundles the full AI backend and desktop UI.
 
-          | Platform | File |
-          |----------|------|
-          | Windows  | `*-setup.exe` (NSIS installer) |
-          | macOS    | `*.dmg` |
-          | Linux    | `*.deb` (Debian/Ubuntu package) |
+          | Platform | Files |
+          |----------|-------|
+          | Windows  | `*-setup.exe` (NSIS installer) + `*.msi` |
+          | macOS    | `*.dmg` + `*.app` bundle |
+          | Linux    | `*.deb` (Debian/Ubuntu package) + `*.AppImage` |
         releaseDraft: false
         prerelease: false
         projectPath: './meridian_frontend'

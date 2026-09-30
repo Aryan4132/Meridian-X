@@ -18,7 +18,8 @@ def check_python():
     success = sys.version_info >= (3, 8)
     print_result(f"Python version: {py_ver}", success, "Requires Python >= 3.8")
     
-    # Check imports
+    # Check imports (includes hard api.py dependencies so a green
+    # report actually means the backend can start)
     modules = {
         "fastapi": "FastAPI backend framework",
         "pymongo": "MongoDB client driver",
@@ -27,7 +28,11 @@ def check_python():
         "numpy": "Vector calculations",
         "turbovec": "Vector storage database index",
         "ollama": "Local LLM driver client",
-        "pydantic": "Data validation models"
+        "pydantic": "Data validation models",
+        "prometheus_client": "Prometheus metrics (required by api.py)",
+        "yaml": "PyYAML (required by backend tests)",
+        "cv2": "opencv-python (required by video/vision tools)",
+        "trustme": "Self-signed TLS certs (localhost HTTPS)"
     }
     
     for mod, desc in modules.items():
