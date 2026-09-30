@@ -12,6 +12,7 @@ interface Mascot3DCharacterProps {
   accentColor?: string;
   speechAmplitude?: number;
   size?: number;
+  themeMode?: 'dark' | 'light';
   onClick?: () => void;
 }
 

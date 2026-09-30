@@ -29,10 +29,38 @@ interface AppContextValue {
 
 const AppCtx = createContext<AppContextValue | null>(null);
 
+// Single source of truth for themes. IDs must match the canonical
+// [data-theme="x"] / .theme-x blocks in index.css and the Settings picker.
+export const THEME_IDS = [
+  'cyberslate', 'artdeco', 'neobrutalism', 'cyberpunk', 'retro', 'ink',
+  'nordic', 'maximalism', 'paper', 'sakura', 'solaris', 'tokyonight',
+  'oled', 'vscode-dark', 'chronos',
+] as const;
+
+export type ThemeId = (typeof THEME_IDS)[number];
+
+export const DEFAULT_THEME: ThemeId = 'cyberslate';
+
+export function resolveTheme(t: string | null | undefined): ThemeId {
+  return (THEME_IDS as readonly string[]).includes(t || '') ? (t as ThemeId) : DEFAULT_THEME;
+}
+
+/** Applies theme without clobbering unrelated <html> classes (e.g. mascot-html). */
+export function applyThemeToDocument(t: string): void {
+  const theme = resolveTheme(t);
+  document.documentElement.setAttribute('data-theme', theme);
+  const cls = document.documentElement.classList;
+  // Drop any previous theme-* class, preserve everything else.
+  Array.from(cls).forEach(c => {
+    if (c.startsWith('theme-')) cls.remove(c);
+  });
+  cls.add(`theme-${theme}`);
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeTab, setActiveTab] = useState<TabId>('timeline');
-  const [theme, _setTheme] = useState(() => localStorage.getItem('theme') || 'cyberslate');
-  const [accentColor, _setAccentColor] = useState(() => localStorage.getItem('MERIDIAN_ACCENT_COLOR') || '#00F0FF');
+  const [theme, _setTheme] = useState(() => resolveTheme(localStorage.getItem('theme')));
+  const [accentColor, _setAccentColor] = useState(() => localStorage.getItem('MERIDIAN_ACCENT_COLOR') || '#E8A020');
   const [islandPosition, _setIslandPosition] = useState<IslandPosition>(
     () => (localStorage.getItem('ISLAND_POSITION') as IslandPosition) || 'bottom-right'
   );
@@ -75,13 +103,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setTheme = (t: string) => {
-    _setTheme(t);
-    localStorage.setItem('theme', t);
-    document.documentElement.setAttribute('data-theme', t);
-    document.documentElement.className = `theme-${t}`;
+    const theme = resolveTheme(t);
+    _setTheme(theme);
+    localStorage.setItem('theme', theme);
+    applyThemeToDocument(theme);
     window.dispatchEvent(new Event('meridian-theme-changed'));
     if ((window as any).__TAURI_INTERNALS__) {
-      emit('meridian-theme-changed', { theme: t }).catch(() => {});
+      emit('meridian-theme-changed', { theme }).catch(() => {});
     }
   };
 
@@ -91,12 +119,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const t = localStorage.getItem('theme') || 'cyberslate';
-    document.documentElement.setAttribute('data-theme', t);
-    document.documentElement.className = `theme-${t}`;
+    applyThemeToDocument(localStorage.getItem('theme'));
 
-    const color = localStorage.getItem('MERIDIAN_ACCENT_COLOR') || '#00F0FF';
-    document.documentElement.style.setProperty('--accent', color);
+    const color = localStorage.getItem('MERIDIAN_ACCENT_COLOR');
+    if (color) {
+      document.documentElement.style.setProperty('--accent', color);
+    }
   }, []);
 
   useEffect(() => {
@@ -129,7 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/health`);
+        const res = await fetch(`${API_BASE_URL}/api/health`);
         setBackendAlive(res.ok);
       } catch {
         setBackendAlive(false);
@@ -147,7 +175,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch(`${API_BASE_URL}/api/system-usage`);
         if (res.ok) {
           const data = await res.json();
-          setSystemUsage({ cpu: data.cpu_percent || 0, ram: data.ram_percent || 0 });
+          setSystemUsage({ cpu: data.cpu ?? 0, ram: data.ram ?? 0 });
         }
       } catch { /* noop */ }
     };

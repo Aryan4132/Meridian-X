@@ -4,9 +4,12 @@ use tauri::{
     menu::{MenuBuilder, MenuItem},
     tray::TrayIconBuilder,
 };
+#[cfg(not(debug_assertions))]
 use std::sync::Mutex;
+#[cfg(not(debug_assertions))]
 use std::process::Child;
 
+#[cfg(not(debug_assertions))]
 static BACKEND_CHILD: Mutex<Option<Child>> = Mutex::new(None);
 
 /// Check if the Python backend binary is installed in the app data dir.
@@ -162,7 +165,16 @@ fn set_mascot_visible(app: tauri::AppHandle, visible: bool) {
 
 #[tauri::command]
 fn close_application(app: tauri::AppHandle) {
-    set_mascot_visible(app, true);
+    // Show mascot first
+    set_mascot_visible(app.clone(), true);
+    
+    // Give a moment for the mascot to appear
+    std::thread::sleep(std::time::Duration::from_millis(100));
+    
+    // Close all windows and exit
+    let _ = app.get_webview_window("main").map(|w| w.close());
+    let _ = app.get_webview_window("mascot").map(|w| w.close());
+    app.exit(0);
 }
 
 #[tauri::command]

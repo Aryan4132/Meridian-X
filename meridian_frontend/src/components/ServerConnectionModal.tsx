@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getApiBaseUrl, getApiKey } from '../config';
+import { getApiBaseUrl, getApiKey, hashPasswordSHA256 } from '../config';
 
 interface Props {
   isOpen: boolean;
@@ -8,19 +8,30 @@ interface Props {
 
 export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
   const [serverUrl, setServerUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
+  const [password, setPassword] = useState('');
   const [statusMsg, setStatusMsg] = useState<{ text: string; isError: boolean } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setServerUrl(localStorage.getItem('MERIDIAN_REMOTE_BACKEND_URL') || getApiBaseUrl());
-      setApiKey(localStorage.getItem('MERIDIAN_REMOTE_API_KEY') || getApiKey());
+      setPassword(localStorage.getItem('MERIDIAN_REMOTE_API_KEY') || getApiKey());
       setStatusMsg(null);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  const getEffectiveAuthKey = async (rawInput: string): Promise<string> => {
+    const trimmed = rawInput.trim();
+    if (!trimmed) return '';
+    // If it looks like a 64-char hex string (already hashed or raw 32-byte key), use as is.
+    if (/^[a-fA-F0-9]{64}$/.test(trimmed)) {
+      return trimmed;
+    }
+    // Otherwise compute SHA-256 hash of custom user password
+    return await hashPasswordSHA256(trimmed);
+  };
 
   const handleTestConnection = async () => {
     setIsTesting(true);
@@ -28,12 +39,13 @@ export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
     const targetUrl = serverUrl.trim().replace(/\/+$/, '');
     try {
       const headers: Record<string, string> = {};
-      if (apiKey.trim()) {
-        headers['X-API-Key'] = apiKey.trim();
+      const keyOrHash = await getEffectiveAuthKey(password);
+      if (keyOrHash) {
+        headers['X-API-Key'] = keyOrHash;
       }
       const res = await fetch(`${targetUrl}/api/health`, { headers });
       if (res.ok) {
-        setStatusMsg({ text: '✅ Connected successfully!', isError: false });
+        setStatusMsg({ text: '✅ Connected successfully with encrypted key!', isError: false });
       } else {
         setStatusMsg({ text: `⚠️ Server returned status ${res.status}`, isError: true });
       }
@@ -44,15 +56,16 @@ export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (serverUrl.trim()) {
       localStorage.setItem('MERIDIAN_REMOTE_BACKEND_URL', serverUrl.trim());
     } else {
       localStorage.removeItem('MERIDIAN_REMOTE_BACKEND_URL');
     }
 
-    if (apiKey.trim()) {
-      localStorage.setItem('MERIDIAN_REMOTE_API_KEY', apiKey.trim());
+    if (password.trim()) {
+      const keyOrHash = await getEffectiveAuthKey(password);
+      localStorage.setItem('MERIDIAN_REMOTE_API_KEY', keyOrHash);
     } else {
       localStorage.removeItem('MERIDIAN_REMOTE_API_KEY');
     }
@@ -66,52 +79,68 @@ export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
     window.location.reload();
   };
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    background: 'var(--bg-panel)',
+    border: '1px solid var(--border-subtle)',
+    borderRadius: 12,
+    padding: '8px 12px',
+    fontSize: 14,
+    color: 'var(--text-main)',
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 text-white shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'color-mix(in srgb, var(--bg-void) 70%, transparent)' }}>
+      <div className="rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5" style={{ background: 'var(--bg-float)', border: '1px solid var(--border-subtle)', color: 'var(--text-bright)' }}>
+        <div className="flex items-center justify-between pb-3" style={{ borderBottom: '1px solid var(--border-subtle)' }}>
           <div className="flex items-center gap-2">
             <span className="text-xl">🌐</span>
-            <h3 className="font-semibold text-lg">Backend Server Settings</h3>
+            <h3 className="font-semibold text-lg" style={{ fontFamily: 'var(--font-heading)' }}>Backend Server Settings</h3>
           </div>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-white transition-colors"
+            className="transition-colors"
+            style={{ color: 'var(--text-dim)' }}
           >
             ✕
           </button>
         </div>
 
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <p className="text-xs leading-relaxed" style={{ color: 'var(--text-dim)' }}>
           Connect to local machine or a remote hosted Meridian-X server.
         </p>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">Server URL</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-main)' }}>Server URL</label>
             <input
               type="text"
               value={serverUrl}
               onChange={(e) => setServerUrl(e.target.value)}
               placeholder="http://127.0.0.1:4132 or https://my-server.com"
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              style={inputStyle}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">API Key (Required for Remote Server)</label>
+            <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-main)' }}>Connection Password / API Key (SHA-256 Encrypted)</label>
             <input
               type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter secret API key"
-              className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter custom password or secret key"
+              style={inputStyle}
             />
           </div>
         </div>
 
         {statusMsg && (
-          <div className={`p-3 rounded-xl text-xs font-medium ${statusMsg.isError ? 'bg-rose-950/60 border border-rose-800 text-rose-300' : 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'}`}>
+          <div
+            className="p-3 rounded-xl text-xs font-medium"
+            style={statusMsg.isError
+              ? { background: 'color-mix(in srgb, var(--danger) 12%, transparent)', border: '1px solid var(--danger)', color: 'var(--danger)' }
+              : { background: 'color-mix(in srgb, var(--success) 12%, transparent)', border: '1px solid var(--success)', color: 'var(--success)' }}
+          >
             {statusMsg.text}
           </div>
         )}
@@ -120,13 +149,15 @@ export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
           <button
             onClick={handleTestConnection}
             disabled={isTesting}
-            className="flex-1 py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-xl font-medium transition-colors disabled:opacity-50"
+            className="flex-1 py-2 px-3 text-xs rounded-xl font-medium transition-colors disabled:opacity-50"
+            style={{ background: 'var(--bg-surface)', color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}
           >
             {isTesting ? 'Testing...' : 'Test Connection'}
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl font-medium transition-colors"
+            className="flex-1 py-2 px-3 text-xs rounded-xl font-medium transition-colors"
+            style={{ background: 'var(--accent)', color: 'var(--bg-void)' }}
           >
             Save & Connect
           </button>
@@ -134,7 +165,8 @@ export const ServerConnectionModal: React.FC<Props> = ({ isOpen, onClose }) => {
 
         <button
           onClick={handleResetLocal}
-          className="w-full text-center text-xs text-slate-500 hover:text-slate-400 underline pt-1"
+          className="w-full text-center text-xs underline pt-1"
+          style={{ color: 'var(--text-ghost)' }}
         >
           Reset to Default Local Backend
         </button>

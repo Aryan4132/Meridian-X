@@ -10,6 +10,10 @@ import { useLowRamMode } from '../hooks/useMemoryOptimizer';
 import ProgressArc from '../components/ui/ProgressArc';
 import HoloButton from '../components/ui/HoloButton';
 import GlowCard from '../components/ui/GlowCard';
+import {
+  hasKeyLockPassword, verifyKeyLockPassword, isKeyLockUnlocked,
+  unlockKeyLockSession, lockKeyLockSession, setKeyLockPassword,
+} from '../utils/keyLock';
 
 const SETTINGS_TABS = [
   { id: 'models', label: 'AI Models', icon: Cpu },
@@ -38,11 +42,15 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   mistral: ['mistral-large-latest', 'codestral-latest', 'pixtral-12b-2409', 'mistral-small-latest'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
   anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
-  gemini: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
 };
 
 const THEMES = [
+  { id: 'tokyonight',   label: 'Tokyo Night',         icon: '🌙', sub: 'Tokyo Midnight & Soft Pastel Ice',  font: "'Inter', sans-serif",        mode: 'Dark',  swatches: ['#1a1b26', '#7aa2f7', '#bb9af7'] },
+
+
+  { id: 'oled',         label: 'Pure OLED Black',     icon: '⬛', sub: 'True #000000 & Electric Cyan Glow', font: "'Outfit', sans-serif",       mode: 'Dark',  swatches: ['#000000', '#38bdf8', '#a855f7'] },
+  { id: 'vscode-dark',  label: 'VS Code Dark Pro',    icon: '💻', sub: 'IDE Dark Slate & Classic VS Blue', font: "'JetBrains Mono', monospace", mode: 'Dark', swatches: ['#1e1e1e', '#007acc', '#4ec9b0'] },
   { id: 'cyberslate',   label: 'Classic Cyber Slate', icon: '🪐', sub: 'Tactile Slate & Solar Amber',        font: "'IBM Plex Mono', monospace", mode: 'Dark',  swatches: ['#0A0C10', '#E8A020', '#1E232E'] },
   { id: 'artdeco',      label: 'Art Deco Luxury',     icon: '🏛️', sub: 'Obsidian Black & Metallic Gold',    font: "'Playfair Display', serif",  mode: 'Dark',  swatches: ['#050505', '#D4AF37', '#1E3D59'] },
   { id: 'neobrutalism', label: 'Neobrutalism',        icon: '⚡', sub: 'Light Cream & Stark Black Shadows', font: "'Space Grotesk', sans-serif",mode: 'Light', swatches: ['#FFFDF5', '#FFDE59', '#000000'] },
@@ -54,36 +62,89 @@ const THEMES = [
   { id: 'paper',        label: 'Paper & Ink',         icon: '📜', sub: 'Warm Off-White Editorial Linen',    font: "'Lora', serif",              mode: 'Light', swatches: ['#F4F2EC', '#D95338', '#2D6A4F'] },
   { id: 'sakura',       label: 'Sakura Blossom',      icon: '🌸', sub: 'Soft Pastel Blush & Rose Quartz',   font: "'Outfit', sans-serif",       mode: 'Light', swatches: ['#FFF5F7', '#E85D75', '#6DB193'] },
   { id: 'solaris',      label: 'Solaris Light',       icon: '☀️', sub: 'Clean Solar White & Cobalt Blue',   font: "'DM Sans', sans-serif",      mode: 'Light', swatches: ['#F4F6FB', '#2563EB', '#059669'] },
+  { id: 'chronos',      label: 'Chronos',             icon: '⏳', sub: 'Premium Time-Inspired Deep Navy',   font: "'Outfit', sans-serif",       mode: 'Dark',  swatches: ['#0F0F1A', '#4CC9F0', '#F5A623'] },
 ];
 
 
 
-function PasswordInput({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder: string }) {
+
+function PasswordInput({ label, value, onChange, placeholder, requireUnlock, keysUnlocked, onRequestUnlock }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; requireUnlock?: boolean; keysUnlocked?: boolean; onRequestUnlock?: () => void }) {
   const [show, setShow] = useState(false);
+  const locked = requireUnlock && !keysUnlocked;
   return (
     <div>
       <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {label}
+        {label} {locked && <span style={{ color: 'var(--accent)' }}>· 🔒</span>}
       </label>
       <div style={{ position: 'relative' }}>
         <input
-          type={show ? 'text' : 'password'}
-          value={value}
-          onChange={e => onChange(e.target.value)}
+          type={show && !locked ? 'text' : 'password'}
+          value={locked && value ? '••••••••••••••••' : value}
+          onChange={e => { if (!locked) onChange(e.target.value); }}
           placeholder={placeholder}
           className="input-base"
           style={{ paddingRight: 36 }}
+          readOnly={locked}
+          onFocus={e => { if (locked) { e.target.blur(); onRequestUnlock?.(); } }}
         />
         <button
           type="button"
-          onClick={() => setShow(v => !v)}
+          onClick={() => {
+            if (locked) { onRequestUnlock?.(); return; }
+            setShow(v => !v);
+          }}
+          title={locked ? 'Enter password to reveal' : (show ? 'Hide' : 'Show')}
           style={{
             position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 2,
           }}
         >
-          {show ? <EyeOff size={14} /> : <Eye size={14} />}
+          {show && !locked ? <EyeOff size={14} /> : <Eye size={14} />}
         </button>
+      </div>
+    </div>
+  );
+}
+
+function KeyLockModal({ open, mode, error, password, setPassword, onClose, onSubmit }: {
+  open: boolean; mode: 'unlock' | 'set'; error: string; password: string;
+  setPassword: (v: string) => void; onClose: () => void; onSubmit: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+      onClick={onClose}
+    >
+      <div
+        className="glass"
+        style={{ width: '100%', maxWidth: 360, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-bright)' }}>
+          {mode === 'unlock' ? '🔒 Enter password to reveal keys' : '🔒 Set key-reveal password'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+          {mode === 'unlock'
+            ? 'Keys stay masked until you unlock. The session auto-locks after 10 minutes.'
+            : 'Choose a password. It will be required to reveal API keys and secrets.'}
+        </div>
+        <input
+          type="password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') onSubmit(); }}
+          placeholder={mode === 'unlock' ? 'password' : 'min. 4 characters'}
+          className="input-base"
+          autoFocus
+        />
+        {error && <div style={{ fontSize: 11, color: 'var(--danger)' }}>{error}</div>}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <HoloButton type="button" variant="ghost" size="sm" onClick={onClose}>Cancel</HoloButton>
+          <HoloButton type="button" variant="primary" size="sm" onClick={onSubmit}>
+            {mode === 'unlock' ? 'Unlock' : 'Set password'}
+          </HoloButton>
+        </div>
       </div>
     </div>
   );
@@ -159,7 +220,22 @@ export default function Settings() {
   const [budgetEnabled, setBudgetEnabled] = useState<boolean>(true);
   const [autonomousMode, setAutonomousMode] = useState<boolean>(true);
   const [securityGuardLevel, setSecurityGuardLevel] = useState<number>(1);
-  const [pairingQrData, setPairingQrData] = useState<any>(null);
+  // Manual mobile pairing (host / port / secret + server-side verification).
+  const [pairHost, setPairHost] = useState('127.0.0.1');
+  const [pairPort, setPairPort] = useState('8009');
+  const [pairSecret, setPairSecret] = useState('');
+  const fetchPairingInfo = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/p2p/pairing-info`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.host) setPairHost(data.host);
+        if (data.port) setPairPort(String(data.port));
+      }
+    } catch { /* noop */ }
+  };
+  const [pairStatus, setPairStatus] = useState<{ text: string; isError: boolean } | null>(null);
+  const [isVerifyingPair, setIsVerifyingPair] = useState(false);
 
   const fetchSpendAndAirgap = async () => {
     try {
@@ -243,14 +319,25 @@ export default function Settings() {
     } catch { /* noop */ }
   };
 
-  const handleGeneratePairingQr = async () => {
+  const handleVerifyPairing = async () => {
+    setIsVerifyingPair(true);
+    setPairStatus(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/system/pairing_qr`);
+      const res = await fetch(`${API_BASE_URL}/api/p2p/verify-pairing`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: pairSecret }),
+      });
       if (res.ok) {
-        const data = await res.json();
-        setPairingQrData(data);
+        setPairStatus({ text: `✅ Paired with ${pairHost}:${pairPort} successfully!`, isError: false });
+      } else {
+        setPairStatus({ text: '❌ Invalid pairing secret.', isError: true });
       }
-    } catch { /* noop */ }
+    } catch {
+      setPairStatus({ text: '❌ Verification failed: network error.', isError: true });
+    } finally {
+      setIsVerifyingPair(false);
+    }
   };
 
   const handleToggleAirgap = async (enabled: boolean) => {
@@ -511,6 +598,46 @@ export default function Settings() {
   // Dynamic Secret Vault Keys state
   const [vaultKeys, setVaultKeys] = useState<Array<{ name: string; env_var: string; api_key: string; base_url: string; category: string }>>([]);
   const [showVaultSecrets, setShowVaultSecrets] = useState(false);
+  // Key-reveal lock: password required to unmask any API key / secret.
+  const [keysUnlocked, setKeysUnlocked] = useState(() => isKeyLockUnlocked());
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [lockModalMode, setLockModalMode] = useState<'unlock' | 'set'>(() => (hasKeyLockPassword() ? 'unlock' : 'set'));
+  const [lockPasswordInput, setLockPasswordInput] = useState('');
+  const [lockError, setLockError] = useState('');
+
+  const requestUnlock = () => {
+    setLockModalMode(hasKeyLockPassword() ? 'unlock' : 'set');
+    setLockError('');
+    setLockPasswordInput('');
+    setLockModalOpen(true);
+  };
+
+  const submitLockModal = async () => {
+    if (lockModalMode === 'unlock') {
+      const ok = await verifyKeyLockPassword(lockPasswordInput);
+      if (!ok) { setLockError('Incorrect password.'); return; }
+      unlockKeyLockSession();
+      setKeysUnlocked(true);
+      setLockModalOpen(false);
+      setLockPasswordInput('');
+      fetchVaultKeys(true);
+    } else {
+      if (lockPasswordInput.length < 4) { setLockError('Password must be at least 4 characters.'); return; }
+      await setKeyLockPassword(lockPasswordInput);
+      unlockKeyLockSession();
+      setKeysUnlocked(true);
+      setLockModalOpen(false);
+      setLockPasswordInput('');
+      fetchVaultKeys(true);
+    }
+  };
+
+  const lockKeys = () => {
+    lockKeyLockSession();
+    setKeysUnlocked(false);
+    setShowVaultSecrets(false);
+    fetchVaultKeys(false);
+  };
   const [vkName, setVkName] = useState('');
   const [vkEnvVar, setVkEnvVar] = useState('');
   const [vkSecret, setVkSecret] = useState('');
@@ -518,8 +645,10 @@ export default function Settings() {
   const [vkCategory, setVkCategory] = useState('LLM Provider');
 
   const fetchVaultKeys = async (showFull = showVaultSecrets) => {
+    // Never pull plaintext secrets while the key lock is engaged.
+    const effective = showFull && (keysUnlocked || isKeyLockUnlocked());
     try {
-      const res = await fetch(`${API_BASE_URL}/api/vault/keys?include_secrets=${showFull}`);
+      const res = await fetch(`${API_BASE_URL}/api/vault/keys?include_secrets=${effective}`);
       if (res.ok) {
         const data = await res.json();
         if (data.keys) setVaultKeys(data.keys);
@@ -612,6 +741,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetchVaultKeys();
+    fetchPairingInfo();
   }, [showVaultSecrets]);
 
   // Fetch profile configurations on mount to hydrate local storage & states
@@ -992,7 +1122,7 @@ export default function Settings() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '20px 24px', overflow: 'hidden' }}>
       <div style={{ marginBottom: 16, flexShrink: 0 }}>
-        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: "'Space Grotesk', sans-serif" }}>Settings</h1>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text-bright)', margin: 0, fontFamily: 'var(--font-heading)' }}>Settings</h1>
         <p style={{ fontSize: 11, color: 'var(--text-dim)', margin: '2px 0 8px', fontFamily: "'JetBrains Mono', monospace" }}>Configuration · Models · Appearance · Guard</p>
 
         {/* Category Navigation Bar */}
@@ -1015,6 +1145,23 @@ export default function Settings() {
         </div>
       </div>
 
+      {/* Key-reveal lock banner */}
+      <div style={{ flexShrink: 0, marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: keysUnlocked ? 'rgba(0,217,126,0.08)' : 'rgba(232,160,32,0.08)', border: `1px solid ${keysUnlocked ? 'rgba(0,217,126,0.3)' : 'rgba(232,160,32,0.3)'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-main)' }}>
+          {keysUnlocked ? '🔓 Keys unlocked — auto-locks after 10 minutes.' : '🔒 API keys are masked. A password is required to reveal them.'}
+        </span>
+        {keysUnlocked ? (
+          <button type="button" onClick={lockKeys} style={{ fontSize: 11, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
+            Lock now
+          </button>
+        ) : (
+          <button type="button" onClick={requestUnlock} style={{ fontSize: 11, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)' }}>
+            {hasKeyLockPassword() ? 'Unlock' : 'Set password'}
+          </button>
+        )}
+      </div>
+      <KeyLockModal open={lockModalOpen} mode={lockModalMode} error={lockError} password={lockPasswordInput} setPassword={setLockPasswordInput} onClose={() => setLockModalOpen(false)} onSubmit={submitLockModal} />
+
       <form onSubmit={handleSave} style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: '1fr 260px', gap: 16 }}>
         {/* Left: config */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1027,7 +1174,7 @@ export default function Settings() {
                 <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span>Cloud Spend & Token Meter</span>
                   {spendStats.budget_exceeded && (
-                    <span style={{ fontSize: 10, background: 'rgba(239,68,68,0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>
+                    <span style={{ fontSize: 10, background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontWeight: 700 }}>
                       BUDGET EXCEEDED — LOCAL FALLBACK ACTIVE
                     </span>
                   )}
@@ -1040,12 +1187,12 @@ export default function Settings() {
                       <span>30-Day LLM Spend: ${spendStats.monthly_cost_usd?.toFixed(4)} USD</span>
                       <span>Cap: ${spendStats.budget_cap_usd?.toFixed(2)} USD</span>
                     </div>
-                    <div style={{ width: '100%', height: 8, background: 'rgba(0,0,0,0.4)', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ width: '100%', height: 8, background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
                       <div
                         style={{
                           height: '100%',
                           width: `${Math.min(100, ((spendStats.monthly_cost_usd || 0) / (spendStats.budget_cap_usd || 1)) * 100)}%`,
-                          background: spendStats.budget_exceeded ? '#ef4444' : 'var(--accent)',
+                          background: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)',
                           transition: 'width 0.3s ease'
                         }}
                       />
@@ -1060,12 +1207,12 @@ export default function Settings() {
                       step="0.5"
                       value={newBudgetCap}
                       onChange={e => setNewBudgetCap(e.target.value)}
-                      style={{ width: 100, padding: '6px 10px', borderRadius: 6, background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontSize: 12 }}
+                      style={{ width: 100, padding: '6px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontSize: 12 }}
                     />
                     <button
                       type="button"
                       onClick={handleUpdateBudgetCap}
-                      style={{ padding: '6px 14px', borderRadius: 6, background: 'var(--accent)', border: 'none', color: '#000', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
+                      style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', border: 'none', color: 'var(--bg-void)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
                     >
                       Update Cap
                     </button>
@@ -1091,8 +1238,8 @@ export default function Settings() {
                       }}
                       style={{
                         padding: '6px 14px', borderRadius: 16, border: 'none',
-                        background: spendStats.budget_enabled !== false ? '#22c55e' : 'rgba(255,255,255,0.1)',
-                        color: spendStats.budget_enabled !== false ? '#000' : 'var(--text-dim)',
+                        background: spendStats.budget_enabled !== false ? 'var(--success)' : 'var(--bg-surface)',
+                        color: spendStats.budget_enabled !== false ? 'var(--bg-void)' : 'var(--text-dim)',
                         fontWeight: 700, fontSize: 11, cursor: 'pointer'
                       }}
                     >
@@ -1102,31 +1249,33 @@ export default function Settings() {
                 </div>
               </GlowCard>
 
-              {/* Mobile Pairing & QR Code */}
+              {/* Mobile Manual Pairing */}
               <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Mobile App Pairing & QR Link</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 10 }}>
+                <div className="section-label">Mobile App Pairing</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
                   <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                    Scan QR code from the Meridian-X Android/iOS App to instantly pair desktop endpoint and security key.
+                    Enter the desktop host, port and pairing secret from the Meridian-X mobile app, then verify.
                   </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch(`${API_BASE_URL}/api/system/pairing_qr`);
-                        if (res.ok) {
-                          const data = await res.json();
-                          alert(`Pairing Payload:\nEndpoint: ${data.endpoint}\nScan via Mobile App`);
-                        }
-                      } catch { alert('Failed generating pairing code.'); }
-                    }}
-                    style={{
-                      padding: '8px 16px', borderRadius: 8, background: 'var(--accent)', color: '#000',
-                      fontWeight: 700, fontSize: 12, border: 'none', cursor: 'pointer', alignSelf: 'flex-start'
-                    }}
-                  >
-                    Generate Mobile Pairing QR
-                  </button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Desktop Host</label>
+                      <input type="text" value={pairHost} onChange={e => setPairHost(e.target.value)} placeholder="127.0.0.1" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Port</label>
+                      <input type="text" value={pairPort} onChange={e => setPairPort(e.target.value)} placeholder="4133" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Pairing Secret</label>
+                    <input type="password" value={pairSecret} onChange={e => setPairSecret(e.target.value)} placeholder="paste pairing secret" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+                  {pairStatus && (
+                    <div style={{ fontSize: 11, color: pairStatus.isError ? 'var(--danger)' : 'var(--success)' }}>{pairStatus.text}</div>
+                  )}
+                  <HoloButton type="button" variant="primary" size="sm" onClick={handleVerifyPairing} loading={isVerifyingPair} disabled={!pairSecret.trim()}>
+                    Verify Pairing
+                  </HoloButton>
                 </div>
               </GlowCard>
 
@@ -1145,8 +1294,8 @@ export default function Settings() {
                       onClick={() => handleToggleAirgap(!airgapStatus.airgap_active)}
                       style={{
                         padding: '8px 18px', borderRadius: 20, border: 'none',
-                        background: airgapStatus.airgap_active ? '#22c55e' : 'rgba(255,255,255,0.1)',
-                        color: airgapStatus.airgap_active ? '#000' : 'var(--text-dim)',
+                        background: airgapStatus.airgap_active ? 'var(--success)' : 'var(--bg-surface)',
+                        color: airgapStatus.airgap_active ? 'var(--bg-void)' : 'var(--text-dim)',
                         fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s ease'
                       }}
                     >
@@ -1155,9 +1304,9 @@ export default function Settings() {
                   </div>
 
                   {airgapStatus.airgap_active && (
-                    <div style={{ padding: 12, borderRadius: 8, background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.3)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#4ade80' }}>PROOF BADGE: {airgapStatus.proof_badge}</span>
+                    <div style={{ padding: 12, borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--success) 8%, transparent)', border: '1px solid var(--success)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>PROOF BADGE: {airgapStatus.proof_badge}</span>
                         <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Verified: {airgapStatus.verified_at}</span>
                       </div>
                       <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
@@ -1202,7 +1351,7 @@ export default function Settings() {
                           if (res.ok) alert('Unrestricted PC Access Mode Enabled.');
                         } catch { /* noop */ }
                       }}
-                      style={{ padding: '6px 14px', borderRadius: 16, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}
+                      style={{ padding: '6px 14px', borderRadius: 16, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}
                     >
                       Bypass / Enable Level 0 Mode
                     </button>
@@ -1284,13 +1433,14 @@ export default function Settings() {
                           value={customApiKey}
                           onChange={setCustomApiKey}
                           placeholder="hf_... or leave blank for local servers"
+                          requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock}
                         />
                       </div>
                     ) : (() => {
                       const cfg = apiKeyForProvider();
                       if (!cfg) return null;
                       const [val, setter, ph] = cfg;
-                      return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} />;
+                      return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />;
                     })()}
 
                     {/* Model Execution Mode */}
@@ -1461,7 +1611,11 @@ export default function Settings() {
                   <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
                   <button
                     type="button"
-                    onClick={() => setShowVaultSecrets(v => !v)}
+                    onClick={() => {
+                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
+                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
+                      else requestUnlock();
+                    }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
                   >
                     {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -1477,7 +1631,7 @@ export default function Settings() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
                               {k.category || 'LLM Provider'}
                             </span>
                             <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
@@ -1485,7 +1639,7 @@ export default function Settings() {
                             </span>
                           </div>
                           <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
                           </div>
                         </div>
                         <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
@@ -1582,6 +1736,7 @@ export default function Settings() {
                     value={backendApiKey}
                     onChange={setBackendApiKey}
                     placeholder="Enter Meridian secret API key"
+                    requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock}
                   />
 
                   {backendStatusMsg && (
@@ -1636,10 +1791,10 @@ export default function Settings() {
               <GlowCard className="glass" style={{ padding: 16 }}>
                 <div className="section-label">Integrations & Tokens</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <PasswordInput label="Tavily API Key (Web Search)" value={tavilyKey} onChange={setTavilyKey} placeholder="tvly-..." />
-                  <PasswordInput label="Discord Bot Token" value={discordToken} onChange={setDiscordToken} placeholder="MT..." />
+                  <PasswordInput label="Tavily API Key (Web Search)" value={tavilyKey} onChange={setTavilyKey} placeholder="tvly-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
+                  <PasswordInput label="Discord Bot Token" value={discordToken} onChange={setDiscordToken} placeholder="MT..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <PasswordInput label="Telegram Bot Token" value={telegramToken} onChange={setTelegramToken} placeholder="bot..." />
+                    <PasswordInput label="Telegram Bot Token" value={telegramToken} onChange={setTelegramToken} placeholder="bot..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
                     <div>
                       <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
                       <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
@@ -1654,7 +1809,11 @@ export default function Settings() {
                   <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Secret Vault</div>
                   <button
                     type="button"
-                    onClick={() => setShowVaultSecrets(v => !v)}
+                    onClick={() => {
+                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
+                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
+                      else requestUnlock();
+                    }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
                   >
                     {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -1670,7 +1829,7 @@ export default function Settings() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
                               {k.category || 'LLM Provider'}
                             </span>
                             <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
@@ -1678,7 +1837,7 @@ export default function Settings() {
                             </span>
                           </div>
                           <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
                           </div>
                         </div>
                         <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
@@ -1750,7 +1909,7 @@ export default function Settings() {
                       <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Email Address</label>
                       <input type="email" value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)} placeholder="your_email@gmail.com" className="input-base" />
                     </div>
-                    <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" />
+                    <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
                     <div>
@@ -1852,7 +2011,7 @@ export default function Settings() {
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                               <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
-                              <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'rgba(0, 217, 126, 0.15)' : 'rgba(96, 165, 250, 0.15)', color: s.installed ? '#00D97E' : '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                              <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--accent-muted)', color: s.installed ? 'var(--success)' : 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
                                 {s.installed ? 'Installed' : s.category}
                               </span>
                             </div>
@@ -1912,7 +2071,7 @@ export default function Settings() {
                   <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Full-Duplex Voice Engine</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: duplexActive ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: duplexActive ? 'var(--success)' : 'var(--text-dim)' }}>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: duplexActive ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--bg-surface)', color: duplexActive ? 'var(--success)' : 'var(--text-dim)' }}>
                         {duplexActive ? 'ACTIVE (50ms VAD)' : 'IDLE'}
                       </span>
                     </div>
@@ -1933,7 +2092,7 @@ export default function Settings() {
                   <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Continuous Listening Window</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: continuousActive ? 'rgba(96, 165, 250, 0.15)' : 'rgba(255,255,255,0.06)', color: continuousActive ? '#60A5FA' : 'var(--text-dim)' }}>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: continuousActive ? 'var(--accent-muted)' : 'var(--bg-surface)', color: continuousActive ? 'var(--accent)' : 'var(--text-dim)' }}>
                         {continuousActive ? `LISTENING (${continuousRemaining}s)` : 'OFF'}
                       </span>
                     </div>
@@ -1954,7 +2113,7 @@ export default function Settings() {
                   <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>Voice Biometrics & Identity</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: biometricsCount > 0 ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: biometricsCount > 0 ? 'var(--success)' : 'var(--text-dim)' }}>
+                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: biometricsCount > 0 ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--bg-surface)', color: biometricsCount > 0 ? 'var(--success)' : 'var(--text-dim)' }}>
                         {biometricsCount > 0 ? `${biometricsCount} ENROLLED` : 'NO VOICEPRINTS'}
                       </span>
                     </div>
@@ -2033,7 +2192,7 @@ export default function Settings() {
                       </button>
                     </div>
                     {scannedOnnxModels.length > 0 && (
-                      <div style={{ marginTop: 8, background: 'rgba(0,0,0,0.3)', borderRadius: 6, padding: 8, border: '1px solid rgba(255,255,255,0.08)' }}>
+                      <div style={{ marginTop: 8, background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', padding: 8, border: '1px solid var(--border-subtle)' }}>
                         <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, fontFamily: 'JetBrains Mono' }}>DETECTED ONNX MODELS:</div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {scannedOnnxModels.map((m, idx) => (
@@ -2044,9 +2203,9 @@ export default function Settings() {
                               style={{
                                 fontSize: 11,
                                 fontFamily: "'JetBrains Mono', monospace",
-                                background: wakewordModel === m.path || wakewordModel === m.name ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255,255,255,0.05)',
-                                border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent-primary, #60A5FA)' : '1px solid rgba(255,255,255,0.1)',
-                                color: 'var(--text-main, #E2E8F0)',
+                                background: wakewordModel === m.path || wakewordModel === m.name ? 'var(--accent-muted)' : 'var(--bg-surface)',
+                                border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
+                                color: 'var(--text-main)',
                                 borderRadius: 4,
                                 padding: '4px 8px',
                                 cursor: 'pointer'
@@ -2083,8 +2242,8 @@ export default function Settings() {
               <GlowCard className="glass" style={{ padding: 16 }}>
                 <div className="section-label">Cloud Voice & Speech Provider API Keys</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." />
-                  <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." />
+                  <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
+                  <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
                 </div>
               </GlowCard>
 
@@ -2094,7 +2253,11 @@ export default function Settings() {
                   <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
                   <button
                     type="button"
-                    onClick={() => setShowVaultSecrets(v => !v)}
+                    onClick={() => {
+                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
+                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
+                      else requestUnlock();
+                    }}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
                   >
                     {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
@@ -2110,7 +2273,7 @@ export default function Settings() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(96, 165, 250, 0.15)', color: '#60A5FA', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
+                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
                               {k.category || 'Audio & Voice'}
                             </span>
                             <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
@@ -2118,7 +2281,7 @@ export default function Settings() {
                             </span>
                           </div>
                           <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {k.api_key} {k.base_url && `· Base: ${k.base_url}`}
+                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
                           </div>
                         </div>
                         <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
@@ -2215,7 +2378,7 @@ export default function Settings() {
                   <div style={{ background: updateInfo.update_type === 'major' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', border: updateInfo.update_type === 'major' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: updateInfo.update_type === 'major' ? '#F87171' : '#34D399', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>✨ {updateInfo.update_type === 'major' ? 'Major Version Upgrade Available!' : updateInfo.auto_downloaded ? 'Patch Update Ready to Apply!' : 'Minor Update Ready!'}</span>
-                      <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
+                      <span style={{ fontSize: 9, background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-main)', marginTop: 6, lineHeight: 1.4 }}>
                       {updateInfo.update_type === 'major'
@@ -2398,7 +2561,7 @@ export default function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div className="section-label" style={{ margin: 0 }}>Design Styles & Themes</div>
                   <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--accent-muted)', padding: '2px 8px', borderRadius: 4 }}>
-                    11 STYLES AVAILABLE
+                    15 STYLES AVAILABLE
                   </span>
                 </div>
 
@@ -2423,7 +2586,7 @@ export default function Settings() {
                         transition: 'all 0.15s ease',
                       }}
                     >
-                      {tab === 'all' ? 'All (11)' : tab === 'dark' ? '🌙 Dark (7)' : '☀️ Light (4)'}
+                      {tab === 'all' ? 'All (15)' : tab === 'dark' ? '🌙 Dark (11)' : '☀️ Light (4)'}
                     </button>
                   ))}
                 </div>
@@ -2456,7 +2619,7 @@ export default function Settings() {
                         )}
 
                         {/* Color Swatch Stack */}
-                        <div style={{ display: 'flex', gap: 3, flexShrink: 0, padding: 3, background: t.swatches[0], borderRadius: 6, border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', gap: 3, flexShrink: 0, padding: 3, background: t.swatches[0], borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
                           <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[0] }} />
                           <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[1] }} />
                           <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[2] }} />
@@ -2482,8 +2645,8 @@ export default function Settings() {
                               fontFamily: 'JetBrains Mono',
                               padding: '1px 5px',
                               borderRadius: 3,
-                              background: t.mode === 'Light' ? 'rgba(255, 222, 89, 0.2)' : 'rgba(255,255,255,0.06)',
-                              color: t.mode === 'Light' ? '#FFDE59' : 'var(--text-dim)',
+                              background: 'var(--accent-muted)',
+                              color: 'var(--accent)',
                               marginLeft: 'auto',
                             }}>
                               {t.mode}
@@ -2506,7 +2669,7 @@ export default function Settings() {
                             justifyContent: 'center',
                             flexShrink: 0,
                           }}>
-                            <Check size={12} color="#000" strokeWidth={3} />
+                            <Check size={12} color="var(--bg-void)" strokeWidth={3} />
                           </div>
                         )}
                       </div>
@@ -2735,32 +2898,35 @@ export default function Settings() {
                 </div>
               </GlowCard>
 
-              {/* Mobile QR Pairing */}
+              {/* Mobile Manual Pairing */}
               <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">📱 Desktop-to-Mobile App QR Pairing</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="section-label">📱 Desktop-to-Mobile App Pairing</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                    Pair Meridian Mobile app (`meridian_mobile`) to sync backend control, voice triggers, and agent status.
+                    Pair Meridian Mobile companion app to sync backend control, voice triggers, and agent status. Enter details manually and verify.
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleGeneratePairingQr}>
-                      Generate Pairing QR Code
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8 }}>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Desktop Host</label>
+                      <input type="text" value={pairHost} onChange={e => setPairHost(e.target.value)} placeholder="127.0.0.1" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Port</label>
+                      <input type="text" value={pairPort} onChange={e => setPairPort(e.target.value)} placeholder="4133" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Pairing Secret</label>
+                    <input type="password" value={pairSecret} onChange={e => setPairSecret(e.target.value)} placeholder="paste pairing secret" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
+                  </div>
+                  {pairStatus && (
+                    <div style={{ fontSize: 11, color: pairStatus.isError ? 'var(--danger)' : 'var(--success)' }}>{pairStatus.text}</div>
+                  )}
+                  <div>
+                    <HoloButton type="button" variant="primary" size="sm" onClick={handleVerifyPairing} loading={isVerifyingPair} disabled={!pairSecret.trim()}>
+                      Verify Pairing
                     </HoloButton>
                   </div>
-                  {pairingQrData && (
-                    <div style={{ padding: 12, background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6, fontFamily: 'JetBrains Mono', fontSize: 11 }}>
-                      <div style={{ color: 'var(--accent)', fontWeight: 600 }}>Endpoint: {pairingQrData.endpoint}</div>
-                      <div style={{ color: 'var(--text-main)', wordBreak: 'break-all' }}>Token: {pairingQrData.pairing_token || pairingQrData.token}</div>
-                      <div style={{ marginTop: 8, background: '#FFF', padding: 12, borderRadius: 8, alignSelf: 'start' }}>
-                        <img
-                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(JSON.stringify(pairingQrData))}`}
-                          alt="Mobile Pairing QR"
-                          width={150}
-                          height={150}
-                        />
-                      </div>
-                    </div>
-                  )}
                 </div>
               </GlowCard>
             </>
@@ -2913,14 +3079,14 @@ export default function Settings() {
             <div style={{ padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 8 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)' }}>Low RAM Optimizer</span>
-                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: isLowRam ? 'rgba(52, 211, 153, 0.15)' : 'rgba(255,255,255,0.06)', color: isLowRam ? 'var(--success)' : 'var(--text-dim)' }}>
+                <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: isLowRam ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--bg-surface)', color: isLowRam ? 'var(--success)' : 'var(--text-dim)' }}>
                   {isLowRam ? 'ACTIVE' : 'DISABLED'}
                 </span>
               </div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>
                 Disables canvas background particles to optimize memory footprint.
               </div>
-              <HoloButton type="button" variant={isLowRam ? "ghost" : "primary"} size="sm" onClick={toggleLowRamMode}>
+              <HoloButton type="button" variant={isLowRam ? "ghost" : "primary"} size="sm" onClick={() => toggleLowRamMode()}>
                 {isLowRam ? 'Disable Low-RAM Mode' : '⚡ Enable Low-RAM Mode'}
               </HoloButton>
             </div>

@@ -272,22 +272,22 @@ export const WorkflowBuilder: React.FC = () => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 text-slate-200">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 text-[var(--text-main)]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-4">
         <div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400">
+          <h1 className="text-2xl font-bold text-[var(--text-bright)]" style={{ fontFamily: 'var(--font-heading)' }}>
             Meridian-X Workflow Automation Engine
           </h1>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-[var(--text-dim)] mt-1">
             Visual DAG pipeline runner & AI-powered workflow generator with OAuth service integration.
           </p>
         </div>
       </div>
 
       {/* OAuth Connected Services Toolbar */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">OAuth Services Sign-In & Status</h2>
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-[var(--text-dim)]">OAuth Services Sign-In & Status</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {[
             { id: 'google', name: 'Google Workspace', icon: '🌐' },
@@ -297,25 +297,25 @@ export const WorkflowBuilder: React.FC = () => {
           ].map(provider => {
             const isConnected = oauthConnections[provider.id]?.connected;
             return (
-              <div key={provider.id} className="bg-slate-950/60 border border-slate-800 p-3 rounded-lg flex items-center justify-between">
+              <div key={provider.id} className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] p-3 rounded-lg flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-base">{provider.icon}</span>
                   <div>
-                    <div className="text-xs font-bold text-slate-200">{provider.name}</div>
-                    <div className="text-[10px] text-slate-400">{isConnected ? '✓ Connected' : 'Not Connected'}</div>
+                    <div className="text-xs font-bold text-[var(--text-main)]">{provider.name}</div>
+                    <div className="text-[10px] text-[var(--text-dim)]">{isConnected ? '✓ Connected' : 'Not Connected'}</div>
                   </div>
                 </div>
                 {isConnected ? (
                   <button
                     onClick={() => handleOAuthDisconnect(provider.id)}
-                    className="px-2.5 py-1 text-xs font-semibold rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 border border-rose-500/30 transition"
+                    className="px-2.5 py-1 text-xs font-semibold rounded bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_25%,transparent)] text-[var(--danger)] border border-[var(--danger)] transition"
                   >
                     Disconnect
                   </button>
                 ) : (
                   <button
                     onClick={() => handleOpenOAuthModal(provider)}
-                    className="px-2.5 py-1 text-xs font-semibold rounded bg-cyan-600 hover:bg-cyan-500 text-white transition"
+                    className="px-2.5 py-1 text-xs font-semibold rounded bg-[var(--accent)] text-[var(--bg-void)] transition"
                   >
                     Sign In
                   </button>
@@ -328,16 +328,16 @@ export const WorkflowBuilder: React.FC = () => {
 
       {/* Interactive OAuth Sign In Modal */}
       {activeModalProvider && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+        <div className="fixed inset-0 z-50 bg-[var(--bg-void)] backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <h3 className="text-lg font-bold text-[var(--text-bright)] flex items-center gap-2">
                 <span>{activeModalProvider.icon}</span>
                 <span>Sign In to {activeModalProvider.name}</span>
               </h3>
               <button
                 onClick={() => setActiveModalProvider(null)}
-                className="text-slate-400 hover:text-white text-lg font-bold"
+                className="text-[var(--text-dim)] hover:text-[var(--text-bright)] text-lg font-bold"
               >
                 ✕
               </button>
@@ -346,18 +346,18 @@ export const WorkflowBuilder: React.FC = () => {
             <div className="space-y-3">
               {/* Special Gmail App Password Option for Google */}
               {activeModalProvider.id === 'google' ? (
-                <div className="bg-emerald-950/40 border border-emerald-500/40 p-3.5 rounded-xl space-y-2">
+                <div className="bg-[var(--bg-surface)] border border-[var(--success)] p-3.5 rounded-xl space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-emerald-300 uppercase block">⭐ Option 1: Gmail App Password (Zero Verification!)</label>
+                    <label className="text-xs font-bold text-[var(--success)] uppercase block">⭐ Option 1: Gmail App Password (Zero Verification!)</label>
                     <button
                       onClick={() => openExternalUrl('https://myaccount.google.com/apppasswords')}
-                      className="text-[10px] font-semibold text-emerald-300 hover:text-white bg-emerald-900/80 hover:bg-emerald-800 px-2 py-0.5 rounded border border-emerald-500/50 transition cursor-pointer"
+                      className="text-[10px] font-semibold text-[var(--success)] hover:text-[var(--text-bright)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] px-2 py-0.5 rounded border border-[var(--success)] transition cursor-pointer"
                     >
                       Generate App Password ↗
                     </button>
                   </div>
-                  <div className="text-[11px] text-slate-300 space-y-1 bg-black/30 p-2 rounded border border-emerald-900/50">
-                    <div className="font-semibold text-emerald-400">💡 3-Step Setup Guide:</div>
+                  <div className="text-[11px] text-[var(--text-main)] space-y-1 bg-[var(--bg-void)] p-2 rounded border border-[var(--border-subtle)]">
+                    <div className="font-semibold text-[var(--success)]">💡 3-Step Setup Guide:</div>
                     <div>1. Click <b>Generate App Password ↗</b> button above.</div>
                     <div>2. Type <i>Meridian-X</i> as app name and click <b>Create</b>.</div>
                     <div>3. Copy the 16-character code and paste below!</div>
@@ -367,19 +367,19 @@ export const WorkflowBuilder: React.FC = () => {
                     placeholder="your_email@gmail.com"
                     value={gmailEmailInput}
                     onChange={(e) => setGmailEmailInput(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded text-xs text-[var(--text-bright)] focus:outline-none focus:border-[var(--success)]"
                   />
                   <input
                     type="password"
                     placeholder="16-character App Password (e.g. abcd efgh ijkl mnop)"
                     value={gmailAppPassInput}
                     onChange={(e) => setGmailAppPassInput(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+                    className="w-full px-3 py-1.5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded text-xs text-[var(--text-bright)] focus:outline-none focus:border-[var(--success)]"
                   />
                   <button
                     onClick={handleSaveGmailAppPassword}
                     disabled={!gmailEmailInput.trim() || !gmailAppPassInput.trim() || isConnecting}
-                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
+                    className="w-full py-2 bg-[var(--success)] text-[var(--bg-void)] font-medium text-xs rounded-lg transition disabled:opacity-50"
                   >
                     {isConnecting ? 'Saving...' : 'Connect Gmail via App Password'}
                   </button>
@@ -387,15 +387,15 @@ export const WorkflowBuilder: React.FC = () => {
               ) : null}
 
               {/* Personal Access Token / API Key Option */}
-              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
+              <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] p-3.5 rounded-xl space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-teal-400 uppercase block">
+                  <label className="text-xs font-bold text-[var(--accent)] uppercase block">
                     {activeModalProvider.id === 'google' ? 'Option 2: Personal Access Token / API Key' : 'Option 1: Personal Access Token / API Key'}
                   </label>
                   {activeModalProvider.id === 'github' && (
                     <button
                       onClick={() => openExternalUrl('https://github.com/settings/tokens')}
-                      className="text-[10px] font-semibold text-teal-300 hover:text-white bg-teal-900/80 hover:bg-teal-800 px-2 py-0.5 rounded border border-teal-500/50 transition cursor-pointer"
+                      className="text-[10px] font-semibold text-[var(--accent)] hover:text-[var(--text-bright)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] px-2 py-0.5 rounded border border-[var(--accent)] transition cursor-pointer"
                     >
                       Generate GitHub Token ↗
                     </button>
@@ -403,7 +403,7 @@ export const WorkflowBuilder: React.FC = () => {
                   {activeModalProvider.id === 'cloudflare' && (
                     <button
                       onClick={() => openExternalUrl('https://dash.cloudflare.com/profile/api-tokens')}
-                      className="text-[10px] font-semibold text-teal-300 hover:text-white bg-teal-900/80 hover:bg-teal-800 px-2 py-0.5 rounded border border-teal-500/50 transition cursor-pointer"
+                      className="text-[10px] font-semibold text-[var(--accent)] hover:text-[var(--text-bright)] bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] px-2 py-0.5 rounded border border-[var(--accent)] transition cursor-pointer"
                     >
                       Generate Cloudflare Token ↗
                     </button>
@@ -411,8 +411,8 @@ export const WorkflowBuilder: React.FC = () => {
                 </div>
 
                 {activeModalProvider.id === 'github' && (
-                  <div className="text-[11px] text-slate-300 space-y-1 bg-black/30 p-2 rounded border border-slate-800">
-                    <div className="font-semibold text-teal-400">💡 2-Step GitHub Setup Guide:</div>
+                  <div className="text-[11px] text-[var(--text-main)] space-y-1 bg-[var(--bg-void)] p-2 rounded border border-[var(--border-subtle)]">
+                    <div className="font-semibold text-[var(--accent)]">💡 2-Step GitHub Setup Guide:</div>
                     <div>1. Click <b>Generate GitHub Token ↗</b> above (select <i>repo</i> & <i>workflow</i>).</div>
                     <div>2. Paste your token (starts with <code>ghp_</code>) below!</div>
                   </div>
@@ -423,54 +423,54 @@ export const WorkflowBuilder: React.FC = () => {
                   placeholder={`Paste ${activeModalProvider.name} Token / Key...`}
                   value={manualTokenInput}
                   onChange={(e) => setManualTokenInput(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-100 focus:outline-none focus:border-teal-500"
+                  className="w-full px-3 py-2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg text-xs text-[var(--text-bright)] focus:outline-none focus:border-[var(--accent)]"
                 />
                 <button
                   onClick={handleSaveManualToken}
                   disabled={!manualTokenInput.trim() || isConnecting}
-                  className="w-full py-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium text-xs rounded-lg transition"
+                  className="w-full py-2 bg-[var(--accent)] hover:bg-[var(--accent-dim)] disabled:opacity-50 text-[var(--bg-void)] font-medium text-xs rounded-lg transition"
                 >
                   {isConnecting ? 'Saving...' : 'Connect with Token'}
                 </button>
               </div>
 
               {/* Standard OAuth Browser Popup Option */}
-              <div className="bg-slate-950 border border-slate-800 p-3.5 rounded-xl space-y-2">
-                <label className="text-xs font-bold text-cyan-400 uppercase block">Option A: Browser OAuth 2.0 Popup</label>
-                <p className="text-[11px] text-slate-400">Launches floating authorization popup window for {activeModalProvider.name}.</p>
+              <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] p-3.5 rounded-xl space-y-2">
+                <label className="text-xs font-bold text-[var(--accent)] uppercase block">Option A: Browser OAuth 2.0 Popup</label>
+                <p className="text-[11px] text-[var(--text-dim)]">Launches floating authorization popup window for {activeModalProvider.name}.</p>
                 <button
                   onClick={handleOpenBrowserLogin}
                   disabled={isConnecting}
-                  className="w-full py-2 bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs rounded-lg transition"
+                  className="w-full py-2 bg-[var(--accent)] text-[var(--bg-void)] font-medium text-xs rounded-lg transition"
                 >
                   🚀 Open Browser Login Popup
                 </button>
               </div>
 
               {/* Developer Client ID Setup Accordion */}
-              <div className="border-t border-slate-800 pt-2">
+              <div className="border-t border-[var(--border-subtle)] pt-2">
                 <button
                   onClick={() => setShowDevConfig(!showDevConfig)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
+                  className="text-xs text-[var(--accent)] hover:text-[var(--accent)] font-semibold flex items-center gap-1"
                 >
                   <span>{showDevConfig ? '▼' : '▶'}</span>
                   <span>⚡ Developer Settings: Configure Client ID</span>
                 </button>
 
                 {showDevConfig && (
-                  <div className="mt-2 p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
-                    <label className="text-[10px] uppercase font-bold text-indigo-300 block">OAuth Client ID</label>
+                  <div className="mt-2 p-3 bg-[var(--bg-surface)] border border-[var(--border-active)] rounded-xl space-y-2">
+                    <label className="text-[10px] uppercase font-bold text-[var(--accent)] block">OAuth Client ID</label>
                     <input
                       type="text"
                       placeholder={`e.g. 123456.apps.googleusercontent.com`}
                       value={clientIdInput}
                       onChange={(e) => setClientIdInput(e.target.value)}
-                      className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 rounded text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                      className="w-full px-3 py-1.5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded text-xs text-[var(--text-bright)] focus:outline-none focus:border-[var(--accent)]"
                     />
                     <button
                       onClick={handleSaveClientId}
                       disabled={!clientIdInput.trim()}
-                      className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium text-xs rounded transition"
+                      className="w-full py-1.5 bg-[var(--accent)] hover:bg-[var(--accent-dim)] disabled:opacity-50 text-[var(--bg-void)] font-medium text-xs rounded transition"
                     >
                       Save Client ID to Vault
                     </button>
@@ -482,7 +482,7 @@ export const WorkflowBuilder: React.FC = () => {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setActiveModalProvider(null)}
-                className="px-4 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+                className="px-4 py-1.5 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
               >
                 Close
               </button>
@@ -492,9 +492,9 @@ export const WorkflowBuilder: React.FC = () => {
       )}
 
       {/* AI Prompt Natural Language Workflow Generator Bar */}
-      <div className="bg-gradient-to-r from-indigo-950/40 via-slate-900 to-teal-950/40 border border-indigo-500/30 rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-center">
+      <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-4 flex flex-col sm:flex-row gap-3 items-center">
         <div className="flex-1 w-full">
-          <label className="text-xs font-bold text-indigo-300 uppercase tracking-wider block mb-1">
+          <label className="text-xs font-bold text-[var(--accent)] uppercase tracking-wider block mb-1">
             ✨ Ask Chatbot to Build Workflow Automatically
           </label>
           <input
@@ -503,13 +503,13 @@ export const WorkflowBuilder: React.FC = () => {
             value={aiPrompt}
             onChange={(e) => setAiPrompt(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleCreateAiWorkflow()}
-            className="w-full px-3.5 py-2 bg-slate-950 border border-slate-700 rounded-lg text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+            className="w-full px-3.5 py-2 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-bright)] focus:outline-none focus:border-[var(--accent)]"
           />
         </div>
         <button
           onClick={handleCreateAiWorkflow}
           disabled={isGenerating}
-          className="w-full sm:w-auto px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm rounded-lg transition flex items-center justify-center gap-2"
+          className="w-full sm:w-auto px-5 py-2 bg-[var(--accent)] hover:bg-[var(--accent-dim)] text-[var(--bg-void)] font-medium text-sm rounded-lg transition flex items-center justify-center gap-2"
         >
           {isGenerating ? 'Generating...' : '✨ Generate Workflow'}
         </button>
@@ -518,10 +518,10 @@ export const WorkflowBuilder: React.FC = () => {
       {/* Workflow Builder Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left List */}
-        <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
-          <h2 className="text-sm font-bold text-slate-300 border-b border-slate-800 pb-2">Active Workflows</h2>
+        <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+          <h2 className="text-sm font-bold text-[var(--text-main)] border-b border-[var(--border-subtle)] pb-2">Active Workflows</h2>
           {workflows.length === 0 ? (
-            <p className="text-xs text-slate-500 py-6 text-center">No workflows created. Use AI prompt above to create your first flow!</p>
+            <p className="text-xs text-[var(--text-ghost)] py-6 text-center">No workflows created. Use AI prompt above to create your first flow!</p>
           ) : (
             workflows.map((wf) => (
               <div
@@ -532,13 +532,13 @@ export const WorkflowBuilder: React.FC = () => {
                 }}
                 className={`p-3 rounded-lg border cursor-pointer transition flex items-center justify-between ${
                   selectedWorkflow?.id === wf.id
-                    ? 'border-cyan-500 bg-cyan-950/30'
-                    : 'border-slate-800 bg-slate-950/40 hover:border-slate-700'
+                    ? 'border-[var(--accent)] bg-[var(--accent-muted)]'
+                    : 'border-[var(--border-subtle)] bg-[var(--bg-panel)] hover:border-[var(--border-subtle)]'
                 }`}
               >
                 <div>
-                  <h3 className="font-semibold text-sm text-slate-100">{wf.name}</h3>
-                  <span className="text-xs text-slate-400">{wf.nodes.length} Nodes • Runs: {wf.execution_count || 0}</span>
+                  <h3 className="font-semibold text-sm text-[var(--text-bright)]">{wf.name}</h3>
+                  <span className="text-xs text-[var(--text-dim)]">{wf.nodes.length} Nodes • Runs: {wf.execution_count || 0}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -547,7 +547,7 @@ export const WorkflowBuilder: React.FC = () => {
                       handleExecuteWorkflow(wf.id);
                     }}
                     disabled={isExecuting}
-                    className="p-1.5 bg-teal-600/30 hover:bg-teal-600/50 text-teal-300 rounded text-xs font-semibold"
+                    className="p-1.5 bg-[var(--accent-muted)] hover:bg-[var(--accent-muted)] text-[var(--accent)] rounded text-xs font-semibold"
                   >
                     ▶ Run
                   </button>
@@ -556,7 +556,7 @@ export const WorkflowBuilder: React.FC = () => {
                       e.stopPropagation();
                       handleDeleteWorkflow(wf.id);
                     }}
-                    className="p-1.5 bg-rose-600/20 hover:bg-rose-600/40 text-rose-400 rounded text-xs"
+                    className="p-1.5 bg-[color-mix(in_srgb,var(--danger)_15%,transparent)] hover:bg-[color-mix(in_srgb,var(--danger)_25%,transparent)] text-[var(--danger)] rounded text-xs"
                   >
                     🗑
                   </button>
@@ -569,24 +569,24 @@ export const WorkflowBuilder: React.FC = () => {
         {/* Center Node Visual Graph & Editor */}
         <div className="lg:col-span-2 space-y-4">
           {selectedWorkflow ? (
-            <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-5">
+              <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+                <h2 className="text-lg font-bold text-[var(--text-bright)] flex items-center gap-2">
                   <span>{selectedWorkflow.name}</span>
-                  <span className="text-xs px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-full font-mono">
+                  <span className="text-xs px-2 py-0.5 bg-[var(--accent-muted)] text-[var(--accent)] rounded-full font-mono">
                     {selectedWorkflow.id}
                   </span>
                 </h2>
                 <div className="flex gap-2">
                   <button
                     onClick={() => handleAddActionNode('action_cloudflare', 'Check Cloudflare')}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-cyan-300 rounded border border-slate-700"
+                    className="px-2.5 py-1 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-xs font-semibold text-[var(--accent)] rounded border border-[var(--border-subtle)]"
                   >
                     + Cloudflare Node
                   </button>
                   <button
                     onClick={() => handleAddActionNode('action_gmail', 'Send Gmail')}
-                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-teal-300 rounded border border-slate-700"
+                    className="px-2.5 py-1 bg-[var(--bg-surface)] hover:bg-[var(--bg-hover)] text-xs font-semibold text-[var(--accent)] rounded border border-[var(--border-subtle)]"
                   >
                     + Gmail Node
                   </button>
@@ -595,24 +595,24 @@ export const WorkflowBuilder: React.FC = () => {
 
               {/* Node Visual Flow Diagram */}
               <div className="space-y-2">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Interactive Node Flow (Click Node to Edit Parameters)</span>
-                <div className="flex flex-wrap items-center gap-3 bg-slate-950 p-5 rounded-xl border border-slate-800">
+                <span className="text-xs font-bold text-[var(--text-dim)] uppercase tracking-wider">Interactive Node Flow (Click Node to Edit Parameters)</span>
+                <div className="flex flex-wrap items-center gap-3 bg-[var(--bg-panel)] p-5 rounded-xl border border-[var(--border-subtle)]">
                   {selectedWorkflow.nodes.map((node, idx) => (
                     <React.Fragment key={node.id}>
                       <div
                         onClick={() => setSelectedNode(node)}
                         className={`px-4 py-3 rounded-xl border cursor-pointer transition flex flex-col gap-1 min-w-[150px] ${
                           selectedNode?.id === node.id
-                            ? 'border-cyan-400 bg-cyan-950/60 shadow-[0_0_15px_rgba(0,240,255,0.3)]'
-                            : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+                            ? 'border-[var(--accent)] bg-[var(--accent-muted)] shadow-[0_0_15px_var(--accent-muted)]'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-surface)] hover:border-[var(--border-active)]'
                         }`}
                       >
-                        <span className="text-[10px] font-mono text-cyan-400 uppercase tracking-wider">{node.type}</span>
-                        <span className="text-sm font-bold text-slate-100">{node.name}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">ID: {node.id}</span>
+                        <span className="text-[10px] font-mono text-[var(--accent)] uppercase tracking-wider">{node.type}</span>
+                        <span className="text-sm font-bold text-[var(--text-bright)]">{node.name}</span>
+                        <span className="text-[10px] text-[var(--text-dim)] font-mono">ID: {node.id}</span>
                       </div>
                       {idx < selectedWorkflow.nodes.length - 1 && (
-                        <span className="text-slate-500 font-bold text-xl">➔</span>
+                        <span className="text-[var(--text-ghost)] font-bold text-xl">➔</span>
                       )}
                     </React.Fragment>
                   ))}
@@ -621,19 +621,19 @@ export const WorkflowBuilder: React.FC = () => {
 
               {/* Selected Node Parameter Inspector */}
               {selectedNode && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3">
-                  <h3 className="text-xs font-bold text-cyan-300 uppercase tracking-wider border-b border-slate-800 pb-2">
+                <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-4 space-y-3">
+                  <h3 className="text-xs font-bold text-[var(--accent)] uppercase tracking-wider border-b border-[var(--border-subtle)] pb-2">
                     Node Inspector Parameters — {selectedNode.name} ({selectedNode.id})
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {Object.entries(selectedNode.parameters).map(([paramKey, paramVal]) => (
                       <div key={paramKey}>
-                        <label className="text-[10px] font-mono uppercase text-slate-400 block mb-1">{paramKey}</label>
+                        <label className="text-[10px] font-mono uppercase text-[var(--text-dim)] block mb-1">{paramKey}</label>
                         <input
                           type="text"
                           value={String(paramVal)}
                           onChange={(e) => handleUpdateNodeParameter(paramKey, e.target.value)}
-                          className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+                          className="w-full px-3 py-1.5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)]"
                         />
                       </div>
                     ))}
@@ -643,17 +643,17 @@ export const WorkflowBuilder: React.FC = () => {
 
               {/* Execution Logs Output */}
               {executionLogs.length > 0 && (
-                <div className="space-y-2 border-t border-slate-800 pt-4">
-                  <h3 className="text-xs font-bold text-teal-400 uppercase tracking-wider">Execution Pipeline Output Logs</h3>
-                  <div className="bg-black/80 p-4 rounded-xl font-mono text-xs text-slate-300 space-y-3 max-h-64 overflow-y-auto border border-slate-800">
+                <div className="space-y-2 border-t border-[var(--border-subtle)] pt-4">
+                  <h3 className="text-xs font-bold text-[var(--accent)] uppercase tracking-wider">Execution Pipeline Output Logs</h3>
+                  <div className="bg-[var(--bg-void)] p-4 rounded-xl font-mono text-xs text-[var(--text-main)] space-y-3 max-h-64 overflow-y-auto border border-[var(--border-subtle)]">
                     {executionLogs.map((log, i) => (
-                      <div key={i} className="border-b border-slate-800/80 pb-2">
+                      <div key={i} className="border-b border-[var(--border-subtle)] pb-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-cyan-400">[{log.type}]</span>
-                          <span className="text-white font-bold">{log.name}</span>
-                          <span className="text-teal-400 font-bold uppercase text-[10px]">{log.status}</span>
+                          <span className="text-[var(--accent)]">[{log.type}]</span>
+                          <span className="text-[var(--text-bright)] font-bold">{log.name}</span>
+                          <span className="text-[var(--accent)] font-bold uppercase text-[10px]">{log.status}</span>
                         </div>
-                        <pre className="text-slate-400 mt-1.5 whitespace-pre-wrap">{JSON.stringify(log.output, null, 2)}</pre>
+                        <pre className="text-[var(--text-dim)] mt-1.5 whitespace-pre-wrap">{JSON.stringify(log.output, null, 2)}</pre>
                       </div>
                     ))}
                   </div>
@@ -661,7 +661,7 @@ export const WorkflowBuilder: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-xl p-12 text-center text-slate-500">
+            <div className="bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl p-12 text-center text-[var(--text-ghost)]">
               Select or generate a workflow to view and edit interactive node pipeline graphs.
             </div>
           )}

@@ -14,7 +14,7 @@ const typeColors: Record<LineType, string> = {
   system:    'var(--text-dim)',
   coder:     'var(--success)',
   auditor:   'var(--warning)',
-  qa:        '#60A5FA',
+  qa:        'var(--accent-2)',
   consensus: 'var(--accent)',
   error:     'var(--danger)',
   ok:        'var(--success)',

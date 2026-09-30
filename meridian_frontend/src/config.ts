@@ -8,7 +8,7 @@ export const API_PORT = typeof window !== 'undefined' && (window as any).__MERID
   ? (window as any).__MERIDIAN_API_PORT__
   : '4132';
 
-const metaEnv = (import.meta as any).env;
+const metaEnv = import.meta.env;
 
 export const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
@@ -20,6 +20,15 @@ export const getApiBaseUrl = (): string => {
   return metaEnv?.VITE_API_BASE_URL
     ? metaEnv.VITE_API_BASE_URL
     : `http://${API_HOST}:${API_PORT}`;
+};
+
+export const hashPasswordSHA256 = async (password: string): Promise<string> => {
+  if (!password) return '';
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 };
 
 export const API_BASE_URL = getApiBaseUrl();

@@ -18,9 +18,10 @@ const glowColors: Record<string, string> = {
 };
 
 export default function GlowCard({ children, glow = 'none', hover = false, className = '', onClick, style }: GlowCardProps) {
+  // NOTE: cannot append alpha hex to var(--...) — use color-mix instead.
   const glowStyle: React.CSSProperties = glow !== 'none' ? {
-    borderColor: `${glowColors[glow]}30`,
-    borderLeftColor: `${glowColors[glow]}60`,
+    borderColor: `color-mix(in srgb, ${glowColors[glow]} 35%, transparent)`,
+    borderLeftColor: `color-mix(in srgb, ${glowColors[glow]} 65%, transparent)`,
   } : {};
 
   return (

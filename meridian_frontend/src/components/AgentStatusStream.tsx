@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Radio, Cpu, Terminal, CheckCircle2, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 interface AgentEvent {
   event_id: string;
@@ -24,7 +25,7 @@ export const AgentStatusStream: React.FC = () => {
 
   const fetchSnapshot = async () => {
     try {
-      const res = await fetch('/api/agent/status');
+      const res = await fetch(`${API_BASE_URL}/api/agent/status`);
       if (res.ok) {
         const data = await res.json();
         setStatus(data.status || 'idle');
@@ -37,8 +38,7 @@ export const AgentStatusStream: React.FC = () => {
   };
 
   const connectWebSocket = () => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/agent-status`;
+    const wsUrl = API_BASE_URL.replace(/^https/, 'wss').replace(/^http/, 'ws') + '/ws/agent-status';
 
     const ws = new WebSocket(wsUrl);
 
@@ -65,33 +65,33 @@ export const AgentStatusStream: React.FC = () => {
   const getStatusBadge = () => {
     switch (status) {
       case 'thinking':
-        return { color: 'bg-purple-500/10 text-purple-400 border-purple-500/30', label: 'Thinking...' };
+        return { color: 'bg-[var(--accent-muted)] text-[var(--accent-2)] border-[var(--border-active)]', label: 'Thinking...' };
       case 'executing_tool':
-        return { color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/30', label: 'Executing Tool' };
+        return { color: 'bg-[var(--accent-muted)] text-[var(--accent)] border-[var(--border-active)]', label: 'Executing Tool' };
       case 'verifying':
-        return { color: 'bg-amber-500/10 text-amber-400 border-amber-500/30', label: 'Verifying Logic' };
+        return { color: 'bg-[color-mix(in_srgb,var(--warning)_12%,transparent)] text-[var(--warning)] border-[var(--warning)]', label: 'Verifying Logic' };
       case 'completed':
-        return { color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', label: 'Task Completed' };
+        return { color: 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)] border-[var(--success)]', label: 'Task Completed' };
       case 'error':
-        return { color: 'bg-rose-500/10 text-rose-400 border-rose-500/30', label: 'Execution Error' };
+        return { color: 'bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] text-[var(--danger)] border-[var(--danger)]', label: 'Execution Error' };
       default:
-        return { color: 'bg-slate-800 text-slate-400 border-slate-700', label: 'Idle' };
+        return { color: 'bg-[var(--bg-surface)] text-[var(--text-dim)] border-[var(--border-subtle)]', label: 'Idle' };
     }
   };
 
   const badge = getStatusBadge();
 
   return (
-    <div className="space-y-6 text-slate-100">
+    <div className="space-y-6 text-[var(--text-bright)]">
       {/* Header Badge */}
-      <div className="flex items-center justify-between p-4 bg-slate-900/80 border border-slate-800 rounded-xl backdrop-blur-md">
+      <div className="flex items-center justify-between p-4 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-            <Activity className="w-6 h-6 text-cyan-400" />
+          <div className="p-2.5 bg-[var(--accent-muted)] border border-[var(--border-active)] rounded-lg">
+            <Activity className="w-6 h-6 text-[var(--accent)]" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-100">Real-Time Agent Status & Activity Stream</h2>
-            <p className="text-xs text-slate-400">Live agent execution state telemetry, subagent events, and activity logs</p>
+            <h2 className="text-lg font-bold text-[var(--text-bright)]">Real-Time Agent Status & Activity Stream</h2>
+            <p className="text-xs text-[var(--text-dim)]">Live agent execution state telemetry, subagent events, and activity logs</p>
           </div>
         </div>
 
@@ -101,7 +101,7 @@ export const AgentStatusStream: React.FC = () => {
             {badge.label}
           </span>
           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-mono rounded-full border ${
-            connected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+            connected ? 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)] text-[var(--success)] border-[var(--success)]' : 'bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] text-[var(--danger)] border-[var(--danger)]'
           }`}>
             <Radio className="w-3 h-3" />
             {connected ? 'WS Live' : 'WS Disconnected'}
@@ -111,42 +111,42 @@ export const AgentStatusStream: React.FC = () => {
 
       {/* Task Snapshot */}
       {currentTask && (
-        <div className="p-4 bg-slate-900/60 border border-cyan-500/30 rounded-xl text-xs space-y-1">
-          <span className="text-cyan-400 font-semibold">Active Agent Task:</span>
-          <p className="text-slate-200 font-mono">{currentTask}</p>
+        <div className="p-4 bg-[var(--bg-panel)] border border-[var(--border-active)] rounded-xl text-xs space-y-1">
+          <span className="text-[var(--accent)] font-semibold">Active Agent Task:</span>
+          <p className="text-[var(--text-main)] font-mono">{currentTask}</p>
         </div>
       )}
 
       {/* Activity Event Feed */}
-      <div className="p-5 bg-slate-900/60 border border-slate-800 rounded-xl space-y-4">
-        <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-200">
-          <Terminal className="w-4 h-4 text-cyan-400" /> Activity Stream Feed
+      <div className="p-5 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl space-y-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--text-main)]">
+          <Terminal className="w-4 h-4 text-[var(--accent)]" /> Activity Stream Feed
         </h3>
 
         {events.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+          <div className="p-6 text-center text-xs text-[var(--text-ghost)] border border-dashed border-[var(--border-subtle)] rounded-xl">
             No activity events recorded yet.
           </div>
         ) : (
           <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
             {events.map((evt) => (
-              <div key={evt.event_id} className="p-3 bg-slate-950/70 border border-slate-800/80 rounded-xl space-y-1.5 text-xs">
+              <div key={evt.event_id} className="p-3 bg-[var(--bg-panel)] border border-[var(--border-subtle)] rounded-xl space-y-1.5 text-xs">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] px-2 py-0.5 bg-slate-800 text-cyan-400 rounded">
+                    <span className="font-mono text-[10px] px-2 py-0.5 bg-[var(--bg-surface)] text-[var(--accent)] rounded">
                       {evt.status}
                     </span>
                     {evt.active_tool && (
-                      <span className="font-mono text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded">
+                      <span className="font-mono text-[10px] px-2 py-0.5 bg-[var(--accent-muted)] text-[var(--accent-2)] border border-[var(--border-active)] rounded">
                         tool: {evt.active_tool}
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] font-mono text-slate-500">
+                  <span className="text-[10px] font-mono text-[var(--text-ghost)]">
                     {new Date(evt.timestamp * 1000).toLocaleTimeString()}
                   </span>
                 </div>
-                <p className="text-slate-300 font-sans">{evt.message}</p>
+                <p className="text-[var(--text-main)] font-sans">{evt.message}</p>
               </div>
             ))}
           </div>

@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { DropdownNav, MobileTabMode } from "./components/mobile/DropdownNav";
 import { VoiceOrbHUD } from "./components/mobile/VoiceOrbHUD";
 import { LiveThoughtCarousel, ThoughtStep } from "./components/mobile/LiveThoughtCarousel";
-import { QRScannerModal } from "./components/mobile/QRScannerModal";
 import { Send, Mic, Camera, Sparkles, Activity, ShieldCheck, Search, FileText, Phone, Play } from "lucide-react";
 
 interface ChatMessage {
@@ -19,7 +18,6 @@ export const MobileApp: React.FC = () => {
   const [isRemote, setIsRemote] = useState(false);
   const [pingMs, setPingMs] = useState(12);
   const [cpuPercent, setCpuPercent] = useState(18);
-  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
   const [inputText, setInputText] = useState("");
 
   // Sample thought steps for HUD stream
@@ -87,7 +85,7 @@ export const MobileApp: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#080C14] text-white font-sans overflow-hidden select-none">
+    <div className="flex flex-col h-screen w-screen bg-[var(--bg-void)] text-[var(--text-bright)] font-sans overflow-hidden select-none">
       {/* Top Header Dropdown Navigation */}
       <DropdownNav
         activeTab={activeTab}
@@ -95,7 +93,6 @@ export const MobileApp: React.FC = () => {
         isRemote={isRemote}
         pingMs={pingMs}
         cpuPercent={cpuPercent}
-        onOpenQRScanner={() => setIsQRModalOpen(true)}
       />
 
       {/* Main View Router Content */}
@@ -124,9 +121,9 @@ export const MobileApp: React.FC = () => {
                     onClick={() => {
                       setInputText(action.query);
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-cyan-400/50 text-[11px] text-slate-300 hover:text-white whitespace-nowrap shrink-0 transition-all active:scale-95 shadow-md"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:border-[var(--border-active)] text-[11px] text-[var(--text-main)] hover:text-[var(--text-bright)] whitespace-nowrap shrink-0 transition-all active:scale-95 shadow-md"
                   >
-                    <Icon className="w-3.5 h-3.5 text-cyan-400" />
+                    <Icon className="w-3.5 h-3.5 text-[var(--accent)]" />
                     <span>{action.label}</span>
                   </button>
                 );
@@ -143,13 +140,13 @@ export const MobileApp: React.FC = () => {
                   <div
                     className={`max-w-[85%] px-4 py-2.5 rounded-2xl text-xs leading-relaxed shadow-lg ${
                       msg.sender === "user"
-                        ? "bg-gradient-to-r from-cyan-600 to-purple-600 text-white rounded-br-none"
-                        : "bg-[#111827]/90 border border-white/10 text-slate-200 backdrop-blur-xl rounded-bl-none"
+                        ? "bg-[var(--accent)] text-[var(--bg-void)] rounded-br-none"
+                        : "bg-[var(--bg-panel)] border border-[var(--border-subtle)] text-[var(--text-main)] backdrop-blur-xl rounded-bl-none"
                     }`}
                   >
                     <p>{msg.text}</p>
                   </div>
-                  <span className="text-[10px] text-slate-400 px-1 mt-0.5">{msg.timestamp}</span>
+                  <span className="text-[10px] text-[var(--text-ghost)] px-1 mt-0.5">{msg.timestamp}</span>
                 </div>
               ))}
             </div>
@@ -158,14 +155,14 @@ export const MobileApp: React.FC = () => {
 
         {activeTab === "vision" && (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
-            <div className="p-4 rounded-3xl bg-purple-500/10 border border-purple-500/30 text-purple-400 animate-pulse">
+            <div className="p-4 rounded-3xl bg-[var(--accent-muted)] border border-[var(--border-active)] text-[var(--accent-2)] animate-pulse">
               <Camera className="w-12 h-12" />
             </div>
-            <h3 className="text-base font-bold text-white">Camera Vision Mode</h3>
-            <p className="text-xs text-slate-400 max-w-xs">
+            <h3 className="text-base font-bold text-[var(--text-bright)]">Camera Vision Mode</h3>
+            <p className="text-xs text-[var(--text-dim)] max-w-xs">
               Point camera at physical objects, whiteboards, or screen logs for Moondream / Gemini vision analysis.
             </p>
-            <button className="px-5 py-2.5 rounded-xl bg-purple-600 text-white text-xs font-medium shadow-lg shadow-purple-600/30 active:scale-95 transition-all">
+            <button className="px-5 py-2.5 rounded-xl bg-[var(--accent)] text-[var(--bg-void)] text-xs font-medium shadow-lg active:scale-95 transition-all">
               Capture Snapshot
             </button>
           </div>
@@ -173,23 +170,23 @@ export const MobileApp: React.FC = () => {
 
         {activeTab === "metrics" && (
           <div className="flex-1 space-y-3 py-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Desktop Hardware Telemetry</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-dim)]">Desktop Hardware Telemetry</h3>
             <div className="grid grid-cols-2 gap-2.5">
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                <span className="text-[10px] text-slate-400 block">CPU Usage</span>
-                <span className="text-base font-mono font-bold text-cyan-400">{cpuPercent}%</span>
+              <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                <span className="text-[10px] text-[var(--text-dim)] block">CPU Usage</span>
+                <span className="text-base font-mono font-bold text-[var(--accent)]">{cpuPercent}%</span>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                <span className="text-[10px] text-slate-400 block">GPU VRAM</span>
-                <span className="text-base font-mono font-bold text-purple-400">4.2 GB / 12 GB</span>
+              <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                <span className="text-[10px] text-[var(--text-dim)] block">GPU VRAM</span>
+                <span className="text-base font-mono font-bold text-[var(--accent-2)]">4.2 GB / 12 GB</span>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                <span className="text-[10px] text-slate-400 block">Active Ping</span>
-                <span className="text-base font-mono font-bold text-emerald-400">{pingMs} ms</span>
+              <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                <span className="text-[10px] text-[var(--text-dim)] block">Active Ping</span>
+                <span className="text-base font-mono font-bold text-[var(--success)]">{pingMs} ms</span>
               </div>
-              <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
-                <span className="text-[10px] text-slate-400 block">Anti-Hallucination</span>
-                <span className="text-base font-mono font-bold text-amber-400">ACTIVE</span>
+              <div className="p-3 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                <span className="text-[10px] text-[var(--text-dim)] block">Anti-Hallucination</span>
+                <span className="text-base font-mono font-bold text-[var(--warning)]">ACTIVE</span>
               </div>
             </div>
           </div>
@@ -197,25 +194,25 @@ export const MobileApp: React.FC = () => {
 
         {activeTab === "rag" && (
           <div className="flex-1 space-y-3 py-2">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Turbovec Vector RAG Search</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-dim)]">Turbovec Vector RAG Search</h3>
             <div className="relative">
               <input
                 type="text"
                 placeholder="Query project context & vector memory..."
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-cyan-500"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-[var(--accent)]"
               />
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+              <Search className="w-4 h-4 text-[var(--text-dim)] absolute right-3 top-3" />
             </div>
           </div>
         )}
       </div>
 
       {/* Bottom Voice & Text Input Bar */}
-      <div className="p-3 bg-[#0D1322]/95 border-t border-white/10 backdrop-blur-xl flex items-center gap-2">
+      <div className="p-3 bg-[var(--bg-panel)] border-t border-[var(--border-subtle)] backdrop-blur-xl flex items-center gap-2">
         <button
           onClick={() => setIsListening(!isListening)}
           className={`p-2.5 rounded-xl transition-all ${
-            isListening ? "bg-purple-600 text-white animate-pulse" : "bg-white/5 text-slate-400 hover:text-white"
+            isListening ? "bg-[var(--accent)] text-[var(--bg-void)] animate-pulse" : "bg-[var(--bg-surface)] text-[var(--text-dim)] hover:text-[var(--text-bright)]"
           }`}
         >
           <Mic className="w-4 h-4" />
@@ -227,23 +224,17 @@ export const MobileApp: React.FC = () => {
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
           placeholder="Command Meridian-X agent..."
-          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500/60"
+          className="flex-1 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl px-3.5 py-2 text-xs text-[var(--text-main)] placeholder-[var(--text-ghost)] focus:outline-none focus:border-[var(--accent)]"
         />
 
         <button
           onClick={handleSendMessage}
-          className="p-2.5 rounded-xl bg-gradient-to-tr from-cyan-500 to-purple-600 text-white active:scale-95 transition-all shadow-md shadow-cyan-500/20"
+          className="p-2.5 rounded-xl bg-[var(--accent)] text-[var(--bg-void)] active:scale-95 transition-all shadow-md"
         >
           <Send className="w-4 h-4" />
         </button>
       </div>
 
-      {/* QR Pairing Modal */}
-      <QRScannerModal
-        isOpen={isQRModalOpen}
-        onClose={() => setIsQRModalOpen(false)}
-        onPairSuccess={handlePairSuccess}
-      />
     </div>
   );
 };

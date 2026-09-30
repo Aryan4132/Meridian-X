@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Loader2 } from 'lucide-react';
 
 interface HoloButtonProps {
@@ -24,63 +25,73 @@ export default function HoloButton({
   children, variant = 'primary', size = 'md',
   loading, disabled, onClick, type = 'button', className = '', title
 }: HoloButtonProps) {
-  const base = 'inline-flex items-center gap-2 font-semibold rounded-[var(--radius-sm)] transition-all duration-150 select-none whitespace-nowrap';
+  const isInteractive = !disabled && !loading;
+  const base = 'inline-flex items-center gap-2 font-semibold rounded-[var(--radius-sm)] transition-all duration-150 select-none whitespace-nowrap cursor-pointer';
 
   if (variant === 'primary') {
     return (
-      <button
+      <motion.button
         type={type}
         onClick={onClick}
         disabled={disabled || loading}
         title={title}
+        whileHover={isInteractive ? { scale: 1.02 } : undefined}
+        whileTap={isInteractive ? { scale: 0.96 } : undefined}
         className={`btn-primary ${sizeClasses[size]} ${base} ${className}`}
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
         {children}
-      </button>
+      </motion.button>
     );
   }
 
   if (variant === 'ghost') {
     return (
-      <button
+      <motion.button
         type={type}
         onClick={onClick}
         disabled={disabled || loading}
         title={title}
+        whileHover={isInteractive ? { scale: 1.02 } : undefined}
+        whileTap={isInteractive ? { scale: 0.96 } : undefined}
         className={`btn-ghost ${size === 'sm' ? 'px-3 py-1.5 text-xs' : size === 'lg' ? 'px-6 py-3 text-base' : 'px-4 py-2 text-sm'} ${base} ${className}`}
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
         {children}
-      </button>
+      </motion.button>
     );
   }
 
   if (variant === 'danger') {
     return (
-      <button
+      <motion.button
         type={type}
         onClick={onClick}
         disabled={disabled || loading}
         title={title}
+        whileHover={isInteractive ? { scale: 1.02 } : undefined}
+        whileTap={isInteractive ? { scale: 0.96 } : undefined}
         className={`btn-danger ${sizeClasses[size]} ${base} ${className}`}
       >
         {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
         {children}
-      </button>
+      </motion.button>
     );
   }
 
   // icon variant
   return (
-    <button
+    <motion.button
       type={type}
       onClick={onClick}
       disabled={disabled || loading}
       title={title}
-      className={`p-2 rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-all duration-150 ${className}`}
+      whileHover={isInteractive ? { scale: 1.05 } : undefined}
+      whileTap={isInteractive ? { scale: 0.95 } : undefined}
+      className={`p-2 rounded-[var(--radius-sm)] text-[var(--text-dim)] hover:text-[var(--text-main)] hover:bg-[var(--bg-surface)] transition-all duration-150 cursor-pointer ${className}`}
     >
       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : children}
-    </button>
+    </motion.button>
   );
 }
+

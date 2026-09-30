@@ -17,12 +17,39 @@ import {
 } from 'lucide-react';
 import { Mascot3DCharacter } from './Mascot3DCharacter';
 import { API_BASE_URL } from './config';
+import { applyThemeToDocument, resolveTheme, DEFAULT_THEME } from './AppContext';
+import { streamingAudio } from './services/streamingAudioPlayer';
 
 
+// Mirrors the canonical index.css themes (+ legacy aliases). Unknown IDs
+// fall back to DEFAULT_THEME so the mascot never renders unstyled.
 const THEME_COLORS: Record<string, { accent: string; bg: string; border: string }> = {
-  slate: { accent: '#E8A020', bg: '#1A1F28', border: 'rgba(232, 160, 32, 0.18)' },
-  void:  { accent: '#E8A020', bg: '#1A1F28', border: 'rgba(232, 160, 32, 0.18)' },
+  tokyonight:   { accent: '#7aa2f7', bg: '#1a1b26', border: 'rgba(122, 162, 247, 0.25)' },
+  oled:         { accent: '#38bdf8', bg: '#000000', border: 'rgba(56, 189, 248, 0.30)' },
+  'vscode-dark':{ accent: '#007acc', bg: '#1e1e1e', border: 'rgba(0, 122, 204, 0.35)' },
+  cyberslate:   { accent: '#E8A020', bg: '#141920', border: 'rgba(232, 160, 32, 0.20)' },
+  artdeco:      { accent: '#D4AF37', bg: '#0A0A0A', border: 'rgba(212, 175, 55, 0.25)' },
+  neobrutalism: { accent: '#FFDE59', bg: '#FFFDF5', border: '#000000' },
+  cyberpunk:    { accent: '#FF0055', bg: '#070614', border: 'rgba(255, 0, 85, 0.30)' },
+  retro:        { accent: '#FF71CE', bg: '#0A0414', border: 'rgba(255, 113, 206, 0.25)' },
+  ink:          { accent: '#818CF8', bg: '#111113', border: 'rgba(129, 140, 248, 0.25)' },
+  nordic:       { accent: '#38BDF8', bg: '#0B0F17', border: 'rgba(56, 189, 248, 0.25)' },
+  maximalism:   { accent: '#FF007A', bg: '#0D021A', border: 'rgba(255, 0, 122, 0.30)' },
+  paper:        { accent: '#D95338', bg: '#F4F2EC', border: 'rgba(217, 83, 56, 0.25)' },
+  sakura:       { accent: '#E85D75', bg: '#FFF5F7', border: 'rgba(232, 93, 117, 0.25)' },
+  solaris:      { accent: '#2563EB', bg: '#F4F6FB', border: 'rgba(37, 99, 235, 0.25)' },
+  chronos:      { accent: '#4CC9F0', bg: '#0F0F1A', border: 'rgba(76, 201, 240, 0.20)' },
+  // Legacy aliases (old stored values) resolve to cyberslate styling.
+  slate:        { accent: '#E8A020', bg: '#141920', border: 'rgba(232, 160, 32, 0.18)' },
+  void:         { accent: '#E8A020', bg: '#141920', border: 'rgba(232, 160, 32, 0.18)' },
 };
+
+const LIGHT_THEMES = ['neobrutalism', 'paper', 'sakura', 'solaris'];
+
+export function mascotThemeMode(theme: string): 'dark' | 'light' {
+  return LIGHT_THEMES.includes(theme) ? 'light' : 'dark';
+}
+
 
 
 
@@ -49,11 +76,11 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0, theme
     <div className="relative w-8 h-8 flex-shrink-0 flex items-center justify-center">
       {/* State-specific background glow */}
       <span className={`absolute w-7 h-7 rounded-full opacity-35 blur-[8px] transition-colors duration-500 ${
-        state === 'sleeping' ? 'bg-indigo-500' :
-        state === 'tired' ? 'bg-cyan-500' :
-        state === 'disapproving' ? 'bg-rose-500' :
-        state === 'diagnostic' ? 'bg-amber-500' : 
-        state === 'typing' ? 'bg-emerald-400' : 'bg-cyan-400'
+        state === 'sleeping' ? 'bg-[var(--accent-2)]' :
+        state === 'tired' ? 'bg-[var(--accent)]' :
+        state === 'disapproving' ? 'bg-[var(--danger)]' :
+        state === 'diagnostic' ? 'bg-[var(--warning)]' :
+        state === 'typing' ? 'bg-[var(--success)]' : 'bg-[var(--accent)]'
       }`} />
 
       <div className="w-full h-full flex items-center justify-center relative z-10">
@@ -72,7 +99,7 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0, theme
           {[[9, 0], [12, 0.8], [15, 1.6]].map(([yShift, delay]) => (
             <motion.span
               key={delay}
-              className="absolute text-[8px] font-bold text-indigo-400 select-none"
+              className="absolute text-[8px] font-bold text-[var(--accent-2)] select-none"
               initial={{ x: 10, y: -2, opacity: 0, scale: 0.5 }}
               animate={{ x: [10, 14, 18], y: [-2, -yShift, -yShift - 8], opacity: [0, 1, 0], scale: [0.5, 1, 0.8] }}
               transition={{ duration: 2.8, repeat: Infinity, delay }}
@@ -181,7 +208,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const [latestThought, setLatestThought] = useState<any | null>(null);
   const [recentThoughts, setRecentThoughts] = useState<any[]>([]);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [theme, setTheme] = useState<string>('void');
+  const [theme, setTheme] = useState<string>(DEFAULT_THEME);
   const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'transcribing' | 'thinking' | 'speaking'>('idle');
   const [voiceText, setVoiceText] = useState<string>('');
   const [isAutomating, setIsAutomating] = useState(false);
@@ -192,8 +219,9 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastEventTimestampRef = useRef<number>(0);
+  const generationIdRef = useRef<number>(0);
   const appWindow = getCurrentWindow();
-  const colors = THEME_COLORS[theme] || THEME_COLORS.void;
+  const colors = THEME_COLORS[resolveTheme(theme)] || THEME_COLORS[DEFAULT_THEME];
 
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -225,11 +253,10 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     if (propMascotState) setMascotState(propMascotState);
   }, [propMascotState]);
 
-  // Sync theme to Mascot window
+  // Sync theme to Mascot window (preserves non-theme <html> classes)
   useEffect(() => {
     const applyCurrentTheme = () => {
-      const t = localStorage.getItem('theme') || 'artdeco';
-      document.documentElement.className = `theme-${t}`;
+      applyThemeToDocument(localStorage.getItem('theme'));
     };
     applyCurrentTheme();
 
@@ -239,8 +266,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     let unlistenTheme: any;
     if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
       listen('meridian-theme-changed', (event: any) => {
-        const t = event.payload?.theme || localStorage.getItem('theme') || 'artdeco';
-        document.documentElement.className = `theme-${t}`;
+        applyThemeToDocument(event.payload?.theme || localStorage.getItem('theme'));
       }).then(u => { unlistenTheme = u; });
     }
 
@@ -277,9 +303,15 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         setSpeechAmplitude(event.payload?.amplitude || 0);
       });
       const unlistenStopSpeech = listen('stop-all-speech', (event: any) => {
-        if (event.payload?.sender !== 'mascot' && audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current = null;
+        if (event.payload?.sender !== 'mascot') {
+          generationIdRef.current++;
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.src = '';
+            audioRef.current = null;
+          }
+          setVoiceState('idle');
+          setVoiceText('');
         }
       });
       const unlistenUserTyping = listen('user-typing', () => {
@@ -302,6 +334,28 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
         unlistenUserTyping.then(fn => fn());
         unlistenAutomation.then(fn => fn());
         unlistenGlobalPtt.then(fn => fn());
+      };
+    }
+  }, []);
+
+  // Listen to browser-wide DOM custom events for mascot reactivity (e.g. from SSE proactive nudges)
+  useEffect(() => {
+    const handleMascotCustomEvent = (event: any) => {
+      const targetState = event.detail?.state || event.detail?.mascot_state;
+      if (targetState) {
+        setMascotState(targetState);
+      }
+    };
+    const handleStartVoice = () => {
+      handleVoiceChatRef.current?.();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('meridian:mascot-state-changed', handleMascotCustomEvent);
+      window.addEventListener('meridian:start-voice-chat', handleStartVoice);
+      return () => {
+        window.removeEventListener('meridian:mascot-state-changed', handleMascotCustomEvent);
+        window.removeEventListener('meridian:start-voice-chat', handleStartVoice);
       };
     }
   }, []);
@@ -387,9 +441,10 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
   useEffect(() => {
     const updateTheme = () => {
       try {
-        const saved = localStorage.getItem('theme') || 'void';
-        if (THEME_COLORS[saved]) setTheme(saved);
-        document.body.className = `theme-${saved} mascot-body`;
+        const saved = resolveTheme(localStorage.getItem('theme'));
+        setTheme(saved);
+        applyThemeToDocument(saved);
+        document.body.classList.add('mascot-body');
       } catch (e) {
         console.error("Theme reading error:", e);
       }
@@ -466,15 +521,20 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
   // Voice recording & query processing
   async function handleVoiceChat() {
+    handleVoiceChatRef.current = handleVoiceChat;
+    const currentGen = ++generationIdRef.current;
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+
     if (voiceState !== 'idle') {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-        abortControllerRef.current = null;
-      }
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
       setVoiceState('idle');
       setVoiceText('');
       return;
@@ -490,14 +550,62 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    try {
-      const recRes = await fetch(`${API_BASE_URL}/api/voice/record`, { method: 'POST', signal: controller.signal });
-      if (!recRes.ok) throw new Error("Voice recording failed");
+    let unsubAudio: (() => void) | null = null;
 
-      setVoiceState('transcribing');
-      const recData = await recRes.json();
-      const transcription = recData.text || '';
-      if (!transcription.trim() || transcription.startsWith("Error:") || transcription.startsWith("Recording and transcription failed")) {
+    try {
+      let transcription = '';
+      const SpeechRecognition = typeof window !== 'undefined' && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      const useWebSpeech = SpeechRecognition && localStorage.getItem('meridian_stt_engine') !== 'backend';
+
+      if (useWebSpeech) {
+        try {
+          transcription = await new Promise<string>((resolve, reject) => {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = localStorage.getItem('meridian_stt_lang') || 'en-US';
+
+            let interimTranscript = '';
+            controller.signal.addEventListener('abort', () => {
+              try { recognition.abort(); } catch {}
+              reject(new DOMException('Aborted', 'AbortError'));
+            });
+
+            recognition.onresult = (event: any) => {
+              let textAccum = '';
+              for (let i = 0; i < event.results.length; ++i) {
+                textAccum += event.results[i][0].transcript;
+              }
+              interimTranscript = textAccum.trim();
+              if (interimTranscript) setVoiceText(interimTranscript);
+            };
+
+            recognition.onerror = (e: any) => {
+              if (e.error === 'no-speech') resolve('');
+              else reject(new Error(e.error));
+            };
+
+            recognition.onend = () => {
+              resolve(interimTranscript);
+            };
+
+            recognition.start();
+          });
+        } catch (err: any) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+
+      if (!transcription.trim()) {
+        const recRes = await fetch(`${API_BASE_URL}/api/voice/record`, { method: 'POST', signal: controller.signal });
+        if (!recRes.ok) throw new Error("Voice recording failed");
+
+        setVoiceState('transcribing');
+        const recData = await recRes.json();
+        transcription = recData.text || '';
+      }
+
+      if (!transcription.trim() || transcription.startsWith("Error:") || transcription.startsWith("Recording and transcription failed") || transcription === "No audio captured.") {
         throw new Error("No clear voice command detected.");
       }
 
@@ -542,67 +650,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
 
       const decoder = new TextDecoder("utf-8");
       let buffer = "";
-      const audioQueue: string[] = [];
-      let isPlayingAudio = false;
       let readerDone = false;
       let accumulatedText = "";
-      let textBuffer = "";
-
-      const playNextAudio = async () => {
-        if (audioQueue.length === 0) {
-          if (readerDone) {
-            setVoiceState('idle');
-            setVoiceText('');
-          }
-          return;
+      streamingAudio.resetSession();
+      unsubAudio = streamingAudio.subscribeState(s => {
+        if (s === 'speaking') {
+          setVoiceState('speaking');
+        } else if (s === 'idle' && readerDone) {
+          setVoiceState('idle');
+          setVoiceText('');
         }
-
-        isPlayingAudio = true;
-        setVoiceState('speaking');
-
-        const nextUrl = audioQueue.shift()!;
-        const audio = new Audio(nextUrl);
-        audio.volume = parseFloat(localStorage.getItem('meridian_ui_volume') || '0.5');
-        audioRef.current = audio;
-
-        audio.onended = () => {
-          URL.revokeObjectURL(nextUrl);
-          isPlayingAudio = false;
-          playNextAudio();
-        };
-        audio.onerror = () => {
-          URL.revokeObjectURL(nextUrl);
-          isPlayingAudio = false;
-          playNextAudio();
-        };
-
-        try {
-          await audio.play();
-        } catch {
-          isPlayingAudio = false;
-          playNextAudio();
-        }
-      };
-
-      const fetchTTSForSentence = async (sentence: string) => {
-        const cleanText = sentence.replace(/<[^>]*>/g, '').trim();
-        if (!cleanText) return;
-        try {
-          const voice = localStorage.getItem('meridian_tts_voice') || 'M1';
-          const ttsRes = await fetch(`${API_BASE_URL}/api/tts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: cleanText, voice, lang: 'na' }),
-            signal: controller.signal,
-          });
-          if (ttsRes.ok) {
-            const blob = await ttsRes.blob();
-            const url = URL.createObjectURL(blob);
-            audioQueue.push(url);
-            if (!isPlayingAudio) playNextAudio();
-          }
-        } catch { /* noop */ }
-      };
+      });
 
       while (true) {
         const { done, value } = await reader.read();
@@ -629,33 +687,38 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             const data = dataParts.join('\n');
 
             if (event === "text" && data) {
-              accumulatedText += data;
-              textBuffer += data;
-              setVoiceText(accumulatedText);
-
-              const sentenceMatch = textBuffer.match(/^([^.!?\n]*[.!?\n])\s*(.*)$/s);
-              if (sentenceMatch) {
-                const sentence = sentenceMatch[1].trim();
-                textBuffer = sentenceMatch[2];
-                if (sentence) fetchTTSForSentence(sentence);
+              const trimmed = data.trim();
+              if (trimmed.startsWith('{')) {
+                try {
+                  const parsed = JSON.parse(trimmed);
+                  const finalMsg = parsed.speech || parsed.chat || "";
+                  if (finalMsg) {
+                    accumulatedText = finalMsg;
+                    setVoiceText(accumulatedText);
+                    streamingAudio.dispatchImmediateText(finalMsg, currentGen);
+                    continue;
+                  }
+                } catch { /* not valid JSON, proceed normally */ }
               }
+
+              accumulatedText += data;
+              setVoiceText(accumulatedText);
+              streamingAudio.feedText(data, currentGen);
             }
           }
           boundary = buffer.indexOf('\n\n');
         }
       }
 
-      if (textBuffer.trim()) await fetchTTSForSentence(textBuffer.trim());
-      if (audioQueue.length === 0 && !isPlayingAudio) {
-        setVoiceState('idle');
-        setVoiceText('');
-      }
+      readerDone = true;
+      streamingAudio.flush(currentGen);
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       setVoiceState('idle');
       setVoiceText(`Command input error`);
       setTimeout(() => setVoiceText(''), 3000);
     } finally {
+      unsubAudio?.();
       abortControllerRef.current = null;
     }
   }
@@ -711,7 +774,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
     >
       {isAutomating && (
         <div className="absolute top-1.5 right-12 z-50 pointer-events-none">
-          <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest bg-zinc-950/95 px-1.5 py-0.5 rounded border border-zinc-800">
+          <span className="text-[8px] font-bold text-[var(--warning)] uppercase tracking-widest bg-[var(--bg-panel)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)]">
             AUTO: {automatingTool}
           </span>
         </div>
@@ -733,8 +796,8 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
             data-tauri-drag-region 
             className="flex items-center justify-center gap-2 w-full h-full cursor-grab active:cursor-grabbing px-3"
           >
-            <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={theme === 'neo-brutalism' ? 'light' : 'dark'} />
-            <span className="text-[10px] font-bold text-zinc-300 tracking-wider uppercase truncate" data-tauri-drag-region>
+            <MascotCharacter state={mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={mascotThemeMode(theme)} />
+            <span className="text-[10px] font-bold text-[var(--text-main)] tracking-wider uppercase truncate" data-tauri-drag-region>
               MERIDIAN
             </span>
           </div>
@@ -747,7 +810,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
               className="flex items-center justify-between w-full h-8 cursor-grab active:cursor-grabbing"
             >
               <div className="flex items-center gap-2 flex-1 min-w-0" data-tauri-drag-region>
-                <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={theme === 'neo-brutalism' ? 'light' : 'dark'} />
+                <MascotCharacter state={hudState === 'working' ? 'diagnostic' : mascotState} accentColor={colors.accent} speechAmplitude={speechAmplitude} themeMode={mascotThemeMode(theme)} />
 
 
                 {voiceState === 'listening' || voiceState === 'speaking' ? (
@@ -772,10 +835,10 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   </div>
                 ) : (
                   <div className="flex flex-col flex-1 min-w-0" data-tauri-drag-region>
-                    <span className="text-[8px] uppercase font-bold tracking-wider text-zinc-500" data-tauri-drag-region>
+                    <span className="text-[8px] uppercase font-bold tracking-wider text-[var(--text-ghost)]" data-tauri-drag-region>
                       {voiceState !== 'idle' ? 'Voice Chat' : hudState === 'working' ? 'Agent Active' : hudState === 'success' ? 'Task Completed' : hudState === 'error' ? 'Task Alert' : 'System State'}
                     </span>
-                    <span className="text-[10px] font-semibold text-zinc-100 truncate pr-2" data-tauri-drag-region>
+                    <span className="text-[10px] font-semibold text-[var(--text-bright)] truncate pr-2" data-tauri-drag-region>
                       {displayStatusText}
                     </span>
                   </div>
@@ -787,7 +850,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                 <button
                   onClick={handleOpenDashboard}
                   title="Open Dashboard"
-                  className="w-6 h-6 rounded-full bg-zinc-950/60 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-100 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                  className="w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-subtle)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)] text-[var(--text-dim)] hover:text-[var(--text-bright)] flex items-center justify-center transition-all duration-200 cursor-pointer"
                 >
                   <LogIn className="w-3 h-3" />
                 </button>
@@ -797,7 +860,7 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   <button
                     onClick={handleCancelTask}
                     title="Cancel Task"
-                    className="w-6 h-6 rounded-full bg-rose-950/40 hover:bg-rose-900/50 border border-rose-800/40 hover:border-rose-700 text-rose-400 hover:text-rose-300 flex items-center justify-center transition-all duration-200 cursor-pointer"
+                    className="w-6 h-6 rounded-full bg-[color-mix(in_srgb,var(--danger)_12%,transparent)] border border-[var(--danger)] text-[var(--danger)] flex items-center justify-center transition-all duration-200 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -811,17 +874,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                     className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all duration-200 cursor-pointer ${
                       voiceState === 'listening' ? 'bg-red-950/40 border-red-800/40 hover:bg-red-900/50 hover:border-red-700' :
                       voiceState === 'speaking' ? 'bg-teal-950/40 border-teal-800/40 hover:bg-teal-900/50 hover:border-teal-700' :
-                      'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900'
+                      'bg-[var(--bg-panel)] border-[var(--border-subtle)] hover:border-[var(--border-active)] hover:bg-[var(--bg-hover)]'
                     }`}
                   >
                     {voiceState === 'listening' ? (
                       <MicOff className="w-3 h-3 text-red-400 animate-pulse" />
                     ) : voiceState === 'speaking' ? (
-                      <Volume2 className="w-3 h-3 text-teal-400 animate-pulse" />
+                      <Volume2 className="w-3 h-3 text-[var(--accent)] animate-pulse" />
                     ) : voiceState === 'transcribing' || voiceState === 'thinking' ? (
-                      <Loader2 className="w-3 h-3 text-amber-400 animate-spin" />
+                      <Loader2 className="w-3 h-3 text-[var(--warning)] animate-spin" />
                     ) : (
-                      <Mic className="w-3 h-3 text-zinc-400 hover:text-zinc-100" />
+                      <Mic className="w-3 h-3 text-[var(--text-dim)] hover:text-[var(--text-bright)]" />
                     )}
                   </button>
                 )}
@@ -837,17 +900,17 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                   animate={{ opacity: 1, height: 'auto' }}
                   exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="flex-1 mt-1.5 border-t border-zinc-900 pt-1.5 flex flex-col justify-between overflow-hidden"
+                  className="flex-1 mt-1.5 border-t border-[var(--border-subtle)] pt-1.5 flex flex-col justify-between overflow-hidden"
                 >
                   {hudState === 'working' && (
                     <div className="flex-1 flex flex-col min-h-0">
-                      <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-                        <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-500" />
+                      <span className="text-[8px] font-bold text-[var(--text-ghost)] uppercase tracking-wide mb-1 flex items-center gap-1">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin text-[var(--warning)]" />
                         <span>Live Step Ticker</span>
                       </span>
-                      <div className="flex-1 overflow-y-auto max-h-[50px] font-mono text-[9px] text-zinc-400 space-y-1 pr-1 select-text scrollbar-thin">
+                      <div className="flex-1 overflow-y-auto max-h-[50px] font-mono text-[9px] text-[var(--text-dim)] space-y-1 pr-1 select-text scrollbar-thin">
                         {recentThoughts.length === 0 ? (
-                          <div className="text-zinc-600 italic">Initializing agent...</div>
+                          <div className="text-[var(--text-ghost)] italic">Initializing agent...</div>
                         ) : (
                           recentThoughts.map((thought, idx) => {
                             const isStr = typeof thought === 'string';
@@ -856,10 +919,10 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                             const id = isStr ? idx : (thought?.id || idx);
                             return (
                               <div key={id} className="flex gap-1.5 items-start leading-tight">
-                                <span className="text-amber-500 flex-shrink-0">❯</span>
+                                <span className="text-[var(--warning)] flex-shrink-0">❯</span>
                                 <div className="flex-1 truncate">
-                                  {tool && <span className="text-zinc-500 font-bold mr-1">[{tool}]</span>}
-                                  <span className="text-zinc-300">{text}</span>
+                                  {tool && <span className="text-[var(--text-ghost)] font-bold mr-1">[{tool}]</span>}
+                                  <span className="text-[var(--text-main)]">{text}</span>
                                 </div>
                               </div>
                             );
@@ -869,19 +932,19 @@ export default function Mascot({ mascotState: propMascotState }: { mascotState?:
                     </div>
                   )}
 
-                  <div className="flex-1 flex flex-col min-h-0 border-t border-zinc-900 pt-1 mt-1">
-                    <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide mb-1 flex items-center gap-1">
-                      <Mic className="w-2.5 h-2.5 text-cyan-400" />
+                  <div className="flex-1 flex flex-col min-h-0 border-t border-[var(--border-subtle)] pt-1 mt-1">
+                    <span className="text-[8px] font-bold text-[var(--text-ghost)] uppercase tracking-wide mb-1 flex items-center gap-1">
+                      <Mic className="w-2.5 h-2.5 text-[var(--accent)]" />
                       <span>Voice Command History</span>
                     </span>
-                    <div className="max-h-[40px] overflow-y-auto font-mono text-[9px] text-zinc-450 space-y-1 pr-1 select-text scrollbar-thin">
+                    <div className="max-h-[40px] overflow-y-auto font-mono text-[9px] text-[var(--text-dim)] space-y-1 pr-1 select-text scrollbar-thin">
                       {voiceLogs.length === 0 ? (
-                        <div className="text-zinc-700 italic">No voice sessions.</div>
+                        <div className="text-[var(--text-ghost)] italic">No voice sessions.</div>
                       ) : (
                         voiceLogs.map((logStr, idx) => (
                           <div key={idx} className="flex gap-1.5 items-start leading-tight">
-                            <span className="text-zinc-500">{idx + 1}.</span>
-                            <span className="text-zinc-300">{logStr}</span>
+                            <span className="text-[var(--text-ghost)]">{idx + 1}.</span>
+                            <span className="text-[var(--text-main)]">{logStr}</span>
                           </div>
                         ))
                       )}

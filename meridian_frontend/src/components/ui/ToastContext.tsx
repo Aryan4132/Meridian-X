@@ -45,12 +45,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         <AnimatePresence>
           {toasts.map((toast) => {
             const Icon = toast.type === 'success' ? CheckCircle2 : toast.type === 'error' ? AlertCircle : Info;
-            const colorClass =
+            const accentVar =
               toast.type === 'success'
-                ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-300 shadow-emerald-500/10'
+                ? 'var(--success)'
                 : toast.type === 'error'
-                ? 'bg-rose-950/80 border-rose-500/40 text-rose-300 shadow-rose-500/10'
-                : 'bg-cyan-950/80 border-cyan-500/40 text-cyan-300 shadow-cyan-500/10';
+                ? 'var(--danger)'
+                : 'var(--accent-2)';
 
             return (
               <motion.div
@@ -58,18 +58,23 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 initial={{ opacity: 0, y: 20, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className={`pointer-events-auto p-3.5 rounded-xl border backdrop-blur-xl shadow-xl flex items-start justify-between gap-3 ${colorClass}`}
+                className="pointer-events-auto p-3.5 rounded-xl border backdrop-blur-xl shadow-xl flex items-start justify-between gap-3"
+                style={{
+                  background: 'var(--bg-float)',
+                  borderColor: `color-mix(in srgb, ${accentVar} 40%, transparent)`,
+                }}
               >
                 <div className="flex items-start gap-2.5">
-                  <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <Icon className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: accentVar }} />
                   <div>
-                    <h4 className="text-xs font-bold text-slate-100">{toast.title}</h4>
-                    {toast.message && <p className="text-[11px] text-slate-300 mt-0.5">{toast.message}</p>}
+                    <h4 className="text-xs font-bold" style={{ color: 'var(--text-bright)' }}>{toast.title}</h4>
+                    {toast.message && <p className="text-[11px] mt-0.5" style={{ color: 'var(--text-main)' }}>{toast.message}</p>}
                   </div>
                 </div>
                 <button
                   onClick={() => removeToast(toast.id)}
-                  className="p-1 text-slate-400 hover:text-slate-100 transition"
+                  className="p-1 transition"
+                  style={{ color: 'var(--text-dim)' }}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>

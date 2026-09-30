@@ -132,8 +132,8 @@ export default function MemoryEditor() {
           <button
             onClick={() => setShowKeys(!showKeys)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
-              background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-subtle)',
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
               color: 'var(--text-main)', cursor: 'pointer', fontSize: 13, fontWeight: 500
             }}
           >
@@ -143,8 +143,8 @@ export default function MemoryEditor() {
           <button
             onClick={fetchMemories}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
-              background: 'rgba(255,255,255,0.06)', border: '1px solid var(--border-subtle)',
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)',
               color: 'var(--text-main)', cursor: 'pointer', fontSize: 13, fontWeight: 500
             }}
           >
@@ -154,8 +154,8 @@ export default function MemoryEditor() {
           <button
             onClick={handleExportJSON}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8,
-              background: 'var(--accent)', border: 'none', color: '#000', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--accent)', border: 'none', color: 'var(--bg-void)', cursor: 'pointer',
               fontSize: 13, fontWeight: 600
             }}
           >
@@ -174,14 +174,14 @@ export default function MemoryEditor() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              width: '100%', padding: '10px 12px 10px 36px', borderRadius: 8,
-              background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-subtle)',
+              width: '100%', padding: '10px 12px 10px 36px', borderRadius: 'var(--radius-sm)',
+              background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)',
               color: 'var(--text-main)', fontSize: 13, outline: 'none'
             }}
           />
         </form>
 
-        <div style={{ display: 'flex', gap: 6, background: 'rgba(0,0,0,0.3)', padding: 4, borderRadius: 8, border: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', gap: 6, background: 'var(--bg-panel)', padding: 4, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
           {[
             { id: 'all', label: 'All', icon: Layers },
             { id: 'preference', label: 'Preferences', icon: Sliders },
@@ -192,9 +192,9 @@ export default function MemoryEditor() {
               key={id}
               onClick={() => setCategoryFilter(id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6,
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 'var(--radius-sm)',
                 border: 'none', background: categoryFilter === id ? 'var(--accent)' : 'transparent',
-                color: categoryFilter === id ? '#000' : 'var(--text-dim)',
+                color: categoryFilter === id ? 'var(--bg-void)' : 'var(--text-dim)',
                 cursor: 'pointer', fontSize: 12, fontWeight: categoryFilter === id ? 600 : 400
               }}
             >
@@ -207,7 +207,7 @@ export default function MemoryEditor() {
       {/* Memory List */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {memories.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid var(--border-subtle)' }}>
+            <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', background: 'var(--bg-panel)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
             No memory entries found matching search query or category filter.
           </div>
         ) : (
@@ -217,7 +217,7 @@ export default function MemoryEditor() {
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               style={{
-                padding: 16, borderRadius: 10, background: 'rgba(255,255,255,0.03)',
+                padding: 16, borderRadius: 'var(--radius-md)', background: 'var(--bg-panel)',
                 border: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between',
                 alignItems: 'center', gap: 16
               }}
@@ -226,10 +226,10 @@ export default function MemoryEditor() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span
                     style={{
-                      padding: '2px 8px', borderRadius: 4, fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      background: item.category === 'preference' ? 'rgba(59, 130, 246, 0.2)' : item.category === 'temporal' ? 'rgba(168, 85, 247, 0.2)' : 'rgba(34, 197, 94, 0.2)',
-                      color: item.category === 'preference' ? '#60a5fa' : item.category === 'temporal' ? '#c084fc' : '#4ade80',
-                      border: `1px solid ${item.category === 'preference' ? '#3b82f640' : item.category === 'temporal' ? '#a855f740' : '#22c55e40'}`
+                      padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                      background: 'var(--accent-muted)',
+                      color: item.category === 'temporal' ? 'var(--accent-2)' : item.category === 'journal' ? 'var(--success)' : 'var(--accent)',
+                      border: '1px solid var(--border-active)'
                     }}
                   >
                     {item.type || item.category}
@@ -240,7 +240,7 @@ export default function MemoryEditor() {
                   </span>
 
                   {item.temporal_relevance !== undefined && (
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)', background: 'rgba(255,255,255,0.05)', padding: '2px 6px', borderRadius: 4 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: 'var(--radius-sm)' }}>
                       Relevance: {(item.temporal_relevance * 100).toFixed(0)}%
                     </span>
                   )}
@@ -261,8 +261,8 @@ export default function MemoryEditor() {
                   }}
                   title="Edit Memory Value"
                   style={{
-                    padding: 8, borderRadius: 6, border: '1px solid var(--border-subtle)',
-                    background: 'rgba(255,255,255,0.05)', color: 'var(--text-main)', cursor: 'pointer'
+                    padding: 8, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)',
+                    background: 'var(--bg-surface)', color: 'var(--text-main)', cursor: 'pointer'
                   }}
                 >
                   <Edit3 size={14} />
@@ -272,8 +272,8 @@ export default function MemoryEditor() {
                   onClick={() => handleForgetEntity(item.key || item.entity_id || item.id)}
                   title="Forget Entity"
                   style={{
-                    padding: 8, borderRadius: 6, border: '1px solid rgba(239, 68, 68, 0.3)',
-                    background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', cursor: 'pointer'
+                    padding: 8, borderRadius: 'var(--radius-sm)', border: '1px solid var(--danger)',
+                    background: 'color-mix(in srgb, var(--danger) 12%, transparent)', color: 'var(--danger)', cursor: 'pointer'
                   }}
                 >
                   <Trash2 size={14} />
@@ -287,7 +287,7 @@ export default function MemoryEditor() {
       {/* Edit Modal */}
       {editingItem && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: '#121318', border: '1px solid var(--border-subtle)', borderRadius: 12, padding: 24, width: 480, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: 'var(--bg-float)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: 24, width: 480, maxWidth: '90vw', display: 'flex', flexDirection: 'column', gap: 16 }}>
             <h3 style={{ margin: 0, fontSize: 16, color: 'var(--text-main)' }}>
               Edit Memory Value for '{editingItem.key || editingItem.id}'
             </h3>
@@ -296,20 +296,20 @@ export default function MemoryEditor() {
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               style={{
-                width: '100%', padding: 12, borderRadius: 8, background: 'rgba(0,0,0,0.4)',
+                width: '100%', padding: 12, borderRadius: 'var(--radius-sm)', background: 'var(--bg-panel)',
                 border: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontFamily: 'monospace', fontSize: 13
               }}
             />
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button
                 onClick={() => setEditingItem(null)}
-                style={{ padding: '8px 16px', borderRadius: 6, border: '1px solid var(--border-subtle)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveEdit}
-                style={{ padding: '8px 16px', borderRadius: 6, border: 'none', background: 'var(--accent)', color: '#000', fontWeight: 600, cursor: 'pointer' }}
+                style={{ padding: '8px 16px', borderRadius: 'var(--radius-sm)', border: 'none', background: 'var(--accent)', color: 'var(--bg-void)', fontWeight: 600, cursor: 'pointer' }}
               >
                 Save Changes
               </button>
