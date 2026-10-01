@@ -333,6 +333,12 @@ def open_file(path: str) -> str:
 
 def open_url_in_browser(url: str) -> str:
     import webbrowser
+    from urllib.parse import urlparse
+    # Local hosts are legitimate here (dev servers, Tauri UI) — this opens in
+    # the USER's browser with their own privileges. Block only dangerous schemes.
+    scheme = urlparse((url or "").strip()).scheme.lower()
+    if scheme not in ("http", "https"):
+        return f"Error: Refused to open non-http(s) URL (scheme='{scheme or 'missing'}')."
     webbrowser.open(url)
     return f"Opened URL in default browser: {url}"
 
