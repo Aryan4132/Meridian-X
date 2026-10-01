@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/app_permissions.dart';
 import '../core/theme.dart';
 
 class CameraVisionView extends StatefulWidget {
@@ -11,7 +12,18 @@ class CameraVisionView extends StatefulWidget {
 class _CameraVisionViewState extends State<CameraVisionView> {
   bool _isAnalyzing = false;
 
-  void _triggerVisionAnalysis() {
+  void _triggerVisionAnalysis() async {
+    final granted = await AppPermissions.requestCamera();
+    if (!granted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Camera permission denied — vision scanner unavailable'),
+          ),
+        );
+      }
+      return;
+    }
     setState(() => _isAnalyzing = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) {
