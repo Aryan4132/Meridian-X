@@ -2,6 +2,8 @@ import httpx
 import os
 from typing import Dict, Any
 
+from src.tools.web_scraper import _is_public_http_url, sanitize_web_content_injection  # noqa: F401
+
 def _get_tavily_key() -> str:
     """Reads the Tavily API key from SQLite profile (set in Settings UI) or environment."""
     key = os.environ.get("TAVILY_API_KEY", "")
@@ -95,6 +97,8 @@ def search_web(query: str, use_spatial_bias: bool = True) -> str:
 
 
 def fetch_page(url: str) -> str:
+    if not _is_public_http_url(url):
+        return "Error: Blocked by SSRF guard (non-public or non-http target)."
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
     }
@@ -134,6 +138,8 @@ def parse_page(html: str) -> str:
         return "\n".join([line.strip() for line in text.split('\n') if line.strip()])
 
 def download_file(url: str, dest: str) -> str:
+    if not _is_public_http_url(url):
+        return "Error: Blocked by SSRF guard (non-public or non-http target)."
     os.makedirs(os.path.dirname(os.path.abspath(dest)), exist_ok=True)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
@@ -272,9 +278,13 @@ def ingest_url(url: str) -> str:
         text = parse_page(html)
         if not text.strip():
             return "Parsed page contains no readable text content."
-            
+
+        # SEC-24: strip indirect prompt-injection signatures before persisting.
+        text, injection_detected = sanitize_web_content_injection(text)
+
         ingest_into_knowledge_base(url, text, {"url": url, "timestamp": time.time()})
-        return f"Successfully ingested and indexed content from {url} into RAG knowledge base."
+        note = " (injection signatures stripped)" if injection_detected else ""
+        return f"Successfully ingested and indexed content from {url} into RAG knowledge base.{note}"
     except Exception as e:
         return f"Error ingesting URL {url}: {e}"
 
