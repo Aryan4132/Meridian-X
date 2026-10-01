@@ -25,169 +25,18 @@ except ImportError:
 
 
 
-class MeridianZeroconfListener:
-    """BK-07: Listener for mDNS zeroconf P2P service discovery."""
-    def __init__(self, node: 'P2PSyncNode'):
-        self.node = node
-
-    def add_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        try:
-            info = zc.get_service_info(type_, name)
-            if info and info.addresses:
-                peer_ip = socket.inet_ntoa(info.addresses[0])
-                peer_port = info.port
-                # Avoid adding self
-                if peer_ip not in ("127.0.0.1", self.node.host) or peer_port != self.node.port:
-                    with self.node.lock:
-                        if (peer_ip, peer_port) not in self.node.peers:
-                            self.node.peers.add((peer_ip, peer_port))
-                            self.node._save_peer_to_db(peer_ip, peer_port)
-                            print(f"[P2P Zeroconf] Discovered mDNS peer: {peer_ip}:{peer_port}")
-        except Exception as e:
-            print(f"[P2P Zeroconf] Error parsing service info: {e}")
-
-    def remove_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        pass
-
-    def update_service(self, zc: 'Zeroconf', type_: str, name: str) -> None:
-        pass
-
-def _encrypt_payload(data_str: str, token: str) -> bytes:
-    if not token:
-        return data_str.encode('utf-8')
-    import base64
-    import hashlib
-    from cryptography.fernet import Fernet
-    h = hashlib.sha256(token.encode('utf-8')).digest()
-    key = base64.urlsafe_b64encode(h)
-    f = Fernet(key)
-    return f.encrypt(data_str.encode('utf-8'))
-
-def _bootstrap_p2p_token() -> str:
-    """Ensure P2P_SECRET_TOKEN exists; generate + persist one if missing (SEC-FIX).
-
-    Previously an empty token silently disabled payload encryption, making all
-    P2P sync plaintext and unauthenticated. Tokens now always exist so the
-    Fernet path is active by default (fail closed).
-    """
-    token = os.environ.get("P2P_SECRET_TOKEN", "")
-    if token:
-        return token
-    try:
-        from src.core.history_manager import find_workspace_root
-        env_path = os.path.join(find_workspace_root(), ".env")
-    except Exception:
-        backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        root_dir = os.path.dirname(backend_dir)
-        env_path = os.path.join(root_dir, ".env")
-
-    if os.path.exists(env_path):
-        try:
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("P2P_SECRET_TOKEN="):
-                        token = line.split("=", 1)[1].strip()
-                        break
-        except Exception as e:
-            print(f"[P2P Sync] Failed reading .env for P2P_SECRET_TOKEN: {e}")
-
-    if not token:
-        import secrets as _secrets
-        token = _secrets.token_hex(32)
-        try:
-            mode = "a" if os.path.exists(env_path) else "w"
-            with open(env_path, mode, encoding="utf-8") as f:
-                if mode == "a":
-                    f.write("\n")
-                f.write(f"P2P_SECRET_TOKEN={token}\n")
-            print("[P2P Sync] Generated new P2P_SECRET_TOKEN and persisted it to .env")
-        except Exception as e:
-            print(f"[P2P Sync] Failed to persist generated P2P_SECRET_TOKEN: {e}")
-
-    os.environ["P2P_SECRET_TOKEN"] = token
-    return token
-
-
-def authenticate_p2p_peer_challenge(peer_ip: str, peer_port: int, shared_secret: str = "", timeout: float = 4.0) -> bool:
-    """Real HMAC challenge-response handshake for P2P peer authentication (SEC-12).
-
-    SEC-FIX: the previous implementation logged and returned True unconditionally,
-    providing zero authentication. This version opens a TCP connection to the peer,
-    sends a random nonce, and requires the peer to respond with
-    ``MERIDIAN_AUTH:<hex hmac>`` computed over the nonce using the shared secret.
-    Verification uses a constant-time comparison.
-    """
-    import hmac as hmac_mod
-    import secrets as _secrets
-
-    secret = shared_secret or os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
-    if not secret:
-        # Fail closed: no shared secret means no authentication is possible.
-        return False
-
-    nonce = _secrets.token_hex(16)
-    expected = hmac_mod.new(secret.encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).hexdigest()
-
-    sock = None
-    try:
-        from src.core.audit_logger import log_sensitive_action
-        sock = socket.create_connection((peer_ip, peer_port), timeout=timeout)
-        sock.settimeout(timeout)
-
-        sock.sendall(f"MERIDIAN_CHALLENGE:{nonce}".encode("utf-8"))
-
-        chunks = []
-        while True:
-            chunk = sock.recv(4096)
-            if not chunk:
-                break
-            chunks.append(chunk)
-            if b"\n" in chunk or sum(len(c) for c in chunks) > 4096:
-                break
-        response = b"".join(chunks).decode("utf-8", errors="replace").strip()
-        if not response.startswith("MERIDIAN_AUTH:"):
-            log_sensitive_action("P2P_AUTH", "peer_challenge", {"peer_ip": peer_ip, "peer_port": peer_port}, "FAILED")
-            return False
-        provided = response.split(":", 1)[1].strip().lower()
-        ok = hmac_mod.compare_digest(provided, expected)
-        log_sensitive_action(
-            "P2P_AUTH", "peer_challenge",
-            {"peer_ip": peer_ip, "peer_port": peer_port},
-            "SUCCESS" if ok else "FAILED",
-        )
-        return ok
-    except Exception as e:
-        print(f"[P2P Auth] Challenge handshake with {peer_ip}:{peer_port} failed: {e}")
-        try:
-            from src.core.audit_logger import log_sensitive_action
-            log_sensitive_action("P2P_AUTH", "peer_challenge", {"peer_ip": peer_ip, "peer_port": peer_port}, "FAILED")
-        except Exception:
-            pass
-        return False
-    finally:
-        if sock:
-            try:
-                sock.close()
-            except Exception:
-                pass
-
-
-def respond_p2p_peer_challenge(nonce: str, shared_secret: str = "") -> str:
-    """Compute the HMAC response proving knowledge of the shared secret."""
-    import hmac as hmac_mod
-    secret = shared_secret or os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
-    return hmac_mod.new(secret.encode("utf-8"), nonce.encode("utf-8"), hashlib.sha256).hexdigest()
-
-def _decrypt_payload(data_bytes: bytes, token: str) -> str:
-    if not token:
-        return data_bytes.decode('utf-8')
-    import base64
-    import hashlib
-    from cryptography.fernet import Fernet
-    h = hashlib.sha256(token.encode('utf-8')).digest()
-    key = base64.urlsafe_b64encode(h)
-    f = Fernet(key)
-    return f.decrypt(data_bytes).decode('utf-8')
+from src.core.p2p_discovery import MeridianZeroconfListener  # noqa: F401 (re-export)
+from src.core.p2p_crypto import (  # noqa: F401 (re-export)
+    _decrypt_payload,
+    _encrypt_payload,
+    _bootstrap_p2p_token,
+    authenticate_p2p_peer_challenge,
+    respond_p2p_peer_challenge,
+)
+from src.core.p2p_pairing import (  # noqa: F401 (re-export)
+    get_manual_pairing_info,
+    verify_mobile_pairing_secret,
+)
 
 class P2PSyncNode:
     def __init__(self, host="0.0.0.0", port=P2P_PORT):
@@ -627,35 +476,6 @@ class P2PSyncNode:
                         pass
                 
         return "\n".join(sync_summary)
-
-def get_manual_pairing_info() -> Dict[str, Any]:
-    """ECO-01: Returns manual pairing connection details for the Meridian
-    Mobile companion app (host/port only — the secret is never exposed here;
-    it is entered manually and verified via verify_mobile_pairing_secret)."""
-    host_ip = "127.0.0.1"
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        host_ip = s.getsockname()[0]
-        s.close()
-    except Exception:
-        pass
-
-    return {
-        "version": "1.0",
-        "app": "Meridian-X",
-        "host": host_ip,
-        "port": P2P_PORT,
-        "timestamp": time.time()
-    }
-
-def verify_mobile_pairing_secret(secret: str) -> bool:
-    """ECO-01: Validates mobile client pairing secret against host P2P_SECRET_TOKEN."""
-    expected_token = os.environ.get("P2P_SECRET_TOKEN", "") or _bootstrap_p2p_token()
-    if not secret or not expected_token:
-        return False
-    import hmac
-    return hmac.compare_digest(secret.strip(), expected_token.strip())
 
 # Global Node instance
 p2p_node = P2PSyncNode()
