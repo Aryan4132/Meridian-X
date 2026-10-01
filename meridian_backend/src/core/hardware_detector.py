@@ -31,7 +31,13 @@ def detect_hardware_specs(force_refresh: bool = False) -> Dict[str, Any]:
     import platform
     sys_os = platform.system()
     try:
-        import pynvml  # type: ignore
+        try:
+            import nvidia_ml_py as pynvml  # type: ignore (canonical name)
+        except ImportError:
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", FutureWarning)
+                import pynvml  # type: ignore (deprecated alias)
         pynvml.nvmlInit()
         device_count = pynvml.nvmlDeviceGetCount()
         if device_count > 0:

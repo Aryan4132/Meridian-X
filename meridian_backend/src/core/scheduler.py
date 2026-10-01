@@ -30,9 +30,15 @@ def is_resource_throttled() -> bool:
             print(f"[Resource Governor] High CPU load detected: {cpu_load}% (threshold: {throttle_pct}%)")
             return True
             
-        # GPU utilization check using pynvml
+        # GPU utilization check using NVML
         try:
-            import pynvml  # type: ignore
+            try:
+                import nvidia_ml_py as pynvml  # type: ignore (canonical name)
+            except ImportError:
+                import warnings
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", FutureWarning)
+                    import pynvml  # type: ignore (deprecated alias)
             pynvml.nvmlInit()
             device_count = pynvml.nvmlDeviceGetCount()
             gpu_throttle_pct = float(os.environ.get("MERIDIAN_GPU_THROTTLE_PCT", "85.0"))
