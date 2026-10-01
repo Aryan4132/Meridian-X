@@ -529,10 +529,6 @@ def mcp_list_servers_wrapper() -> str:
     from src.tools.mcp_marketplace import mcp_list_servers_tool
     return mcp_list_servers_tool()
 
-def mcp_install_server_wrapper(server_id: str) -> str:
-    from src.tools.mcp_marketplace import mcp_install_server_tool
-    return mcp_install_server_tool(server_id)
-
 
 def _run_coro_safe(coro):
     """Executes a coroutine safely, supporting execution inside an active event loop."""

@@ -105,6 +105,9 @@ def fetch_page(url: str) -> str:
     # BUG-76 fix: stream response and enforce a max 5MB body size limit to prevent OOM
     with httpx.Client(follow_redirects=True) as client:
         with client.stream("GET", url, headers=headers, timeout=15.0) as res:
+            ctype = res.headers.get("content-type", "").lower()
+            if ctype and not any(t in ctype for t in ("text", "json", "html", "xml", "javascript")):
+                return f"Error: URL returned non-text content ({ctype}); use download_file instead."
             chunks = []
             total = 0
             for chunk in res.iter_text(chunk_size=8192):
