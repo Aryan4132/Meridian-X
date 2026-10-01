@@ -1,0 +1,29 @@
+skill: hardening
+tools:
+  - name: check_url_reputation
+    tier: 0
+    description: Check a URL for phishing risk.
+  - name: generate_totp_code
+    tier: 0
+    description: Generate a TOTP 2FA code.
+  - name: audit_password_strength
+    tier: 0
+    description: Audit password strength.
+  - name: assess_wifi_security
+    tier: 1
+    description: Assess Wi-Fi security posture.
+  - name: audit_network_boundary
+    tier: 0
+    description: Audit network boundary.
+  - name: audit_usb_peripherals
+    tier: 0
+    description: Audit connected USB devices.
+  - name: audit_dns_health
+    tier: 0
+    description: Audit DNS health.
+  - name: audit_camera_mic_access
+    tier: 0
+    description: Audit camera/mic access.
+  - name: detonate_attachment_sample
+    tier: 2
+    description: Sandbox-detonate a suspicious file.

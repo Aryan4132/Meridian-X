@@ -1,0 +1,8 @@
+skill: bills
+tools:
+  - name: register_recurring_bill
+    tier: 1
+    description: Register a recurring bill (name, amount, cadence).
+  - name: get_bill_due_radar
+    tier: 0
+    description: List upcoming due bills.

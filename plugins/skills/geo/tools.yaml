@@ -1,0 +1,11 @@
+skill: geo
+tools:
+  - name: resolve_location
+    tier: 0
+    description: Resolve a place to coordinates.
+  - name: get_localized_weather
+    tier: 0
+    description: Weather for a location.
+  - name: bias_query_spatially
+    tier: 0
+    description: Bias a query to a locale.

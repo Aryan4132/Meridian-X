@@ -1,0 +1,11 @@
+skill: expiry
+tools:
+  - name: add_expiry_document
+    tier: 1
+    description: Register a document with its expiry date.
+  - name: check_document_expiries
+    tier: 0
+    description: Check which documents expire soon.
+  - name: list_expiry_documents
+    tier: 0
+    description: List all tracked documents.

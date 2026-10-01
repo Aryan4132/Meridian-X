@@ -1,0 +1,14 @@
+skill: finance
+tools:
+  - name: analyze_stock_sentiment
+    tier: 0
+    description: Sentiment summary for a ticker.
+  - name: get_market_watchlist
+    tier: 0
+    description: Show tracked market watchlist.
+  - name: get_networth_summary
+    tier: 1
+    description: Assets-vs-liabilities snapshot.
+  - name: add_watched_product
+    tier: 1
+    description: Track a product for price drops.
