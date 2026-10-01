@@ -1,0 +1,11 @@
+skill: travel
+tools:
+  - name: create_trip
+    tier: 1
+    description: Create a trip plan with dates and legs.
+  - name: calculate_leave_by_time
+    tier: 0
+    description: Compute leave required for a window.
+  - name: get_upcoming_trips
+    tier: 0
+    description: List upcoming trips.

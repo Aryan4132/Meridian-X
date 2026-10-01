@@ -1,0 +1,17 @@
+skill: health
+tools:
+  - name: sync_wearable_health_data
+    tier: 1
+    description: Ingest wearable metrics.
+  - name: get_health_metrics_summary
+    tier: 0
+    description: Summarize health metrics.
+  - name: track_hydration
+    tier: 0
+    description: Log water intake.
+  - name: trigger_ergonomic_break
+    tier: 0
+    description: Nudge an ergonomic break.
+  - name: calculate_daily_wellness_score
+    tier: 0
+    description: Daily holistic wellness score.

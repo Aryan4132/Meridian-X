@@ -1,0 +1,23 @@
+skill: home
+tools:
+  - name: add_grocery_item
+    tier: 1
+    description: Add an item to the grocery list.
+  - name: add_household_chore
+    tier: 1
+    description: Add a household chore.
+  - name: get_household_summary
+    tier: 0
+    description: Summarize household state.
+  - name: scan_downloads_folder
+    tier: 0
+    description: Scan downloads for clutter.
+  - name: organize_downloads
+    tier: 2
+    description: Organize downloads (mutating).
+  - name: add_bookmark
+    tier: 1
+    description: Save an auto-tagged bookmark.
+  - name: add_to_learning_queue
+    tier: 1
+    description: Queue an article for later reading.
