@@ -21,6 +21,9 @@ dependencies:
   flutter_secure_storage: ^9.0.0
   crypto: ^3.0.3
 
+  # Runtime permission prompts (mic/camera for voice orb & vision scanner)
+  permission_handler: ^11.3.1
+
   # Micro-Animations & UI Enhancements
   flutter_animate: ^4.5.0
   google_fonts: ^6.1.0

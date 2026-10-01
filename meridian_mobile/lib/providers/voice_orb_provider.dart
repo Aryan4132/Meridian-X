@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/app_permissions.dart';
 
 enum OrbListeningState { idle, listening, processing, speaking }
 
@@ -7,22 +8,26 @@ class VoiceOrbState {
   final OrbListeningState state;
   final double amplitude;
   final bool isMicMuted;
+  final bool permissionDenied;
 
   const VoiceOrbState({
     this.state = OrbListeningState.idle,
     this.amplitude = 0.3,
     this.isMicMuted = false,
+    this.permissionDenied = false,
   });
 
   VoiceOrbState copyWith({
     OrbListeningState? state,
     double? amplitude,
     bool? isMicMuted,
+    bool? permissionDenied,
   }) {
     return VoiceOrbState(
       state: state ?? this.state,
       amplitude: amplitude ?? this.amplitude,
       isMicMuted: isMicMuted ?? this.isMicMuted,
+      permissionDenied: permissionDenied ?? this.permissionDenied,
     );
   }
 }
@@ -40,8 +45,13 @@ class VoiceOrbNotifier extends StateNotifier<VoiceOrbState> {
     }
   }
 
-  void startListening() {
-    state = state.copyWith(state: OrbListeningState.listening);
+  void startListening() async {
+    final granted = await AppPermissions.requestMicrophone();
+    if (!granted) {
+      state = state.copyWith(state: OrbListeningState.idle, permissionDenied: true);
+      return;
+    }
+    state = state.copyWith(state: OrbListeningState.listening, permissionDenied: false);
     _animTimer?.cancel();
     _animTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       // Simulate live audio waveform amplitude response
