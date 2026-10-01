@@ -267,6 +267,12 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState('');
   const [streamThoughts, setStreamThoughts] = useState<string[]>([]);
+  // Windowed rendering: cap DOM nodes for long histories (perf).
+  const [visibleMsgCount, setVisibleMsgCount] = useState(100);
+  const visibleMessages = messages.length > visibleMsgCount
+    ? messages.slice(messages.length - visibleMsgCount)
+    : messages;
+  const hiddenMsgCount = messages.length - visibleMessages.length;
   const [dragActive, setDragActive] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -843,7 +849,19 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}
       >
         <AnimatePresence initial={false}>
-          {messages.map((msg, i) => {
+          {hiddenMsgCount > 0 && (
+            <button
+              onClick={() => setVisibleMsgCount(c => c + 100)}
+              style={{
+                alignSelf: 'center', padding: '4px 12px', borderRadius: 'var(--radius-sm)',
+                background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--text-secondary)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+              }}
+            >
+              Show {Math.min(100, hiddenMsgCount)} earlier messages ({hiddenMsgCount} hidden)
+            </button>
+          )}
+          {visibleMessages.map((msg, i) => {
             const isUser = msg.role === 'user';
             return (
               <React.Fragment key={msg.id ?? i}>

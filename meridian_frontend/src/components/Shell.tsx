@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../AppContext';
 import NavRail from './NavRail';
@@ -10,10 +10,19 @@ import Timeline from '../views/Timeline';
 import Jobs from '../views/Jobs';
 import Clipboard from '../views/Clipboard';
 import Productivity from '../views/Productivity';
-import SwarmDebate from '../views/SwarmDebate';
-import WorkflowBuilder from '../views/WorkflowBuilder';
-import MemoryEditor from '../views/MemoryEditor';
 import Settings from '../views/Settings';
+// Heavy views load on demand so the initial bundle stays lean.
+const SwarmDebate = lazy(() => import('../views/SwarmDebate'));
+const WorkflowBuilder = lazy(() => import('../views/WorkflowBuilder'));
+const MemoryEditor = lazy(() => import('../views/MemoryEditor'));
+
+function ViewLoadingFallback() {
+  return (
+    <div style={{ padding: 32, color: 'var(--text-secondary)', fontSize: 14 }}>
+      Loading view…
+    </div>
+  );
+}
 
 import AmbientParticles from './ui/AmbientParticles';
 import ProactiveGuardBanner from './ProactiveGuardBanner';
@@ -88,9 +97,9 @@ export default function Shell() {
                 { id: 'jobs', component: <Jobs onRunsUpdate={setRecentRuns} isActive={activeTab === 'jobs'} /> },
                 { id: 'clipboard', component: <Clipboard isActive={activeTab === 'clipboard'} /> },
                 { id: 'productivity', component: <Productivity isActive={activeTab === 'productivity'} /> },
-                { id: 'lobby', component: <SwarmDebate /> },
-                { id: 'workflows', component: <WorkflowBuilder /> },
-                { id: 'memory', component: <MemoryEditor /> },
+                { id: 'lobby', component: (<Suspense fallback={<ViewLoadingFallback />}><SwarmDebate /></Suspense>) },
+                { id: 'workflows', component: (<Suspense fallback={<ViewLoadingFallback />}><WorkflowBuilder /></Suspense>) },
+                { id: 'memory', component: (<Suspense fallback={<ViewLoadingFallback />}><MemoryEditor /></Suspense>) },
                 { id: 'settings', component: <Settings /> },
               ].map(({ id, component }) => {
                 const isCurrent = activeTab === id;
