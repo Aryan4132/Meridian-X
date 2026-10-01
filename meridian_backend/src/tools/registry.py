@@ -483,8 +483,6 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "p2p_sync": {"tier": 1, "func": lambda: p2p_sync_wrapper()},
     "create_dynamic_tool": {"tier": 3, "func": lambda name, code: create_dynamic_tool_wrapper(name, code)},
     "run_agent_swarm": {"tier": 2, "func": lambda goal, roles="researcher,auditor": run_agent_swarm_wrapper(goal, roles)},
-    "browser_navigate": {"tier": 1, "func": lambda url: browser_navigate_wrapper(url)},
-    "browser_interact": {"tier": 2, "func": lambda action, selector, text="": browser_interact_wrapper(action, selector, text)},
     "mcp_list_servers": {"tier": 0, "func": lambda: mcp_list_servers_wrapper()},
     "run_autonomous_bug_fixer": {"tier": 2, "func": lambda target_path=None: run_autonomous_bug_fixer_wrapper(target_path)},
 
@@ -526,14 +524,6 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "audit_camera_mic_access": {"tier": 0, "func": audit_camera_mic_access},
     "detonate_attachment_sample": {"tier": 2, "func": detonate_attachment_sample}
 }
-
-def browser_navigate_wrapper(url: str) -> str:
-    from src.tools.browser_agent import browser_navigate_tool
-    return browser_navigate_tool(url)
-
-def browser_interact_wrapper(action: str, selector: str, text: str = "") -> str:
-    from src.tools.browser_agent import browser_interact_tool
-    return browser_interact_tool(action, selector, text)
 
 def mcp_list_servers_wrapper() -> str:
     from src.tools.mcp_marketplace import mcp_list_servers_tool
