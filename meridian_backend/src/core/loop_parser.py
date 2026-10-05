@@ -8,7 +8,7 @@ import re
 import json
 import asyncio
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import ollama
 
 from database import get_auditor_model
@@ -107,68 +107,9 @@ def invalidate_model_name_cache() -> None:
     _model_name_cache.clear()
 
 
-TOOL_SIGNATURES: Dict[str, str] = {
-    "browser_use_task": 'browser_use_task(task="<goal_or_instruction>", start_url="<optional_url>", visible=True)',
-    "browser_open": 'browser_open(url="<url>", visible=True)',
-    "browser_navigate": 'browser_navigate(url="<url>")',
-    "browser_click_element": 'browser_click_element(index_or_selector="<1 or selector>")',
-    "browser_type_element": 'browser_type_element(index_or_selector="<1 or selector>", text="<text>", press_enter=True)',
-    "browser_press_key": 'browser_press_key(key="<Enter|Escape|Tab|ArrowDown>")',
-    "browser_scroll": 'browser_scroll(direction="down", amount=500)',
-    "browser_wait": 'browser_wait(seconds=2)',
-    "browser_get_text": 'browser_get_text()',
-    "browser_screenshot": 'browser_screenshot()',
-    "browser_close": 'browser_close()',
-    "read_file": 'read_file(path="<path>")',
-    "write_file": 'write_file(path="<path>", content="<content>")',
-    "list_directory": 'list_directory(path="<path>")',
-    "universal_search": 'universal_search(query="<query>", domain_filter="all|code|docs|memory|files")',
-    "search_web": 'search_web(query="<query>")',
-}
+from src.core.loop_stream import estimate_token_count, generate_tools_doc, TOOL_SIGNATURES
 
 
-def generate_tools_doc() -> str:
-    """Returns formatted string documentation of all registered tools with signatures and tiers."""
-    lines = []
-    for name, info in TOOL_REGISTRY.items():
-        desc = info.get("description", "")
-        sig = TOOL_SIGNATURES.get(name, name)
-        if desc:
-            lines.append(f"- {sig}: Tier {info['tier']} — {desc}")
-        else:
-            lines.append(f"- {sig}: Tier {info['tier']}")
-    return "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# #15 FIX: Content-aware token estimation.
-# Simple divide-by-4 is wrong for code (denser, ~3 chars/token) and CJK text
-# (1 CJK char ≈ 1 token). This function detects the dominant content type and
-# applies the correct ratio, giving more accurate context window budgeting.
-# ---------------------------------------------------------------------------
-_CJK_RE = re.compile(r'[\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af]')
-_CODE_RE = re.compile(r'```[\s\S]*?```|def |class |import |from .+ import|function |const |let |var ')
-
-
-def estimate_token_count(text: str) -> int:
-    """
-    Content-aware token estimation.
-    - Code-heavy text: ~3.0 chars/token
-    - CJK-dominant text: ~1.2 chars/token
-    - Default prose: ~4.0 chars/token
-    """
-    if not text:
-        return 0
-    length = len(text)
-    # Detect CJK dominance (>10% CJK chars)
-    cjk_count = len(_CJK_RE.findall(text))
-    if cjk_count > length * 0.10:
-        return max(1, int(length / 1.2))
-    # Detect code dominance (code block markers or function/class keywords)
-    if _CODE_RE.search(text):
-        return max(1, int(length / 3.0))
-    # Default prose
-    return max(1, int(length / 4.0))
 
 
 async def transliterate_to_devanagari(text: str, client: ollama.Client) -> str:
@@ -284,3 +225,246 @@ async def process_final_response(text: str, user_lang: str, client: ollama.Clien
         json_data["proactive_suggestions"] = sanitized_suggestions
 
     return json.dumps(json_data, ensure_ascii=False)
+
+
+def parse_attributes(attr_str: str) -> Dict[str, Any]:
+    attrs = {}
+    if not attr_str:
+        return attrs
+    matches = re.findall(r'(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', attr_str)
+    for m in matches:
+        key = m[0]
+        val = m[1] if m[1] else m[2]
+        attrs[key] = val
+    return attrs
+
+
+class StreamingXMLParser:
+    def __init__(self):
+        self.buffer = ""
+        self.state = "idle"  # "idle", "thought", "call", "finish"
+        self.current_thought = ""
+        self.current_call_name = ""
+        self.current_call_args = ""
+        self.current_finish = ""
+        
+        self.yielded_thought_len = 0
+        self.yielded_finish_len = 0
+
+    def feed(self, chunk: str) -> List[Dict[str, Any]]:
+        self.buffer += chunk
+        events = []
+        
+        while True:
+            if self.state == "idle":
+                idx = self.buffer.find("<")
+                if idx == -1:
+                    if self.buffer:
+                        events.append({"type": "text_update", "text": self.buffer})
+                        self.buffer = ""
+                    break
+                
+                if idx > 0:
+                    events.append({"type": "text_update", "text": self.buffer[:idx]})
+                    self.buffer = self.buffer[idx:]
+                
+                thought_match = re.match(r"^<(?:thought|think)[>\s\n]", self.buffer)
+                if thought_match:
+                    match_len = len(thought_match.group(0))
+                    self.buffer = self.buffer[match_len:]
+                    self.state = "thought"
+                    self.current_thought = ""
+                    self.yielded_thought_len = 0
+                    continue
+                
+                finish_match = re.match(r"^<finish[>\s\n]", self.buffer)
+                if finish_match:
+                    match_len = len(finish_match.group(0))
+                    self.buffer = self.buffer[match_len:]
+                    self.state = "finish"
+                    self.current_finish = ""
+                    self.yielded_finish_len = 0
+                    continue
+                
+                call_match = re.match(r"^<call:(\w+)(?:\s+([^>]*?))?(/?)\s*>", self.buffer)
+                if call_match:
+                    tag_len = len(call_match.group(0))
+                    call_name = call_match.group(1)
+                    attr_str = call_match.group(2) or ""
+                    is_self_closing = call_match.group(3) == "/"
+                    self.buffer = self.buffer[tag_len:]
+                    
+                    if is_self_closing:
+                        args = parse_attributes(attr_str)
+                        args.pop("charter", None)
+                        events.append({"type": "call", "name": call_name, "args": json.dumps(args)})
+                        self.state = "idle"
+                    else:
+                        self.state = "call"
+                        self.current_call_name = call_name
+                        self.current_call_args = ""
+                    continue
+                
+                is_prefix = False
+                for tag in ["<thought>", "<think>", "<finish>"]:
+                    if tag.startswith(self.buffer):
+                        is_prefix = True
+                        break
+                if not is_prefix:
+                    if "<call:".startswith(self.buffer) or self.buffer.startswith("<call:"):
+                        if ">" not in self.buffer:
+                            is_prefix = True
+                
+                if is_prefix:
+                    if len(self.buffer) < 100:
+                        break
+                
+                events.append({"type": "text_update", "text": self.buffer[0]})
+                self.buffer = self.buffer[1:]
+                
+            elif self.state == "thought":
+                end_pos_thought = self.buffer.find("</thought>")
+                end_pos_think = self.buffer.find("</think>")
+
+                end_pos = -1
+                tag_len = 0
+                if end_pos_thought != -1 and end_pos_think != -1:
+                    if end_pos_thought < end_pos_think:
+                        end_pos = end_pos_thought
+                        tag_len = len("</thought>")
+                    else:
+                        end_pos = end_pos_think
+                        tag_len = len("</think>")
+                elif end_pos_thought != -1:
+                    end_pos = end_pos_thought
+                    tag_len = len("</thought>")
+                elif end_pos_think != -1:
+                    end_pos = end_pos_think
+                    tag_len = len("</think>")
+
+                if end_pos != -1:
+                    self.current_thought += self.buffer[:end_pos]
+                    self.buffer = self.buffer[end_pos + tag_len:]
+                    new_text = self.current_thought[self.yielded_thought_len:]
+                    events.append({"type": "thought", "text": new_text, "status": "completed"})
+                    self.state = "idle"
+                else:
+                    implicit_tags = ["<call:", "<finish>"]
+                    found_implicit = -1
+                    for itag in implicit_tags:
+                        pos = self.buffer.find(itag)
+                        if pos != -1:
+                            if found_implicit == -1 or pos < found_implicit:
+                                found_implicit = pos
+                                
+                    if found_implicit != -1:
+                        self.current_thought += self.buffer[:found_implicit]
+                        self.buffer = self.buffer[found_implicit:]
+                        new_text = self.current_thought[self.yielded_thought_len:]
+                        events.append({"type": "thought", "text": new_text, "status": "completed"})
+                        self.state = "idle"
+                        continue
+                        
+                    match_len = 0
+                    for tag in ["</thought>", "</think>"]:
+                        for i in range(len(tag) - 1, 0, -1):
+                            prefix = tag[:i]
+                            if self.buffer.endswith(prefix) and i > match_len:
+                                match_len = i
+                    
+                    if match_len > 0:
+                        consume_part = self.buffer[:-match_len]
+                        self.current_thought += consume_part
+                        self.buffer = self.buffer[-match_len:]
+                    else:
+                        self.current_thought += self.buffer
+                        self.buffer = ""
+                        
+                    new_text = self.current_thought[self.yielded_thought_len:]
+                    if new_text:
+                        events.append({"type": "thought_update", "text": new_text})
+                        self.yielded_thought_len = len(self.current_thought)
+                    break
+                    
+            elif self.state == "call":
+                tag = f"</call:{self.current_call_name}>"
+                end_pos = self.buffer.find(tag)
+                if end_pos != -1:
+                    self.current_call_args += self.buffer[:end_pos]
+                    self.buffer = self.buffer[end_pos + len(tag):]
+                    events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
+                    self.state = "idle"
+                else:
+                    implicit_tags = ["<thought>", "<finish>", "<call:"]
+                    found_implicit = -1
+                    for itag in implicit_tags:
+                        pos = self.buffer.find(itag)
+                        if pos != -1:
+                            if found_implicit == -1 or pos < found_implicit:
+                                found_implicit = pos
+                                
+                    if found_implicit != -1:
+                        self.current_call_args += self.buffer[:found_implicit]
+                        self.buffer = self.buffer[found_implicit:]
+                        events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
+                        self.state = "idle"
+                        continue
+                        
+                    match_len = 0
+                    for i in range(len(tag) - 1, 0, -1):
+                        prefix = tag[:i]
+                        if self.buffer.endswith(prefix):
+                            match_len = i
+                            break
+                            
+                    if match_len > 0:
+                        consume_part = self.buffer[:-match_len]
+                        self.current_call_args += consume_part
+                        self.buffer = self.buffer[-match_len:]
+                    else:
+                        self.current_call_args += self.buffer
+                        self.buffer = ""
+                    break
+                    
+            elif self.state == "finish":
+                tag = "</finish>"
+                end_pos = self.buffer.find(tag)
+                if end_pos != -1:
+                    self.current_finish += self.buffer[:end_pos]
+                    self.buffer = self.buffer[end_pos + len(tag):]
+                    events.append({"type": "finish", "text": self.current_finish})
+                    self.state = "idle"
+                else:
+                    implicit_tags = ["<thought>", "<call:"]
+                    found_implicit = -1
+                    for itag in implicit_tags:
+                        pos = self.buffer.find(itag)
+                        if pos != -1:
+                            if found_implicit == -1 or pos < found_implicit:
+                                found_implicit = pos
+                                
+                    if found_implicit != -1:
+                        self.current_finish += self.buffer[:found_implicit]
+                        self.buffer = self.buffer[found_implicit:]
+                        events.append({"type": "finish", "text": self.current_finish})
+                        self.state = "idle"
+                        continue
+                        
+                    match_len = 0
+                    for i in range(len(tag) - 1, 0, -1):
+                        prefix = tag[:i]
+                        if self.buffer.endswith(prefix):
+                            match_len = i
+                            break
+                            
+                    if match_len > 0:
+                        consume_part = self.buffer[:-match_len]
+                        self.current_finish += consume_part
+                        self.buffer = self.buffer[-match_len:]
+                    else:
+                        self.current_finish += self.buffer
+                        self.buffer = ""
+                    break
+                    
+        return events
+

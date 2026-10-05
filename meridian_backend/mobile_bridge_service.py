@@ -30,7 +30,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("meridian.mobile_bridge_service")
 
-PORT = int(os.getenv("MOBILE_BRIDGE_PORT", "8765"))
+PORT = int(os.getenv("MOBILE_BRIDGE_PORT", "4133"))
 MAIN_API_URL = os.getenv("MAIN_API_URL", "http://127.0.0.1:4132").rstrip("/")
 
 from contextlib import asynccontextmanager

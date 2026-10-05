@@ -10,7 +10,7 @@ import time
 import uuid
 import json
 import logging
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any, Optional, AsyncGenerator
 
 logger = logging.getLogger("meridian.consensus")
 
@@ -86,6 +86,7 @@ def filter_temporal_false_positives(critique: str, current_date_str: str = "", e
 
 
 def should_run_debate(
+    *args,
     tool_calls: Optional[List[Any]] = None,
     goal: str = "",
     finish_text: str = "",
@@ -93,18 +94,26 @@ def should_run_debate(
     mode: str = "DIRECT"
 ) -> bool:
     """Smart Gate: Determines whether consensus debate is strictly necessary.
-    
-    Returns False (bypasses debate, saving 2-6s latency) for:
-    - Voice queries / voice mode (preserves sub-500ms TTFA)
-    - Greetings / conversational chit-chat
-    - Read-only status checks and simple Q&A without code
-    
-    Returns True ONLY for:
-    - High-stakes mutating tools (file modifications, system execution)
-    - Responses containing substantial code blocks (>150 chars)
-    - Multi-step tool workflows (>=2 tool calls)
-    - Explicit code review, audit, or security analysis requests
+    Supports both signatures:
+    - should_run_debate(tool_calls, goal, finish_text=..., is_voice=...)
+    - should_trigger_consensus_debate(goal, finish_text, tool_calls, ...)
     """
+    if args:
+        if isinstance(args[0], (list, tuple)) or args[0] is None:
+            # (tool_calls, goal, finish_text, ...)
+            tool_calls = args[0]
+            if len(args) > 1 and isinstance(args[1], str):
+                goal = args[1]
+            if len(args) > 2 and isinstance(args[2], str):
+                finish_text = args[2]
+        elif isinstance(args[0], str):
+            # (goal, finish_text, tool_calls, ...)
+            goal = args[0]
+            if len(args) > 1 and isinstance(args[1], str):
+                finish_text = args[1]
+            if len(args) > 2 and isinstance(args[2], (list, tuple)):
+                tool_calls = args[2]
+
     # 1. Voice queries bypass debate for speed
     if is_voice:
         return False
@@ -167,6 +176,7 @@ def should_run_debate(
 should_trigger_consensus_debate = should_run_debate
 
 
+
 async def run_debate(
     initial_finish: str,
     active_model: str,
@@ -226,4 +236,107 @@ async def run_debate(
         }
 
     return debated_finish, critique, debate_key
+
+
+async def handle_turn_finish(
+    finish_text: str,
+    prompt: str,
+    active_model: str,
+    user_lang: str,
+    client: Any,
+    executed_tools: List[str],
+    history: List[Dict[str, Any]],
+    active_debates: Dict[str, Any],
+) -> AsyncGenerator[Tuple[str, str], None]:
+    """Handles turn termination, routing between fast bypass and consensus debate, plus proactive suggestions."""
+    from src.core.loop_parser import process_final_response
+    from database import get_auditor_model
+
+    is_voice_turn = (user_lang == "voice" or "voice" in str(active_model).lower())
+    if not should_run_debate(tool_calls=executed_tools, goal=prompt, finish_text=finish_text, is_voice=is_voice_turn):
+        fast_finish = await process_final_response(finish_text, user_lang, client)
+        yield ("text", fast_finish)
+        try:
+            finish_obj = json.loads(fast_finish)
+            proactive_suggestions = finish_obj.get("proactive_suggestions")
+            if proactive_suggestions and isinstance(proactive_suggestions, list):
+                yield ("proactive_suggestions", json.dumps({
+                    "suggestions": proactive_suggestions,
+                    "timestamp": time.time()
+                }))
+                from src.core.proactive import publish_nudge_sync
+                for sug in proactive_suggestions:
+                    if isinstance(sug, dict) and sug.get("title"):
+                        publish_nudge_sync(
+                            nudge_type="proactive_suggestion",
+                            title=sug.get("title", "Proactive Suggestion"),
+                            message=sug.get("action", ""),
+                            action_hint=sug.get("action", None),
+                            icon="💡",
+                            action=sug.get("action", None)
+                        )
+        except Exception:
+            pass
+        return
+
+    yield ("thought", json.dumps({
+        "id": f"debate-init-{time.time()}",
+        "type": "planning",
+        "text": "[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop (parallel)...",
+        "status": "running"
+    }))
+    has_search = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
+    debated_finish, critique, debate_key = await run_debate(
+        initial_finish=finish_text,
+        active_model=active_model,
+        auditor_model=get_auditor_model(),
+        user_lang=user_lang,
+        client=client,
+        has_search=has_search,
+        active_debates=active_debates,
+    )
+
+    yield ("thought", json.dumps({
+        "id": f"debate-critique-{time.time()}",
+        "type": "planning",
+        "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
+        "status": "completed"
+    }))
+
+    _MAX_DEBATES = 50
+    if len(active_debates) > _MAX_DEBATES:
+        for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
+            active_debates.pop(_old_k, None)
+
+    yield ("thought", json.dumps({
+        "id": f"debate-complete-{time.time()}",
+        "type": "planning",
+        "text": "[Consensus Debate - Coder]: Solution refined and verified.",
+        "status": "completed"
+    }))
+
+    yield ("text", debated_finish)
+
+    try:
+        finish_obj = json.loads(debated_finish)
+        proactive_suggestions = finish_obj.get("proactive_suggestions")
+        if proactive_suggestions and isinstance(proactive_suggestions, list):
+            yield ("proactive_suggestions", json.dumps({
+                "suggestions": proactive_suggestions,
+                "timestamp": time.time()
+            }))
+            from src.core.proactive import publish_nudge_sync
+            for sug in proactive_suggestions:
+                if isinstance(sug, dict) and sug.get("title"):
+                    publish_nudge_sync(
+                        nudge_type="proactive_suggestion",
+                        title=sug.get("title", "Proactive Suggestion"),
+                        message=sug.get("action", ""),
+                        action_hint=sug.get("action", None),
+                        icon="💡",
+                        action=sug.get("action", None)
+                    )
+    except Exception:
+        pass
+
 

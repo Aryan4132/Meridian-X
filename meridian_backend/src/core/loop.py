@@ -1,965 +1,86 @@
 import os
-import re
 import json
-import ast
 import asyncio
-
-import uuid
 import time
-import random
 import threading
 from typing import Dict, Any, List, AsyncGenerator, Tuple, Optional
-import ollama
-active_confirmations: Dict[str, Any] = {}
-_confirmations_lock: Optional[asyncio.Lock] = None
-
-def get_confirmations_lock() -> asyncio.Lock:
-    global _confirmations_lock
-    if _confirmations_lock is None:
-        _confirmations_lock = asyncio.Lock()
-    return _confirmations_lock
-
-async def register_confirmation(conf_id: str, conf_event: asyncio.Event) -> None:
-    async with get_confirmations_lock():
-        active_confirmations[conf_id] = {
-            "event": conf_event,
-            "approved": False
-        }
-
-async def approve_confirmation(conf_id: str, approved: bool) -> bool:
-    async with get_confirmations_lock():
-        if conf_id in active_confirmations:
-            active_confirmations[conf_id]["approved"] = approved
-            active_confirmations[conf_id]["event"].set()
-            return True
-        return False
-
-async def pop_confirmation(conf_id: str) -> bool:
-    async with get_confirmations_lock():
-        conf_data = active_confirmations.pop(conf_id, {})
-        return conf_data.get("approved", False)
-
-def check_approval_gate(tool_name: str, kwargs: Dict[str, Any]) -> Tuple[bool, str]:
-    """Evaluates whether a tool execution requires human approval gate (PL-12)."""
-    # Check force flag or env override or Level 0 Unrestricted Mode
-    if kwargs.get("force") or kwargs.get("bypass_guard") or os.getenv("MERIDIAN_DISABLE_SYSTEM_GUARD") == "1":
-        return False, ""
-
-    try:
-        from database import get_unrestricted_pc_access
-        if get_unrestricted_pc_access():
-            return False, ""
-    except Exception:
-        pass
-
-    if tool_name in ("delete_file", "db_execute", "kill_process"):
-        return True, f"Action '{tool_name}' requires explicit user confirmation."
-    if tool_name in ("run_command", "nl_run"):
-        cmd = str(kwargs.get("command", "") or kwargs.get("natural_language", "")).lower()
-        dangerous = ["rm ", "rmdir", "format ", "drop ", "del /", "kill ", "sudo "]
-        if any(d in cmd for d in dangerous):
-            return True, f"Potentially dangerous command detected ('{cmd}'). Explicit confirmation required."
-    return False, ""
-
-_cached_openai_clients: Dict[str, Any] = {}
-_cached_anthropic_clients: Dict[str, Any] = {}
-
-def get_cached_openai_client(api_key: str, base_url: Optional[str] = None):
-    cache_key = f"{api_key}::{base_url or ''}"
-    if cache_key not in _cached_openai_clients:
-        from openai import OpenAI
-        kwargs = {"api_key": api_key}
-        if base_url:
-            kwargs["base_url"] = base_url
-        _cached_openai_clients[cache_key] = OpenAI(**kwargs)
-    return _cached_openai_clients[cache_key]
-
-def get_cached_anthropic_client(api_key: str):
-    if api_key not in _cached_anthropic_clients:
-        from anthropic import Anthropic
-        _cached_anthropic_clients[api_key] = Anthropic(api_key=api_key)
-    return _cached_anthropic_clients[api_key]
-
-
-# #17 FIX: Module-level Ollama client cache.
-# Ollama SDK creates a new HTTP session per Client instantiation. With dozens of
-# requests per session, this adds connection setup overhead on every call.
-# Cache by host string to reuse the same connection pool.
-_cached_ollama_clients: Dict[str, Any] = {}
-
-def get_cached_ollama_client(host: str):
-    """Returns a cached Ollama client for the given host, creating one on first call."""
-    if host not in _cached_ollama_clients:
-        _cached_ollama_clients[host] = ollama.Client(host=host)
-    return _cached_ollama_clients[host]
-
 
 from src.tools.registry import call_tool, TOOL_REGISTRY
-from database import add_to_task_log, add_to_conversations, get_conversation_history, check_semantic_cache, add_to_semantic_cache, ingest_into_knowledge_base, get_auditor_model, get_user_profile, get_ollama_client
+from database import (
+    add_to_task_log,
+    add_to_conversations,
+    get_conversation_history,
+    check_semantic_cache,
+    add_to_semantic_cache,
+    get_auditor_model,
+    get_user_profile,
+    get_ollama_client,
+)
 from src.core.bus import event_bus
 from src.core.speculative import preheat_tool
-
-from src.core.loop_parser import resolve_local_model_name, process_final_response, transliterate_to_devanagari
-from src.core.loop_dispatcher import dispatch_tool_batch, check_and_increment_retry, reset_tool_retry_budget
-from src.core.loop_stream import format_sse_event, request_stream_cancellation, is_cancellation_requested, trim_history_to_token_budget
-from src.core.consensus_engine import (
-    build_consensus_qa_prompt,
-    build_consensus_coder_prompt,
-    filter_temporal_false_positives,
-    should_run_debate,
-    should_trigger_consensus_debate,
+from src.core.confirmations import (
+    active_confirmations,
+    get_confirmations_lock,
+    register_confirmation,
+    approve_confirmation,
+    pop_confirmation,
+    check_approval_gate,
 )
 
-# Map active confirmations globally (defined above)
+from src.core.llm_clients import (
+    get_cached_ollama_client,
+    get_gpu_vram_usage,
+)
 
-# Tools exempt from consecutive loop repetition checks (read-only, diagnostic, visual poll, search)
-EXEMPT_TOOLS = {
-    # Search & Information Retrieval
-    "read_file", "list_directory", "search_files", "search_web", "autonomous_research",
-    "search_knowledge", "search_offline_docs", "search_codebase", "lsp_get_definition",
-    "lsp_get_references", "lsp_get_hover_info", "kg_query", "kg_search", "kg_get_facts",
-    "kg_traverse", "vault_get", "vault_list", "tail_log", "search_log", "log_stats",
-    "clipboard_search", "read_emails", "browser_get_text", "scrape_table", "db_schema",
-    # System Metrics & Diagnostics
-    "get_system_info", "get_hardware_info", "get_disk_info", "get_battery_status",
-    "get_temperature", "list_processes", "get_process_detail", "list_startup_items",
-    "list_installed_apps", "list_services", "get_network_connections", "get_wifi_networks",
-    "ping_host", "clipboard_get", "list_log_watchers", "list_watchers", "list_scheduled",
-    "win_list_tasks", "clipboard_history", "list_workflows", "list_sessions",
-    "export_finetune_data", "finetune_stats", "suggest_cross_project_patterns",
-    # Visual Capture & UI Outlines
-    "screenshot", "screenshot_region", "ocr_screen", "vision_analyze", "find_on_screen",
-    "segment_screen", "browser_screenshot", "analyze_recording",
-    # Code Review & Linting
-    "lint_file", "lsp_diagnose_file", "run_tests", "review_file", "review_diff",
-    "review_directory", "run_security_audit", "shell_history", "nl_to_shell"
-}
+from src.core.loop_planning import (
+    detect_complex_prompt,
+    run_self_question_check,
+    route_model_by_complexity,
+    run_memory_summarization_background,
+    run_htp_pipeline,
+    enrich_system_prompt,
+)
+
+from src.core.loop_executor import (
+    clean_final_text,
+    prune_and_compress_history,
+    check_llm_tool_output_anomaly,
+    execute_single_tool_async,
+)
+
+from src.core.loop_parser import (
+    StreamingXMLParser,
+    resolve_local_model_name,
+)
+
+from src.core.loop_dispatcher import (
+    process_tool_turn,
+    EXEMPT_TOOLS,
+)
+
+from src.core.loop_stream import (
+    generate_tools_doc,
+    create_model_response_stream,
+    async_iter_stream,
+    extract_chunk_content,
+)
+
+from src.core.consensus_engine import (
+    handle_turn_finish,
+)
 
 # Active tree and debate state tables
 active_trees: Dict[str, Dict[str, Any]] = {}
 active_debates: Dict[str, Dict[str, Any]] = {}
 _temporal_graphs: Dict[str, Any] = {}
 
-# BUG-3 fix: use threading.Event instead of a plain bool flag.
-# threading.Event.is_set() / .set() / .clear() are atomic and thread-safe,
-# preventing race conditions between the voice-monitor thread and the async generator.
 _interrupt_event = threading.Event()
+
 
 def interrupt_agent_loop():
     """Signal the active agent loop to stop at the next safe checkpoint."""
     _interrupt_event.set()
 
-
-def generate_tools_doc() -> str:
-    lines = []
-    for name, info in TOOL_REGISTRY.items():
-        lines.append(f"- {name}: Tier {info['tier']}")
-    return "\n".join(lines)
-
-
-def parse_attributes(attr_str: str) -> Dict[str, Any]:
-    attrs = {}
-    if not attr_str:
-        return attrs
-    matches = re.findall(r'(\w+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\')', attr_str)
-    for m in matches:
-        key = m[0]
-        val = m[1] if m[1] else m[2]
-        attrs[key] = val
-    return attrs
-
-
-from src.core.consensus_engine import (
-    build_consensus_qa_prompt,
-    build_consensus_coder_prompt,
-    filter_temporal_false_positives,
-    should_trigger_consensus_debate,
-)
-
-class StreamingXMLParser:
-    def __init__(self):
-        self.buffer = ""
-        self.state = "idle"  # "idle", "thought", "call", "finish"
-        self.current_thought = ""
-        self.current_call_name = ""
-        self.current_call_args = ""
-        self.current_finish = ""
-        
-        self.yielded_thought_len = 0
-        self.yielded_finish_len = 0
-
-    def feed(self, chunk: str) -> List[Dict[str, Any]]:
-        self.buffer += chunk
-        events = []
-        
-        while True:
-            if self.state == "idle":
-                # Find first '<' character
-                idx = self.buffer.find("<")
-                if idx == -1:
-                    # No '<' found. The entire buffer is raw text.
-                    if self.buffer:
-                        events.append({"type": "text_update", "text": self.buffer})
-                        self.buffer = ""
-                    break
-                
-                # If there is raw text before '<', yield it
-                if idx > 0:
-                    events.append({"type": "text_update", "text": self.buffer[:idx]})
-                    self.buffer = self.buffer[idx:]
-                    # Now self.buffer starts with '<'
-                
-                # Robust match for <thought> or <think> (space, newline, etc.)
-                thought_match = re.match(r"^<(?:thought|think)[>\s\n]", self.buffer)
-                if thought_match:
-                    match_len = len(thought_match.group(0))
-                    self.buffer = self.buffer[match_len:]
-                    self.state = "thought"
-                    self.current_thought = ""
-                    self.yielded_thought_len = 0
-                    continue
-                
-                # Robust match for <finish> or `<finish `
-                finish_match = re.match(r"^<finish[>\s\n]", self.buffer)
-                if finish_match:
-                    match_len = len(finish_match.group(0))
-                    self.buffer = self.buffer[match_len:]
-                    self.state = "finish"
-                    self.current_finish = ""
-                    self.yielded_finish_len = 0
-                    continue
-                
-                # Match call tag with optional attributes and optional self-closing slash
-                call_match = re.match(r"^<call:(\w+)(?:\s+([^>]*?))?(/?)\s*>", self.buffer)
-                if call_match:
-                    tag_len = len(call_match.group(0))
-                    call_name = call_match.group(1)
-                    attr_str = call_match.group(2) or ""
-                    is_self_closing = call_match.group(3) == "/"
-                    self.buffer = self.buffer[tag_len:]
-                    
-                    if is_self_closing:
-                        args = parse_attributes(attr_str)
-                        args.pop("charter", None)
-                        events.append({"type": "call", "name": call_name, "args": json.dumps(args)})
-                        self.state = "idle"
-                    else:
-                        self.state = "call"
-                        self.current_call_name = call_name
-                        self.current_call_args = ""
-                    continue
-                
-                # If it doesn't match any tag, check if it could be a prefix of one of them
-                is_prefix = False
-                for tag in ["<thought>", "<think>", "<finish>"]:
-                    if tag.startswith(self.buffer):
-                        is_prefix = True
-                        break
-                if not is_prefix:
-                    # Check if it matches prefix of '<call:...'
-                    if "<call:".startswith(self.buffer) or self.buffer.startswith("<call:"):
-                        if ">" not in self.buffer:
-                            is_prefix = True
-                
-                if is_prefix:
-                    # If it's a potential prefix, we wait for more data (unless buffer is abnormally long)
-                    if len(self.buffer) < 100:
-                        break
-                
-                # If it's not a prefix or the buffer is too long (false alarm '<'),
-                # yield the '<' and continue parsing
-                events.append({"type": "text_update", "text": self.buffer[0]})
-                self.buffer = self.buffer[1:]
-                
-            elif self.state == "thought":
-                # Match either closing tag </thought> or </think>
-                end_pos_thought = self.buffer.find("</thought>")
-                end_pos_think = self.buffer.find("</think>")
-
-                end_pos = -1
-                tag_len = 0
-                if end_pos_thought != -1 and end_pos_think != -1:
-                    if end_pos_thought < end_pos_think:
-                        end_pos = end_pos_thought
-                        tag_len = len("</thought>")
-                    else:
-                        end_pos = end_pos_think
-                        tag_len = len("</think>")
-                elif end_pos_thought != -1:
-                    end_pos = end_pos_thought
-                    tag_len = len("</thought>")
-                elif end_pos_think != -1:
-                    end_pos = end_pos_think
-                    tag_len = len("</think>")
-
-                if end_pos != -1:
-                    self.current_thought += self.buffer[:end_pos]
-                    self.buffer = self.buffer[end_pos + tag_len:]
-                    new_text = self.current_thought[self.yielded_thought_len:]
-                    events.append({"type": "thought", "text": new_text, "status": "completed"})
-                    self.state = "idle"
-                else:
-                    # Check for implicit transition if model forgot </thought> / </think>
-                    implicit_tags = ["<call:", "<finish>"]
-                    found_implicit = -1
-                    for itag in implicit_tags:
-                        pos = self.buffer.find(itag)
-                        if pos != -1:
-                            if found_implicit == -1 or pos < found_implicit:
-                                found_implicit = pos
-                                
-                    if found_implicit != -1:
-                        # Auto-close thought block
-                        self.current_thought += self.buffer[:found_implicit]
-                        self.buffer = self.buffer[found_implicit:] # keep the tag in buffer for next idle parse
-                        new_text = self.current_thought[self.yielded_thought_len:]
-                        events.append({"type": "thought", "text": new_text, "status": "completed"})
-                        self.state = "idle"
-                        continue
-                        
-                    # Check if buffer ends with a prefix of </thought> or </think>
-                    match_len = 0
-                    for tag in ["</thought>", "</think>"]:
-                        for i in range(len(tag) - 1, 0, -1):
-                            prefix = tag[:i]
-                            if self.buffer.endswith(prefix) and i > match_len:
-                                match_len = i
-                    
-                    if match_len > 0:
-                        consume_part = self.buffer[:-match_len]
-                        self.current_thought += consume_part
-                        self.buffer = self.buffer[-match_len:]
-                    else:
-                        self.current_thought += self.buffer
-                        self.buffer = ""
-                        
-                    new_text = self.current_thought[self.yielded_thought_len:]
-                    if new_text:
-                        events.append({"type": "thought_update", "text": new_text})
-                        self.yielded_thought_len = len(self.current_thought)
-                    break
-                    
-            elif self.state == "call":
-                tag = f"</call:{self.current_call_name}>"
-                end_pos = self.buffer.find(tag)
-                if end_pos != -1:
-                    self.current_call_args += self.buffer[:end_pos]
-                    self.buffer = self.buffer[end_pos + len(tag):]
-                    events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
-                    self.state = "idle"
-                else:
-                    # Check for implicit transition if model forgot closing call tag
-                    implicit_tags = ["<thought>", "<finish>", "<call:"]
-                    found_implicit = -1
-                    for itag in implicit_tags:
-                        pos = self.buffer.find(itag)
-                        if pos != -1:
-                            if found_implicit == -1 or pos < found_implicit:
-                                found_implicit = pos
-                                
-                    if found_implicit != -1:
-                        self.current_call_args += self.buffer[:found_implicit]
-                        self.buffer = self.buffer[found_implicit:]
-                        events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
-                        self.state = "idle"
-                        continue
-                        
-                    # Check if buffer ends with a prefix of closing call tag
-                    match_len = 0
-                    for i in range(len(tag) - 1, 0, -1):
-                        prefix = tag[:i]
-                        if self.buffer.endswith(prefix):
-                            match_len = i
-                            break
-                            
-                    if match_len > 0:
-                        consume_part = self.buffer[:-match_len]
-                        self.current_call_args += consume_part
-                        self.buffer = self.buffer[-match_len:]
-                    else:
-                        self.current_call_args += self.buffer
-                        self.buffer = ""
-                    break
-                    
-            elif self.state == "finish":
-                tag = "</finish>"
-                end_pos = self.buffer.find(tag)
-                if end_pos != -1:
-                    self.current_finish += self.buffer[:end_pos]
-                    self.buffer = self.buffer[end_pos + len(tag):]
-                    events.append({"type": "finish", "text": self.current_finish})
-                    self.state = "idle"
-                else:
-                    # Check for implicit transition if model forgot closing finish tag
-                    implicit_tags = ["<thought>", "<call:"]
-                    found_implicit = -1
-                    for itag in implicit_tags:
-                        pos = self.buffer.find(itag)
-                        if pos != -1:
-                            if found_implicit == -1 or pos < found_implicit:
-                                found_implicit = pos
-                                
-                    if found_implicit != -1:
-                        self.current_finish += self.buffer[:found_implicit]
-                        self.buffer = self.buffer[found_implicit:]
-                        events.append({"type": "finish", "text": self.current_finish})
-                        self.state = "idle"
-                        continue
-                        
-                    # Check if buffer ends with a prefix of </finish>
-                    match_len = 0
-                    for i in range(len(tag) - 1, 0, -1):
-                        prefix = tag[:i]
-                        if self.buffer.endswith(prefix):
-                            match_len = i
-                            break
-                            
-                    if match_len > 0:
-                        consume_part = self.buffer[:-match_len]
-                        self.current_finish += consume_part
-                        self.buffer = self.buffer[-match_len:]
-                    else:
-                        self.current_finish += self.buffer
-                        self.buffer = ""
-                    break
-                    
-        return events
-
-async def run_memory_summarization_background(ollama_host: str):
-    """Distills episodic conversations into facts in the knowledge graph in the background."""
-    try:
-        from database import get_sqlite_conn
-        conn = get_sqlite_conn()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, timestamp, role, content FROM conversations ORDER BY timestamp ASC")
-        rows = cursor.fetchall()
-        conn.close()
-        
-        valid_records = [dict(r) for r in rows]
-        if len(valid_records) < 20:
-            return
-            
-        distill_set = valid_records[:20]
-        
-        conversation_log = ""
-        for item in distill_set:
-            conversation_log += f"{item.get('role', 'user')}: {item.get('content', '')}\n"
-            
-        client = get_cached_ollama_client(ollama_host)
-        prompt = (
-            "Analyze the conversation log below. Extract key persistent facts about the user's "
-            "preferences, workflows, or project details as a JSON list. "
-            "Each item must be: {\"subject\": \"...\", \"predicate\": \"...\", \"object\": \"...\"}\n"
-            "Keep facts simple and short. Return ONLY valid JSON array.\n\n"
-            f"Log:\n{conversation_log}"
-        )
-        
-        from database import get_brain_model, get_auditor_model
-        fallback_model = get_auditor_model()
-        try:
-            res = client.generate(model=fallback_model, prompt=prompt)
-        except Exception:
-            model = get_brain_model()
-            res = client.generate(model=model, prompt=prompt)
-
-        # GenerateResponse is an object — use attribute access with dict fallback
-        text = (res.response if hasattr(res, "response") else res.get("response", "")).strip()
-
-        if text.startswith("```"):
-            text = text.strip("`").replace("json\n", "").strip()
-            
-        try:
-            facts = json.loads(text)
-            from src.tools.knowledge import kg_add_fact
-            for f in facts:
-                if f.get("subject") and f.get("predicate") and f.get("object"):
-                    kg_add_fact(f["subject"], f["predicate"], f["object"])
-            
-            # Prune distilled rows to keep conversations lean
-            conn = get_sqlite_conn()
-            cursor = conn.cursor()
-            ids_to_delete = [r["id"] for r in distill_set]
-            placeholders = ",".join("?" for _ in ids_to_delete)
-            cursor.execute(f"DELETE FROM conversations WHERE id IN ({placeholders})", tuple(ids_to_delete))
-            conn.commit()
-            conn.close()
-            print(f"[Memory Summarizer] Distilled {len(distill_set)} episodic turns into facts.")
-        except Exception as je:
-            print("[Memory Summarizer] JSON parse error on response:", je, text)
-    except Exception as e:
-        print("[Memory Summarizer] Summarization cycle execution error:", e)
-
-def get_gpu_vram_usage() -> float:
-    try:
-        import subprocess
-        output = subprocess.check_output(
-            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,nounits,noheader"],
-            encoding="utf-8"
-        )
-        used, total = map(float, output.strip().split(","))
-        return (used / total) * 100.0
-    except Exception:
-        try:
-            import psutil
-            return psutil.virtual_memory().percent
-        except Exception:
-            return 50.0
-
-def clean_final_text(text: str) -> str:
-    """Safely extracts the final message and removes XML-like agent loop tags."""
-    # Remove thought blocks
-    text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL)
-    # Remove call blocks
-    text = re.sub(r"<call:\w+>.*?</call:\w+>", "", text, flags=re.DOTALL)
-    # Remove any stray tags
-    text = re.sub(r"</?thought>", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"</?finish>", "", text, flags=re.IGNORECASE)
-    text = re.sub(r"</?call:\w+>", "", text, flags=re.IGNORECASE)
-    return text.strip()
-
-def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama.Client, model_source: str = "local") -> Tuple[bool, str, str]:
-    """Inspects tool signature and code blocks locally/cloud to auto-correct errors."""
-    try:
-        # Check registry first
-        if tool_name not in TOOL_REGISTRY:
-            return False, args_str, f"Unknown tool '{tool_name}' requested."
-            
-        tool_meta = TOOL_REGISTRY[tool_name]
-        func = tool_meta["func"]
-        
-        # Parse arguments to verify JSON validity
-        try:
-            args = json.loads(args_str) if args_str.strip() else {}
-        except Exception as e:
-            # Broken JSON: correct via LLM for local and cloud models
-            prompt = (
-                f"You are a syntax recovery engine. Correct the following invalid JSON arguments for tool '{tool_name}' so it is well-formed.\n"
-                f"Invalid JSON:\n{args_str}\n\n"
-                f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
-            )
-            try:
-                from src.core.llm_provider import call_llm_sync
-                corrected = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
-                if corrected.startswith("```"):
-                    corrected = corrected.strip("`").replace("json\n", "").strip()
-                json.loads(corrected)
-                return True, corrected, "Auto-corrected malformed JSON arguments."
-            except Exception:
-                return False, args_str, f"Malformed JSON arguments for tool '{tool_name}': {e}"
-
-        # 1. Tool Signature Verification
-        import inspect
-        try:
-            sig = inspect.signature(func)
-            # Check if there are any *args or **kwargs
-            has_var_positional = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in sig.parameters.values())
-            has_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
-
-            # Build lists of required and valid parameters
-            required_params = []
-            valid_params = set()
-
-            for param_name, param in sig.parameters.items():
-                if param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
-                    valid_params.add(param_name)
-                    if param.default == inspect.Parameter.empty:
-                        required_params.append(param_name)
-
-            # Auto-remapping for common parameter name aliases
-            PARAM_ALIASES = {
-                "filepath": "path", "file_path": "path", "filename": "path", "TargetFile": "path",
-                "command_str": "command", "cmd": "command",
-                "query_str": "query", "search_term": "query",
-                "content_str": "content", "CodeContent": "content"
-            }
-            remapped = False
-            for p in list(args.keys()):
-                if p not in valid_params and p in PARAM_ALIASES:
-                    canonical = PARAM_ALIASES[p]
-                    if canonical in valid_params and canonical not in args:
-                        args[canonical] = args.pop(p)
-                        remapped = True
-                        break
-
-            if remapped:
-                args_str = json.dumps(args)
-
-            # Check missing required params
-            missing = [p for p in required_params if p not in args]
-            # Check unexpected params
-            unexpected = [p for p in args if p not in valid_params] if not has_var_keyword else []
-
-            if missing or unexpected:
-                sig_err_msg = ""
-                if missing:
-                    sig_err_msg += f"Missing required parameter(s): {', '.join(missing)}. "
-                if unexpected:
-                    sig_err_msg += f"Unexpected parameter(s): {', '.join(unexpected)}."
-
-                prompt = (
-                    f"You are a signature matching assistant. The tool '{tool_name}' has the following expected parameter signature:\n"
-                    f"Signature: {str(sig)}\n"
-                    f"The provided arguments were:\n{json.dumps(args)}\n"
-                    f"Validation Error: {sig_err_msg}\n\n"
-                    f"Correct or map the keys in the arguments to match the expected signature. Output ONLY the corrected JSON string. Do not include markdown code block syntax."
-                )
-                try:
-                    from src.core.llm_provider import call_llm_sync
-                    corrected = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
-                    if corrected.startswith("```"):
-                        corrected = corrected.strip("`").replace("json\n", "").strip()
-
-                    corrected_args = json.loads(corrected)
-                    # Re-verify after correction
-                    missing_corr = [p for p in required_params if p not in corrected_args]
-                    unexpected_corr = [p for p in corrected_args if p not in valid_params] if not has_var_keyword else []
-                    if not missing_corr and not unexpected_corr:
-                        return True, json.dumps(corrected_args), f"Auto-corrected parameter signature: {sig_err_msg}"
-                except Exception:
-                    pass
-
-                return False, args_str, f"Signature validation failed: {sig_err_msg} Expected: {str(sig)}"
-        except ValueError:
-            # inspect.signature not supported (e.g. builtins), skip signature validation
-            pass
-
-        # 2. Code Syntax Verification & LLM Linting
-        code_to_validate = None
-        code_type = None # "python" or "json"
-        
-        # Check run_python or create_dynamic_tool
-        if tool_name in ["run_python", "create_dynamic_tool"]:
-            code_to_validate = args.get("code", "")
-            code_type = "python"
-        # Check write_file
-        elif tool_name == "write_file":
-            path = args.get("path", "") or args.get("filepath", "") or args.get("TargetFile", "")
-            content = args.get("content", "") or args.get("CodeContent", "")
-            if path.endswith(".py"):
-                code_to_validate = content
-                code_type = "python"
-            elif path.endswith(".json"):
-                code_to_validate = content
-                code_type = "json"
-
-        if code_to_validate:
-            if code_type == "python":
-                try:
-                    ast.parse(code_to_validate)
-                except SyntaxError as se:
-                    # Syntax error: request correction from LLM
-                    prompt = (
-                        f"You are a code-healing assistant. The following Python code contains a syntax error:\n"
-                        f"Error: {se}\n\n"
-                        f"Code:\n```python\n{code_to_validate}\n```\n\n"
-                        f"Rewrite the code to fix the syntax error. Output ONLY the raw corrected Python code, no explanation, no markdown blocks."
-                    )
-                    try:
-                        from src.core.llm_provider import call_llm_sync
-                        corrected_code = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
-                        if corrected_code.startswith("```"):
-                            corrected_code = corrected_code.strip("`").replace("python\n", "").strip()
-                        
-                        # Verify corrected code
-                        ast.parse(corrected_code)
-                        if tool_name in ["run_python", "create_dynamic_tool"]:
-                            args["code"] = corrected_code
-                        elif tool_name == "write_file":
-                            if "content" in args:
-                                args["content"] = corrected_code
-                            elif "CodeContent" in args:
-                                args["CodeContent"] = corrected_code
-                        return True, json.dumps(args), f"Auto-healed Python code syntax error on line {se.lineno}."
-                    except Exception as se2:
-                        return False, args_str, f"Python syntax check failed: {se} (Auto-healing also failed: {se2})"
-
-                # Python code is syntactically valid via AST. Perform LLM linter check
-                lint_prompt = (
-                    f"You are a Python code linter. Analyze the following Python code for any logic errors, undefined names, incorrect method calls, or compiler warnings.\n"
-                    f"Code:\n```python\n{code_to_validate}\n```\n\n"
-                    f"If you find any critical compiler warnings or errors, list them clearly. If the code is perfect and contains no issues, respond with ONLY 'OK'. Do not explain if there are no errors."
-                )
-                try:
-                    from src.core.llm_provider import call_llm_sync
-                    lint_resp = call_llm_sync([{"role": "user", "content": lint_prompt}], model=get_auditor_model()).strip()
-                    if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
-                        return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
-                except Exception:
-                    pass
-
-            elif code_type == "json":
-                try:
-                    json.loads(code_to_validate)
-                except Exception as e:
-                    # Invalid JSON content: correct via LLM
-                    prompt = (
-                        f"You are a syntax recovery engine. Correct the following invalid JSON content to make it well-formed.\n"
-                        f"Invalid JSON:\n{code_to_validate}\n\n"
-                        f"Output ONLY the corrected JSON string. Do not include markdown code block syntax."
-                    )
-                    try:
-                        from src.core.llm_provider import call_llm_sync
-                        corrected_code = call_llm_sync([{"role": "user", "content": prompt}], model=get_auditor_model()).strip()
-                        if corrected_code.startswith("```"):
-                            corrected_code = corrected_code.strip("`").replace("json\n", "").strip()
-
-                        json.loads(corrected_code)
-                        if "content" in args:
-                            args["content"] = corrected_code
-                        elif "CodeContent" in args:
-                            args["CodeContent"] = corrected_code
-                        return True, json.dumps(args), "Auto-corrected malformed JSON file content."
-                    except Exception as e2:
-                        return False, args_str, f"JSON syntax check failed: {e} (Auto-healing failed: {e2})"
-
-        return True, args_str, ""
-    except Exception as e:
-        return False, args_str, f"Critique verification failed: {e}"
-
-async def prune_and_compress_history(history: List[Dict[str, str]], client: ollama.Client, model_source: str = "local") -> List[Dict[str, str]]:
-    """Prunes history if too long, summarizes older turns, and saves raw history to Turbovec RAG."""
-    # We prune if history turns > 9 (System + 8 turns)
-    if len(history) <= 9:
-        return history
-        
-    print(f"[Context Governor] Active history has {len(history)} turns. Compressing old segments...")
-    
-    # Segment to compress: skip system prompt and last 4 turns
-    compress_turns = history[1:-4]
-    keep_turns = history[-4:]
-    
-    # Format log to summarize
-    log_text = ""
-    for idx, turn in enumerate(compress_turns):
-        role_label = "Assistant" if turn["role"] == "assistant" else "User"
-        log_text += f"{role_label}: {turn['content']}\n"
-        
-    # Summarize via LLM (supports local and cloud models)
-    prompt = (
-        "You are an executive memory compressor. Synthesize the following sequence of assistant actions, "
-        "commands executed, decisions, and observations into a concise bulleted summary of key facts and progress.\n\n"
-        f"Sequence:\n{log_text}"
-    )
-    try:
-        from src.core.llm_provider import call_llm
-        summary = await call_llm([{"role": "user", "content": prompt}], model=get_auditor_model())
-        summary = (summary or "").strip()
-    except Exception:
-        summary = "Older context consolidated by System."
-        
-    # Index raw turns into Turbovec RAG as archived memory
-    try:
-        ingest_into_knowledge_base("archived_history", log_text, {"timestamp": time.time()})
-        print(f"[Context Governor] Archived context segments ingested into Turbovec RAG.")
-    except Exception as e:
-        print(f"[Context Governor] RAG ingestion failed: {e}")
-        
-    # Build new history list
-    new_history = [history[0]]
-    # BUG-27 fix: Anthropic forbids role:system mid-messages array; use role:user with [SYSTEM] prefix
-    new_history.append({"role": "user", "content": f"[SYSTEM — Context Archive]:\n{summary}"})
-    new_history.extend(keep_turns)
-    
-    return new_history
-
-def check_llm_tool_output_anomaly(tool_name: str, args: dict) -> Tuple[bool, str]:
-    """Detects system directory targeting and dangerous execution anomalies before execution (SEC-26)."""
-    args_str = json.dumps(args).lower().replace("\\\\", "/").replace("\\", "/")
-    dangerous_targets = ["c:/windows", "/etc/shadow", "/etc/passwd", "/boot", "rm -rf /", "del /f /s /q c:"]
-    for target in dangerous_targets:
-        if target in args_str:
-            from src.core.audit_logger import log_sensitive_action
-            log_sensitive_action("SECURITY_VIOLATION", "llm_anomaly_blocked", {"tool_name": tool_name, "args": args}, "FAILED")
-            return True, f"Error: Tool execution targeting sensitive system path or pattern '{target}' was blocked by Anomaly Detector (SEC-26)."
-    return False, ""
-
-async def execute_single_tool_async(
-    tool_name: str, 
-    args: dict, 
-    tier: int, 
-    client: ollama.Client, 
-    active_model: str,
-    model_source: str = "local"
-) -> Tuple[str, str, str]:
-    """Helper to run security auditor checks and execute tool asynchronously."""
-    is_anomaly, anomaly_err = check_llm_tool_output_anomaly(tool_name, args)
-    if is_anomaly:
-        return anomaly_err, "REJECTED", f"Anomaly Detector blocked {tool_name}"
-
-    args_str = json.dumps(args)
-    
-    # 1. Security Auditor consensus verification (Runs for local and cloud models)
-    if tier >= 2:
-        auditor_model = get_auditor_model()
-        await event_bus.publish("agent_thoughts", {
-            "agent": "Security Auditor", 
-            "thought": f"Auditing '{tool_name}' execution with arguments: {args_str}"
-        })
-        
-        audit_prompt = (
-            f"You are the Meridian Security Auditor. Assess if the following tool execution is safe and does not contain vulnerabilities, dangerous deletions, shell injects, or system risks.\n"
-            f"Tool: {tool_name}\n"
-            f"Arguments: {args_str}\n\n"
-            f"Respond ONLY in this exact format:\n"
-            f"REASONING: <brief analysis of the arguments>\n"
-            f"DECISION: <APPROVED or REJECTED>"
-        )
-        
-        try:
-            from src.core.llm_provider import call_llm
-            audit_text = await call_llm([{"role": "user", "content": audit_prompt}], model=auditor_model)
-        except Exception:
-            try:
-                from src.core.llm_provider import call_llm
-                audit_text = await call_llm([{"role": "user", "content": audit_prompt}], model=active_model)
-            except Exception:
-                audit_text = "REASONING: Auditor model unreachable. Failing secure.\nDECISION: REJECTED_UNREACHABLE"
-        
-        decision = "APPROVED"
-        reasoning = ""
-        for line in audit_text.split("\n"):
-            if line.upper().startswith("DECISION:"):
-                decision = line.split(":", 1)[1].strip().upper()
-            elif line.upper().startswith("REASONING:"):
-                reasoning = line.split(":", 1)[1].strip()
-                
-        await event_bus.publish("agent_thoughts", {
-            "agent": "Security Auditor", 
-            "thought": f"Audit Result for '{tool_name}': {decision}. Reasoning: {reasoning}"
-        })
-        
-        if "REJECTED" in decision:
-            if "UNREACHABLE" in decision:
-                return tool_name, f"Blocked: Security Auditor unreachable for Tier {tier} tool.", "blocked_unreachable"
-            else:
-                return tool_name, f"Blocked by Security Auditor: {reasoning}", "blocked"
-
-    # 2. Run approved tool
-    try:
-        result = await call_tool(tool_name, args)
-        add_to_task_log(tool_name, tier, "success")
-        return tool_name, result, "success"
-    except Exception as e:
-        err_txt = str(e)
-        add_to_task_log(tool_name, tier, "failed", err_txt)
-        return tool_name, f"Error: {err_txt}", "failed"
-
-def detect_complex_prompt(prompt: str) -> bool:
-    p = prompt.lower()
-    complex_words = ["build", "setup", "implement", "deploy", "architecture", "design and create", "create a complete", "pipeline", "scaffold"]
-    return len(prompt) > 200 or any(w in p for w in complex_words)
-
-async def decompose_goal_to_checklist(prompt: str, client: Any = None, model: Optional[str] = None) -> List[Dict[str, Any]]:
-    if model is None:
-        try:
-            from database import get_brain_model
-            model = get_brain_model()
-        except Exception:
-            model = get_auditor_model()
-    decomp_prompt = (
-        "You are the Meridian Project Manager. Decompose the user's goal into a logical list of sub-tasks (maximum 4).\n"
-        f"Goal: {prompt}\n\n"
-        "Return ONLY a JSON list of tasks, where each task is an object with \"id\" (int) and \"description\" (str). "
-        "Do NOT include markdown block wrapping. Example response: [{\"id\": 1, \"description\": \"Create file a.py\"}, {\"id\": 2, \"description\": \"Write tests\"}]"
-    )
-    try:
-        from src.core.llm_provider import call_llm
-        text = await asyncio.wait_for(
-            call_llm([{"role": "user", "content": decomp_prompt}], model=model),
-            timeout=10.0
-        )
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.strip("`").replace("json\n", "").strip()
-        tasks = json.loads(text)
-        if isinstance(tasks, list):
-            return tasks
-    except Exception as e:
-        print("[HTP] Failed to decompose goal, falling back to single loop:", e)
-    return []
-
-async def score_candidate_branch(tool_name: str, args_str: str, history: List[Dict[str, str]], client: Any = None, model: Optional[str] = None) -> float:
-    if model is None:
-        try:
-            from database import get_brain_model
-            model = get_brain_model()
-        except Exception:
-            model = get_auditor_model()
-    prompt = (
-        f"You are the Monte Carlo Tree Search evaluator. Score the proposed action from 0.0 (fails/dangerous/unlikely to succeed) to 1.0 (highly successful/safe/optimal).\n"
-        f"Goal/History context length: {len(history)} turns.\n"
-        f"Proposed Action: Call tool '{tool_name}' with args: {args_str}\n\n"
-        f"Output ONLY the numeric score (e.g. 0.85). Do not include any text or commentary."
-    )
-    try:
-        from src.core.llm_provider import call_llm
-        val_str = await call_llm([{"role": "user", "content": prompt}], model=model)
-        val_str = val_str.strip()
-        score = float(re.findall(r"[-+]?\d*\.\d+|\d+", val_str)[0])
-        return min(max(score, 0.0), 1.0)
-    except Exception:
-        return 0.5
-
-async def run_self_question_check(goal: str, history: List[Dict[str, str]], client: Any = None, model: Optional[str] = None) -> Tuple[bool, str]:
-
-    if model is None:
-        try:
-            from database import get_brain_model
-            model = get_brain_model()
-        except Exception:
-            model = get_auditor_model()
-    check_prompt = (
-        f"Goal: {goal}\n"
-        f"Recent History turns: {len(history)}.\n"
-        "Are the exact paths, parameters, and environment dependencies verified? Or are you about to assume details?\n"
-        "Answer ONLY 'YES' if they are verified, or 'NO' if they are not verified."
-    )
-    try:
-        from src.core.llm_provider import call_llm
-        ans = await call_llm([{"role": "user", "content": check_prompt}], model=model)
-        ans = ans.strip().upper()
-        if "NO" in ans:
-            return False, "You do not have verified information. You MUST run search or observation commands first (e.g. read_file, dir_list, grep_search) to inspect paths and verify details before making assumptions."
-        return True, ""
-    except Exception:
-        return True, ""
-
-
-def route_model_by_complexity(prompt: str, brain_model: str, model_source: str = "local") -> str:
-    """Assess task complexity and route to a lightweight model for simple requests, or standard brain model for complex reasoning."""
-    if model_source == "cloud":
-        return brain_model
-    p = prompt.lower()
-    
-    # Complex task indicators: code refactoring, full application building, advanced debugging, data exports
-    complex_keywords = [
-        "refactor", "architect", "design a", "write a full", "complex", "optimize", 
-        "security audit", "vulnerability", "performance analysis", "benchmark"
-    ]
-    if any(k in p for k in complex_keywords) or len(p) > 300:
-        print(f"[Model Router] Complex task detected. Routing to brain model: '{brain_model}'")
-        return brain_model
-        
-    # Simple task indicators: simple lookups, system metrics check, basic file writes
-    simple_keywords = [
-        "what is", "current time", "date", "cpu", "ram", "disk", "battery", 
-        "temperature", "process", "kill", "ping", "say", "hello", "hi", "clear"
-    ]
-    if any(k in p for k in simple_keywords):
-        # Retrieve fast model from SQLite settings (e.g. meridian_auditor_model) or env
-        try:
-            from database import get_user_profile
-            sqlite_model = get_user_profile("meridian_auditor_model")
-            if sqlite_model:
-                print(f"[Model Router] Simple task detected. Routing to fast model: '{sqlite_model}'")
-                return str(sqlite_model)
-        except Exception:
-            pass
-        fallback_fast = os.environ.get("MERIDIAN_FAST_MODEL") or get_auditor_model()
-        print(f"[Model Router] Simple task detected. Routing to fast fallback model: '{fallback_fast}'")
-        return fallback_fast
-        
-    return brain_model
 
 async def run_react_agent_loop(
     prompt: str,
@@ -970,6 +91,7 @@ async def run_react_agent_loop(
     is_worker: bool = False,
     session_id: str = "default",
 ) -> AsyncGenerator[str, None]:
+    """Autonomous ReAct agent loop with HTP, speculative preheating, and consensus validation."""
     # Sanitize input prompt for prompt injection & jailbreaks (SEC-08)
     from src.core.prompt_injection import sanitize_prompt
     prompt, injection_detected, injection_cats = sanitize_prompt(prompt)
@@ -985,25 +107,18 @@ async def run_react_agent_loop(
     if cached:
         yield sse_event("thought", json.dumps({"type": "planning", "text": "Semantic Cache Match: returns instantly (<5ms) from Turbovec", "tool": "semantic_cache"}))
         yield sse_event("text", cached)
-        # BUG-5 fix: only log to DB when this is a user-facing (non-worker) call.
-        # HTP worker sub-loops run internal planner prompts that must not pollute
-        # the persistent conversation history shown to the user.
         if not is_worker:
             add_to_conversations("user", prompt)
             add_to_conversations("assistant", cached)
         add_to_task_log("semantic_cache", 0, "success")
         return
 
-    # #14 FIX: Semantic cache near-miss warming.
-    # If no full hit, check for near-miss (score 0.6–0.85). On a near-miss, inject the
-    # prior cached response as context to reduce the number of reasoning turns needed.
-    # This does NOT return early — the agent still runs, but with a helpful head start.
     _near_miss_ctx = None
     try:
         from database import get_near_miss_semantic_cache
         _near_miss_ctx = get_near_miss_semantic_cache(prompt, min_score=0.60, max_score=0.85)
     except Exception:
-        pass  # Non-fatal: if function doesn't exist yet, silently skip
+        pass
 
     if _near_miss_ctx:
         yield sse_event("thought", json.dumps({
@@ -1012,15 +127,11 @@ async def run_react_agent_loop(
             "tool": "semantic_cache"
         }))
 
-    # Fetch recent conversations for context (excluding the new prompt that we are about to add)
     past_messages = get_conversation_history(limit=10)
-
-    if not is_worker:  # BUG-5 fix: skip DB write for internal HTP worker loops
+    if not is_worker:
         add_to_conversations("user", prompt)
     add_to_task_log("ollama_api", 2, "started")
 
-    # Set up client and initial prompt context
-    # #17 FIX: Use cached Ollama client to reuse HTTP connection pool across requests.
     try:
         from database import get_ollama_client_host as _get_host
         _ollama_host = _get_host()
@@ -1028,7 +139,6 @@ async def run_react_agent_loop(
         _ollama_host = ollama_host
     client = get_cached_ollama_client(_ollama_host)
 
-    # Resolve local models to prevent 404 errors
     resolved_auditor_model = get_auditor_model()
     if model_source == "local":
         brain_model = resolve_local_model_name(brain_model, client)
@@ -1039,122 +149,23 @@ async def run_react_agent_loop(
 
     # 1. Hierarchical Task Planning (HTP) (Upgrade 10) — Skip for cloud models to achieve minimum TTFT
     if not is_worker and model_source not in ("cloud", "api") and detect_complex_prompt(prompt):
-        yield sse_event("thought", json.dumps({
-            "id": f"htp-decomposing-{time.time()}",
-            "type": "planning",
-            "text": "[Hierarchical Task Planning] Decomposing complex prompt into sub-tasks...",
-            "status": "running"
-        }))
-        checklist = await decompose_goal_to_checklist(prompt, client, model=brain_model)
-        
-        if checklist:
-            yield sse_event("thought", json.dumps({
-                "id": f"htp-decomposed-{time.time()}",
-                "type": "planning",
-                "text": f"[Hierarchical Task Planning] Checklist generated:\n" + "\n".join(f"- Task {t['id']}: {t['description']}" for t in checklist),
-                "status": "completed"
-            }))
-            
-            # #3 FIX: Run HTP sub-tasks in parallel using asyncio.gather.
-            # Previously they ran one-by-one with a for loop. If 4 tasks exist,
-            # they now all start concurrently, cutting total latency by up to 4x
-            # for independent sub-tasks. Dependent tasks (containing "then", "after",
-            # "finally", "deploy") are kept sequential.
-            # Detect sequential dependency keywords in task descriptions
-            SEQ_KEYWORDS = {"then", "after", "finally", "deploy", "commit", "push", "last"}
+        async for sse_chunk in run_htp_pipeline(
+            prompt=prompt,
+            client=client,
+            brain_model=brain_model,
+            ollama_host=ollama_host,
+            model_source=model_source,
+            api_provider=api_provider,
+            run_loop_fn=run_react_agent_loop,
+            sse_event_fn=sse_event,
+        ):
+            yield sse_chunk
+        return
 
-            def is_sequential(task_desc: str) -> bool:
-                return any(kw in task_desc.lower() for kw in SEQ_KEYWORDS)
+    from src.core.mode import build_system_prompt, detect_user_language, classify_mode
+    detected_mode = classify_mode(prompt)
+    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt)
 
-            parallel_tasks = [t for t in checklist if not is_sequential(t["description"])]
-            sequential_tasks = [t for t in checklist if is_sequential(t["description"])]
-
-            worker_outcomes = []
-
-            # Helper: run a single worker and return (task_id, text_output)
-            async def _run_worker(sub_task: dict) -> tuple:
-                task_desc = sub_task["description"]
-                worker_prompt = (
-                    f"Your task is to execute sub-task: '{task_desc}' as part of the overall goal: '{prompt}'. "
-                    f"Focus only on completing this sub-task and report the results."
-                )
-                worker_text = ""
-                async for event in run_react_agent_loop(
-                    prompt=worker_prompt,
-                    brain_model=brain_model,
-                    ollama_host=ollama_host,
-                    model_source=model_source,
-                    api_provider=api_provider,
-                    is_worker=True
-                ):
-                    if event.startswith("event: text"):
-                        for line in event.splitlines():
-                            if line.startswith("data: "):
-                                worker_text += line[6:]
-                return sub_task["id"], worker_text
-
-            # Run parallel tasks concurrently and yield a single progress event
-            if parallel_tasks:
-                yield sse_event("thought", json.dumps({
-                    "id": f"htp-parallel-start-{time.time()}",
-                    "type": "planning",
-                    "text": f"[Hierarchical Task Planning] Running {len(parallel_tasks)} independent sub-tasks in parallel...",
-                    "status": "running"
-                }))
-                parallel_results = await asyncio.gather(*[_run_worker(t) for t in parallel_tasks])
-                for task_id, worker_text in parallel_results:
-                    worker_outcomes.append(f"Sub-task {task_id} Result: {worker_text}")
-                    yield sse_event("thought", json.dumps({
-                        "id": f"htp-task-complete-{task_id}-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Hierarchical Task Planning] Sub-task {task_id} completed (parallel).",
-                        "status": "completed"
-                    }))
-
-            # Run sequential tasks one-by-one in dependency order
-            for sub_task in sequential_tasks:
-                task_desc = sub_task["description"]
-                yield sse_event("thought", json.dumps({
-                    "id": f"htp-task-start-{sub_task['id']}-{time.time()}",
-                    "type": "planning",
-                    "text": f"[Hierarchical Task Planning] Spawning sequential worker for Sub-task {sub_task['id']}: '{task_desc}'...",
-                    "status": "running"
-                }))
-                _, worker_text = await _run_worker(sub_task)
-                worker_outcomes.append(f"Sub-task {sub_task['id']} Result: {worker_text}")
-                yield sse_event("thought", json.dumps({
-                    "id": f"htp-task-complete-{sub_task['id']}-{time.time()}",
-                    "type": "planning",
-                    "text": f"[Hierarchical Task Planning] Sub-task {sub_task['id']} completed (sequential).",
-                    "status": "completed"
-                }))
-
-            yield sse_event("thought", json.dumps({
-                "id": f"htp-synthesis-{time.time()}",
-                "type": "planning",
-                "text": "[Hierarchical Task Planning] Synthesis of all worker outcomes...",
-                "status": "running"
-            }))
-            synthesis_prompt = (
-                f"You are the Meridian Project Manager. Synthesize the following completed worker sub-tasks into a cohesive final update to the user.\n"
-                f"Goal: {prompt}\n"
-                f"Worker Outcomes:\n" + "\n".join(worker_outcomes) + "\n\n"
-                "Return the final response in the required JSON format: {\"chat\": \"...\", \"speech\": \"...\", \"lang\": \"...\"}"
-            )
-            try:
-                res_sys = await asyncio.to_thread(client.chat, model=brain_model, messages=[{"role": "user", "content": synthesis_prompt}])
-                raw_content = (res_sys.message.content if hasattr(res_sys, "message") and hasattr(res_sys.message, "content") else (res_sys.get("message", {}).get("content", "") if isinstance(res_sys, dict) else ""))
-                text_sys = (raw_content or "").strip()
-                if text_sys.startswith("```"):
-                    text_sys = text_sys.strip("`").replace("json\n", "").strip()
-                yield sse_event("text", text_sys)
-
-
-            except Exception as se:
-                yield sse_event("text", json.dumps({"chat": "All tasks completed.", "speech": "All tasks completed.", "lang": "en"}))
-            return
-    tools_doc = generate_tools_doc()
-    
     # Load workspace config overrides
     if model_source == "local":
         from src.core.mode import load_workspace_config
@@ -1163,82 +174,33 @@ async def run_react_agent_loop(
         if workspace_model:
             print(f"[Workspace Config] Overriding brain model from '{brain_model}' to '{workspace_model}'")
             brain_model = resolve_local_model_name(workspace_model, client)
-    
-    # Generate system prompt dynamically via cognitive modes classifier
-    from src.core.mode import build_system_prompt, detect_user_language
+
     user_lang = detect_user_language(prompt)
     system_prompt = build_system_prompt(prompt, brain_model, ollama_host, tools_doc)
-
-    # #5 FIX: Inject TemporalMemory top-3 most relevant recent facts into system prompt.
-    # TemporalMemoryGraph is fully implemented but was never instantiated or queried.
-    # This gives the agent actual session-scoped memory of project entity states.
-    try:
-        from src.core.temporal_memory import TemporalMemoryGraph
-        import time as _time
-        # Use module-level session store keyed by session_id to persist across turns
-        _tmg: TemporalMemoryGraph = _temporal_graphs.setdefault(
-            session_id, TemporalMemoryGraph()
-        )
-        # Query all recent nodes for relevance and pick top-3 by time-decay score
-        if _tmg.nodes:
-            now = _time.time()
-            scored = [
-                (nid, _tmg.calculate_temporal_relevance(nid, now), _tmg.nodes[nid])
-                for nid in _tmg.nodes
-            ]
-            scored.sort(key=lambda x: x[1], reverse=True)
-            top_facts = scored[:3]
-            if top_facts:
-                facts_text = "\n".join(
-                    f"- [{n['type']}] {n['entity_id']}: {n['state']}"
-                    for _, _, n in top_facts
-                )
-                system_prompt += (
-                    f"\n\n[TEMPORAL MEMORY — Recent Project Context]\n{facts_text}"
-                )
-    except Exception as _tmg_err:
-        pass  # Non-fatal
-
-    # #14 FIX: If a near-miss was found, prepend it to system prompt as prior-context hint.
-    if _near_miss_ctx:
-        system_prompt += (
-            f"\n\n[SEMANTIC MEMORY — Related Prior Response]\n{_near_miss_ctx}"
-        )
-
-    # Cognitive Graph Multi-Hop Relational Context
-    try:
-        from src.core.cognitive_graph import get_cognitive_graph
-        _cog_graph = get_cognitive_graph()
-        _graph_ctx = _cog_graph.get_unified_context(prompt)
-        if _graph_ctx:
-            system_prompt += f"\n\n{_graph_ctx}"
-    except Exception as _cg_err:
-        pass  # Non-fatal
+    system_prompt = enrich_system_prompt(system_prompt, prompt, session_id, _near_miss_ctx, _temporal_graphs)
 
     history = [{"role": "system", "content": system_prompt}]
     for msg in past_messages:
         history.append({"role": msg["role"], "content": msg["content"]})
     history.append({"role": "user", "content": prompt})
 
-
     try:
         from database import get_autonomous_mode
         max_turns = 25 if get_autonomous_mode() else 1
     except Exception:
         max_turns = 20
+
     turn = 0
     final_text = ""
     active_model = route_model_by_complexity(prompt, brain_model, model_source)
-    
-    # Repetition detector tracking variables
+
     last_tool_call = None
     consecutive_repeat_count = 0
-    tool_retry_counts = {}  # Per-tool retry counter
-    
-    # Session-scoped manifest to track temporary screenshots for automated cleanup
+    tool_retry_counts = {}
     created_temp_files = []
-    _interrupt_event.clear()  # Reset any stale interrupt signal from a previous run
+    _interrupt_event.clear()
     executed_tools_all_turns: List[str] = []
+
     try:
         while turn < max_turns:
             final_text = ""
@@ -1247,17 +209,17 @@ async def run_react_agent_loop(
                 yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                 return
             turn += 1
-            
+
             # Token budget estimation (char heuristic, warn at 80% of user-configured context limit)
             total_chars = sum(len(m["content"]) for m in history)
             estimated_tokens = int(total_chars / 4)
-            
+
             raw_user_limit = get_user_profile("context_token_limit")
             try:
                 user_context_limit = int(raw_user_limit) if raw_user_limit else 8192
             except Exception:
                 user_context_limit = 8192
-                
+
             warn_limit = int(user_context_limit * 0.8)
             if estimated_tokens > warn_limit:
                 pct = (estimated_tokens / user_context_limit) * 100
@@ -1269,30 +231,26 @@ async def run_react_agent_loop(
                 }))
                 history = await prune_and_compress_history(history, client, model_source=model_source)
             elif model_source == "local" and len(history) > 9:
-                # #12 FIX: Only call compress when history exceeds 9 messages.
-                # Previously called every turn regardless of length — added async overhead
-                # and an unnecessary LLM call on every short-context request.
                 history = await prune_and_compress_history(history, client, model_source=model_source)
 
-            # 2. Self-Questioning Check (Trigger when prompt targets codebase/file paths)
+            # Self-Questioning Check
             if any(k in prompt.lower() for k in ["file", "path", "directory", "folder", "config", "refactor", "codebase"]):
                 is_verified, warning_msg = await run_self_question_check(prompt, history, client, model=resolved_auditor_model)
             else:
                 is_verified, warning_msg = True, ""
+
             temp_sys_idx = -1
             if not is_verified:
                 yield sse_event("thought", json.dumps({
                     "id": f"self-question-{turn}-{time.time()}",
                     "type": "warning",
-                    "text": f"[Self-Questioning] Lack verified information for target path/dependencies. Injecting exploratory search gate...",
+                    "text": "[Self-Questioning] Lack verified information for target path/dependencies. Injecting exploratory search gate...",
                     "status": "completed"
                 }))
-                # BUG-27 fix (extended): Anthropic forbids role:system mid-messages array.
-                # Use role:user with [SYSTEM] prefix, same as the context compression path.
                 history.append({"role": "user", "content": f"[SYSTEM — Self-Questioning Gate Warning]: {warning_msg}"})
                 temp_sys_idx = len(history) - 1
-            
-            # Dynamic VRAM/RAM Offloading Scheduler (Only trigger for local model configurations)
+
+            # Dynamic VRAM/RAM Offloading Scheduler
             vram_load = get_gpu_vram_usage()
             if model_source == "local" and vram_load > 85.0 and "cloud" not in active_model.lower():
                 fallback_brain = get_auditor_model()
@@ -1304,120 +262,21 @@ async def run_react_agent_loop(
                         "status": "running"
                     }))
                     active_model = fallback_brain
-                    # Truncate context if required for lightweight model context length constraints
                     if len(history) > 6:
                         history = [history[0]] + history[-4:]
-            
+
             # Start response stream
             try:
-                # OPS-04: Local-Only Air-Gap Mode Check
-                try:
-                    from src.core.mode import get_local_only_mode
-                    if get_local_only_mode():
-                        if (api_provider or "").lower() != "ollama" or model_source in ("cloud", "api"):
-                            err_msg = "Error: Local-Only Air-Gap Mode is active. Outbound cloud API requests are hard-blocked."
-                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
-                            yield sse_event("text", f"\n{err_msg}\n")
-                            return
-
-                        model_lower = (active_model or brain_model or "").lower()
-                        if ":cloud" in model_lower or "cloud" in model_lower:
-                            err_msg = f"Error: Local-Only Air-Gap Mode is active. Cloud Ollama model '{active_model}' is hard-blocked."
-                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
-                            yield sse_event("text", f"\n{err_msg}\n")
-                            return
-
-                        host_lower = (ollama_host or "").lower()
-                        local_loopbacks = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
-                        if not any(lh in host_lower for lh in local_loopbacks):
-                            err_msg = f"Error: Local-Only Air-Gap Mode is active. Remote Ollama host '{ollama_host}' is hard-blocked."
-                            yield sse_event("thought", json.dumps({"id": f"airgap-err-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
-                            yield sse_event("text", f"\n{err_msg}\n")
-                            return
-                except Exception:
-                    pass
-
-                if model_source == "local" or (api_provider or "").lower() == "ollama":
-                    response_stream = client.chat(
-                        model=active_model,
-                        messages=history,
-                        stream=True,
-                        options={
-                            "temperature": 0.7,
-                            "repeat_penalty": 1.15,
-                            "top_p": 0.9
-                        }
-                    )
-                else:
-                    # Cloud APIs Direct Integration (Option 3)
-                    from src.core.llm_provider import get_api_key
-                    if api_provider == "gemini":
-                        gemini_key = get_api_key("gemini")
-                        if not gemini_key:
-                            raise ValueError("GEMINI_API_KEY is not configured in environment or database profile.")
-                        openai_client = get_cached_openai_client(
-                            api_key=gemini_key,
-                            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
-                        )
-                        response_stream = openai_client.chat.completions.create(
-                            model=active_model,
-                            messages=history,
-                            stream=True
-                        )
-                    elif api_provider == "openai":
-                        openai_key = get_api_key("openai")
-                        if not openai_key:
-                            raise ValueError("OPENAI_API_KEY is not configured in environment or database profile.")
-                        openai_client = get_cached_openai_client(api_key=openai_key)
-                        response_stream = openai_client.chat.completions.create(
-                            model=active_model,
-                            messages=history,
-                            stream=True
-                        )
-                    elif api_provider == "deepseek":
-                        deepseek_key = get_api_key("deepseek")
-                        if not deepseek_key:
-                            raise ValueError("DEEPSEEK_API_KEY is not configured in environment or database profile.")
-                        openai_client = get_cached_openai_client(
-                            api_key=deepseek_key,
-                            base_url="https://api.deepseek.com/v1"
-                        )
-                        response_stream = openai_client.chat.completions.create(
-                            model=active_model,
-                            messages=history,
-                            stream=True
-                        )
-                    elif api_provider in ("anthropic", "claude"):
-                        anthropic_key = get_api_key("anthropic") or get_api_key("claude")
-                        if not anthropic_key:
-                            raise ValueError("ANTHROPIC_API_KEY is not configured in environment or database profile.")
-                        anthropic_client = get_cached_anthropic_client(api_key=anthropic_key)
-                        system_msg = ""
-                        claude_history = []
-                        for m in history:
-                            if m["role"] == "system":
-                                system_msg = m["content"]
-                            else:
-                                role = "assistant" if m["role"] == "assistant" else "user"
-                                claude_history.append({"role": role, "content": m["content"]})
-                        
-                        response_stream = anthropic_client.messages.create(
-                            model=active_model,
-                            system=system_msg,
-                            messages=claude_history,
-                            max_tokens=4096,
-                            stream=True
-                        )
-                    elif (api_provider or "").lower() == "ollama":
-                        response_stream = client.chat(
-                            model=active_model,
-                            messages=history,
-                            stream=True
-                        )
-                    else:
-                        raise ValueError(f"Unsupported API Provider: '{api_provider}'")
+                response_stream = create_model_response_stream(
+                    client=client,
+                    active_model=active_model,
+                    history=history,
+                    model_source=model_source,
+                    api_provider=api_provider,
+                    brain_model=brain_model,
+                    ollama_host=ollama_host,
+                )
             except Exception as e:
-                # Self-healing fallback to 1.5B model if RAM/VRAM/API issues (only for local models)
                 if model_source == "local" and active_model != get_auditor_model():
                     fallback_brain = get_auditor_model()
                     print(f"[Fallback Engine] Switching to local model '{fallback_brain}' due to: {e}")
@@ -1428,40 +287,26 @@ async def run_react_agent_loop(
                         "status": "running"
                     }))
                     active_model = fallback_brain
-                    model_source = "local" # Force local fallback
+                    model_source = "local"
                     if len(history) > 6:
                         history = [history[0]] + history[-4:]
                     try:
-                        response_stream = client.chat(
-                            model=active_model,
-                            messages=history,
-                            stream=True,
-                            options={
-                                "temperature": 0.7,
-                                "repeat_penalty": 1.15,
-                                "top_p": 0.9
-                            }
+                        response_stream = create_model_response_stream(
+                            client=client,
+                            active_model=active_model,
+                            history=history,
+                            model_source="local",
+                            api_provider="ollama",
                         )
                     except Exception as ex:
                         err_msg = f"Fallback model '{active_model}' execution failed: {str(ex)}"
-                        yield sse_event("thought", json.dumps({
-                            "id": f"fallback-failure-{turn}-{time.time()}",
-                            "type": "warning",
-                            "text": err_msg,
-                            "status": "failed"
-                        }))
+                        yield sse_event("thought", json.dumps({"id": f"fallback-failure-{turn}-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
                         add_to_task_log("ollama_api", 2, "failed", err_msg)
                         return
                 else:
-                    # Cloud/API failures are raised and reported immediately
                     err_msg = f"API execution failed: {str(e)}"
                     print(f"[Engine Error] Cloud API call failed: {e}")
-                    yield sse_event("thought", json.dumps({
-                        "id": f"api-failure-{turn}-{time.time()}",
-                        "type": "warning",
-                        "text": err_msg,
-                        "status": "completed"
-                    }))
+                    yield sse_event("thought", json.dumps({"id": f"api-failure-{turn}-{time.time()}", "type": "warning", "text": err_msg, "status": "completed"}))
                     yield sse_event("text", f"\nError: {err_msg}\n")
                     add_to_task_log("ollama_api", 2, "failed", err_msg)
                     return
@@ -1470,7 +315,7 @@ async def run_react_agent_loop(
             full_turn_text = ""
             calls_to_execute = []
             thought_id = f"thought-react-{time.time()}"
-            
+
             yield sse_event("thought", json.dumps({
                 "id": thought_id,
                 "type": "planning",
@@ -1482,108 +327,32 @@ async def run_react_agent_loop(
             }))
             await event_bus.publish("agent_thoughts", {"agent": "Coordinator", "thought": f"Initializing reasoning turn {turn}..."})
 
-            async def async_iter_stream(stream):
-                queue = asyncio.Queue(maxsize=512)
-                loop = asyncio.get_running_loop()
-                _END = object()
-
-                def _producer():
-                    try:
-                        for item in stream:
-                            while True:
-                                try:
-                                    loop.call_soon_threadsafe(queue.put_nowait, item)
-                                    break
-                                except asyncio.QueueFull:
-                                    time.sleep(0.01)
-                    except Exception as exc:
-                        try:
-                            loop.call_soon_threadsafe(queue.put_nowait, {"error": str(exc)})
-                        except Exception:
-                            pass
-                    finally:
-                        try:
-                            loop.call_soon_threadsafe(queue.put_nowait, _END)
-                        except Exception:
-                            pass
-
-                producer_task = asyncio.create_task(asyncio.to_thread(_producer))
-                try:
-                    while True:
-                        item = await queue.get()
-                        if item is _END:
-                            break
-                        yield item
-                finally:
-                    if not producer_task.done():
-                        producer_task.cancel()
-                        try:
-                            await producer_task
-                        except (asyncio.CancelledError, Exception):
-                            pass
-
             async for chunk in async_iter_stream(response_stream):
                 if isinstance(chunk, dict) and "error" in chunk:
                     err_msg = f"Stream execution failed: {chunk['error']}"
                     print(f"[Engine Error] {err_msg}")
-                    yield sse_event("thought", json.dumps({
-                        "id": f"stream-error-{turn}-{time.time()}",
-                        "type": "warning",
-                        "text": err_msg,
-                        "status": "failed"
-                    }))
+                    yield sse_event("thought", json.dumps({"id": f"stream-error-{turn}-{time.time()}", "type": "warning", "text": err_msg, "status": "failed"}))
                     yield sse_event("text", f"\nError: {err_msg}\n")
                     add_to_task_log("ollama_api", 2, "failed", err_msg)
                     return
 
                 if _interrupt_event.is_set():
-                    # BUG-32 fix: do NOT clear here — a second interrupt between is_set() and clear()
-                    # would be silently lost. The turn-start clear at line 1049 is sufficient.
-                    # BUG-14 fix: remove the temporary self-question warning from history
-                    # before returning, so it cannot bleed into the next request's context.
                     if temp_sys_idx != -1 and temp_sys_idx < len(history):
                         history.pop(temp_sys_idx)
                         temp_sys_idx = -1
                     yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                     return
-                content = ""
-                if model_source == "local" or (api_provider or "").lower() == "ollama":
-                    # Ollama streaming chunks are ChatResponse objects, not dicts
-                    if hasattr(chunk, "message") and hasattr(chunk.message, "content"):
-                        content = chunk.message.content or ""
-                    elif isinstance(chunk, dict):
-                        content = chunk.get("message", {}).get("content", "") if isinstance(chunk.get("message"), dict) else ""
-                    else:
-                        content = ""
 
-                else:
-                    if api_provider == "anthropic":
-                        if getattr(chunk, "type", None) == "content_block_delta" or (isinstance(chunk, dict) and chunk.get("type") == "content_block_delta"):
-                            delta = getattr(chunk, "delta", None) or (chunk.get("delta") if isinstance(chunk, dict) else None)
-                            content = getattr(delta, "text", "") if delta else (delta.get("text", "") if isinstance(delta, dict) else "")
-                        else:
-                            content = ""
-                    else:
-                        choices = getattr(chunk, "choices", None) or (chunk.get("choices") if isinstance(chunk, dict) else None)
-                        if choices and len(choices) > 0:
-                            first_choice = choices[0]
-                            delta = getattr(first_choice, "delta", None) or (first_choice.get("delta") if isinstance(first_choice, dict) else None)
-                            if delta:
-                                content = getattr(delta, "content", "") or (delta.get("content", "") if isinstance(delta, dict) else "")
-                        else:
-                            content = ""
-
-
+                content = extract_chunk_content(chunk, model_source=model_source, api_provider=api_provider)
                 if not content:
                     continue
-                    
+
                 full_turn_text += content
                 parsed_events = parser.feed(content)
-                
-                # Speculative preheating of resources
+
                 if parser.state == "call" and parser.current_call_name:
                     asyncio.create_task(preheat_tool(parser.current_call_name, parser.current_call_args))
-                
+
                 for event in parsed_events:
                     if event["type"] == "thought_update":
                         yield sse_event("thought", json.dumps({"id": thought_id, "type": "planning", "text": event["text"], "status": "running", "append": True}))
@@ -1595,563 +364,89 @@ async def run_react_agent_loop(
                         final_text += event["text"]
                         yield sse_event("text", event["text"])
                     elif event["type"] == "finish":
-                        # BUG-11 fix: skip consensus debate on empty/trivial finish text
-                        # to avoid wasting 2 extra LLM calls with zero-length input.
                         if not event["text"].strip():
                             continue
-
-                        # Smart Gate: Bypass heavy multi-LLM debate for conversational turns (saving 2-6s latency)
-                        is_voice_turn = (user_lang == "voice" or "voice" in str(active_model).lower())
-                        if not should_run_debate(tool_calls=executed_tools_all_turns, goal=prompt, finish_text=event["text"], is_voice=is_voice_turn):
-                            fast_finish = await process_final_response(event["text"], user_lang, client)
-                            final_text = fast_finish
-                            yield sse_event("text", fast_finish)
-                            try:
-                                finish_obj = json.loads(fast_finish)
-                                proactive_suggestions = finish_obj.get("proactive_suggestions")
-                                if proactive_suggestions and isinstance(proactive_suggestions, list):
-                                    yield sse_event("proactive_suggestions", json.dumps({
-                                        "suggestions": proactive_suggestions,
-                                        "timestamp": time.time()
-                                    }))
-                                    from src.core.proactive import publish_nudge_sync
-                                    for sug in proactive_suggestions:
-                                        if isinstance(sug, dict) and sug.get("title"):
-                                            publish_nudge_sync(
-                                                nudge_type="proactive_suggestion",
-                                                title=sug.get("title", "Proactive Suggestion"),
-                                                message=sug.get("action", ""),
-                                                action_hint=sug.get("action", None),
-                                                icon="💡",
-                                                action=sug.get("action", None)
-                                            )
-                            except Exception as p_err:
-                                print(f"[Proactive Suggestions] Dispatch skipped: {p_err}")
-                            continue
-
-                        # #9 FIX: Parallel Consensus Overlap (High-stakes / code mutation tasks).
-                        # Run process_final_response and QA Reviewer critique concurrently with asyncio.gather
-                        # instead of serial waiting. Saves one full LLM latency round-trip.
-                        critique = ""
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-init-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop (parallel)...",
-                            "status": "running"
-                        }))
-                        has_search = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
-                        qa_prompt = build_consensus_qa_prompt(event["text"])
-
-                        # Run formatting and QA critique in parallel
-                        from src.core.llm_provider import call_llm
-                        fmt_task = process_final_response(event["text"], user_lang, client)
-                        qa_task = call_llm([{"role": "user", "content": qa_prompt}], model=get_auditor_model(), temperature=0.2)
-                        
-                        corrected_finish, qa_res = await asyncio.gather(fmt_task, qa_task)
-                        critique = (qa_res or "").strip()
-                        if critique.startswith("Error:"):
-                            critique = ""
-
-                        # Filter false-positive temporal error critiques
-                        critique, is_false_pos = filter_temporal_false_positives(critique, executed_search_tool=has_search)
-
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-critique-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
-                            "status": "completed"
-                        }))
-
-                        if critique:
-                            coder_prompt = build_consensus_coder_prompt(corrected_finish, critique)
-                            refined = await call_llm([{"role": "user", "content": coder_prompt}], model=active_model, temperature=0.5)
-                            refined = (refined or "").strip()
-
-                            if refined.startswith("```"):
-                                refined = refined.strip("`").replace("json\n", "").strip()
-
-                            try:
-                                json.loads(refined)
-                                if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in corrected_finish.lower()):
-                                    debated_finish = corrected_finish
-                                else:
-                                    debated_finish = await process_final_response(refined, user_lang, client)
-                            except Exception:
-                                debated_finish = corrected_finish
-                        else:
-                            debated_finish = corrected_finish
-
-                        _debate_key = f"debate-{uuid.uuid4()}"  # BUG-31 fix: uuid4 avoids collision-prone time.time()
-                        active_debates[_debate_key] = {
-                            "draft": corrected_finish,
-                            "critique": critique,
-                            "refined": debated_finish
-                        }
-                        # BUG-10 fix: cap active_debates at 50 entries to prevent
-                        # unbounded memory growth (full chat text stored per entry).
-                        _MAX_DEBATES = 50
-                        if len(active_debates) > _MAX_DEBATES:
-                            for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
-                                del active_debates[_old_k]
-
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-complete-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate - Coder]: Solution refined and verified.",
-                            "status": "completed"
-                        }))
-
-                        final_text = debated_finish
-                        yield sse_event("text", debated_finish)
-
-                        # Proactive Suggestions Event Dispatch
-                        try:
-                            finish_obj = json.loads(debated_finish)
-                            proactive_suggestions = finish_obj.get("proactive_suggestions")
-                            if proactive_suggestions and isinstance(proactive_suggestions, list):
-                                yield sse_event("proactive_suggestions", json.dumps({
-                                    "suggestions": proactive_suggestions,
-                                    "timestamp": time.time()
-                                }))
-                                from src.core.proactive import publish_nudge_sync
-                                for sug in proactive_suggestions:
-                                    if isinstance(sug, dict) and sug.get("title"):
-                                        publish_nudge_sync(
-                                            nudge_type="proactive_suggestion",
-                                            title=sug.get("title", "Proactive Suggestion"),
-                                            message=sug.get("action", ""),
-                                            action_hint=sug.get("action", None),
-                                            icon="💡",
-                                            action=sug.get("action", None)
-                                        )
-                        except Exception as p_err:
-                            print(f"[Proactive Suggestions] Dispatch skipped: {p_err}")
+                        async for etype, epayload in handle_turn_finish(
+                            finish_text=event["text"],
+                            prompt=prompt,
+                            active_model=active_model,
+                            user_lang=user_lang,
+                            client=client,
+                            executed_tools=executed_tools_all_turns,
+                            history=history,
+                            active_debates=active_debates,
+                        ):
+                            if etype == "text":
+                                final_text = epayload
+                            yield sse_event(etype, epayload)
                     elif event["type"] == "call":
                         executed_tools_all_turns.append(event["name"])
                         calls_to_execute.append((event["name"], event["args"]))
-                        
-            # Remove the temporary warning so it doesn't pollute long term history
+
             if temp_sys_idx != -1 and temp_sys_idx < len(history):
                 history.pop(temp_sys_idx)
                 temp_sys_idx = -1
 
-            # Process any tool calls parsed during the stream
             if calls_to_execute:
-                if _interrupt_event.is_set():
-                    _interrupt_event.clear()
-                    yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
+                turn_state = {
+                    "last_tool_call": last_tool_call,
+                    "consecutive_repeat_count": consecutive_repeat_count,
+                    "interrupted": False,
+                    "reloaded_plugins": False,
+                }
+                async for sse_chunk in process_tool_turn(
+                    calls_to_execute=calls_to_execute,
+                    history=history,
+                    client=client,
+                    active_model=active_model,
+                    model_source=model_source,
+                    session_id=session_id,
+                    tool_retry_counts=tool_retry_counts,
+                    created_temp_files=created_temp_files,
+                    state=turn_state,
+                    interrupt_event=_interrupt_event,
+                    exempt_tools=EXEMPT_TOOLS,
+                    prompt=prompt,
+                    brain_model=brain_model,
+                    ollama_host=ollama_host,
+                ):
+                    yield sse_chunk
+
+                last_tool_call = turn_state.get("last_tool_call")
+                consecutive_repeat_count = turn_state.get("consecutive_repeat_count", 0)
+
+                if turn_state.get("interrupted"):
                     return
-                observations = []
-                
-                # Tree-of-Thoughts (ToT) Branch Setup
-                tot_checkpoint = list(history)
-                tot_failed = False
-                failed_tool = ""
-                failed_args = {}
 
-                # Split concurrent (Tier 0 read-only) and sequential (Tier >= 1 write/edits)
-                concurrent_calls = []
-                sequential_calls = []
-                
-                for tool_name, args_str in calls_to_execute:
-                    # 1. Critique & Self-Correction check before handling
-                    is_corrected, corrected_args, critique_err = critique_and_correct_tool_call(tool_name, args_str, client, model_source=model_source)
-                    if not is_corrected and critique_err:
-                        # Feed the error back to the agent automatically to prompt self-correction
-                        observations.append(f"<observation:{tool_name}>Error: {critique_err}</observation:{tool_name}>")
-                        yield sse_event("thought", json.dumps({
-                            "id": f"critique-failed-{time.time()}",
-                            "type": "warning",
-                            "text": f"[Critique Engine] Tool call '{tool_name}' failed validation: {critique_err}",
-                            "status": "failed"
-                        }))
-                        continue
-                    
-                    if is_corrected:
-                        if critique_err:
-                            yield sse_event("thought", json.dumps({
-                                "id": f"critique-{time.time()}",
-                                "type": "warning",
-                                "text": f"[Critique Engine] Auto-healed tool call '{tool_name}' parameters: {critique_err}",
-                                "status": "completed"
-                            }))
-                        args_str = corrected_args
-                    
-                    try:
-                        args = json.loads(args_str) if args_str.strip() else {}
-                    except Exception as e:
-                        observations.append(f"<observation:{tool_name}>Invalid JSON args: {str(e)}</observation:{tool_name}>")
-                        continue
-                        
-                    tool_meta = TOOL_REGISTRY.get(tool_name)
-                    if not tool_meta:
-                        observations.append(f"<observation:{tool_name}>Error: Unknown tool '{tool_name}'</observation:{tool_name}>")
-                        continue
-                        
-                    tier = tool_meta["tier"]
-
-                    # Consecutive loop check (Strategy 1)
-                    if tool_name not in EXEMPT_TOOLS:
-                        try:
-                            # Sort keys to ensure argument structure hashes identically
-                            sorted_args_str = json.dumps(args, sort_keys=True)
-                        except Exception:
-                            sorted_args_str = str(args)
-                        
-                        call_signature = (tool_name, sorted_args_str)
-                        if call_signature == last_tool_call:
-                            consecutive_repeat_count += 1
-                        else:
-                            consecutive_repeat_count = 1
-                            last_tool_call = call_signature
-                        
-                        if consecutive_repeat_count >= 3:
-                            err_msg = f"Loop Guardrail & Critic Switcher: Tool '{tool_name}' called {consecutive_repeat_count} times with identical parameters."
-                            yield sse_event("thought", json.dumps({
-                                "id": f"loop-detected-{time.time()}",
-                                "type": "warning",
-                                "text": f"⚠️ [Critic Strategy Switcher] {err_msg} Injecting strategy-shift instruction...",
-                                "status": "running"
-                            }))
-                            add_to_task_log(tool_name, tier, "failed", err_msg)
-                            
-                            # Inject Critic Nudge to force model strategy switch
-                            critic_nudge = (
-                                f"[CRITIC STRATEGY NUDGE — Mandatory Approach Switch]\n"
-                                f"The tool '{tool_name}' with parameters {sorted_args_str} has failed or repeated {consecutive_repeat_count} times.\n"
-                                f"You MUST NOT call '{tool_name}' with these exact parameters again.\n"
-                                f"Switch your strategy immediately (e.g. use alternative tools like `run_command` via OS/python, search alternative directories, or report blocked state)."
-                            )
-                            history.append({"role": "user", "content": critic_nudge})
-                            consecutive_repeat_count = 0
-                            observations.append(f"<observation:{tool_name}>[CRITIC NUDGE] Repeated tool execution blocked. Strategy shift required: try an alternative tool or path.</observation:{tool_name}>")
-                            continue
-                    
-                    # BUG-29 fix: removed dead majority-vote stub (vote_passed was always True,
-                    # making the if-not-vote_passed branch unreachable dead code that misled users
-                    # into thinking a real consensus gate was active for high-risk operations).
-
-                    # #2 FIX: Wire MCTS candidate scorer before tool dispatch.
-                    # score_candidate_branch() exists and is fully implemented but was never called.
-                    # Now scores every proposed tool action before execution. If the score is
-                    # below the threshold (0.35), the action is skipped and reasoning is re-directed.
-                    try:
-                        if tier >= 1:
-                            mcts_score = await score_candidate_branch(
-                                tool_name=tool_name,
-                                args_str=json.dumps(args),
-                                history=history,
-                                client=client,
-                                model=active_model if model_source == "local" else None
-                            )
-                            if mcts_score < 0.35:
-                                yield sse_event("thought", json.dumps({
-                                    "id": f"mcts-reject-{time.time()}",
-                                    "type": "warning",
-                                    "text": f"[MCTS] Tool '{tool_name}' scored {mcts_score:.2f} (below threshold 0.35). Skipping — low-value branch.",
-                                    "status": "failed"
-                                }))
-                                observations.append(
-                                    f"<observation:{tool_name}>[MCTS] Skipped low-value action (score={mcts_score:.2f}). "
-                                    f"Try a different approach to achieve the goal.</observation:{tool_name}>"
-                                )
-                                continue
-                    except Exception as _mcts_err:
-                        # Non-fatal: if scorer fails, proceed normally
-                        pass
-
-                    if tier == 0:
-                        concurrent_calls.append((tool_name, args, tier))
-                    else:
-                        sequential_calls.append((tool_name, args, tier))
-                
-                # --- A. EXECUTE CONCURRENT READ-ONLY CALLS ---
-                if concurrent_calls:
-                    yield sse_event("thought", json.dumps({
-                        "id": f"speculative-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Speculative Execution] Running {len(concurrent_calls)} read-only tools concurrently...",
-                        "status": "running"
-                    }))
-
-                    # #18 FIX: Use dispatch_tool_batch instead of ad-hoc asyncio.gather.
-                    # dispatch_tool_batch provides per-tool retry budgeting, tagged results,
-                    # and centralized error handling — was previously dead/unused code.
-                    _batch_calls = [{"name": n, "arguments": p} for n, p, t in concurrent_calls]
-                    _batch_results = await dispatch_tool_batch(_batch_calls, session_id=session_id)
-
-                    for br in _batch_results:
-                        name = br["tool"]
-                        res = br["result"]
-                        status = "success" if br["status"] == "SUCCESS" else "failed"
-                        observations.append(f"<observation:{name}>{res}</observation:{name}>")
-                        if status == "failed":
-                            tot_failed = True
-                            failed_tool = name
-                            for c_name, c_args, c_t in concurrent_calls:
-                                if c_name == name:
-                                    failed_args = c_args
-                                    break
-                            # Increment per-tool retry counter
-                            r_count = tool_retry_counts.get(name, 0) + 1
-                            tool_retry_counts[name] = r_count
-                            if r_count >= 3:
-                                yield sse_event("thought", json.dumps({
-                                    "id": f"retry-warn-{time.time()}-{name}",
-                                    "type": "warning",
-                                    "text": f"⚠️ Tool '{name}' has failed {r_count} times. Injecting recovery system guidelines.",
-                                    "status": "completed"
-                                }))
-                                history.append({
-                                    "role": "user",
-                                    "content": f"[SYSTEM ALERT]: Tool '{name}' has failed {r_count} times in this session. Do NOT attempt to run it again. Try alternative methods."
-                                })
-                        yield sse_event("thought", json.dumps({
-                            "id": f"spec-complete-{time.time()}-{name}",
-                            "type": "status",
-                            "text": f"Concurrent tool '{name}' finished ({status}).",
-                            "status": "completed"
-                        }))
-
-                # --- B. EXECUTE SEQUENTIAL STATE-MODIFYING CALLS ---
-                for tool_name, args, tier in sequential_calls:
-                    if _interrupt_event.is_set():
-                        _interrupt_event.clear()
-                        yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
-                        return
-                    audit_id = f"audit-{time.time()}-{random.randint(1000, 9999)}"
-                    tool_run_id = f"run-{tool_name}-{time.time()}"
-                    pre_executed_result = None
-
-                    # Evaluate System Guard Level 1 vs Level 0 Unrestricted Mode
-                    requires_approval, approval_reason = check_approval_gate(tool_name, args)
-                    if requires_approval:
-                        conf_id = f"conf-{uuid.uuid4()}"
-                        conf_event = asyncio.Event()
-                        await register_confirmation(conf_id, conf_event)
-                        
-                        # Yield confirmation prompt event to UI
-                        yield sse_event("confirmation", json.dumps({
-                            "id": conf_id,
-                            "tool": tool_name,
-                            "args": args,
-                            "tier": tier,
-                            "reason": approval_reason
-                        }))
-                        
-                        # Wait until user approves/rejects
-                        try:
-                            await asyncio.wait_for(conf_event.wait(), timeout=120.0)
-                        except asyncio.TimeoutError:
-                            pass
-                        approved = await pop_confirmation(conf_id)
-                        
-                        if not approved:
-                            obs_text = "Tool execution rejected by user safety gate."
-                            yield sse_event("thought", json.dumps({
-                                "id": tool_run_id,
-                                "type": "warning",
-                                "text": f"Safety Gate: Execution of {tool_name} was rejected.",
-                                "status": "failed"
-                            }))
-                            observations.append(f"<observation:{tool_name}>{obs_text}</observation:{tool_name}>")
-                            continue
-
-                    # BUG-24 fix: removed extra leading space — these blocks were at 5-space
-                    # indent (outside the `if not approved: continue` rejection guard).
-                    # Track temporary screenshot assets for dynamic cleanup
-                    if tool_name in ["screenshot", "screenshot_region"]:
-                        path = args.get("output_path")
-                        if path:
-                            created_temp_files.append(os.path.abspath(path))
-                    elif tool_name == "browser_screenshot":
-                        path = args.get("output_path", "browser.png")
-                        created_temp_files.append(os.path.abspath(path))
-
-                    # Run safe or approved tool
-                    yield sse_event("thought", json.dumps({
-                        "id": tool_run_id,
-                        "type": "exec",
-                        "text": f"Running tool: {tool_name}",
-                        "tool": tool_name,
-                        "command": json.dumps(args),
-                        "status": "running",
-                        "mascot_state": "default",
-                        "mascot_wardrobe": "none"
-                    }))
-                    
-                    # Create git checkpoint before running code-modifying tools
-                    if tool_name in ["write_file", "delete_file", "move_file", "create_dynamic_tool", "generate_dynamic_tool"]:
-                        try:
-                            from src.core.history_manager import create_checkpoint
-                            await asyncio.to_thread(create_checkpoint, tool_run_id)
-                        except Exception as che:
-                            print(f"[History Manager] Failed to create checkpoint: {che}")
-
-                    # Run the actual tool call
-                    try:
-                        if pre_executed_result is not None and not isinstance(pre_executed_result, Exception):
-                            result = pre_executed_result
-                        elif isinstance(pre_executed_result, Exception):
-                            raise pre_executed_result
-                        else:
-                            result = await call_tool(tool_name, args)
-                        
-                        # Multi-Modal Thought Anchoring Layout verification: capture validation screenshot on layout changes
-                        if tool_name == "run_python" and ("matplotlib" in json.dumps(args) or "plt." in json.dumps(args)):
-                            yield sse_event("thought", json.dumps({
-                                "id": f"anchor-{time.time()}",
-                                "type": "planning",
-                                "text": "[Thought Anchoring] Capturing validation screenshot to inspect layout generation success...",
-                                "status": "running"
-                            }))
-                            # (Thought anchoring visual check stubbed dynamically)
-                            
-                        observations.append(f"<observation:{tool_name}>{result}</observation:{tool_name}>")
-                        yield sse_event("thought", json.dumps({
-                            "id": tool_run_id,
-                            "type": "status",
-                            "text": f"Tool {tool_name} completed.",
-                            "status": "completed"
-                        }))
-                        add_to_task_log(tool_name, tier, "success")
-                        # If plugins are reloaded, dynamically regenerate the system prompt
-                        if tool_name == "reload_plugins":
-                            tools_doc = generate_tools_doc()
-                            from src.core.mode import build_system_prompt
-                            new_sys = build_system_prompt(prompt, brain_model, ollama_host, tools_doc)
-                            history[0] = {"role": "system", "content": new_sys}
-                            print("[Plugins] System prompt dynamically updated with new tool registrations.")
-                    except Exception as e:
-                        err_txt = str(e)
-                        # ToT backtrack trigger
-                        tot_failed = True
-                        failed_tool = tool_name
-                        failed_args = args
-                        observations.append(f"<observation:{tool_name}>Error: {err_txt}</observation:{tool_name}>")
-                        
-                        # Increment per-tool retry counter
-                        r_count = tool_retry_counts.get(tool_name, 0) + 1
-                        tool_retry_counts[tool_name] = r_count
-                        if r_count >= 3:
-                            yield sse_event("thought", json.dumps({
-                                "id": f"retry-warn-{time.time()}-{tool_name}",
-                                "type": "warning",
-                                "text": f"⚠️ Tool '{tool_name}' has failed {r_count} times. Injecting recovery system guidelines.",
-                                "status": "completed"
-                            }))
-                            history.append({
-                                "role": "user",
-                                "content": f"[SYSTEM ALERT]: Tool '{tool_name}' has failed {r_count} times in this session. Do NOT attempt to run it again. Try alternative methods."
-                            })
-                            
-                        yield sse_event("thought", json.dumps({
-                            "id": tool_run_id,
-                            "type": "warning",
-                            "text": f"Tool {tool_name} failed: {err_txt}",
-                            "status": "failed"
-                        }))
-                        add_to_task_log(tool_name, tier, "failed", err_txt)
-
-                    if _interrupt_event.is_set():
-                        _interrupt_event.clear()
-                        yield sse_event("thought", json.dumps({"type": "planning", "text": "Task interrupted by user.", "status": "completed"}))
-                        return
-
-                # Tree-of-Thoughts Backtracking execution
-                if tot_failed:
-                    history = list(tot_checkpoint)
-                    yield sse_event("thought", json.dumps({
-                        "id": f"tot-backtrack-{time.time()}",
-                        "type": "warning",
-                        "text": f"[Tree-of-Thoughts] Tool execution of '{failed_tool}' failed. Backtracking and adjusting pathway...",
-                        "status": "completed"
-                    }))
-                    history.append({
-                        "role": "user",
-                        "content": f"<observation:{failed_tool}>Error: Tool execution failed. [Tree-of-Thoughts Backtrack]: Avoid calling '{failed_tool}' with args {json.dumps(failed_args)} again as it fails in this environment. Attempt an alternative search, verify paths, or try a different approach.</observation:{failed_tool}>"
-                    })
-                    continue
-
-                # Join observations and append to prompt history for next reasoning loop
-                obs_payload = "\n".join(observations)
-                history.append({"role": "user", "content": obs_payload})
+                if turn_state.get("reloaded_plugins"):
+                    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt)
+                    from src.core.mode import build_system_prompt
+                    new_sys = build_system_prompt(prompt, brain_model, ollama_host, tools_doc)
+                    history[0] = {"role": "system", "content": new_sys}
+                    print("[Plugins] System prompt dynamically updated with new tool registrations.")
             else:
-                # If no tool calls and no finish tag, break to avoid infinite loop
                 if not final_text:
-                    final_text = clean_final_text(full_turn_text)
-                    final_text = await process_final_response(final_text, user_lang, client)
-
-                    # 3. Consensus Debate (Runs for local and cloud models if triggered by gate)
-                    if should_run_debate(tool_calls=executed_tools_all_turns, goal=prompt, finish_text=final_text):
-                        yield sse_event("thought", json.dumps({
-                            "id": f"debate-init-break-{time.time()}",
-                            "type": "planning",
-                            "text": f"[Consensus Debate] Running Coder vs QA Reviewer consensus debate loop...",
-                            "status": "running"
-                        }))
-                    has_search2 = any(k in str(history).lower() for k in ["search_news", "search_web", "autonomous_research", "search_knowledge", "search_offline_docs"])
-                    qa_prompt = build_consensus_qa_prompt(final_text)
-                    from src.core.llm_provider import call_llm
-                    critique = await call_llm([{"role": "user", "content": qa_prompt}], model=get_auditor_model(), temperature=0.2)
-                    critique = (critique or "").strip()
-                    if critique.startswith("Error:"):
-                        critique = ""
-
-                    # Filter false-positive temporal error critiques
-                    critique, is_false_pos2 = filter_temporal_false_positives(critique, executed_search_tool=has_search2)
-
-                    yield sse_event("thought", json.dumps({
-                        "id": f"debate-critique-break-{time.time()}",
-                        "type": "planning",
-                        "text": f"[Consensus Debate - QA Reviewer]: Critique generated:\n{critique if critique else '(No relevant issues detected)'}",
-                        "status": "completed"
-                    }))
-
-                    if critique:
-                        coder_prompt = build_consensus_coder_prompt(final_text, critique)
-                        refined = await call_llm([{"role": "user", "content": coder_prompt}], model=active_model, temperature=0.5)
-                        refined = (refined or "").strip()
-                        if refined.startswith("```"):
-                            refined = refined.strip("`").replace("json\n", "").strip()
-
-                        try:
-                            json.loads(refined)
-                            if has_search2 and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in final_text.lower()):
-                                pass
-                            else:
-                                final_text = refined
-                        except Exception:
-                            pass
-
-                    _debate_key2 = f"debate-{uuid.uuid4()}"  # BUG-31 fix (extended): uuid4 avoids time.time() collision
-                    active_debates[_debate_key2] = {
-                        "draft": final_text,
-                        "critique": critique,
-                        "refined": final_text
-                    }
-                    # BUG-10 fix: same cap as above — prune oldest entries
-                    _MAX_DEBATES = 50
-                    if len(active_debates) > _MAX_DEBATES:
-                        for _old_k in sorted(active_debates.keys())[:len(active_debates) - _MAX_DEBATES]:
-                            del active_debates[_old_k]
-
-                    yield sse_event("text", final_text)
+                    raw_cleaned = clean_final_text(full_turn_text)
+                    async for etype, epayload in handle_turn_finish(
+                        finish_text=raw_cleaned,
+                        prompt=prompt,
+                        active_model=active_model,
+                        user_lang=user_lang,
+                        client=client,
+                        executed_tools=executed_tools_all_turns,
+                        history=history,
+                        active_debates=active_debates,
+                    ):
+                        if etype == "text":
+                            final_text = epayload
+                        yield sse_event(etype, epayload)
                 break
-                
-        # Save the final text that was streamed to the user as-is.
-        # process_final_response is already applied during streaming (finish event handler),
-        # so re-processing here would cause the DB to store a different version than shown.
-        # BUG-5 fix: only persist to DB when this is a user-facing (non-worker) call.
-        # HTP worker sub-loops should not write their internal results to conversation
-        # history or semantic cache since they are planning artifacts, not user interactions.
+
         if not is_worker and final_text.strip():
             add_to_conversations("assistant", final_text)
             add_to_semantic_cache(prompt, final_text)
         add_to_task_log("ollama_api", 2, "success")
 
-        
-        # Trigger background memory compression checking
         try:
             from database import get_sqlite_conn
             conn = get_sqlite_conn()
@@ -2159,14 +454,11 @@ async def run_react_agent_loop(
             cursor.execute("SELECT COUNT(*) FROM conversations")
             total_rows = cursor.fetchone()[0]
             conn.close()
-            # #16 FIX: Lower threshold from 21 to 10 to compress context sooner.
-            # At 21 turns, multiple pages of conversation accumulate before any distillation.
             if total_rows >= 10:
                 asyncio.create_task(run_memory_summarization_background(ollama_host))
         except Exception as e:
             print("[Memory Distiller trigger warning]:", e)
 
-        # Schedule a proactive follow-up for significant cognitive modes
         try:
             from src.core.mode import classify_mode
             from src.core.proactive import schedule_followup
@@ -2177,7 +469,6 @@ async def run_react_agent_loop(
             print("[Proactive Follow-up] Scheduling error:", e)
 
     finally:
-        # Secure garbage collection of temporary files (screenshots and log dumps)
         for temp_file in set(created_temp_files):
             try:
                 if os.path.exists(temp_file):
