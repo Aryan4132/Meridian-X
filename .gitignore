@@ -28,6 +28,7 @@ meridian_mobile/.pub-cache/
 meridian_mobile/.pub/
 meridian_mobile/build/
 meridian_mobile/android/.gradle/
+meridian_mobile/android/build/
 meridian_mobile/android/local.properties
 meridian_mobile/*.iml
 meridian_mobile/android/*.iml
@@ -36,6 +37,8 @@ meridian_mobile/ios/Flutter/ephemeral/
 meridian_mobile/macos/Flutter/ephemeral/
 *.apk
 *.aab
+brag-output/
+skills-lock.json
 
 # PyInstaller build outputs
 meridian_backend/build/
@@ -108,8 +111,4 @@ meridian_backend/src/data/screenshot_memory/
 # Internal task tracking & agent context docs
 TIMELINE.md
 KANBAN.md
-PROJECT_CONTEXT.md
-SPEC.md
-tasks.md
-tasks/
-fixes.md
+
