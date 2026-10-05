@@ -8,21 +8,15 @@ import json
 from datetime import datetime
 from typing import List, Dict, Any
 
+from src.core.atomic_storage import atomic_write_json, safe_load_json
+
 HOUSEHOLD_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "household_ops.json")
 
 def _load_household() -> Dict[str, Any]:
-    if not os.path.exists(HOUSEHOLD_FILE):
-        return {"pantry": [], "groceries": [], "chores": []}
-    try:
-        with open(HOUSEHOLD_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {"pantry": [], "groceries": [], "chores": []}
+    return safe_load_json(HOUSEHOLD_FILE, default={"pantry": [], "groceries": [], "chores": []})
 
 def _save_household(data: Dict[str, Any]) -> None:
-    os.makedirs(os.path.dirname(HOUSEHOLD_FILE), exist_ok=True)
-    with open(HOUSEHOLD_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
+    atomic_write_json(HOUSEHOLD_FILE, data, indent=2)
 
 def add_grocery_item(item_name: str, quantity: str = "1", priority: str = "normal") -> str:
     """Add an item to the household grocery shopping list."""

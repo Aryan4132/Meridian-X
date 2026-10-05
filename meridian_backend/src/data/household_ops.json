@@ -91,6 +91,41 @@
       "quantity": "2 cartons",
       "priority": "normal",
       "added_at": "2026-09-29 00:43"
+    },
+    {
+      "id": "g_1790861230",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-01 18:57"
+    },
+    {
+      "id": "g_1790863380",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-01 19:33"
+    },
+    {
+      "id": "g_1790875607",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-01 22:56"
+    },
+    {
+      "id": "g_1791198115",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-05 16:31"
+    },
+    {
+      "id": "g_1791209243",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-05 19:37"
     }
   ],
   "chores": [
@@ -180,6 +215,41 @@
     },
     {
       "id": "c_1790622811",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1790861230",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1790863380",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1790875607",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1791198115",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1791209243",
       "title": "Water plants",
       "assigned_to": "Self",
       "due_date": "Today",

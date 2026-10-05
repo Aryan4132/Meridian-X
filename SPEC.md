@@ -435,6 +435,26 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
 - Backend pytest suite: `pytest meridian_backend/tests/` passes without regressions.
 - Frontend build & typecheck: `npm --prefix meridian_frontend run build` and `npx --prefix meridian_frontend tsc --noEmit` pass cleanly.
 
+---
 
+## Sub-Spec: Sprint 21 - System Polish, Atomic Data Resilience, Repo Hygiene & Settings Modularization
 
-
+### Objectives
+1. **Repo Hygiene & Git Ignore**:
+   - Remove accidental stray folder `meridian_backend/meridian_frontend/` containing `ProfileHeader.tsx`.
+   - Update `.gitignore` to ignore `meridian_mobile/android/build/`, `brag-output/`, `skills-lock.json`.
+2. **Frontend Dynamic Import Standardization**:
+   - In `meridian_frontend/src/components/ProactiveGuardBanner.tsx`, replace dynamic `@tauri-apps/api/event` import with static import to eliminate Vite build chunking warnings.
+3. **Atomic JSON Storage**:
+   - Create `src/core/atomic_storage.py` with `atomic_write_json(filepath, data, indent=2)` using temporary file write + atomic replace (`os.replace`) to prevent corrupted files on unexpected shutdown.
+4. **Browser Tool Consolidation & Exception Transparency**:
+   - Modernize `src/tools/browser_agent.py` to route all web interactions through `browser_use_task` / `web_browser` with structured logger warning instead of silent error swallowing.
+5. **Frontend Settings Modularization**:
+   - Modularize monolithic `Settings.tsx` (3,115 lines) by extracting tab components into `meridian_frontend/src/views/settings/`:
+     - `ModelsTab.tsx`
+     - `MascotTab.tsx`
+     - `VoiceTab.tsx`
+     - `GuardTab.tsx`
+     - `SpendTab.tsx`
+     - `IntegrationsTab.tsx`
+   - Maintain 100% backward compatibility of state, handlers, themes, and settings persistence.

@@ -8,21 +8,15 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
+from src.core.atomic_storage import atomic_write_json, safe_load_json
+
 BILLS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "bills.json")
 
 def _load_bills() -> List[Dict[str, Any]]:
-    if not os.path.exists(BILLS_FILE):
-        return []
-    try:
-        with open(BILLS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    return safe_load_json(BILLS_FILE, default=[])
 
 def _save_bills(bills: List[Dict[str, Any]]) -> None:
-    os.makedirs(os.path.dirname(BILLS_FILE), exist_ok=True)
-    with open(BILLS_FILE, "w", encoding="utf-8") as f:
-        json.dump(bills, f, indent=2)
+    atomic_write_json(BILLS_FILE, bills, indent=2)
 
 def register_recurring_bill(payee: str, amount: float, due_day_of_month: int, category: str = "general") -> str:
     """
