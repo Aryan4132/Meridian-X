@@ -9,21 +9,15 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
+from src.core.atomic_storage import atomic_write_json, safe_load_json
+
 EXPIRY_STORE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "expiry_vault.json")
 
 def _load_expiry_records() -> List[Dict[str, Any]]:
-    if not os.path.exists(EXPIRY_STORE_FILE):
-        return []
-    try:
-        with open(EXPIRY_STORE_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    return safe_load_json(EXPIRY_STORE_FILE, default=[])
 
 def _save_expiry_records(records: List[Dict[str, Any]]) -> None:
-    os.makedirs(os.path.dirname(EXPIRY_STORE_FILE), exist_ok=True)
-    with open(EXPIRY_STORE_FILE, "w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2)
+    atomic_write_json(EXPIRY_STORE_FILE, records, indent=2)
 
 def add_expiry_document(doc_title: str, doc_type: str, expiry_date: str, notes: str = "") -> str:
     """

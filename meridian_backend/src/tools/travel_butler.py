@@ -9,21 +9,15 @@ import json
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
 
+from src.core.atomic_storage import atomic_write_json, safe_load_json
+
 TRIPS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "trips.json")
 
 def _load_trips() -> List[Dict[str, Any]]:
-    if not os.path.exists(TRIPS_FILE):
-        return []
-    try:
-        with open(TRIPS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return []
+    return safe_load_json(TRIPS_FILE, default=[])
 
 def _save_trips(trips: List[Dict[str, Any]]) -> None:
-    os.makedirs(os.path.dirname(TRIPS_FILE), exist_ok=True)
-    with open(TRIPS_FILE, "w", encoding="utf-8") as f:
-        json.dump(trips, f, indent=2)
+    atomic_write_json(TRIPS_FILE, trips, indent=2)
 
 def create_trip(destination: str, start_date: str, end_date: str, flight_number: str = "", hotel: str = "") -> str:
     """

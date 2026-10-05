@@ -6,7 +6,10 @@ Provides real web page interaction, form navigation, element clicking, and DOM e
 import os
 import json
 import time
+import logging
 from typing import Dict, Any, Optional, List
+
+logger = logging.getLogger("meridian.browser")
 
 try:
     from playwright.sync_api import sync_playwright
@@ -182,20 +185,36 @@ browser_instance = AutonomousWebBrowser()
 
 
 def browser_navigate_tool(url: str) -> str:
-    """Tool wrapper for browser page navigation synchronizing with live web_browser session."""
+    """Tool wrapper for browser page navigation routed primarily to browser_use_task."""
+    try:
+        from src.tools.browser_use_agent import browser_use_task
+        task_output = browser_use_task(task=f"Navigate to {url} and extract page summary", start_url=url)
+        return json.dumps({"status": "success", "url": url, "result": task_output}, indent=2)
+    except Exception as e:
+        logger.warning(f"browser_use_task navigation failed for {url}, attempting web_browser fallback: {e}")
+
     try:
         from src.tools import web_browser
         if web_browser._page_alive():
             nav_res = web_browser.browser_open(url, visible=True)
             return json.dumps({"status": "success", "url": url, "result": nav_res}, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"web_browser navigation fallback failed for {url}, falling back to AutonomousWebBrowser: {e}")
+
     res = browser_instance.navigate(url)
     return json.dumps(res, indent=2)
 
 
 def browser_interact_tool(action: str, selector: str, text: str = "") -> str:
-    """Tool wrapper for browser element clicking or form typing with live web_browser session integration."""
+    """Tool wrapper for browser element interaction routed primarily to browser_use_task."""
+    try:
+        from src.tools.browser_use_agent import browser_use_task
+        task = f"Click element '{selector}'" if action == "click" else f"Type '{text}' into '{selector}'"
+        task_output = browser_use_task(task=task)
+        return json.dumps({"status": "success", "action": action, "selector": selector, "result": task_output}, indent=2)
+    except Exception as e:
+        logger.warning(f"browser_use_task interaction failed for '{action}' on '{selector}', attempting web_browser fallback: {e}")
+
     try:
         from src.tools import web_browser
         if web_browser._page_alive():
@@ -205,8 +224,8 @@ def browser_interact_tool(action: str, selector: str, text: str = "") -> str:
             elif action == "type":
                 type_res = web_browser.browser_type_element(selector, text, press_enter=True)
                 return json.dumps({"status": "success", "action": "type", "selector": selector, "text": text, "result": type_res}, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"web_browser interaction fallback failed for '{action}' on '{selector}', falling back to AutonomousWebBrowser: {e}")
 
     if action == "click":
         res = browser_instance.click_element(selector)
