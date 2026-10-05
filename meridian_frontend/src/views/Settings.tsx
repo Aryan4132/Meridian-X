@@ -14,6 +14,10 @@ import {
   hasKeyLockPassword, verifyKeyLockPassword, isKeyLockUnlocked,
   unlockKeyLockSession, lockKeyLockSession, setKeyLockPassword,
 } from '../utils/keyLock';
+import MascotTab from './settings/MascotTab';
+import VoiceTab from './settings/VoiceTab';
+import IntegrationsTab from './settings/IntegrationsTab';
+import PasswordInput from './settings/PasswordInput';
 
 const SETTINGS_TABS = [
   { id: 'models', label: 'AI Models', icon: Cpu },
@@ -68,43 +72,7 @@ const THEMES = [
 
 
 
-function PasswordInput({ label, value, onChange, placeholder, requireUnlock, keysUnlocked, onRequestUnlock }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; requireUnlock?: boolean; keysUnlocked?: boolean; onRequestUnlock?: () => void }) {
-  const [show, setShow] = useState(false);
-  const locked = requireUnlock && !keysUnlocked;
-  return (
-    <div>
-      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-        {label} {locked && <span style={{ color: 'var(--accent)' }}>· 🔒</span>}
-      </label>
-      <div style={{ position: 'relative' }}>
-        <input
-          type={show && !locked ? 'text' : 'password'}
-          value={locked && value ? '••••••••••••••••' : value}
-          onChange={e => { if (!locked) onChange(e.target.value); }}
-          placeholder={placeholder}
-          className="input-base"
-          style={{ paddingRight: 36 }}
-          readOnly={locked}
-          onFocus={e => { if (locked) { e.target.blur(); onRequestUnlock?.(); } }}
-        />
-        <button
-          type="button"
-          onClick={() => {
-            if (locked) { onRequestUnlock?.(); return; }
-            setShow(v => !v);
-          }}
-          title={locked ? 'Enter password to reveal' : (show ? 'Hide' : 'Show')}
-          style={{
-            position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)', padding: 2,
-          }}
-        >
-          {show && !locked ? <EyeOff size={14} /> : <Eye size={14} />}
-        </button>
-      </div>
-    </div>
-  );
-}
+
 
 function KeyLockModal({ open, mode, error, password, setPassword, onClose, onSubmit }: {
   open: boolean; mode: 'unlock' | 'set'; error: string; password: string;
@@ -1706,647 +1674,108 @@ export default function Settings() {
 
           {/* Category: Integrations */}
           {activeCategory === 'integrations' && (
-            <>
-              {/* Frontend & Backend Server Integration */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div className="section-label" style={{ margin: 0 }}>🌐 Core Frontend & Backend Integration</div>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                    Active Endpoint: {API_BASE_URL}
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Backend Server URL
-                    </label>
-                    <input
-                      type="text"
-                      value={backendUrl}
-                      onChange={(e) => setBackendUrl(e.target.value)}
-                      placeholder="http://127.0.0.1:4132 or https://my-backend-server.com"
-                      className="input-base"
-                      style={{ width: '100%', fontSize: 12 }}
-                    />
-                  </div>
-
-                  <PasswordInput
-                    label="Backend API Key (Required for Remote/Protected Server)"
-                    value={backendApiKey}
-                    onChange={setBackendApiKey}
-                    placeholder="Enter Meridian secret API key"
-                    requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock}
-                  />
-
-                  {backendStatusMsg && (
-                    <div style={{
-                      padding: '8px 12px',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: 11,
-                      fontFamily: 'JetBrains Mono',
-                      background: backendStatusMsg.isError ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-                      border: backendStatusMsg.isError ? '1px solid rgba(244, 63, 94, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                      color: backendStatusMsg.isError ? '#f87171' : '#34d399'
-                    }}>
-                      {backendStatusMsg.text}
-                    </div>
-                  )}
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <HoloButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleTestBackendConnection}
-                      disabled={isTestingBackend}
-                    >
-                      {isTestingBackend ? <Loader2 className="animate-spin" size={12} /> : <RefreshCw size={12} />}
-                      {isTestingBackend ? 'Testing...' : 'Test Connection'}
-                    </HoloButton>
-
-                    <HoloButton
-                      type="button"
-                      variant="primary"
-                      size="sm"
-                      onClick={handleSaveBackendConfig}
-                    >
-                      <Save size={12} />
-                      Save & Connect
-                    </HoloButton>
-
-                    <HoloButton
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleResetBackendConfig}
-                    >
-                      Reset Defaults
-                    </HoloButton>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Integrations */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Integrations & Tokens</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <PasswordInput label="Tavily API Key (Web Search)" value={tavilyKey} onChange={setTavilyKey} placeholder="tvly-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                  <PasswordInput label="Discord Bot Token" value={discordToken} onChange={setDiscordToken} placeholder="MT..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <PasswordInput label="Telegram Bot Token" value={telegramToken} onChange={setTelegramToken} placeholder="bot..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Chat ID</label>
-                      <input type="text" value={telegramChatId} onChange={e => setTelegramChatId(e.target.value)} placeholder="123456789" className="input-base" />
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Universal Encrypted Secret Vault */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Secret Vault</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
-                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
-                      else requestUnlock();
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-                  >
-                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-                  </button>
-                </div>
-
-                {/* List of active custom keys */}
-                {vaultKeys.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                    {vaultKeys.map(k => (
-                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
-                              {k.category || 'LLM Provider'}
-                            </span>
-                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                              ${k.env_var}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
-                          </div>
-                        </div>
-                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                          <Trash2 size={12} />
-                        </HoloButton>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                    No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
-                  </div>
-                )}
-
-                {/* Add New Key Form */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    + Add Dynamic API Key or Cloud Secret
-                  </label>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                        <option value="LLM Provider">LLM Provider</option>
-                        <option value="Search & Web">Search & Web</option>
-                        <option value="Audio & Voice">Audio & Voice</option>
-                        <option value="Vision & Media">Vision & Media</option>
-                        <option value="Vector DB">Vector DB</option>
-                        <option value="Custom Tool">Custom Tool</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                      <Plus size={12} /> Save Secret to Vault
-                    </HoloButton>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Email Configuration */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Email Configuration (SMTP & IMAP)</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Email Address</label>
-                      <input type="email" value={smtpEmail} onChange={e => setSmtpEmail(e.target.value)} placeholder="your_email@gmail.com" className="input-base" />
-                    </div>
-                    <PasswordInput label="SMTP App-Specific Password" value={smtpPassword} onChange={setSmtpPassword} placeholder="16-character app password" requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Server</label>
-                      <input type="text" value={smtpServer} onChange={e => setSmtpServer(e.target.value)} placeholder="smtp.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>SMTP Port</label>
-                      <input type="number" value={smtpPort} onChange={e => setSmtpPort(parseInt(e.target.value) || 587)} placeholder="587" className="input-base" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>IMAP Server</label>
-                      <input type="text" value={imapServer} onChange={e => setImapServer(e.target.value)} placeholder="imap.gmail.com" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Model Context Protocol (MCP) Server Marketplace */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label" style={{ marginBottom: 10 }}>🔌 Model Context Protocol (MCP) Server Registry</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: '1.5' }}>
-                    Manage connected Model Context Protocol (MCP) servers. Registered servers dynamically expose tools directly into the ReAct reasoning loop.
-                  </div>
-
-                  {/* Registered Custom Servers */}
-                  {Object.keys(mcpServers).length > 0 ? (
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                        Active Connected MCP Servers ({Object.keys(mcpServers).length})
-                      </label>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {Object.entries(mcpServers).map(([srvName, srvConfig]: [string, any]) => (
-                          <div key={srvName} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{srvName}</span>
-                                <span style={{ fontSize: 9, padding: '2px 6px', background: 'rgba(0, 217, 126, 0.15)', color: '#00D97E', borderRadius: 4, fontFamily: 'JetBrains Mono' }}>
-                                  Active
-                                </span>
-                              </div>
-                              <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
-                                {srvConfig.command} {srvConfig.args?.join(' ')}
-                              </div>
-                            </div>
-                            <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteCustomMcpServer(srvName)}>
-                              <Trash2 size={12} />
-                            </HoloButton>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {/* Add Custom MCP Server Form */}
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                      + Enter / Register Custom MCP Server
-                    </label>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server Name</label>
-                        <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. Filesystem MCP / Git MCP" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Command Executable</label>
-                        <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx / uvx / node / python" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (Space Separated)</label>
-                        <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y @modelcontextprotocol/server-filesystem C:/Projects" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Vars (KEY=VAL, ...)</label>
-                        <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="API_KEY=xxx, TOKEN=yyy" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
-                      <HoloButton type="button" variant="primary" size="sm" onClick={handleAddCustomMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
-                        <Plus size={12} /> Register MCP Server
-                      </HoloButton>
-                    </div>
-                  </div>
-
-                  {/* Catalog Servers */}
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12 }}>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      1-Click Featured MCP Marketplace Catalog
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      {mcpCatalog.map(s => (
-                        <div key={s.id} style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', gap: 8 }}>
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{s.name}</span>
-                              <span style={{ fontSize: 9, padding: '2px 6px', background: s.installed ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--accent-muted)', color: s.installed ? 'var(--success)' : 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
-                                {s.installed ? 'Installed' : s.category}
-                              </span>
-                            </div>
-                            <div style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: '1.4' }}>{s.description}</div>
-                            <div style={{ fontSize: 9, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>{s.command}</div>
-                          </div>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <HoloButton
-                              type="button"
-                              variant={s.installed ? "ghost" : "primary"}
-                              size="sm"
-                              disabled={s.installed}
-                              onClick={() => handleInstallMcp(s.id)}
-                            >
-                              {s.installed ? "Active" : "Install Server"}
-                            </HoloButton>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
+            <IntegrationsTab
+              backendUrl={backendUrl}
+              setBackendUrl={setBackendUrl}
+              backendApiKey={backendApiKey}
+              setBackendApiKey={setBackendApiKey}
+              backendStatusMsg={backendStatusMsg}
+              isTestingBackend={isTestingBackend}
+              handleTestBackendConnection={handleTestBackendConnection}
+              handleSaveBackendConfig={handleSaveBackendConfig}
+              handleResetBackendConfig={handleResetBackendConfig}
+              tavilyKey={tavilyKey}
+              setTavilyKey={setTavilyKey}
+              discordToken={discordToken}
+              setDiscordToken={setDiscordToken}
+              telegramToken={telegramToken}
+              setTelegramToken={setTelegramToken}
+              telegramChatId={telegramChatId}
+              setTelegramChatId={setTelegramChatId}
+              vaultKeys={vaultKeys}
+              showVaultSecrets={showVaultSecrets}
+              setShowVaultSecrets={setShowVaultSecrets}
+              fetchVaultKeys={fetchVaultKeys}
+              handleDeleteVaultKey={handleDeleteVaultKey}
+              vkName={vkName}
+              setVkName={setVkName}
+              vkEnvVar={vkEnvVar}
+              setVkEnvVar={setVkEnvVar}
+              vkSecret={vkSecret}
+              setVkSecret={setVkSecret}
+              vkCategory={vkCategory}
+              setVkCategory={setVkCategory}
+              vkBaseUrl={vkBaseUrl}
+              setVkBaseUrl={setVkBaseUrl}
+              handleAddVaultKey={handleAddVaultKey}
+              smtpEmail={smtpEmail}
+              setSmtpEmail={setSmtpEmail}
+              smtpPassword={smtpPassword}
+              setSmtpPassword={setSmtpPassword}
+              smtpServer={smtpServer}
+              setSmtpServer={setSmtpServer}
+              smtpPort={smtpPort}
+              setSmtpPort={setSmtpPort}
+              imapServer={imapServer}
+              setImapServer={setImapServer}
+              mcpServers={mcpServers}
+              handleDeleteCustomMcpServer={handleDeleteCustomMcpServer}
+              newServerName={newServerName}
+              setNewServerName={setNewServerName}
+              newServerCommand={newServerCommand}
+              setNewServerCommand={setNewServerCommand}
+              newServerArgs={newServerArgs}
+              setNewServerArgs={setNewServerArgs}
+              newServerEnv={newServerEnv}
+              setNewServerEnv={setNewServerEnv}
+              handleAddCustomMcpServer={handleAddCustomMcpServer}
+              mcpCatalog={mcpCatalog}
+              handleInstallMcp={handleInstallMcp}
+              keysUnlocked={keysUnlocked}
+              requestUnlock={requestUnlock}
+              isKeyLockUnlocked={isKeyLockUnlocked}
+            />
           )}
 
-          {/* Category: Voice */}
           {activeCategory === 'voice' && (
-            <>
-              {/* Day 5 — Real-Time Voice Duplex & Biometrics Control Center */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Real-Time Voice Controls & Biometrics (AST-15, AST-08, JARVIS-03)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  
-                  {/* Voice Output Response Toggle */}
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Voice Assistant Speech Output</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: voiceResponseEnabled ? 'rgba(52, 211, 153, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: voiceResponseEnabled ? 'var(--success)' : 'var(--danger)' }}>
-                        {voiceResponseEnabled ? 'ENABLED' : 'MUTED'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                      Toggles synthesized voice responses. Turn OFF to keep responses text-only.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleToggleVoiceResponse}
-                      className="btn-secondary"
-                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer', border: voiceResponseEnabled ? '1px solid var(--danger)' : '1px solid var(--success)', color: voiceResponseEnabled ? 'var(--danger)' : 'var(--success)' }}
-                    >
-                      {voiceResponseEnabled ? '🔇 Mute Voice Output' : '🔊 Enable Voice Output'}
-                    </button>
-                  </div>
-
-                  {/* Full-Duplex Real-Time Voice Streaming */}
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Full-Duplex Voice Engine</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: duplexActive ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--bg-surface)', color: duplexActive ? 'var(--success)' : 'var(--text-dim)' }}>
-                        {duplexActive ? 'ACTIVE (50ms VAD)' : 'IDLE'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                      Sub-100ms VAD barge-in speech interruption mid-sentence.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleToggleDuplex}
-                      className="btn-secondary"
-                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
-                    >
-                      {duplexActive ? 'Stop Duplex Session' : '🎙️ Start Duplex Session'}
-                    </button>
-                  </div>
-
-                  {/* Continuous Conversation Window */}
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Continuous Listening Window</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: continuousActive ? 'var(--accent-muted)' : 'var(--bg-surface)', color: continuousActive ? 'var(--accent)' : 'var(--text-dim)' }}>
-                        {continuousActive ? `LISTENING (${continuousRemaining}s)` : 'OFF'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                      10-second active follow-up listening window without wake word.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleTriggerContinuousWindow}
-                      className="btn-secondary"
-                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
-                    >
-                      ⚡ Trigger 10s Continuous Window
-                    </button>
-                  </div>
-
-                  {/* Voice Biometric Identity Verification */}
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span>Voice Biometrics & Identity</span>
-                      <span style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, fontFamily: 'JetBrains Mono', background: biometricsCount > 0 ? 'color-mix(in srgb, var(--success) 15%, transparent)' : 'var(--bg-surface)', color: biometricsCount > 0 ? 'var(--success)' : 'var(--text-dim)' }}>
-                        {biometricsCount > 0 ? `${biometricsCount} ENROLLED` : 'NO VOICEPRINTS'}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                      128-dim acoustic vector verification blocking background voices.
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleResetBiometrics}
-                      className="btn-secondary"
-                      style={{ fontSize: 11, marginTop: 4, cursor: 'pointer' }}
-                    >
-                      🗑️ Reset Enrolled Voiceprints
-                    </button>
-                  </div>
-
-                </div>
-              </GlowCard>
-
-              {/* Voice & Wake Word Advanced Config */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Voice & Wake Word Settings</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>STT Whisper Model</label>
-                    <select value={sttModelSize} onChange={e => setSttModelSize(e.target.value)} className="select-base">
-                      <option value="base">base (Fastest)</option>
-                      <option value="small">small</option>
-                      <option value="medium">medium</option>
-                      <option value="large-v3">large-v3</option>
-                      <option value="turbo">turbo (Accurate)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Score Threshold</label>
-                    <input type="number" min="0.1" max="1.0" step="0.05" value={wakewordThreshold} onChange={e => setWakewordThreshold(parseFloat(e.target.value))} className="input-base" />
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word ONNX Model (Path / Filename)</label>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <input
-                        type="text"
-                        value={wakewordModel}
-                        onChange={e => setWakewordModel(e.target.value)}
-                        className="input-base"
-                        placeholder="hey_meridian.onnx or C:/path/to/model.onnx"
-                        style={{ fontFamily: "'JetBrains Mono', monospace", flex: 1 }}
-                      />
-                      <input
-                        type="file"
-                        ref={fileInputRef}
-                        accept=".onnx"
-                        style={{ display: 'none' }}
-                        onChange={handleFileInputChange}
-                      />
-                      <button
-                        type="button"
-                        onClick={handleBrowseOnnxFile}
-                        className="btn-secondary"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        title="Browse folders for .onnx model"
-                      >
-                        <FolderOpen size={14} />
-                        Browse...
-                      </button>
-                      <button
-                        type="button"
-                        onClick={fetchScannedOnnxModels}
-                        disabled={isScanningOnnx}
-                        className="btn-secondary"
-                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        title="Scan system folders for .onnx models"
-                      >
-                        <Search size={14} />
-                        {isScanningOnnx ? 'Scanning...' : 'Scan'}
-                      </button>
-                    </div>
-                    {scannedOnnxModels.length > 0 && (
-                      <div style={{ marginTop: 8, background: 'var(--bg-panel)', borderRadius: 'var(--radius-sm)', padding: 8, border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, fontFamily: 'JetBrains Mono' }}>DETECTED ONNX MODELS:</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {scannedOnnxModels.map((m, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => setWakewordModel(m.path || m.name)}
-                              style={{
-                                fontSize: 11,
-                                fontFamily: "'JetBrains Mono', monospace",
-                                background: wakewordModel === m.path || wakewordModel === m.name ? 'var(--accent-muted)' : 'var(--bg-surface)',
-                                border: wakewordModel === m.path || wakewordModel === m.name ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
-                                color: 'var(--text-main)',
-                                borderRadius: 4,
-                                padding: '4px 8px',
-                                cursor: 'pointer'
-                              }}
-                              title={m.path}
-                            >
-                              {m.name}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Wake Word Phrase Text</label>
-                    <input type="text" value={wakewordPhrase} onChange={e => setWakewordPhrase(e.target.value)} className="input-base" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Silence Timeout (sec)</label>
-                    <input type="number" min="0.2" max="5.0" step="0.1" value={sttSilenceTimeout} onChange={e => setSttSilenceTimeout(parseFloat(e.target.value))} className="input-base" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>VAD Amplitude Threshold</label>
-                    <input type="number" min="50" max="2000" step="50" value={sttVadThreshold} onChange={e => setSttVadThreshold(parseFloat(e.target.value))} className="input-base" />
-                  </div>
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Max STT Recording Duration (sec)</label>
-                    <input type="number" min="2.0" max="60.0" step="1.0" value={sttMaxDuration} onChange={e => setSttMaxDuration(parseFloat(e.target.value))} className="input-base" />
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Voice & Audio Provider API Credentials */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Cloud Voice & Speech Provider API Keys</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <PasswordInput label="ElevenLabs API Key (TTS High-Fidelity Voice)" value={elevenlabsKey} onChange={setElevenlabsKey} placeholder="xi-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                  <PasswordInput label="Deepgram API Key (Real-Time Cloud STT)" value={deepgramKey} onChange={setDeepgramKey} placeholder="dg-..." requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />
-                </div>
-              </GlowCard>
-
-              {/* Universal Encrypted Secret Vault inside Voice tab */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
-                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
-                      else requestUnlock();
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-                  >
-                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-                  </button>
-                </div>
-
-                {/* List of active custom keys */}
-                {vaultKeys.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                    {vaultKeys.map(k => (
-                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
-                              {k.category || 'Audio & Voice'}
-                            </span>
-                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                              ${k.env_var}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
-                          </div>
-                        </div>
-                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                          <Trash2 size={12} />
-                        </HoloButton>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                    No custom API keys registered in encrypted vault yet. Add ElevenLabs, Deepgram, Whisper Cloud or any custom tool key below.
-                  </div>
-                )}
-
-                {/* Add New Key Form */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    + Add Dynamic API Key or Cloud Secret
-                  </label>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. ElevenLabs / Deepgram" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. ELEVENLABS_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="xi-... / dg-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                        <option value="Audio & Voice">Audio & Voice</option>
-                        <option value="LLM Provider">LLM Provider</option>
-                        <option value="Search & Web">Search & Web</option>
-                        <option value="Vision & Media">Vision & Media</option>
-                        <option value="Vector DB">Vector DB</option>
-                        <option value="Custom Tool">Custom Tool</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.elevenlabs.io/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                      <Plus size={12} /> Save Secret to Vault
-                    </HoloButton>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
+            <VoiceTab
+              voiceResponseEnabled={voiceResponseEnabled}
+              handleToggleVoiceResponse={handleToggleVoiceResponse}
+              duplexActive={duplexActive}
+              handleToggleDuplex={handleToggleDuplex}
+              continuousActive={continuousActive}
+              continuousRemaining={continuousRemaining}
+              handleTriggerContinuousWindow={handleTriggerContinuousWindow}
+              biometricsCount={biometricsCount}
+              handleResetBiometrics={handleResetBiometrics}
+              sttModelSize={sttModelSize}
+              setSttModelSize={setSttModelSize}
+              wakewordThreshold={wakewordThreshold}
+              setWakewordThreshold={setWakewordThreshold}
+              wakewordModel={wakewordModel}
+              setWakewordModel={setWakewordModel}
+              fileInputRef={fileInputRef}
+              handleFileInputChange={handleFileInputChange}
+              handleBrowseOnnxFile={handleBrowseOnnxFile}
+              vaultKeys={vaultKeys}
+              keysUnlocked={keysUnlocked}
+              showVaultSecrets={showVaultSecrets}
+              setShowVaultSecrets={setShowVaultSecrets}
+              handleDeleteVaultKey={handleDeleteVaultKey}
+              vkName={vkName}
+              setVkName={setVkName}
+              vkEnvVar={vkEnvVar}
+              setVkEnvVar={setVkEnvVar}
+              vkSecret={vkSecret}
+              setVkSecret={setVkSecret}
+              vkCategory={vkCategory}
+              setVkCategory={setVkCategory}
+              vkBaseUrl={vkBaseUrl}
+              setVkBaseUrl={setVkBaseUrl}
+              handleAddVaultKey={handleAddVaultKey}
+            />
           )}
 
-          {/* Category: Guard */}
           {activeCategory === 'guard' && (
             <>
               {/* System Version & Auto-Update Engine */}
@@ -2555,212 +1984,21 @@ export default function Settings() {
 
           {/* Category: Mascot & Style */}
           {activeCategory === 'mascot' && (
-            <>
-              {/* Theme & Design Styles Selector */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div className="section-label" style={{ margin: 0 }}>Design Styles & Themes</div>
-                  <span style={{ fontSize: 10, fontFamily: 'JetBrains Mono', color: 'var(--accent)', background: 'var(--accent-muted)', padding: '2px 8px', borderRadius: 4 }}>
-                    15 STYLES AVAILABLE
-                  </span>
-                </div>
-
-                {/* Filter Tabs */}
-                <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                  {(['all', 'dark', 'light'] as const).map(tab => (
-                    <button
-                      key={tab}
-                      type="button"
-                      onClick={() => setThemeFilter(tab)}
-                      style={{
-                        flex: 1,
-                        padding: '4px 8px',
-                        fontSize: 10,
-                        fontFamily: 'JetBrains Mono',
-                        borderRadius: 4,
-                        border: '1px solid var(--border-subtle)',
-                        background: themeFilter === tab ? 'var(--accent-muted)' : 'transparent',
-                        color: themeFilter === tab ? 'var(--accent)' : 'var(--text-dim)',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {tab === 'all' ? 'All (15)' : tab === 'dark' ? '🌙 Dark (11)' : '☀️ Light (4)'}
-                    </button>
-                  ))}
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10, maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}>
-                  {THEMES.filter(t => themeFilter === 'all' || (themeFilter === 'dark' ? t.mode === 'Dark' : t.mode === 'Light')).map(t => {
-                    const isSelected = theme === t.id;
-                    return (
-                      <div
-                        key={t.id}
-                        onClick={() => setTheme(t.id)}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 12,
-                          padding: '10px 12px',
-                          borderRadius: 'var(--radius-md)',
-                          background: isSelected ? 'var(--bg-surface)' : 'var(--bg-panel)',
-                          border: isSelected ? '1.5px solid var(--accent)' : '1px solid var(--border-subtle)',
-                          boxShadow: isSelected ? '0 0 12px var(--accent-muted)' : 'none',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          position: 'relative',
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {/* Active accent bar */}
-                        {isSelected && (
-                          <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, background: 'var(--accent)' }} />
-                        )}
-
-                        {/* Color Swatch Stack */}
-                        <div style={{ display: 'flex', gap: 3, flexShrink: 0, padding: 3, background: t.swatches[0], borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[0] }} />
-                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[1] }} />
-                          <div style={{ width: 8, height: 24, borderRadius: 3, background: t.swatches[2] }} />
-                        </div>
-
-                        {/* Info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ fontSize: 13 }}>{t.icon}</span>
-                            <span style={{
-                              fontSize: 13,
-                              fontWeight: 600,
-                              fontFamily: t.font,
-                              color: isSelected ? 'var(--text-bright)' : 'var(--text-main)',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}>
-                              {t.label}
-                            </span>
-                            <span style={{
-                              fontSize: 9,
-                              fontFamily: 'JetBrains Mono',
-                              padding: '1px 5px',
-                              borderRadius: 3,
-                              background: 'var(--accent-muted)',
-                              color: 'var(--accent)',
-                              marginLeft: 'auto',
-                            }}>
-                              {t.mode}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {t.sub}
-                          </div>
-                        </div>
-
-                        {/* Selected Checkmark */}
-                        {isSelected && (
-                          <div style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: '50%',
-                            background: 'var(--accent)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0,
-                          }}>
-                            <Check size={12} color="var(--bg-void)" strokeWidth={3} />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </GlowCard>
-
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Mascot & Audio Customize</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-                  {/* Dynamic Island Position */}
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Dynamic Island Screen Position
-                    </label>
-                    <select
-                      value={islandPosition}
-                      onChange={e => setIslandPosition(e.target.value as any)}
-                      className="select-base"
-                    >
-                      <option value="top-center">🍏 Top-Center (Apple Notch / Header)</option>
-                      <option value="bottom-center">📱 Bottom-Center (Dock Style)</option>
-                      <option value="top-right">↗️ Top-Right HUD</option>
-                      <option value="bottom-right">📍 Bottom-Right Tray (Default)</option>
-                      <option value="top-left">↖️ Top-Left Corner</option>
-                      <option value="bottom-left">↙️ Bottom-Left Corner</option>
-                    </select>
-                  </div>
-
-                  {/* TTS Voice Selection */}
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      TTS Voice Engine (Speaker)
-                    </label>
-                    <select
-                      value={ttsVoice}
-                      onChange={e => handleVoiceChange(e.target.value)}
-                      className="select-base"
-                    >
-                      <option value="M1">Male 1 (Coordinator)</option>
-                      <option value="M2">Male 2 (Assistant)</option>
-                      <option value="M3">Male 3 (Calm)</option>
-                      <option value="M4">Male 4 (Warm)</option>
-                      <option value="M5">Male 5 (Deep)</option>
-                      <option value="F1">Female 1 (Soft)</option>
-                      <option value="F2">Female 2 (Professional)</option>
-                      <option value="F3">Female 3 (Expressive)</option>
-                      <option value="F4">Female 4 (Bright)</option>
-                      <option value="F5">Female 5 (Crisp)</option>
-                    </select>
-                  </div>
-
-                  {/* TTS Volume Slider */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Speech Volume
-                      </label>
-                      <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
-                        {Math.round(ttsVolume * 100)}%
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value={ttsVolume}
-                      onChange={e => handleVolumeChange(parseFloat(e.target.value))}
-                      style={{ width: '100%', accentColor: 'var(--accent)', cursor: 'pointer' }}
-                    />
-                  </div>
-
-                  {/* Sound FX Toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Mascot Sound FX</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Enable ambient state-change audio.</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={audioFxEnabled}
-                      onChange={e => handleAudioFxChange(e.target.checked)}
-                      style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                    />
-                  </div>
-                </div>
-              </GlowCard>
-            </>
+            <MascotTab
+              theme={theme}
+              setTheme={setTheme}
+              themeFilter={themeFilter}
+              setThemeFilter={setThemeFilter}
+              islandPosition={islandPosition}
+              setIslandPosition={setIslandPosition}
+              ttsVoice={ttsVoice}
+              handleVoiceChange={handleVoiceChange}
+              ttsVolume={ttsVolume}
+              handleVolumeChange={handleVolumeChange}
+              audioFxEnabled={audioFxEnabled}
+              handleAudioFxChange={handleAudioFxChange}
+              themes={THEMES}
+            />
           )}
 
           {/* System Card inside Guard */}
