@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ShieldAlert, X } from 'lucide-react';
+import { emit } from '@tauri-apps/api/event';
 import { API_BASE_URL } from '../config';
 
 interface HogProcess {
@@ -52,9 +53,7 @@ export default function ProactiveGuardBanner() {
             if (data.action === 'start_voice_command' || data.nudge_type === 'wakeword') {
               window.dispatchEvent(new CustomEvent('meridian:start-voice-chat'));
               if ((window as any).__TAURI_INTERNALS__) {
-                import('@tauri-apps/api/event').then(({ emit }) => {
-                  emit('global-push-to-talk', {}).catch(() => {});
-                }).catch(() => {});
+                emit('global-push-to-talk', {}).catch(() => {});
               }
             }
             if (data.mascot_state && typeof window !== 'undefined') {
@@ -62,9 +61,7 @@ export default function ProactiveGuardBanner() {
                 detail: { state: data.mascot_state, mascot_state: data.mascot_state }
               }));
               if ((window as any).__TAURI_INTERNALS__) {
-                import('@tauri-apps/api/event').then(({ emit }) => {
-                  emit('mascot-state-changed', { state: data.mascot_state, mascot_state: data.mascot_state }).catch(() => {});
-                }).catch(() => {});
+                emit('mascot-state-changed', { state: data.mascot_state, mascot_state: data.mascot_state }).catch(() => {});
               }
             }
           }
