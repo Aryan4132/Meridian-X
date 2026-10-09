@@ -162,8 +162,6 @@ Do NOT include markdown formatting or explanations. JSON only:"""
 
     def _plan_heuristic(self, task: str, url: str, elements: List[Dict[str, Any]], page_text: str, step: int) -> Dict[str, Any]:
         """Deterministic heuristic fallback when LLM planner is unavailable."""
-        lower_task = task.lower()
-        
         # Step 1: On search engine homepage, find search input and type query
         if step == 1 and ("google.com" in url or "youtube.com" in url or "wikipedia.org" in url or "github.com" in url):
             input_el = next((el for el in elements if el.get("tag") in ("input", "textarea") and el.get("type") not in ("hidden", "submit")), None)

@@ -4,6 +4,7 @@ import 'package:meridian_mobile/models/thought_step.dart';
 import 'package:meridian_mobile/models/telemetry.dart';
 import 'package:meridian_mobile/providers/agent_chat_provider.dart';
 import 'package:meridian_mobile/core/websocket_client.dart';
+import 'package:meridian_mobile/core/lan_discovery.dart';
 
 void main() {
   group('Models Unit Tests', () {
@@ -117,4 +118,37 @@ void main() {
       expect(uri.toString(), 'ws://10.0.2.2:4132/ws');
     });
   });
+
+  group('LanDiscoveryService Unit Tests', () {
+    test('generates emulator and localhost candidates for empty/null IP', () {
+      final candidates = LanDiscoveryService.getCandidateIps(null);
+      expect(candidates, contains('10.0.2.2'));
+      expect(candidates, contains('127.0.0.1'));
+    });
+
+    test('generates subnet candidates for active Wi-Fi LAN IP', () {
+      final candidates = LanDiscoveryService.getCandidateIps('192.168.1.45');
+      expect(candidates, contains('10.0.2.2'));
+      expect(candidates, contains('127.0.0.1'));
+      expect(candidates, contains('192.168.1.1'));
+      expect(candidates, contains('192.168.1.2'));
+      expect(candidates, contains('192.168.1.50'));
+      expect(candidates, contains('192.168.1.100'));
+      expect(candidates, contains('192.168.1.45'));
+    });
+
+    test('DiscoveredHost format and string representation', () {
+      const host = DiscoveredHost(
+        ip: '192.168.1.100',
+        port: 4132,
+        wsUrl: 'ws://192.168.1.100:4132/ws',
+        label: 'LAN Host 192.168.1.100 (4132)',
+      );
+      expect(host.ip, '192.168.1.100');
+      expect(host.port, 4132);
+      expect(host.wsUrl, 'ws://192.168.1.100:4132/ws');
+      expect(host.toString(), contains('LAN Host 192.168.1.100 (4132) (ws://192.168.1.100:4132/ws)'));
+    });
+  });
 }
+

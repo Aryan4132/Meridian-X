@@ -56,7 +56,8 @@ class LspClient:
 
     async def _initialize(self):
         # Convert path to standard URI
-        root_uri = f"file:///{self.root_dir.replace('\\', '/')}"
+        normalized_root = self.root_dir.replace("\\", "/")
+        root_uri = f"file:///{normalized_root}"
         
         capabilities = {
             "textDocument": {
@@ -85,7 +86,7 @@ class LspClient:
         }
         
         print("[LSP Client] Sending 'initialize' request...")
-        init_res = await self.send_request("initialize", params, timeout=10.0)
+        await self.send_request("initialize", params, timeout=10.0)
         print("[LSP Client] 'initialize' completed. Sending 'initialized' notification.")
         await self.send_notification("initialized", {})
         print("[LSP Client] Handshake complete.")

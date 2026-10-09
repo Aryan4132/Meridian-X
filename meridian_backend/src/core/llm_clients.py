@@ -6,9 +6,14 @@ import os
 from typing import Dict, Any, Optional
 import ollama
 
+import time
+
 _cached_openai_clients: Dict[str, Any] = {}
 _cached_anthropic_clients: Dict[str, Any] = {}
 _cached_ollama_clients: Dict[str, Any] = {}
+
+_last_vram_query_time: float = 0.0
+_cached_vram_usage: float = 50.0
 
 
 def get_cached_openai_client(api_key: str, base_url: Optional[str] = None):
@@ -43,6 +48,12 @@ def get_ollama_client(host: Optional[str] = None):
 
 
 def get_gpu_vram_usage() -> float:
+    global _last_vram_query_time, _cached_vram_usage
+    now = time.time()
+    if now - _last_vram_query_time < 5.0:
+        return _cached_vram_usage
+
+    _last_vram_query_time = now
     try:
         import subprocess
         output = subprocess.check_output(
@@ -50,10 +61,13 @@ def get_gpu_vram_usage() -> float:
             encoding="utf-8"
         )
         used, total = map(float, output.strip().split(","))
-        return (used / total) * 100.0
+        _cached_vram_usage = (used / total) * 100.0
+        return _cached_vram_usage
     except Exception:
         try:
             import psutil
-            return psutil.virtual_memory().percent
+            _cached_vram_usage = float(psutil.virtual_memory().percent)
+            return _cached_vram_usage
         except Exception:
-            return 50.0
+            _cached_vram_usage = 50.0
+            return _cached_vram_usage

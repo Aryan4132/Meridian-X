@@ -89,7 +89,7 @@ class TestBrowserUseCore(unittest.TestCase):
             {"index": 1, "tag": "input", "text": "", "selector": "textarea[name='q']"},
             {"index": 2, "tag": "button", "text": "Search", "selector": "input[type='submit']"},
         ]
-        with patch("src.tools.browser_use_agent.browser_type_element", return_value="Typed") as mock_type:
+        with patch("src.tools.browser_use_agent.browser_type_element", return_value="Typed"):
             agent = BrowserUseAgent(max_steps=2)
             res = agent.run("search for ai papers on google", visible=False)
             self.assertEqual(res["status"], "success")

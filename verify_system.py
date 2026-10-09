@@ -76,7 +76,7 @@ def check_databases():
         cursor.execute("DROP TABLE system_verify")
         conn.commit()
         conn.close()
-        print_result(f"SQLite DB connectivity", True, f"Path: {db_path}")
+        print_result("SQLite DB connectivity", True, f"Path: {db_path}")
     except Exception as e:
         print_result("SQLite DB connectivity", False, f"Failed: {e}")
         
@@ -101,7 +101,7 @@ def check_ollama():
         if res.status_code == 200:
             models_data = res.json()
             models = [m["name"] for m in models_data.get("models", [])]
-            print_result(f"Ollama server reachable", True, f"Host: {host}")
+            print_result("Ollama server reachable", True, f"Host: {host}")
             
             # Check for embedding model
             embed_model = "nomic-embed-text"

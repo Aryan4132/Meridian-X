@@ -72,7 +72,6 @@ def search_web(query: str, use_spatial_bias: bool = True) -> str:
 
     # 3. Direct zero-dependency HTML search fallback via DuckDuckGo HTML endpoint
     try:
-        url = f"https://html.duckduckgo.com/html/?q={httpx.URL(query).raw_path.decode() if hasattr(httpx, 'URL') else query}"
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
         res = httpx.post("https://html.duckduckgo.com/html/", data={"q": query}, headers=headers, timeout=10.0)
         if res.status_code == 200:

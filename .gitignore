@@ -103,6 +103,10 @@ meridian_snapshots/
 *.exe
 *.msi
 .quarantine/
+*.jks
+*.keystore
+key.properties
+
 
 # Data snapshots, certs, and memory states
 meridian_backend/certs/
@@ -111,4 +115,5 @@ meridian_backend/src/data/screenshot_memory/
 # Internal task tracking & agent context docs
 TIMELINE.md
 KANBAN.md
-
+meridian_backend/meridian_frontend/
+.agents/

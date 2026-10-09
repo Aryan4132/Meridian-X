@@ -186,6 +186,8 @@ def chat_stream(request: ChatRequest):
                 try:
                     event = await asyncio.wait_for(generator.__anext__(), timeout=120.0)
                     yield event
+                    # Cooperative yield to prevent event loop starvation under high token volume
+                    await asyncio.sleep(0)
                 except StopAsyncIteration:
                     break
                 except asyncio.TimeoutError:

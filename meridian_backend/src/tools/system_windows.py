@@ -193,8 +193,8 @@ def apply_workspace_preset(preset_name: str) -> str:
     elif preset in ("research", "study"):
         return "Activated 'Research Mode' preset: Configured dual browser/reader focus environment."
     elif preset in ("gaming", "game"):
-        from src.core.proactive import game_mode_active
-        game_mode_active = True
+        import src.core.proactive as proactive_mod
+        proactive_mod.game_mode_active = True
         return "Activated 'Gaming Mode' preset: Enabled notification suppression HUD and game coach overlay."
     else:
         return f"Unknown preset '{preset_name}'. Supported presets: dev, research, gaming."

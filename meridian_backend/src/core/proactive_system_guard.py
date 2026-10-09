@@ -109,7 +109,7 @@ class ProactiveSystemGuard:
             return {"success": True, "message": f"Successfully terminated {proc_name} (PID {pid})."}
         except psutil.NoSuchProcess:
             return {"success": False, "message": f"Process PID {pid} not found."}
-        except Exception as e:
+        except Exception:
             try:
                 proc = psutil.Process(pid)
                 if is_process_immune(pid, proc.name()):

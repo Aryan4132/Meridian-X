@@ -132,9 +132,15 @@ export const Mascot3DCharacter: React.FC<Mascot3DCharacterProps> = ({
       ease: 'inOutSine',
     });
 
-    // Render loop (Multi-axis ring revolution around each other, mouse tracking removed)
-    let frameId: number;
+    // Render loop (Multi-axis ring revolution around each other with background pause)
+    let frameId: number | null = null;
+    let isHidden = typeof document !== 'undefined' ? document.hidden : false;
+
     const render = () => {
+      if (isHidden) {
+        frameId = null;
+        return;
+      }
       frameId = requestAnimationFrame(render);
 
       const isFailed = state === 'disapproving' || state === 'error' || state === 'failed';
@@ -165,10 +171,32 @@ export const Mascot3DCharacter: React.FC<Mascot3DCharacterProps> = ({
       renderer.render(scene, camera);
     };
 
+    const handleVisibilityChange = () => {
+      isHidden = typeof document !== 'undefined' ? document.hidden : false;
+      if (!isHidden) {
+        floatAnim.play();
+        if (frameId === null) {
+          render();
+        }
+      } else {
+        floatAnim.pause();
+        if (frameId !== null) {
+          cancelAnimationFrame(frameId);
+          frameId = null;
+        }
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
     render();
 
     return () => {
-      cancelAnimationFrame(frameId);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+      if (frameId !== null) cancelAnimationFrame(frameId);
       floatAnim.pause();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {

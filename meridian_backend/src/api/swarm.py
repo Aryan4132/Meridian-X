@@ -2,10 +2,14 @@ import os
 import re
 import json
 import socket
+import logging
+import asyncio
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+
+logger = logging.getLogger("meridian.swarm")
 
 router = APIRouter(tags=["swarm"])
 
@@ -35,8 +39,10 @@ async def swarm_stream():
             while True:
                 message = await queue.get()
                 yield f"event: message\ndata: {json.dumps(message)}\n\n"
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
         except Exception as e:
-            print("[Swarm Stream] Error in event generator:", e)
+            logger.debug(f"[Swarm Stream] Event generator closed: {e}")
         finally:
             event_bus.unsubscribe("agent_thoughts", queue)
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -51,8 +57,10 @@ async def proactive_stream():
             while True:
                 nudge = await queue.get()
                 yield f"event: nudge\ndata: {json.dumps(nudge)}\n\n"
+        except (asyncio.CancelledError, GeneratorExit):
+            pass
         except Exception as e:
-            print("[Proactive Stream] Error in event generator:", e)
+            logger.debug(f"[Proactive Stream] Event generator closed: {e}")
         finally:
             event_bus.unsubscribe("proactive_nudge", queue)
     return StreamingResponse(event_generator(), media_type="text/event-stream")

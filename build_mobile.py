@@ -125,6 +125,7 @@ def build_flutter_app():
                         help="Build target (default: apk)")
     parser.add_argument("--skip-tests", action="store_true", help="Skip running unit tests before build")
     parser.add_argument("--clean", action="store_true", help="Run 'flutter clean' before building")
+    parser.add_argument("--generate-keystore", action="store_true", help="Generate production release keystore and key.properties if missing")
     args = parser.parse_args()
 
     root_dir = get_project_root()
@@ -168,6 +169,47 @@ def build_flutter_app():
         print(f"  [+] JAVA_HOME      : {jdk_path}")
     else:
         print("  [!] Custom JDK 17 not found, using system default Java.")
+
+    # 2b. Handle Keystore Generation or Detection
+    android_dir = os.path.join(mobile_dir, "android")
+    key_props = os.path.join(android_dir, "key.properties")
+    jks_path = os.path.join(android_dir, "meridian-release.jks")
+
+    if args.generate_keystore and not os.path.exists(jks_path):
+        keytool_bin = "keytool"
+        if jdk_path:
+            candidate = os.path.join(jdk_path, "bin", "keytool.exe" if os.name == "nt" else "keytool")
+            if os.path.exists(candidate):
+                keytool_bin = candidate
+        print(f"\n[Keystore] Generating release keystore via {keytool_bin}...")
+        cmd = [
+            keytool_bin, "-genkeypair", "-v",
+            "-keystore", jks_path,
+            "-alias", "meridian_key",
+            "-keyalg", "RSA",
+            "-keysize", "2048",
+            "-validity", "10000",
+            "-storepass", "meridian123",
+            "-keypass", "meridian123",
+            "-dname", "CN=Meridian-X, OU=Engineering, O=Meridian, L=Global, ST=None, C=US"
+        ]
+        try:
+            subprocess.run(cmd, check=True)
+            with open(key_props, "w", encoding="utf-8") as f:
+                f.write("storePassword=meridian123\n")
+                f.write("keyPassword=meridian123\n")
+                f.write("keyAlias=meridian_key\n")
+                f.write("storeFile=meridian-release.jks\n")
+            print(f"  [+] Release keystore created: {jks_path}")
+            print(f"  [+] Configured key properties: {key_props}")
+        except Exception as e:
+            print(f"  [!] Keystore generation skipped/failed: {e}")
+
+    if os.path.exists(key_props):
+        print(f"  [+] Release Signing: Configured ({key_props})")
+    else:
+        print("  [i] Release Signing: Unconfigured (falling back to debug keystore for sideloading)")
+
 
     # 3. Clean if requested
     if args.clean:

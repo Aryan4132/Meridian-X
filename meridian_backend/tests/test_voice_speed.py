@@ -47,7 +47,7 @@ def test_stt_model_cpu_defaults():
             stt_module._cached_whisper_model = None
             
             with patch("database.get_user_profile", return_value=None):
-                model = stt_module.get_whisper_model(model_size=None)
+                stt_module.get_whisper_model(model_size=None)
                 
                 # Check that tiny.en was selected for CPU
                 mock_whisper.assert_called_with("tiny.en", device="cpu", compute_type="int8")

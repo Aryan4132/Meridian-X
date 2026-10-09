@@ -180,7 +180,7 @@ def execute_workflow_node(node: Dict[str, Any], context: Dict[str, Any]) -> Dict
     for k, v in params.items():
         interpolated_params[k] = _interpolate_variables(v, context)
         
-    result = {"status": "success", "executed_at": time.time()}
+    result: Dict[str, Any] = {"status": "success", "executed_at": time.time()}
     
     if node_type == "trigger_webhook" or node_type == "trigger_cron" or node_type == "trigger_event":
         result["output"] = interpolated_params.get("payload", {"event": "triggered"})
@@ -235,10 +235,8 @@ def execute_workflow(workflow_id: str, trigger_payload: Optional[Dict[str, Any]]
         return {"status": "failed", "error": f"Workflow '{workflow_id}' not found"}
         
     nodes = workflow.get("nodes", [])
-    edges = workflow.get("edges", [])
     
     execution_context: Dict[str, Any] = {}
-    node_map = {n["id"]: n for n in nodes}
     logs = []
     
     # Find trigger node (first node)

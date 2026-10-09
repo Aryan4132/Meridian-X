@@ -19,13 +19,9 @@ from contextvars import ContextVar
 
 from src.core.mcp_client import mcp_manager
 from src.core.config import ENV_FILE as env_path
+from dotenv import load_dotenv
 if os.path.exists(env_path):
-    with open(env_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, val = line.split("=", 1)
-                os.environ[key.strip()] = val.strip().strip("\"'")
+    load_dotenv(env_path)
 
 from src.core.auth import require_api_key
 from src.core.security_middleware import MaxBodySizeMiddleware, TrustedOriginMiddleware, SecurityHeadersMiddleware
@@ -343,12 +339,17 @@ app.add_middleware(
         "http://localhost",
         "https://localhost",
         "http://localhost:5173",
+        "http://localhost:3000",
         "http://localhost:4132",
+        "http://localhost:4133",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
         "http://127.0.0.1:4132",
+        "http://127.0.0.1:4133",
         "http://10.0.2.2:4132",
+        "http://10.0.2.2:4133",
     ],
-    allow_origin_regex=r"https?://.*",
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|\[::1\]|10\.0\.2\.2)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -175,8 +175,8 @@ def save_secret(key: str, value: str, passphrase: Optional[str] = None) -> str:
         "nonce": base64.b64encode(nonce).decode("utf-8"),
         "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
     }
-    with open(VAULT_FILE, "w", encoding="utf-8") as f:
-        json.dump(payload, f)
+    from src.core.atomic_storage import atomic_write_json
+    atomic_write_json(VAULT_FILE, payload)
 
     # Invalidate cache — salt changed, old derived keys are useless
     _invalidate_key_cache()
@@ -221,8 +221,8 @@ def delete_secret(key: str, passphrase: Optional[str] = None) -> bool:
             "nonce": base64.b64encode(nonce).decode("utf-8"),
             "ciphertext": base64.b64encode(ciphertext).decode("utf-8"),
         }
-        with open(VAULT_FILE, "w", encoding="utf-8") as f:
-            json.dump(payload, f)
+        from src.core.atomic_storage import atomic_write_json
+        atomic_write_json(VAULT_FILE, payload)
         _invalidate_key_cache()
         _audit("vault_delete", key)
         return True
@@ -377,6 +377,6 @@ def inject_vault_keys_to_env(passphrase: str = "DEFAULT_VAULT_PASS") -> None:
                 os.environ[env_var] = meta["api_key"]
             if meta.get("base_url"):
                 os.environ[f"{env_var}_BASE_URL"] = meta["base_url"]
-    except Exception as e:
+    except Exception:
         _audit("inject_vault_keys", "FAILED")
 

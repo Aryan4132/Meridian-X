@@ -100,7 +100,6 @@ from src.tools.travel_butler import create_trip, calculate_leave_by_time, get_up
 from src.tools.bill_radar import register_recurring_bill, get_bill_due_radar
 from src.tools.finance_sentinel import analyze_stock_sentiment, get_market_watchlist
 from src.tools.file_janitor import scan_downloads_folder, organize_downloads
-from src.tools.search_hub import universal_search
 from src.tools.screenshot_memory import capture_screenshot_memory, query_screenshot_memory
 from src.tools.household import add_grocery_item, add_household_chore, get_household_summary
 from src.tools.phishing_guard import check_url_reputation
@@ -277,6 +276,11 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     # Developer & SWE Tools
     "run_python": {"tier": 2, "func": run_python},
     "open_editor": {"tier": 1, "func": open_editor},
+    "shell": {"tier": 2, "func": nl_run, "description": "Execute shell command on host system."},
+    "terminal": {"tier": 2, "func": nl_run, "description": "Execute command in terminal session."},
+    "run_command": {"tier": 2, "func": nl_run, "description": "Run command line on host operating system."},
+    "nl_run": {"tier": 2, "func": nl_run, "description": "Translate natural language or run command on host shell."},
+    "nl_to_shell": {"tier": 1, "func": nl_to_shell, "description": "Translate natural language to shell command without executing."},
     "git_status": {"tier": 0, "func": git_status},
     "git_commit": {"tier": 2, "func": git_commit},
     "git_diff": {"tier": 0, "func": git_diff},
@@ -650,22 +654,53 @@ async def call_tool(name: str, args: Dict[str, Any]) -> str:
         raise ValueError(f"Unknown tool: '{name}'")
         
     tool_info = TOOL_REGISTRY[name]
-    func = tool_info["func"]
+    func = tool_info.get("func")
+    if not func:
+        raise ValueError(f"Tool '{name}' has no executable function configured.")
+
+    timeout_seconds = 180.0 if name in (
+        "browser_use_task", "run_tests", "autonomous_research", "generate_paper2code"
+    ) else 60.0
     
     try:
         # Support both synchronous and asynchronous tool functions
         if inspect.iscoroutinefunction(func):
-            res = str(await func(**args))
+            coro = func(**args)
         else:
-            res = str(await asyncio.to_thread(func, **args))
+            coro = asyncio.to_thread(func, **args)
+            
+        res = str(await asyncio.wait_for(coro, timeout=timeout_seconds))
             
         # Global output truncation guard
         MAX_TOOL_OUTPUT = 30000
         if len(res) > MAX_TOOL_OUTPUT:
             res = res[:MAX_TOOL_OUTPUT] + f"\n\n[Warning: Output truncated at {MAX_TOOL_OUTPUT} characters to prevent context window overflow]"
         return res
+    except asyncio.TimeoutError:
+        return f"Error executing {name}: Tool execution timed out after {int(timeout_seconds)}s."
     except Exception as e:
         return f"Error executing {name}: {str(e)}"
+
+def tool(name: Optional[str] = None, tier: int = 1, description: Optional[str] = None):
+    """
+    Declarative decorator to register a tool into TOOL_REGISTRY.
+    Usage:
+        @tool(tier=2, description="Run command line on host operating system")
+        def custom_tool(command: str) -> str:
+            ...
+    """
+    def decorator(fn: Any):
+        tool_name = name or fn.__name__
+        tool_desc = description or (fn.__doc__.strip() if fn.__doc__ else "")
+        TOOL_REGISTRY[tool_name] = {
+            "func": fn,
+            "description": tool_desc,
+            "tier": tier,
+        }
+        return fn
+    return decorator
+
+register_tool_decorator = tool
 
 def register_dynamic_tool(name: str, func: Any, description: str = "", tier: int = 1):
     """Registers a dynamically generated tool at runtime (AST-13)."""

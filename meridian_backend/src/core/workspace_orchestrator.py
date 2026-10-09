@@ -77,9 +77,9 @@ class WorkspaceOrchestrator:
                 else:
                     try:
                         if platform.system() == "Windows":
-                            proc = subprocess.Popen(["cmd.exe", "/c", "code", self.workspace_root], shell=True)
+                            proc = subprocess.Popen(["cmd.exe", "/c", code_bin, self.workspace_root], shell=False)
                         else:
-                            proc = subprocess.Popen(["code", self.workspace_root])
+                            proc = subprocess.Popen([code_bin, self.workspace_root])
                         self._active_processes.append(proc)
                         results["actions"].append({"app": "VS Code", "status": "launched", "path": self.workspace_root})
                     except Exception as e:
@@ -93,7 +93,7 @@ class WorkspaceOrchestrator:
                 results["actions"].append({"app": "Docker Compose", "status": "skipped", "reason": "Docker CLI not found in PATH"})
             elif os.path.exists(docker_compose_path):
                 try:
-                    proc = subprocess.Popen(["docker", "compose", "up", "-d"], cwd=self.workspace_root, shell=True)
+                    proc = subprocess.Popen([docker_bin, "compose", "up", "-d"], cwd=self.workspace_root, shell=False)
                     self._active_processes.append(proc)
                     results["actions"].append({"app": "Docker Compose", "status": "launched"})
                 except Exception as e:

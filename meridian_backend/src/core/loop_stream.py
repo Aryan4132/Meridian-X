@@ -7,25 +7,42 @@ and tracks token budget heuristics for context window management.
 import json
 import asyncio
 import time
+import inspect
 from typing import Dict, Any, Optional, List, AsyncGenerator
 
-# Global mid-stream cancellation flags: {session_id: cancel_requested_bool}
-_cancel_signals: Dict[str, bool] = {}
+# Global mid-stream cancellation flags: {session_id: (timestamp, cancel_requested_bool)}
+_cancel_signals: Dict[str, tuple[float, bool]] = {}
+_SIGNAL_TTL_SECONDS: float = 3600.0
+
+
+def _prune_expired_signals(now: Optional[float] = None) -> None:
+    """Removes stale cancellation entries older than TTL to avoid memory leaks."""
+    current_time = now if now is not None else time.time()
+    expired = [
+        sid for sid, (ts, _) in _cancel_signals.items()
+        if (current_time - ts) > _SIGNAL_TTL_SECONDS
+    ]
+    for sid in expired:
+        _cancel_signals.pop(sid, None)
 
 
 def request_stream_cancellation(session_id: str) -> None:
     """Sets mid-stream cancel flag for the active session."""
-    _cancel_signals[session_id] = True
+    _prune_expired_signals()
+    _cancel_signals[session_id] = (time.time(), True)
 
 
 def is_cancellation_requested(session_id: str) -> bool:
     """Checks if user requested stream cancellation."""
-    return _cancel_signals.get(session_id, False)
+    _prune_expired_signals()
+    entry = _cancel_signals.get(session_id)
+    return entry[1] if entry is not None else False
 
 
 def clear_cancellation_signal(session_id: str) -> None:
     """Clears cancel flag on session startup or completion."""
     _cancel_signals.pop(session_id, None)
+    _prune_expired_signals()
 
 def reset_cancel_flag(session_id: str = "default") -> None:
     """Clears cancel flag on session startup or completion."""
@@ -49,6 +66,10 @@ TOOL_SIGNATURES: Dict[str, str] = {
     "list_directory": 'list_directory(path="<path>")',
     "universal_search": 'universal_search(query="<query>", domain_filter="all|code|docs|memory|files")',
     "search_web": 'search_web(query="<query>")',
+    "shell": 'shell(command="<command>")',
+    "terminal": 'terminal(command="<command>")',
+    "run_command": 'run_command(command="<command>")',
+    "nl_run": 'nl_run(command="<command_or_instruction>")',
 }
 
 CORE_TOOLS_LIST = [
@@ -95,6 +116,24 @@ KEYWORD_SKILLS_MAP = {
     ("phishing", "password", "totp", "wifi", "dns", "usb", "sandbox", "audit"): ["check_url_reputation", "generate_totp_code", "audit_password_strength", "assess_wifi_security", "audit_dns_health", "audit_usb_peripherals", "detonate_attachment_sample"],
 }
 
+def get_dynamic_tool_signature(name: str, func: Any) -> str:
+    """Extract readable callable signature dynamically using inspect."""
+    if not func or not callable(func):
+        return name
+    try:
+        sig = inspect.signature(func)
+        params = []
+        for p in sig.parameters.values():
+            if p.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY):
+                if p.default == inspect.Parameter.empty:
+                    params.append(f'{p.name}="<{p.name}>"')
+                else:
+                    params.append(f'{p.name}={repr(p.default)}')
+        return f"{name}({', '.join(params)})"
+    except Exception:
+        return name
+
+
 def generate_tools_doc(mode: Optional[str] = None, prompt: Optional[str] = None) -> str:
     """Returns formatted string documentation presenting <70 core and mode-specialized tools."""
     from src.tools.registry import TOOL_REGISTRY
@@ -129,7 +168,9 @@ def generate_tools_doc(mode: Optional[str] = None, prompt: Optional[str] = None)
         if not info:
             continue
         desc = info.get("description", "")
-        sig = TOOL_SIGNATURES.get(name, name)
+        sig = TOOL_SIGNATURES.get(name)
+        if not sig:
+            sig = get_dynamic_tool_signature(name, info.get("func"))
         if desc:
             lines.append(f"- {sig}: Tier {info['tier']} — {desc}")
         else:

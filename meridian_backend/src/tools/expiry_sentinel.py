@@ -26,7 +26,7 @@ def add_expiry_document(doc_title: str, doc_type: str, expiry_date: str, notes: 
     expiry_date: YYYY-MM-DD format
     """
     try:
-        exp_dt = datetime.strptime(expiry_date, "%Y-%m-%d")
+        datetime.strptime(expiry_date, "%Y-%m-%d")
     except ValueError:
         return "Error: Invalid date format. Use YYYY-MM-DD."
 

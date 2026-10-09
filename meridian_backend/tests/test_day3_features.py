@@ -40,7 +40,7 @@ def test_whatsapp_manager_tool_wrapper():
     res_resolve = manage_whatsapp_contacts(action="resolve", name="Manager")
     assert "Resolved contact" in res_resolve
 
-from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session
+from src.tools.whatsapp_manager import login_whatsapp_session
 
 def test_whatsapp_read_and_list_tools():
     read_res = read_whatsapp_messages(contact="Mom", limit=3)

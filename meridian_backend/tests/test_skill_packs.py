@@ -36,7 +36,7 @@ def test_all_skill_packs_load():
 def test_skill_tools_exist_in_registry_with_matching_tiers():
     packs = load_skill_packs()
     warnings = validate_skill_packs(packs, TOOL_REGISTRY)
-    assert warnings == [], f"skill/registry mismatches:\n" + "\n".join(warnings)
+    assert warnings == [], "skill/registry mismatches:\n" + "\n".join(warnings)
 
 
 def test_skill_keyword_injection():

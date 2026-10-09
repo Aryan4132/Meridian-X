@@ -1,8 +1,8 @@
+import logging
 import os
 import tempfile
 import threading
-import logging
-from typing import Optional
+
 import numpy as np
 
 logger = logging.getLogger("meridian.stt")
@@ -10,7 +10,7 @@ logger = logging.getLogger("meridian.stt")
 _cached_whisper_model = None
 _whisper_lock = threading.Lock()
 
-def get_whisper_model(model_size: Optional[str] = None):
+def get_whisper_model(model_size: str | None = None):
     """Get or initialize the cached Whisper model instance."""
     global _cached_whisper_model
     if model_size is None:
@@ -36,28 +36,28 @@ def get_whisper_model(model_size: Optional[str] = None):
                     if torch.cuda.is_available():
                         device = "cuda"
                         compute_type = "float16"
-                        print("[Whisper STT] CUDA GPU detected. Running on GPU with float16.")
+                        logger.info("[Whisper STT] CUDA GPU detected. Running on GPU with float16.")
                     else:
-                        print("[Whisper STT] CUDA GPU not available. Running on CPU with int8.")
+                        logger.info("[Whisper STT] CUDA GPU not available. Running on CPU with int8.")
                 except ImportError:
-                    print("[Whisper STT] PyTorch not installed. Defaulting to CPU with int8.")
+                    logger.info("[Whisper STT] PyTorch not installed. Defaulting to CPU with int8.")
                 except Exception as e:
-                    print(f"[Whisper STT] Error detecting GPU status: {e}. Defaulting to CPU.")
+                    logger.warning("[Whisper STT] Error detecting GPU status: %s. Defaulting to CPU.", e)
                 
                 # Expand CPU guard: swap heavy models to tiny.en or base on CPU for fast response
                 CPU_HEAVY_MODELS = {"turbo", "large", "large-v2", "large-v3", "medium"}
                 if device == "cpu" and model_size in CPU_HEAVY_MODELS:
-                    print(f"[Whisper STT] Warning: '{model_size}' model is slow on CPU. Swapping to 'tiny.en' for faster performance.")
+                    logger.warning("[Whisper STT] Warning: '%s' model is slow on CPU. Swapping to 'tiny.en' for faster performance.", model_size)
                     model_size = "tiny.en"
                 
                 _cached_whisper_model = WhisperModel(model_size, device=device, compute_type=compute_type)
     return _cached_whisper_model
 
-def transcribe_audio_file(audio_path: str, model_size: Optional[str] = None) -> str:
-    """Transcribe a local WAV/MP3 audio file using faster-whisper locally."""
+def transcribe_audio_file(audio_path: str, model_size: str | None = None) -> str:
+    """Transcribe a local WAV/MP3 audio file using faster-whisper locally with Silero VAD filter."""
     try:
         model = get_whisper_model(model_size)
-        segments, info = model.transcribe(audio_path, beam_size=1)
+        segments, info = model.transcribe(audio_path, beam_size=1, vad_filter=True)
         text = " ".join([segment.text for segment in segments])
         return text.strip()
     except ImportError:
@@ -65,14 +65,14 @@ def transcribe_audio_file(audio_path: str, model_size: Optional[str] = None) -> 
     except Exception as e:
         return f"Transcription failed: {e}"
 
-def transcribe_audio_array(audio_data: np.ndarray, model_size: Optional[str] = None) -> str:
-    """Transcribe an in-memory numpy float32 audio array directly without disk WAV write/read I/O."""
+def transcribe_audio_array(audio_data: np.ndarray, model_size: str | None = None) -> str:
+    """Transcribe an in-memory numpy float32 audio array directly with Silero VAD filter."""
     try:
         model = get_whisper_model(model_size)
         # Ensure float32 normalized to [-1.0, 1.0] @ 16kHz
         if audio_data.dtype != np.float32:
             audio_data = audio_data.astype(np.float32) / 32768.0
-        segments, info = model.transcribe(audio_data, beam_size=1)
+        segments, info = model.transcribe(audio_data, beam_size=1, vad_filter=True)
         text = " ".join([segment.text for segment in segments])
         return text.strip()
     except ImportError:
@@ -80,18 +80,19 @@ def transcribe_audio_array(audio_data: np.ndarray, model_size: Optional[str] = N
     except Exception as e:
         return f"Transcription failed: {e}"
 
-def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[str] = None) -> str:
+def record_and_transcribe(duration_seconds: float = 5.0, model_size: str | None = None) -> str:
     """Record audio from the microphone and automatically stop when silence is detected using fast energy VAD."""
     try:
-        import sounddevice as sd
-        import numpy as np
         import time
+
+        import numpy as np
+        import sounddevice as sd
         
         sample_rate = 16000
         block_duration = 0.1 # 100ms chunks
         block_size = int(sample_rate * block_duration)
         
-        print("[Voice STT] Opening stream with dynamic VAD...")
+        logger.info("[Voice STT] Opening stream with dynamic VAD...")
         
         recording = []
         speech_detected = False
@@ -118,6 +119,14 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
         start_time = time.time()
         no_speech_timeout = 2.0
         
+        # Initialize Silero VAD detector with fallback
+        try:
+            from src.voice.vad import get_silero_detector
+            silero = get_silero_detector()
+        except Exception as e:
+            logger.debug("Failed loading Silero detector: %s", e)
+            silero = None
+
         with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
             while time.time() - start_time < max_duration:
                 # Early abort if no speech starts within 2.0 seconds
@@ -126,17 +135,23 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
 
                 chunk, overflow = stream.read(block_size)
                 
-                # Calculate root-mean-square (RMS) energy
+                # Calculate root-mean-square (RMS) energy & pitch centroid
                 rms = np.sqrt(np.mean(chunk.astype(np.float32)**2)) if chunk.size > 0 else 0.0
                 pitch = estimate_pitch_centroid(chunk, sample_rate)
                 
-                # BK-04: Pitch centroid filtering — speech requires both valid RMS and human speech pitch range
-                is_valid_speech = (rms > threshold) and (pitch > 0.0 or not speech_detected)
+                # Check Silero neural speech confidence with heuristic fallback
+                if silero and silero.is_neural_available:
+                    speech_prob = silero.get_speech_probability(chunk, sample_rate)
+                    is_valid_speech = (speech_prob >= 0.5) and (rms > 60.0)
+                else:
+                    # BK-04: Pitch centroid filtering fallback — valid RMS and human speech pitch range
+                    is_valid_speech = (rms > threshold) and (pitch > 0.0 or not speech_detected)
                 
-                if is_valid_speech and rms > threshold:
+                if is_valid_speech:
                     recording.append(chunk)
                     if not speech_detected:
-                        print(f"[Voice STT] Speech activity detected (RMS: {rms:.1f}, Pitch: {pitch:.1f}Hz)...")
+                        prob_str = f"{speech_prob:.2f}" if (silero and silero.is_neural_available) else "N/A"
+                        logger.info("[Voice STT] Speech activity detected (Silero: %s, RMS: %.1f, Pitch: %.1fHz)...", prob_str, rms, pitch)
                         speech_detected = True
                     silence_start = None
                 else:
@@ -145,8 +160,9 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
                         if silence_start is None:
                             silence_start = time.time()
                         elif time.time() - silence_start > silence_timeout:
-                            print(f"[Voice STT] User finished speaking. Silence timeout ({silence_timeout}s) reached.")
+                            logger.info("[Voice STT] User finished speaking. Silence timeout (%.2fs) reached.", silence_timeout)
                             break
+
                             
         if not recording:
             return "No audio captured."
@@ -156,7 +172,7 @@ def record_and_transcribe(duration_seconds: float = 5.0, model_size: Optional[st
         # BK-09: Apply spectral RMS noise gate attenuation before Whisper inference
         audio_data = apply_noise_gate(raw_audio, threshold=threshold * 0.5)
         
-        print("[Voice STT] Transcribing in-memory audio array (beam_size=1)...")
+        logger.info("[Voice STT] Transcribing in-memory audio array (beam_size=1)...")
         transcription = transcribe_audio_array(audio_data, model_size)
         return transcription
     except ImportError:
@@ -212,7 +228,7 @@ def estimate_pitch_centroid(chunk: np.ndarray, sample_rate: int = 16000) -> floa
         return 0.0
 
 
-async def transcribe_audio(audio_bytes: bytes, model_size: Optional[str] = None) -> str:
+async def transcribe_audio(audio_bytes: bytes, model_size: str | None = None) -> str:
     """Transcribe raw 16-bit PCM or WAV audio bytes in-memory."""
     if not audio_bytes:
         return ""
@@ -222,13 +238,14 @@ async def transcribe_audio(audio_bytes: bytes, model_size: Optional[str] = None)
     except Exception as e:
         logger.debug("In-memory array transcription failed (%s), falling back to temp file", e)
         # Fallback to file-based transcription
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav", prefix="meridian_stt_") as f:
-            f.write(audio_bytes)
-            temp_path = f.name
+        temp_path = None
         try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav", prefix="meridian_stt_") as f:
+                f.write(audio_bytes)
+                temp_path = f.name
             return transcribe_audio_file(temp_path, model_size=model_size)
         finally:
-            if os.path.exists(temp_path):
+            if temp_path and os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
                 except OSError as oe:

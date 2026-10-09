@@ -3,6 +3,7 @@ import io
 import random
 import tempfile
 import base64
+import logging
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel
@@ -10,6 +11,8 @@ import soundfile as sf
 import numpy as np
 
 from src.api.deps import TTSRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["voice"])
 
@@ -33,7 +36,7 @@ def get_tts_engine():
         from src.voice.tts import get_tts_engine as get_engine
         return get_engine()
     except Exception as e:
-        print("Failed to delegate/initialize Supertonic engine:", e)
+        logger.error("Failed to delegate/initialize Supertonic engine: %s", e, exc_info=True)
         return None
 
 @router.post("/api/tts")

@@ -86,7 +86,6 @@ def execute_scheduled_goal(goal: str, priority: str = "normal"):
             print(f"[Scheduler] Failed to log throttled run: {ex}")
         return
 
-    status = "success"
     run_log_parts = []
     try:
         from src.core.loop import run_react_agent_loop
@@ -166,7 +165,6 @@ def execute_scheduled_goal(goal: str, priority: str = "normal"):
         add_background_run(goal, "success", log_content)
         print(f"[Scheduler] Completed goal: '{goal}'")
     except Exception as e:
-        status = "failed"
         print(f"[Scheduler] Failed to execute goal '{goal}': {e}")
         try:
             from database import add_background_run

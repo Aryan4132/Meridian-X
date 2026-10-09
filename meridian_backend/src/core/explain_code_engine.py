@@ -42,7 +42,7 @@ class ExplainCodeEngine:
             f"Git Blame Context: {author_info}\n"
         )
 
-        refactor_suggestion = f"# Suggested Refactor (Clean Code Style)\n# Wrap in try/except with explicit typing and logging\n"
+        refactor_suggestion = "# Suggested Refactor (Clean Code Style)\n# Wrap in try/except with explicit typing and logging\n"
 
         return {
             "file": file_path,

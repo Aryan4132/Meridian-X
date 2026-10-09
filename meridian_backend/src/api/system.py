@@ -1,9 +1,10 @@
 import os
+import json
 import signal
 import platform
 import shutil
 import psutil
-from typing import Optional, Dict, Any, List
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -16,7 +17,7 @@ from database import get_ollama_client_host
 
 router = APIRouter(tags=["system"])
 
-CURRENT_VERSION = "0.1.5"
+CURRENT_VERSION = "0.1.6"
 _auto_download_in_progress = False
 _auto_download_ready = False
 

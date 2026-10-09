@@ -27,7 +27,7 @@ def trigger_continuous_window(duration: float = 10.0):
     CONTINUOUS_WINDOW_DURATION = duration
     CONTINUOUS_WINDOW_EXPIRES_AT = time.time() + duration
     CONTINUOUS_WINDOW_ACTIVE = True
-    print(f"[Wake Word] Continuous listening window triggered for {duration} seconds.")
+    logger.info("[Wake Word] Continuous listening window triggered for %s seconds.", duration)
 
 def is_continuous_window_active() -> bool:
     """Returns True if continuous listening window is currently active and unexpired."""
@@ -44,7 +44,7 @@ def cancel_continuous_window():
     global CONTINUOUS_WINDOW_ACTIVE, CONTINUOUS_WINDOW_EXPIRES_AT
     CONTINUOUS_WINDOW_ACTIVE = False
     CONTINUOUS_WINDOW_EXPIRES_AT = 0.0
-    print("[Wake Word] Continuous listening window cancelled.")
+    logger.info("[Wake Word] Continuous listening window cancelled.")
 
 def get_continuous_window_remaining() -> float:
     """Returns remaining seconds for continuous listening window."""
@@ -58,32 +58,32 @@ def start_wakeword_monitoring():
     """Starts the background wake word monitoring thread."""
     global WAKEWORD_ACTIVE, _thread
     if sd is None:
-        print("[Wake Word] sounddevice unavailable on this platform. Monitoring disabled.")
+        logger.warning("[Wake Word] sounddevice unavailable on this platform. Monitoring disabled.")
         return
     if WAKEWORD_ACTIVE:
         return
     WAKEWORD_ACTIVE = True
     _thread = threading.Thread(target=_listen_loop, daemon=True)
     _thread.start()
-    print("[Wake Word] Background monitoring thread started.")
+    logger.info("[Wake Word] Background monitoring thread started.")
 
 def stop_wakeword_monitoring():
     """Stops the background wake word monitoring thread."""
     global WAKEWORD_ACTIVE
     WAKEWORD_ACTIVE = False
-    print("[Wake Word] Background monitoring thread stopped.")
+    logger.info("[Wake Word] Background monitoring thread stopped.")
 
 def pause_wakeword():
     """Pauses the wake word monitoring to avoid mic sharing conflicts."""
     global WAKEWORD_PAUSED
     WAKEWORD_PAUSED = True
-    print("[Wake Word] Paused monitoring.")
+    logger.info("[Wake Word] Paused monitoring.")
 
 def resume_wakeword():
     """Resumes the wake word monitoring."""
     global WAKEWORD_PAUSED
     WAKEWORD_PAUSED = False
-    print("[Wake Word] Resumed monitoring.")
+    logger.info("[Wake Word] Resumed monitoring.")
 
 def _listen_loop():
     global WAKEWORD_ACTIVE, WAKEWORD_PAUSED
@@ -114,7 +114,7 @@ def _listen_loop():
             onnx_path = os.path.join(root_dir, wakeword_filename)
     
     if not os.path.exists(onnx_path):
-        print(f"[Wake Word] Custom model not found at {onnx_path}. Wake word monitoring disabled.")
+        logger.warning("[Wake Word] Custom model not found at %s. Wake word monitoring disabled.", onnx_path)
         WAKEWORD_ACTIVE = False
         return
         
@@ -122,7 +122,7 @@ def _listen_loop():
         from openwakeword.model import Model  # type: ignore
         oww_model = Model(wakeword_models=[onnx_path])
     except Exception as e:
-        print(f"[Wake Word] Failed to load openwakeword model: {e}")
+        logger.error("[Wake Word] Failed to load openwakeword model: %s", e)
         WAKEWORD_ACTIVE = False
         return
         
@@ -151,7 +151,7 @@ def _listen_loop():
             if sd is None:
                 break
             with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16') as stream:
-                print(f"[Wake Word] Audio stream opened successfully. Monitoring for '{wakeword_phrase_val}'...")
+                logger.info("[Wake Word] Audio stream opened successfully. Monitoring for '%s'...", wakeword_phrase_val)
                 while WAKEWORD_ACTIVE:
                     if WAKEWORD_PAUSED:
                         break
@@ -160,7 +160,7 @@ def _listen_loop():
                     audio_data = chunk.flatten()
                     
                     if is_continuous_window_active():
-                        print("[Wake Word] Continuous conversation window active! Triggering follow-up voice command.")
+                        logger.info("[Wake Word] Continuous conversation window active! Triggering follow-up voice command.")
                         cancel_continuous_window()
                         pause_wakeword()
                         publish_nudge_sync(
@@ -178,7 +178,7 @@ def _listen_loop():
                     score = max(predictions.values()) if predictions else 0.0
 
                     if score > threshold:
-                        print(f"[Wake Word] Wake word '{wakeword_phrase_val}' detected with score {score:.3f}! Pausing and triggering action.")
+                        logger.info("[Wake Word] Wake word '%s' detected with score %.3f! Pausing and triggering action.", wakeword_phrase_val, score)
                         pause_wakeword()
                         
                         publish_nudge_sync(
@@ -195,5 +195,5 @@ def _listen_loop():
                     time.sleep(0.01)
                     
         except Exception as e:
-            print(f"[Wake Word] Audio stream error: {e}. Retrying in 5 seconds...")
+            logger.error("[Wake Word] Audio stream error: %s. Retrying in 5 seconds...", e)
             time.sleep(5.0)

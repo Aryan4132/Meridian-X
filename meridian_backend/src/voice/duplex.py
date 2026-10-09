@@ -4,9 +4,8 @@ Provides ultra-low-latency continuous STT/TTS streaming with real-time speech in
 and configurable voice response output state.
 """
 
-import time
-import asyncio
-from typing import Dict, Any, Optional, Callable
+from collections.abc import Callable
+from typing import Any, Union
 
 # Global toggle for voice response state (enabled by default)
 _VOICE_RESPONSE_ENABLED: bool = True
@@ -34,7 +33,7 @@ class DuplexVoiceEngine:
         self.is_active = False
         self._interrupted_flag = False
         self.chunk_window_ms = 50  # Low latency 50ms processing window
-        self.on_barge_in_callback: Optional[Callable[[], None]] = None
+        self.on_barge_in_callback: Callable[[], None] | None = None
 
     def start_duplex_session(self) -> str:
         """Starts a full-duplex voice session."""
@@ -51,16 +50,42 @@ class DuplexVoiceEngine:
         self.is_active = False
         self.state = "idle"
         self._interrupted_flag = False
-        print(f"[Duplex Voice] Session stopped.")
+        print("[Duplex Voice] Session stopped.")
         return "Duplex voice session stopped."
 
-    def check_barge_in(self, audio_chunk_rms: float) -> bool:
+    def check_barge_in(self, audio_input: Union[float, int, Any]) -> bool:
         """
-        Checks if user audio energy exceeds threshold while assistant is speaking.
+        Checks if user audio energy or neural speech probability exceeds threshold while assistant is speaking.
+        Supports both RMS float values (backward compatible) and raw audio frames/bytes (Silero VAD).
         Triggers instant speech cancellation if barge-in occurs (< 100ms latency).
         """
-        if self.state == "speaking" and audio_chunk_rms > self.vad_threshold:
-            print(f"[Duplex Voice] Barge-in detected (RMS: {audio_chunk_rms:.1f})! Interrupting TTS...")
+        if self.state != "speaking":
+            return False
+
+        is_interrupted = False
+        log_detail = ""
+
+        # Case 1: Raw audio array or bytes provided (Silero VAD)
+        if isinstance(audio_input, (bytes, bytearray)) or (hasattr(audio_input, "__array__") and not isinstance(audio_input, (float, int))):
+            try:
+                from src.voice.vad import get_silero_detector
+                silero = get_silero_detector()
+                speech_prob = silero.get_speech_probability(audio_input)
+                if speech_prob >= 0.5:
+                    is_interrupted = True
+                    log_detail = f"Silero Prob: {speech_prob:.2f}"
+            except Exception as e:
+                print(f"[Duplex Voice] Neural barge-in check fallback: {e}")
+
+        # Case 2: Numeric RMS float or fallback
+        if not is_interrupted and isinstance(audio_input, (float, int)):
+            rms_val = float(audio_input)
+            if rms_val > self.vad_threshold:
+                is_interrupted = True
+                log_detail = f"RMS: {rms_val:.1f}"
+
+        if is_interrupted:
+            print(f"[Duplex Voice] Barge-in detected ({log_detail})! Interrupting TTS...")
             self.state = "interrupted"
             self._interrupted_flag = True
             if self.on_barge_in_callback:
@@ -70,6 +95,7 @@ class DuplexVoiceEngine:
                     print(f"[Duplex Voice] Error in barge-in callback: {e}")
             return True
         return False
+
 
     def set_speaking_state(self, is_speaking: bool) -> None:
         """Updates voice engine state to speaking or listening."""
@@ -81,7 +107,7 @@ class DuplexVoiceEngine:
         else:
             self.state = "listening"
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Returns current duplex voice engine diagnostic status."""
         return {
             "active": self.is_active,
@@ -98,7 +124,7 @@ class DuplexVoiceEngine:
 global_duplex_engine = DuplexVoiceEngine()
 
 
-def transcribe_meeting_call(audio_bytes: bytes) -> Dict[str, Any]:
+def transcribe_meeting_call(audio_bytes: bytes) -> dict[str, Any]:
     """Records calls, transcribes multi-speaker audio, and synthesizes meeting notes (AST-14)."""
     notes = {
         "transcript": "Speaker 1: Reviewing Q3 Sprint Deliverables. Speaker 2: Agreed.",
@@ -110,7 +136,7 @@ def transcribe_meeting_call(audio_bytes: bytes) -> Dict[str, Any]:
     return notes
 
 
-def translate_voice_call_stream(audio_bytes: bytes, target_lang: str = "es") -> Dict[str, Any]:
+def translate_voice_call_stream(audio_bytes: bytes, target_lang: str = "es") -> dict[str, Any]:
     """Live two-way speech translation with instantaneous translated audio output (CRT-03)."""
     res = {
         "source_lang": "en",

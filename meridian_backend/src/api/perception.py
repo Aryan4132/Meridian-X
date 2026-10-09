@@ -17,12 +17,28 @@ class PolyglotRequest(BaseModel):
 class OpenUrlRequest(BaseModel):
     url: str
 
+class TelephonyCallRequest(BaseModel):
+    to_number: Optional[str] = "+18005550199"
+    objective: Optional[str] = "Assistant call"
+
+class CrmContactRequest(BaseModel):
+    name: Optional[str] = "New Contact"
+    relationship: Optional[str] = "Friend"
+    birthday: Optional[str] = None
+    notes: Optional[str] = ""
+
+class SosTriggerRequest(BaseModel):
+    trigger_phrase: Optional[str] = "emergency help"
+    contacts: Optional[Any] = None
+
 @router.post("/api/vision/screenshot")
 def api_vision_screenshot():
+    temp_path = None
     try:
         from src.tools.desktop import screenshot, ocr_screen
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, "meridian_vision_capture.png")
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+            temp_path = tf.name
+
         screenshot(temp_path)
         
         ocr_text = ""
@@ -34,11 +50,6 @@ def api_vision_screenshot():
         with open(temp_path, "rb") as img_file:
             b64_image = base64.b64encode(img_file.read()).decode("utf-8")
             
-        try:
-            os.remove(temp_path)
-        except Exception:
-            pass
-            
         return {
             "status": "success",
             "image": f"data:image/png;base64,{b64_image}",
@@ -46,6 +57,12 @@ def api_vision_screenshot():
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
 
 @router.get("/api/perception/screen")
 async def api_perception_screen(prompt: Optional[str] = None):
@@ -95,11 +112,11 @@ def api_perception_prewarm_context(req: Dict[str, Any]):
     return prewarm_dev_context(process_name=proc, title=title)
 
 @router.post("/api/telephony/call")
-def api_telephony_make_call(req: Dict[str, Any]):
+def api_telephony_make_call(req: TelephonyCallRequest):
     """CALL-01: Initiate outbound VoIP phone call."""
     from src.tools.phone_agent import make_outbound_call
-    to_num = req.get("to_number", "+18005550199")
-    obj = req.get("objective", "Assistant call")
+    to_num = req.to_number or "+18005550199"
+    obj = req.objective or "Assistant call"
     return make_outbound_call(to_number=to_num, objective=obj)
 
 @router.post("/api/telephony/screen")
@@ -125,11 +142,11 @@ def api_telephony_get_logs(limit: Optional[int] = 10):
     return {"logs": get_call_logs(limit=limit or 10)}
 
 @router.post("/api/sos/trigger")
-def api_sos_trigger(req: Dict[str, Any]):
+def api_sos_trigger(req: SosTriggerRequest):
     """CALL-04: Emergency SOS voice protocol trigger."""
     from src.core.sos_protocol import trigger_emergency_sos
-    phrase = req.get("trigger_phrase", "emergency help")
-    contacts = req.get("contacts")
+    phrase = req.trigger_phrase or "emergency help"
+    contacts = req.contacts
     return trigger_emergency_sos(phrase=phrase, contacts=contacts)
 
 @router.get("/api/email/triage")
@@ -153,13 +170,13 @@ def api_crm_check_occasions():
     return check_crm_occasions()
 
 @router.post("/api/crm/contact")
-def api_crm_add_contact(req: Dict[str, Any]):
+def api_crm_add_contact(req: CrmContactRequest):
     """BUTLER-02: Add or update Personal CRM contact."""
     from src.core.personal_crm import add_crm_contact
-    name = req.get("name", "New Contact")
-    rel = req.get("relationship", "Friend")
-    bday = req.get("birthday")
-    notes = req.get("notes", "")
+    name = req.name or "New Contact"
+    rel = req.relationship or "Friend"
+    bday = req.birthday
+    notes = req.notes or ""
     return add_crm_contact(name=name, relationship=rel, birthday=bday, notes=notes)
 
 @router.get("/api/proactive/meetingprep")
@@ -254,13 +271,12 @@ def trigger_presence_briefing_api(user_name: Optional[str] = "User"):
 
 @router.post("/api/utils/open-url")
 async def open_external_url_api(payload: OpenUrlRequest):
-    """Opens an external URL in the user's system default web browser."""
+    """Opens an external URL safely in the user's system default web browser."""
     target_url = payload.url.strip()
+    if not (target_url.startswith("http://") or target_url.startswith("https://")):
+        return {"status": "error", "message": "Only HTTP and HTTPS URLs are permitted"}
     try:
-        if os.name == "nt":
-            subprocess.Popen(["cmd", "/c", "start", "", target_url], shell=False)
-        else:
-            webbrowser.open(target_url)
+        webbrowser.open(target_url)
         return {"status": "success", "url": target_url}
     except Exception as e:
         return {"status": "error", "message": str(e)}

@@ -5,6 +5,7 @@ import hashlib
 from typing import Optional, Any, Union
 from fastapi import Header, HTTPException, status, Depends, Request, WebSocket
 from fastapi.security import APIKeyHeader
+from starlette.requests import HTTPConnection
 
 def compute_sha256(text: str) -> str:
     """Computes hex SHA-256 hash of a string."""
@@ -132,9 +133,6 @@ def bootstrap_webhook_secret():
 # Run bootstrap on module load
 API_KEY = bootstrap_api_key()
 
-from fastapi import Header, HTTPException, status, Depends, Request
-from starlette.requests import HTTPConnection
-
 
 def _is_loopback_request(request: Optional[HTTPConnection]) -> bool:
     """Allow same-machine desktop app traffic only when the TCP peer is actually loopback."""
@@ -155,9 +153,6 @@ def _is_loopback_request(request: Optional[HTTPConnection]) -> bool:
 
 
 # --- Admin guard -------------------------------------------------------------
-from fastapi import Header, HTTPException, Depends
-import os
-
 def require_admin(
     request: Request,
     admin_key: Optional[str] = Header(None, convert_underscores=False),
@@ -277,14 +272,35 @@ def require_permission(permissions: list):
     return permission_checker
 
 def get_user_roles_from_request(request: Request) -> list:
-    """Extract user roles from request (simplified implementation)."""
-    # In a real implementation, this would decode JWT token or session
-    # For now, we'll check headers or fall back to default
+    """Extract user roles from request with loopback desktop and API key verification."""
     if request is None:
-        return ["viewer"]  # Default role
-    
-    # Try to get roles from header (for demo/testing)
-    roles_header = request.headers.get("X-User-Roles")
+        return ["viewer"]
+
+    # 1. Loopback desktop client with trusted origin is granted admin & user
+    if _is_loopback_request(request):
+        return ["admin", "user"]
+
+    # 2. Check X-API-Key header or query parameter
+    api_key_header = request.headers.get("X-API-Key") if hasattr(request, "headers") else None
+    if not api_key_header and hasattr(request, "query_params"):
+        api_key_header = request.query_params.get("token") or request.query_params.get("apiKey")
+    if api_key_header and verify_provided_token(api_key_header):
+        return ["admin", "user"]
+
+    # 3. Check for Authorization: Bearer <jwt_token>
+    auth_header = request.headers.get("Authorization") if hasattr(request, "headers") else None
+    if auth_header and auth_header.startswith("Bearer "):
+        bearer_token = auth_header.split(" ", 1)[1].strip()
+        try:
+            from src.core.oauth_manager import decode_jwt_token
+            decoded = decode_jwt_token(bearer_token)
+            if decoded:
+                return ["user"]
+        except Exception:
+            pass
+
+    # 4. Try to get roles from header (for testing/internal proxies)
+    roles_header = request.headers.get("X-User-Roles") if hasattr(request, "headers") else None
     if roles_header:
         try:
             import json
@@ -293,10 +309,9 @@ def get_user_roles_from_request(request: Request) -> list:
                 return roles
         except Exception:
             pass
-    
-    # Fallback to checking user profile or default
-    # In reality, this would come from authenticated user data
-    return ["viewer"]  # Default role
+
+    return ["viewer"]  # Default untrusted role
+
 
 
 async def require_api_key(

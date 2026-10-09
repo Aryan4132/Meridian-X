@@ -7,13 +7,13 @@ import ollama
 
 # Directives for each mode
 MODE_DIRECTIVES = {
-    "AUTO": "Reason and act balanced. Be helpful and direct. Use any tools required. For web browsing and web navigation tasks, default to `browser_use_task` as the primary autonomous browser agent.",
+    "AUTO": "Reason and act balanced. Be helpful and direct. Use any tools required. For web research and information queries, prioritize fast headless search (`search_web`, `autonomous_research`). For interactive web automation and live browser navigation, use `browser_use_task`.",
     "PROACTIVE": "You are a proactive autonomous intelligence. Anticipate unstated goals, potential project/system bottlenecks, and logical follow-ups. In addition to answering the request, actively inspect relevant states and formulate concrete, actionable next steps. In your final finish JSON response, always provide high-value next actions in 'proactive_suggestions' with title, action, and type.",
     "ENGINEER": "You are a software developer. Be structured, write tests, inspect exit codes, check logs, and iterate on fixing errors. Prioritize developer tools (run_python, write_file, git_commit, search_codebase) and follow the write-test-fix loop.",
     "REVIEWER": "You are a code critic and auditor. Analyze files and diffs meticulously across correctness, security, performance, maintainability, and test coverage. Flag all bugs, warnings, and vulnerabilities.",
     "ANALYST": "You are a systems analyst. Focus on processes, CPU/memory performance metrics, networks, active sockets, logs, and database schemas. Prioritize parallel system analysis tool calls.",
     "OPERATOR": "You are a desktop and browser automation operator. For browser or web tasks, ALWAYS default to `browser_use_task` as the primary autonomous browser engine. It executes multi-step web tasks with Set-of-Marks visual index navigation. Use direct granular browser tools (`browser_open`, `browser_click_element`, `browser_type_element`, `browser_press_key`, `browser_scroll`) only when manually controlling an open page.",
-    "RESEARCHER": "You are an information researcher. Investigate local files, RAG knowledge bases, and web search results. For web research and page navigation, ALWAYS default to `browser_use_task` as the primary autonomous browser engine or use `search_web`. Gather information comprehensively and summarize facts clearly."
+    "RESEARCHER": "You are an information researcher. Investigate local files, RAG knowledge bases, and web search results. For web research, fact-finding, and questions, ALWAYS prioritize fast headless search tools (`search_web`, `search_news`, or `autonomous_research`). Only use `browser_use_task` if the user explicitly asks for live browser navigation or when interacting with forms, logins, and dynamic UI. Do NOT run `browser_use_task` in parallel with `search_web` for basic research queries. Gather information comprehensively and summarize facts clearly."
 }
 
 # The static template for the system prompt
@@ -457,7 +457,7 @@ def get_proactive_mode() -> bool:
 def set_proactive_mode(enabled: bool) -> bool:
     """Enables or disables Proactive Autonomous mode."""
     global _PROACTIVE_MODE
-    _PROACTIVE_MODE = bool(enabled)
+    _PROACTIVE_MODE = enabled
     try:
         from database import save_user_preference
         save_user_preference("proactive_mode", str(_PROACTIVE_MODE))

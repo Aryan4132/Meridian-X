@@ -8,7 +8,10 @@ import socket
 import psutil
 import platform
 import subprocess
+import logging
 from typing import Optional, Tuple, Set
+
+logger = logging.getLogger("meridian.guard")
 
 # Game Mode settings
 game_mode_active: bool = False
@@ -74,8 +77,8 @@ def check_system_health():
                 )
                 if procs:
                     top_proc = f" — '{procs[0].info['name']}' is the top consumer."
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to inspect top process consumer: %s", e)
             proactive.publish_nudge_sync(
                 nudge_type="system_health",
                 title="⚠️ High CPU Usage",
@@ -111,8 +114,8 @@ def check_system_health():
                     action_hint="Free up disk space",
                     icon="💾"
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to query disk metrics: %s", e)
 
     except Exception as e:
         print(f"[Proactive] Health check error: {e}")
@@ -151,10 +154,10 @@ def get_active_process_and_title() -> Tuple[str, str, Optional[int]]:
                 if not proc_name and pid.value:
                     try:
                         proc_name = psutil.Process(pid.value).name()
-                    except Exception:
-                        pass
-        except Exception:
-            pass
+                    except Exception as e:
+                        logger.debug("Failed to resolve process name for PID %s: %s", pid.value, e)
+        except Exception as e:
+            logger.debug("Windows active window query failed: %s", e)
     elif sys_platform == "Darwin":
         try:
             cmd = ["osascript", "-e", 'tell application "System Events" to set frontApp to first application process whose frontmost is true\nget {name, unix id} of frontApp']
@@ -165,8 +168,8 @@ def get_active_process_and_title() -> Tuple[str, str, Optional[int]]:
                 title = parts[0]
                 if len(parts) > 1 and parts[1].isdigit():
                     pid_val = int(parts[1])
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Darwin frontmost app query failed: %s", e)
     elif sys_platform == "Linux":
         try:
             pid_out = subprocess.check_output(["xdotool", "getactivewindow", "getwindowpid"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8").strip()
@@ -175,8 +178,8 @@ def get_active_process_and_title() -> Tuple[str, str, Optional[int]]:
                 proc_name = psutil.Process(pid_val).name()
             title_out = subprocess.check_output(["xdotool", "getactivewindow", "getwindowname"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8").strip()
             title = title_out
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Linux active window query failed: %s", e)
 
     return proc_name, title, pid_val
 
@@ -197,8 +200,8 @@ def is_system_busy_or_fullscreen(hwnd) -> bool:
                 prop_out = subprocess.check_output(["xprop", "-id", win_id, "_NET_WM_STATE"], timeout=1.0, stderr=subprocess.DEVNULL).decode("utf-8")
                 if "_NET_WM_STATE_FULLSCREEN" in prop_out:
                     return True
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Linux fullscreen check failed: %s", e)
         return False
 
     if sys_platform != "Windows":
@@ -210,8 +213,8 @@ def is_system_busy_or_fullscreen(hwnd) -> bool:
         if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) == 0:
             if state.value == 3:  # QUNS_RUNNING_DND
                 return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Windows notification state query failed: %s", e)
 
     try:
         if hwnd:
@@ -233,21 +236,21 @@ def is_system_busy_or_fullscreen(hwnd) -> bool:
                         class_name = class_buf.value
                         if class_name not in ["Progman", "WorkerW"]:
                             return True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Windows fullscreen metric check failed: %s", e)
         
     return False
 
 
-def is_game_process_running(pid: int, expected_name: str) -> bool:
+def is_game_process_running(pid: int, expected_name: Optional[str]) -> bool:
     if not pid or not expected_name:
         return False
     try:
         if psutil.pid_exists(pid):
             p = psutil.Process(pid)
             return p.name().lower() == expected_name.lower()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Game process verification failed for PID %s: %s", pid, e)
     return False
 
 
@@ -260,13 +263,13 @@ def get_app_pids() -> Set[int]:
             gparent = parent.parent()
             if gparent:
                 pids.add(gparent.pid)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to query parent process tree: %s", e)
     try:
         for child in psutil.Process().children(recursive=True):
             pids.add(child.pid)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed to query child process tree: %s", e)
     return pids
 
 
@@ -288,8 +291,8 @@ def check_active_window():
         try:
             import ctypes
             hwnd = ctypes.windll.user32.GetForegroundWindow()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to get foreground window handle: %s", e)
 
     SYSTEM_SHELL_PROCESSES = {
         "explorer.exe",
@@ -324,10 +327,10 @@ def check_active_window():
             )
         return
     elif getattr(proactive, "game_mode_active", False) and getattr(proactive, "auto_game_mode_active", False):
-        if _auto_detected_game_pid and is_game_process_running(_auto_detected_game_pid, _auto_detected_game_name):
+        if _auto_detected_game_pid and _auto_detected_game_name and is_game_process_running(_auto_detected_game_pid, _auto_detected_game_name):
             return
             
-        print(f"[Proactive] Game/Fullscreen exited. Automatically exiting Game Mode.")
+        print("[Proactive] Game/Fullscreen exited. Automatically exiting Game Mode.")
         proactive.game_mode_active = False
         proactive.auto_game_mode_active = False
         _auto_detected_game_pid = None
@@ -407,7 +410,8 @@ def check_network_status():
     try:
         with socket.create_connection(("1.1.1.1", 53), timeout=2.0):
             pass
-    except Exception:
+    except Exception as e:
+        logger.debug("Network probe failed (offline): %s", e)
         offline_now = True
         
     if offline_now and not _is_offline:

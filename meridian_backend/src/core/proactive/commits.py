@@ -337,7 +337,7 @@ def on_clipboard_proactive(text: str):
                     nudge_type="clipboard_error",
                     title="🐛 Error Detected & Analyzed",
                     message=f"I detected a traceback and auto-generated a fix for {os.path.basename(patch['file_path'])}.",
-                    action_hint=f"Review & Apply Fix",
+                    action_hint="Review & Apply Fix",
                     icon="🔴",
                     mascot_state="diagnostic",
                     action="show_diff",

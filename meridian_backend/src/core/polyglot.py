@@ -42,7 +42,7 @@ class CodePolyglotEngine:
         elif "loop" in text_lower or "repeat" in text_lower:
             code_snippet = f"for i in range(10):\n    # Generated from '{transcript_text}'\n    print(i)"
         elif "class" in text_lower:
-            code_snippet = f"class GeneratedClass:\n    def __init__(self):\n        pass"
+            code_snippet = "class GeneratedClass:\n    def __init__(self):\n        pass"
         else:
             code_snippet = f"# Code prompt: {transcript_text}\nprint('Executing polyglot command')"
 

@@ -14,7 +14,7 @@ from typing import Dict, Any, Tuple, Optional
 
 logger = logging.getLogger("meridian_updater")
 
-CURRENT_VERSION = "0.1.5"
+CURRENT_VERSION = "0.1.6"
 GITHUB_RELEASES_URL = "https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest"
 
 
@@ -31,7 +31,11 @@ class SystemUpdater:
             if res.status_code == 200:
                 data = res.json()
                 tag_name = data.get("tag_name", "v0.1.0").lstrip("v")
-                has_update = tag_name != self.current_version
+                try:
+                    from packaging.version import parse as parse_version
+                    has_update = parse_version(tag_name) > parse_version(self.current_version)
+                except Exception:
+                    has_update = tag_name != self.current_version
                 assets = data.get("assets", [])
                 
                 return {
@@ -72,22 +76,40 @@ class SystemUpdater:
 
         backup_path = f"{target_binary}.bak"
         try:
-            # Step 1: Create backup copy
-            if os.path.exists(target_binary):
-                shutil.copy2(target_binary, backup_path)
+            # Step 1: Remove existing backup if present
+            if os.path.exists(backup_path):
+                try:
+                    os.remove(backup_path)
+                except Exception:
+                    pass
 
-            # Step 2: Swap new binary
+            # Step 2: Swap target binary. On Windows running executables cannot be
+            # overwritten with copy2, but CAN be renamed out of the path.
+            if os.path.exists(target_binary):
+                try:
+                    os.rename(target_binary, backup_path)
+                except Exception:
+                    shutil.copy2(target_binary, backup_path)
+                    try:
+                        os.remove(target_binary)
+                    except Exception:
+                        pass
+
+            # Step 3: Copy new binary to target path
             shutil.copy2(new_binary, target_binary)
             logger.info(f"[Updater] Successfully swapped '{new_binary}' -> '{target_binary}'. Backup: '{backup_path}'")
             return True, backup_path
         except Exception as e:
             logger.error(f"[Updater] Swap failed: {e}")
             # Restore if partial failure
-            if os.path.exists(backup_path):
+            if os.path.exists(backup_path) and not os.path.exists(target_binary):
                 try:
-                    shutil.copy2(backup_path, target_binary)
+                    os.rename(backup_path, target_binary)
                 except Exception:
-                    pass
+                    try:
+                        shutil.copy2(backup_path, target_binary)
+                    except Exception:
+                        pass
             return False, str(e)
 
     def health_probe_rollback(self, target_binary: str, backup_binary: str, health_url: Optional[str] = None, timeout_seconds: float = 15.0) -> bool:
