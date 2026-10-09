@@ -1,8 +1,8 @@
 # MERIDIAN-X SYSTEM ARCHITECTURE & TECHNICAL CONTEXT DOCUMENT
 
 > **Target Audience**: AI Agents, Technical Automation Parsers & Developers  
-> **Version**: `v0.1.5`  
-> **Last Updated**: `2026-10-01`  
+> **Version**: `v0.1.6`  
+> **Last Updated**: `2026-10-09`  
 > **Repository Roots**:  
 > Core Application: `c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X`  
 > Website/Marketing: `c:/Users/aryan/OneDrive/Dokumen/Mini_Project/meridian_website`  
@@ -504,4 +504,3 @@ Meridian-X/
 
 - **Debian / Ubuntu Package (`.deb`)**: Standard distribution target for Linux environments.
 - Note: AppImage was retired due to runner flakiness; `.deb` package installs cleanly with full dependency resolution.
-

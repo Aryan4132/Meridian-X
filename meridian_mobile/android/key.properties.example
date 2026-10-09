@@ -1,0 +1,8 @@
+# Meridian-X Release Keystore Configuration Example
+# Copy this file to 'key.properties' in this directory (meridian_mobile/android/)
+# or set environment variables before running build_mobile.py
+
+storePassword=your_keystore_password
+keyPassword=your_key_password
+keyAlias=meridian_key
+storeFile=meridian-release.jks

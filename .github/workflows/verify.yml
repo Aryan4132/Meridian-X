@@ -25,11 +25,16 @@ jobs:
           cache: 'pip'
           cache-dependency-path: 'meridian_backend/requirements.txt'
 
-      - name: Install Backend Requirements
+      - name: Install Backend Requirements & Linters
         run: |
           cd meridian_backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install ruff
+
+      - name: Lint with Ruff
+        run: |
+          ruff check meridian_backend/src --exit-zero
 
       - name: Run Backend Test Suite
         run: python -m pytest meridian_backend/tests/ -q

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { motion, AnimatePresence } from 'motion/react';
-import { RefreshCw, Check, Eye, EyeOff, Save, Plus, Trash2, Cpu, Sparkles, Mic, ShieldCheck, DollarSign, Plug, FolderOpen, Search, Download, Loader2 } from 'lucide-react';
+import { Check, Save, Cpu, Sparkles, Mic, ShieldCheck, DollarSign, Plug } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { API_BASE_URL, getApiBaseUrl, getApiKey } from '../config';
 import { SystemUsage } from '../types';
@@ -17,6 +16,9 @@ import {
 import MascotTab from './settings/MascotTab';
 import VoiceTab from './settings/VoiceTab';
 import IntegrationsTab from './settings/IntegrationsTab';
+import AiModelsTab from './settings/AiModelsTab';
+import SystemGuardTab from './settings/SystemGuardTab';
+import SpendAirGapTab from './settings/SpendAirGapTab';
 import PasswordInput from './settings/PasswordInput';
 
 const SETTINGS_TABS = [
@@ -466,8 +468,6 @@ export default function Settings() {
   const [contextTokenLimit, setContextTokenLimit] = useState(() => parseInt(localStorage.getItem('context_token_limit') || '8192'));
   const [wakewordThreshold, setWakewordThreshold] = useState(() => parseFloat(localStorage.getItem('wakeword_threshold') || '0.6'));
   const [wakewordModel, setWakewordModel] = useState(() => localStorage.getItem('wakeword_model_filename') || 'hey_meridian.onnx');
-  const [scannedOnnxModels, setScannedOnnxModels] = useState<Array<{ name: string; path: string; folder: string }>>([]);
-  const [isScanningOnnx, setIsScanningOnnx] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const [updateInfo, setUpdateInfo] = useState<any>(null);
@@ -523,21 +523,6 @@ export default function Settings() {
     if (file) {
       const fullPath = (file as any).path || file.name;
       setWakewordModel(fullPath);
-    }
-  };
-
-  const fetchScannedOnnxModels = async () => {
-    setIsScanningOnnx(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/voice/onnx-models`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.models) setScannedOnnxModels(data.models);
-      }
-    } catch (e) {
-      console.warn("Failed to scan ONNX models:", e);
-    } finally {
-      setIsScanningOnnx(false);
     }
   };
   const [wakewordPhrase, setWakewordPhrase] = useState(() => localStorage.getItem('wakeword_phrase') || 'Hey Meridian');
@@ -1134,545 +1119,190 @@ export default function Settings() {
         {/* Left: config */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          {/* Category: Spend & Air-Gap */}
-          {activeCategory === 'spend' && (
-            <>
-              {/* Cloud Spend & Token Meter */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span>Cloud Spend & Token Meter</span>
-                  {spendStats.budget_exceeded && (
-                    <span style={{ fontSize: 10, background: 'color-mix(in srgb, var(--danger) 15%, transparent)', color: 'var(--danger)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', fontWeight: 700 }}>
-                      BUDGET EXCEEDED — LOCAL FALLBACK ACTIVE
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
-                  {/* Progress Bar */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 6, color: 'var(--text-main)', fontWeight: 600 }}>
-                      <span>30-Day LLM Spend: ${spendStats.monthly_cost_usd?.toFixed(4)} USD</span>
-                      <span>Cap: ${spendStats.budget_cap_usd?.toFixed(2)} USD</span>
-                    </div>
-                    <div style={{ width: '100%', height: 8, background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', overflow: 'hidden', border: '1px solid var(--border-subtle)' }}>
-                      <div
-                        style={{
-                          height: '100%',
-                          width: `${Math.min(100, ((spendStats.monthly_cost_usd || 0) / (spendStats.budget_cap_usd || 1)) * 100)}%`,
-                          background: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)',
-                          transition: 'width 0.3s ease'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Budget Cap Setter */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <label style={{ fontSize: 11, color: 'var(--text-dim)', minWidth: 120 }}>Monthly Cap (USD):</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      value={newBudgetCap}
-                      onChange={e => setNewBudgetCap(e.target.value)}
-                      style={{ width: 100, padding: '6px 10px', borderRadius: 'var(--radius-sm)', background: 'var(--bg-panel)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)', fontSize: 12 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={handleUpdateBudgetCap}
-                      style={{ padding: '6px 14px', borderRadius: 'var(--radius-sm)', background: 'var(--accent)', border: 'none', color: 'var(--bg-void)', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}
-                    >
-                      Update Cap
-                    </button>
-                  </div>
-
-                  {/* Budget Enable/Disable Toggle */}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid var(--border-subtle)' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>Enforce Spend Budget Cap</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically fall back to local model when cap is reached.</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`${API_BASE_URL}/api/spend/budget`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ enabled: !spendStats.budget_enabled })
-                          });
-                          if (res.ok) fetchSpendAndAirgap();
-                        } catch { /* noop */ }
-                      }}
-                      style={{
-                        padding: '6px 14px', borderRadius: 16, border: 'none',
-                        background: spendStats.budget_enabled !== false ? 'var(--success)' : 'var(--bg-surface)',
-                        color: spendStats.budget_enabled !== false ? 'var(--bg-void)' : 'var(--text-dim)',
-                        fontWeight: 700, fontSize: 11, cursor: 'pointer'
-                      }}
-                    >
-                      {spendStats.budget_enabled !== false ? 'ENFORCING' : 'DISABLED'}
-                    </button>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Mobile Manual Pairing */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Mobile App Pairing</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                    Enter the desktop host, port and pairing secret from the Meridian-X mobile app, then verify.
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Desktop Host</label>
-                      <input type="text" value={pairHost} onChange={e => setPairHost(e.target.value)} placeholder="127.0.0.1" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Port</label>
-                      <input type="text" value={pairPort} onChange={e => setPairPort(e.target.value)} placeholder="4133" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Pairing Secret</label>
-                    <input type="password" value={pairSecret} onChange={e => setPairSecret(e.target.value)} placeholder="paste pairing secret" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-                  {pairStatus && (
-                    <div style={{ fontSize: 11, color: pairStatus.isError ? 'var(--danger)' : 'var(--success)' }}>{pairStatus.text}</div>
-                  )}
-                  <HoloButton type="button" variant="primary" size="sm" onClick={handleVerifyPairing} loading={isVerifyingPair} disabled={!pairSecret.trim()}>
-                    Verify Pairing
-                  </HoloButton>
-                </div>
-              </GlowCard>
-
-              {/* Local-Only Air-Gap Control */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Local-Only Air-Gap Mode (OPS-04)</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>Hard Network Air-Gap</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>Blocks all non-loopback outbound cloud and remote API requests.</div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAirgap(!airgapStatus.airgap_active)}
-                      style={{
-                        padding: '8px 18px', borderRadius: 20, border: 'none',
-                        background: airgapStatus.airgap_active ? 'var(--success)' : 'var(--bg-surface)',
-                        color: airgapStatus.airgap_active ? 'var(--bg-void)' : 'var(--text-dim)',
-                        fontWeight: 700, fontSize: 12, cursor: 'pointer', transition: 'all 0.2s ease'
-                      }}
-                    >
-                      {airgapStatus.airgap_active ? 'ENABLED (AIR-GAPPED)' : 'DISABLED'}
-                    </button>
-                  </div>
-
-                  {airgapStatus.airgap_active && (
-                    <div style={{ padding: 12, borderRadius: 'var(--radius-sm)', background: 'color-mix(in srgb, var(--success) 8%, transparent)', border: '1px solid var(--success)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--success)' }}>PROOF BADGE: {airgapStatus.proof_badge}</span>
-                        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Verified: {airgapStatus.verified_at}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                        Sig: {airgapStatus.signature}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </GlowCard>
-            </>
-          )}
-
-          {/* Category: System Guard */}
-          {activeCategory === 'guard' && (
-            <>
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">System Guard & PC Execution Security</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 12 }}>
-                  <div style={{ padding: 12, borderRadius: 8, background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#f87171', marginBottom: 4 }}>
-                      Unrestricted PC Access Mode (Level 0)
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                      Grants Meridian-X full automated execution rights across the PC. Bypasses confirmation gates for system commands, process management, and file operations.
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-main)' }}>Level 1 Security (Human Confirmation Gates)</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Require confirmation before running destructive OS actions.</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          const res = await fetch(`${API_BASE_URL}/api/mode/security_guard`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ level: 0 })
-                          });
-                          if (res.ok) alert('Unrestricted PC Access Mode Enabled.');
-                        } catch { /* noop */ }
-                      }}
-                      style={{ padding: '6px 14px', borderRadius: 16, border: 'none', background: 'var(--danger)', color: '#fff', fontWeight: 700, fontSize: 11, cursor: 'pointer' }}
-                    >
-                      Bypass / Enable Level 0 Mode
-                    </button>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
-          )}
-
-          {/* Category 1: AI Models */}
           {activeCategory === 'models' && (
-            <>
-              {/* AI Config */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">AI Configuration</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Provider grid */}
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Intelligence Provider
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-                      {PROVIDERS.map(p => {
-                        const active = provider === p.id;
-                        return (
-                          <button key={p.id} type="button" onClick={() => setProvider(p.id)} style={{
-                            padding: '8px 4px', borderRadius: 'var(--radius-sm)',
-                            border: active ? `1px solid ${p.color}` : '1px solid var(--border-subtle)',
-                            background: active ? `${p.color}12` : 'var(--bg-surface)',
-                            cursor: 'pointer', textAlign: 'center', transition: 'all 0.15s ease',
-                          }}>
-                            <div style={{ fontSize: 11, fontWeight: 600, color: active ? p.color : 'var(--text-main)', marginBottom: 2 }}>{p.label}</div>
-                            <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace" }}>{p.sub}</div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Provider-specific */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {provider === 'ollama' ? (
-                      <div>
-                        <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                          Ollama Host URL
-                        </label>
-                        <input type="text" value={ollamaHost} onChange={e => setOllamaHost(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                      </div>
-                    ) : provider === 'custom' ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Custom Endpoint Base URL (llama.cpp / vLLM / LocalAI / HuggingFace)
-                          </label>
-                          <input
-                            type="text"
-                            value={customBaseUrl}
-                            onChange={e => setCustomBaseUrl(e.target.value)}
-                            placeholder="http://localhost:8000/v1 or https://api-inference.huggingface.co/v1"
-                            className="input-base"
-                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                            Custom Model ID / Name
-                          </label>
-                          <input
-                            type="text"
-                            value={customModel}
-                            onChange={e => setCustomModel(e.target.value)}
-                            placeholder="mistralai/Mistral-7B-Instruct-v0.1 or custom-model"
-                            className="input-base"
-                            style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                          />
-                        </div>
-                        <PasswordInput
-                          label="Custom API Key / Token (Optional for Local Servers)"
-                          value={customApiKey}
-                          onChange={setCustomApiKey}
-                          placeholder="hf_... or leave blank for local servers"
-                          requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock}
-                        />
-                      </div>
-                    ) : (() => {
-                      const cfg = apiKeyForProvider();
-                      if (!cfg) return null;
-                      const [val, setter, ph] = cfg;
-                      return <PasswordInput label="API Key" value={val} onChange={setter} placeholder={ph} requireUnlock keysUnlocked={keysUnlocked} onRequestUnlock={requestUnlock} />;
-                    })()}
-
-                    {/* Model Execution Mode */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Model Execution Mode
-                      </label>
-                      <select value={modelSource} onChange={e => setModelSource(e.target.value)} className="select-base">
-                        <option value="local">Local Mode (Enables local multi-agent features & HTP)</option>
-                        <option value="api">Cloud/API Mode (Instant streaming, bypasses local task decomposition)</option>
-                      </select>
-                    </div>
-
-                    {/* Brain model */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Brain Model
-                      </label>
-                      {availableBrainModels.length > 0 ? (
-                        <select value={brainModel} onChange={e => setBrainModel(e.target.value)} className="select-base">
-                          {availableBrainModels.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      ) : (
-                        <input type="text" value={brainModel} onChange={e => setBrainModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                      )}
-                    </div>
-
-                    {/* Vision model */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Vision Model (Ollama)
-                      </label>
-                      {availableOllamaModels.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                          <select value={visionModel} onChange={e => setVisionModel(e.target.value)} className="select-base">
-                            {filterVisionModels(availableOllamaModels).map(m => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--text-dim)', cursor: 'pointer', marginTop: 2 }}>
-                            <input
-                              type="checkbox"
-                              checked={showAllVisionModels}
-                              onChange={e => {
-                                setShowAllVisionModels(e.target.checked);
-                                localStorage.setItem('meridian_show_all_vision_models', String(e.target.checked));
-                              }}
-                            />
-                            Show all models (disable vision filtering)
-                          </label>
-                        </div>
-                      ) : (
-                        <input type="text" value={visionModel} onChange={e => setVisionModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                      )}
-                    </div>
-
-                    {/* Auditor model */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Auditor & Local Fallback Model (Ollama)
-                      </label>
-                      {availableOllamaModels.length > 0 ? (
-                        <select value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="select-base">
-                          {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      ) : (
-                        <input type="text" value={auditorModel} onChange={e => setAuditorModel(e.target.value)} className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                      )}
-                    </div>
-
-                    {/* Embedding Model */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Embedding Model (Ollama Vector RAG)
-                      </label>
-                      {availableOllamaModels.length > 0 ? (
-                        <select value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} className="select-base">
-                          {availableOllamaModels.map(m => <option key={m} value={m}>{m}</option>)}
-                        </select>
-                      ) : (
-                        <input type="text" value={embeddingModel} onChange={e => setEmbeddingModel(e.target.value)} placeholder="e.g. nomic-embed-text" className="input-base" style={{ fontFamily: "'JetBrains Mono', monospace" }} />
-                      )}
-                    </div>
-
-                    {/* Token Context Limit */}
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Max Token Context Limit
-                      </label>
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <select
-                          value={[4096, 8192, 16384, 32768, 65536, 131072].includes(contextTokenLimit) ? contextTokenLimit : 'custom'}
-                          onChange={e => {
-                            if (e.target.value !== 'custom') {
-                              const val = parseInt(e.target.value);
-                              setContextTokenLimit(val);
-                              localStorage.setItem('context_token_limit', String(val));
-                            }
-                          }}
-                          className="select-base"
-                          style={{ flex: 1 }}
-                        >
-                          <option value="4096">4,096 tokens (4k)</option>
-                          <option value="8192">8,192 tokens (8k - Default)</option>
-                          <option value="16384">16,384 tokens (16k)</option>
-                          <option value="32768">32,768 tokens (32k)</option>
-                          <option value="65536">65,536 tokens (64k)</option>
-                          <option value="131072">131,072 tokens (128k)</option>
-                          <option value="custom">Custom Limit...</option>
-                        </select>
-                        <input
-                          type="number"
-                          min="1024"
-                          max="1048576"
-                          step="1024"
-                          value={contextTokenLimit}
-                          onChange={e => {
-                            const val = parseInt(e.target.value) || 8192;
-                            setContextTokenLimit(val);
-                            localStorage.setItem('context_token_limit', String(val));
-                          }}
-                          className="input-base"
-                          style={{ width: 110, fontFamily: "'JetBrains Mono', monospace" }}
-                        />
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, fontFamily: "'JetBrains Mono', monospace" }}>
-                        Warning threshold triggers compression at 80% ({Math.round(contextTokenLimit * 0.8).toLocaleString()} tokens).
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Workspace Configuration override (.meridian.json) */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Workspace Override Configuration (.meridian.json)</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Workspace Brain Model Override
-                    </label>
-                    <input
-                      type="text"
-                      value={workspaceModel}
-                      onChange={e => setWorkspaceModel(e.target.value)}
-                      placeholder="e.g. qwen2.5-coder:7b (empty to use global default)"
-                      className="input-base"
-                      style={{ fontFamily: "'JetBrains Mono', monospace" }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Workspace Custom Directives
-                    </label>
-                    <textarea
-                      value={workspaceDirectives}
-                      onChange={e => setWorkspaceDirectives(e.target.value)}
-                      placeholder="Enter system prompt instructions, custom agent constraints or rules specific to this workspace..."
-                      className="input-base"
-                      rows={4}
-                      style={{ resize: 'vertical', minHeight: 80 }}
-                    />
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Universal Encrypted Secret Vault inside AI Models tab */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div className="section-label" style={{ margin: 0 }}>🔐 Universal API Key & Encrypted Secret Vault</div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (showVaultSecrets) { setShowVaultSecrets(false); fetchVaultKeys(false); }
-                      else if (keysUnlocked || isKeyLockUnlocked()) { setShowVaultSecrets(true); fetchVaultKeys(true); }
-                      else requestUnlock();
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontSize: 11, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'JetBrains Mono' }}
-                  >
-                    {showVaultSecrets ? <EyeOff size={12} /> : <Eye size={12} />}
-                    {showVaultSecrets ? 'Mask Keys' : 'Unmask Keys'}
-                  </button>
-                </div>
-
-                {/* List of active custom keys */}
-                {vaultKeys.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-                    {vaultKeys.map(k => (
-                      <div key={k.env_var} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{k.name}</span>
-                            <span style={{ fontSize: 9, padding: '2px 6px', background: 'var(--accent-muted)', color: 'var(--accent)', borderRadius: 'var(--radius-sm)', fontFamily: 'JetBrains Mono' }}>
-                              {k.category || 'LLM Provider'}
-                            </span>
-                            <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', fontWeight: 600 }}>
-                              ${k.env_var}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                            Key: {(keysUnlocked && showVaultSecrets) ? k.api_key : '••••••••••••••••'} {k.base_url && `· Base: ${k.base_url}`}
-                          </div>
-                        </div>
-                        <HoloButton type="button" variant="danger" size="sm" onClick={() => handleDeleteVaultKey(k.env_var)}>
-                          <Trash2 size={12} />
-                        </HoloButton>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '10px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)', marginBottom: 16 }}>
-                    No custom API keys registered in encrypted vault yet. Add Groq, OpenRouter, Mistral, SerpAPI or any custom tool key below.
-                  </div>
-                )}
-
-                {/* Add New Key Form */}
-                <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                    + Add Dynamic API Key or Cloud Secret
-                  </label>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Service Name</label>
-                      <input type="text" value={vkName} onChange={e => setVkName(e.target.value)} placeholder="e.g. Groq Cloud / OpenRouter" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Env Var Name</label>
-                      <input type="text" value={vkEnvVar} onChange={e => setVkEnvVar(e.target.value.toUpperCase())} placeholder="e.g. GROQ_API_KEY" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>API Key / Secret Token</label>
-                      <input type="password" value={vkSecret} onChange={e => setVkSecret(e.target.value)} placeholder="gsk_... / sk-or-v1-..." className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Category</label>
-                      <select value={vkCategory} onChange={e => setVkCategory(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                        <option value="LLM Provider">LLM Provider</option>
-                        <option value="Search & Web">Search & Web</option>
-                        <option value="Audio & Voice">Audio & Voice</option>
-                        <option value="Vision & Media">Vision & Media</option>
-                        <option value="Vector DB">Vector DB</option>
-                        <option value="Custom Tool">Custom Tool</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Base URL / Custom Endpoint (Optional)</label>
-                    <input type="text" value={vkBaseUrl} onChange={e => setVkBaseUrl(e.target.value)} placeholder="e.g. https://api.groq.com/openai/v1 (Optional)" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleAddVaultKey} disabled={!vkName.trim() || !vkEnvVar.trim() || !vkSecret.trim()}>
-                      <Plus size={12} /> Save Secret to Vault
-                    </HoloButton>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
+            <AiModelsTab
+              providers={PROVIDERS}
+              provider={provider}
+              setProvider={setProvider}
+              ollamaHost={ollamaHost}
+              setOllamaHost={setOllamaHost}
+              customBaseUrl={customBaseUrl}
+              setCustomBaseUrl={setCustomBaseUrl}
+              customModel={customModel}
+              setCustomModel={setCustomModel}
+              customApiKey={customApiKey}
+              setCustomApiKey={setCustomApiKey}
+              keysUnlocked={keysUnlocked}
+              requestUnlock={requestUnlock}
+              apiKeyForProvider={apiKeyForProvider}
+              modelSource={modelSource}
+              setModelSource={setModelSource}
+              brainModel={brainModel}
+              setBrainModel={setBrainModel}
+              availableBrainModels={availableBrainModels}
+              visionModel={visionModel}
+              setVisionModel={setVisionModel}
+              availableOllamaModels={availableOllamaModels}
+              filterVisionModels={filterVisionModels}
+              showAllVisionModels={showAllVisionModels}
+              setShowAllVisionModels={setShowAllVisionModels}
+              auditorModel={auditorModel}
+              setAuditorModel={setAuditorModel}
+              embeddingModel={embeddingModel}
+              setEmbeddingModel={setEmbeddingModel}
+              contextTokenLimit={contextTokenLimit}
+              setContextTokenLimit={setContextTokenLimit}
+              workspaceModel={workspaceModel}
+              setWorkspaceModel={setWorkspaceModel}
+              workspaceDirectives={workspaceDirectives}
+              setWorkspaceDirectives={setWorkspaceDirectives}
+              vaultKeys={vaultKeys}
+              showVaultSecrets={showVaultSecrets}
+              setShowVaultSecrets={setShowVaultSecrets}
+              fetchVaultKeys={fetchVaultKeys}
+              handleDeleteVaultKey={handleDeleteVaultKey}
+              vkName={vkName}
+              setVkName={setVkName}
+              vkEnvVar={vkEnvVar}
+              setVkEnvVar={setVkEnvVar}
+              vkSecret={vkSecret}
+              setVkSecret={setVkSecret}
+              vkCategory={vkCategory}
+              setVkCategory={setVkCategory}
+              vkBaseUrl={vkBaseUrl}
+              setVkBaseUrl={setVkBaseUrl}
+              handleAddVaultKey={handleAddVaultKey}
+              isKeyLockUnlocked={isKeyLockUnlocked}
+            />
           )}
 
-          {/* Category: Integrations */}
+          {activeCategory === 'mascot' && (
+            <MascotTab
+              theme={theme}
+              setTheme={setTheme}
+              themeFilter={themeFilter}
+              setThemeFilter={setThemeFilter}
+              islandPosition={islandPosition}
+              setIslandPosition={setIslandPosition}
+              ttsVoice={ttsVoice}
+              handleVoiceChange={handleVoiceChange}
+              ttsVolume={ttsVolume}
+              handleVolumeChange={handleVolumeChange}
+              audioFxEnabled={audioFxEnabled}
+              handleAudioFxChange={handleAudioFxChange}
+              themes={THEMES}
+            />
+          )}
+
+          {activeCategory === 'voice' && (
+            <VoiceTab
+              voiceResponseEnabled={voiceResponseEnabled}
+              handleToggleVoiceResponse={handleToggleVoiceResponse}
+              duplexActive={duplexActive}
+              handleToggleDuplex={handleToggleDuplex}
+              continuousActive={continuousActive}
+              continuousRemaining={continuousRemaining}
+              handleTriggerContinuousWindow={handleTriggerContinuousWindow}
+              biometricsCount={biometricsCount}
+              handleResetBiometrics={handleResetBiometrics}
+              sttModelSize={sttModelSize}
+              setSttModelSize={setSttModelSize}
+              wakewordThreshold={wakewordThreshold}
+              setWakewordThreshold={setWakewordThreshold}
+              wakewordModel={wakewordModel}
+              setWakewordModel={setWakewordModel}
+              fileInputRef={fileInputRef}
+              handleFileInputChange={handleFileInputChange}
+              handleBrowseOnnxFile={handleBrowseOnnxFile}
+              vaultKeys={vaultKeys}
+              keysUnlocked={keysUnlocked}
+              showVaultSecrets={showVaultSecrets}
+              setShowVaultSecrets={setShowVaultSecrets}
+              handleDeleteVaultKey={handleDeleteVaultKey}
+              vkName={vkName}
+              setVkName={setVkName}
+              vkEnvVar={vkEnvVar}
+              setVkEnvVar={setVkEnvVar}
+              vkSecret={vkSecret}
+              setVkSecret={setVkSecret}
+              vkCategory={vkCategory}
+              setVkCategory={setVkCategory}
+              vkBaseUrl={vkBaseUrl}
+              setVkBaseUrl={setVkBaseUrl}
+              handleAddVaultKey={handleAddVaultKey}
+            />
+          )}
+
+          {activeCategory === 'guard' && (
+            <SystemGuardTab
+              checkSystemUpdate={checkSystemUpdate}
+              isCheckingUpdate={isCheckingUpdate}
+              updateInfo={updateInfo}
+              handleTriggerUpdate={handleTriggerUpdate}
+              isTriggeringUpdate={isTriggeringUpdate}
+              updateMsg={updateMsg}
+              cpuWarn={cpuWarn}
+              setCpuWarn={setCpuWarn}
+              ramWarn={ramWarn}
+              setRamWarn={setRamWarn}
+              diskWarn={diskWarn}
+              setDiskWarn={setDiskWarn}
+              distractions={distractions}
+              setDistractions={setDistractions}
+              isLowRam={isLowRam}
+              toggleLowRamMode={toggleLowRamMode}
+              browserWidth={browserWidth}
+              setBrowserWidth={setBrowserWidth}
+              browserHeight={browserHeight}
+              setBrowserHeight={setBrowserHeight}
+              mcpServers={mcpServers}
+              handleRemoveMcpServer={handleRemoveMcpServer}
+              newServerName={newServerName}
+              setNewServerName={setNewServerName}
+              newServerCommand={newServerCommand}
+              setNewServerCommand={setNewServerCommand}
+              newServerArgs={newServerArgs}
+              setNewServerArgs={setNewServerArgs}
+              newServerEnv={newServerEnv}
+              setNewServerEnv={setNewServerEnv}
+              handleAddMcpServer={handleAddMcpServer}
+              startupEnabled={startupEnabled}
+              handleToggleStartup={handleToggleStartup}
+              gameMode={gameMode}
+              handleGameMode={handleGameMode}
+              logLevel={logLevel}
+              setLogLevel={setLogLevel}
+              mongodbUri={mongodbUri}
+              setMongodbUri={setMongodbUri}
+              securityGuardLevel={securityGuardLevel}
+              handleToggleSecurityGuard={handleToggleSecurityGuard}
+              autonomousMode={autonomousMode}
+              handleToggleAutonomous={handleToggleAutonomous}
+              pairHost={pairHost}
+              setPairHost={setPairHost}
+              pairPort={pairPort}
+              setPairPort={setPairPort}
+              pairSecret={pairSecret}
+              setPairSecret={setPairSecret}
+              pairStatus={pairStatus}
+              handleVerifyPairing={handleVerifyPairing}
+              isVerifyingPair={isVerifyingPair}
+            />
+          )}
+
+          {activeCategory === 'spend' && (
+            <SpendAirGapTab
+              airgapStatus={airgapStatus}
+              handleToggleAirgap={handleToggleAirgap}
+              budgetEnabled={budgetEnabled}
+              handleToggleBudgetEnabled={handleToggleBudgetEnabled}
+              newBudgetCap={newBudgetCap}
+              setNewBudgetCap={setNewBudgetCap}
+              handleUpdateBudgetCap={handleUpdateBudgetCap}
+              spendStats={spendStats}
+            />
+          )}
+
           {activeCategory === 'integrations' && (
             <IntegrationsTab
               backendUrl={backendUrl}
@@ -1735,556 +1365,6 @@ export default function Settings() {
               requestUnlock={requestUnlock}
               isKeyLockUnlocked={isKeyLockUnlocked}
             />
-          )}
-
-          {activeCategory === 'voice' && (
-            <VoiceTab
-              voiceResponseEnabled={voiceResponseEnabled}
-              handleToggleVoiceResponse={handleToggleVoiceResponse}
-              duplexActive={duplexActive}
-              handleToggleDuplex={handleToggleDuplex}
-              continuousActive={continuousActive}
-              continuousRemaining={continuousRemaining}
-              handleTriggerContinuousWindow={handleTriggerContinuousWindow}
-              biometricsCount={biometricsCount}
-              handleResetBiometrics={handleResetBiometrics}
-              sttModelSize={sttModelSize}
-              setSttModelSize={setSttModelSize}
-              wakewordThreshold={wakewordThreshold}
-              setWakewordThreshold={setWakewordThreshold}
-              wakewordModel={wakewordModel}
-              setWakewordModel={setWakewordModel}
-              fileInputRef={fileInputRef}
-              handleFileInputChange={handleFileInputChange}
-              handleBrowseOnnxFile={handleBrowseOnnxFile}
-              vaultKeys={vaultKeys}
-              keysUnlocked={keysUnlocked}
-              showVaultSecrets={showVaultSecrets}
-              setShowVaultSecrets={setShowVaultSecrets}
-              handleDeleteVaultKey={handleDeleteVaultKey}
-              vkName={vkName}
-              setVkName={setVkName}
-              vkEnvVar={vkEnvVar}
-              setVkEnvVar={setVkEnvVar}
-              vkSecret={vkSecret}
-              setVkSecret={setVkSecret}
-              vkCategory={vkCategory}
-              setVkCategory={setVkCategory}
-              vkBaseUrl={vkBaseUrl}
-              setVkBaseUrl={setVkBaseUrl}
-              handleAddVaultKey={handleAddVaultKey}
-            />
-          )}
-
-          {activeCategory === 'guard' && (
-            <>
-              {/* System Version & Auto-Update Engine */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <div className="section-label" style={{ margin: 0 }}>🪐 System Version & Auto-Update Engine</div>
-                  <HoloButton type="button" variant="ghost" size="sm" onClick={checkSystemUpdate} disabled={isCheckingUpdate}>
-                    {isCheckingUpdate ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-                    {isCheckingUpdate ? 'Checking GitHub...' : 'Check for Updates'}
-                  </HoloButton>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>Installed Version</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
-                      v{updateInfo?.current_version || '0.2.3'}
-                    </div>
-                  </div>
-                  <div style={{ background: 'var(--bg-surface)', padding: 12, borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', textTransform: 'uppercase' }}>GitHub Latest Version</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: updateInfo?.update_available ? '#34D399' : 'var(--text-bright)', fontFamily: 'JetBrains Mono', marginTop: 4 }}>
-                      v{updateInfo?.version_on_github || '0.2.3'}
-                    </div>
-                  </div>
-                </div>
-
-                {updateInfo?.update_available ? (
-                  <div style={{ background: updateInfo.update_type === 'major' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(16, 185, 129, 0.12)', border: updateInfo.update_type === 'major' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 'var(--radius-sm)', padding: 12 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: updateInfo.update_type === 'major' ? '#F87171' : '#34D399', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span>✨ {updateInfo.update_type === 'major' ? 'Major Version Upgrade Available!' : updateInfo.auto_downloaded ? 'Patch Update Ready to Apply!' : 'Minor Update Ready!'}</span>
-                      <span style={{ fontSize: 9, background: 'var(--bg-surface)', padding: '2px 6px', borderRadius: 'var(--radius-sm)', textTransform: 'uppercase' }}>{updateInfo.update_type}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text-main)', marginTop: 6, lineHeight: 1.4 }}>
-                      {updateInfo.update_type === 'major'
-                        ? 'A major release has breaking architectural changes. Click below to upgrade.'
-                        : updateInfo.auto_downloaded
-                          ? 'Patch assets were auto-downloaded in the background. Click below to pull final code and apply update.'
-                          : 'A minor update is available. Click below to apply.'}
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-                      <HoloButton type="button" variant="primary" size="sm" onClick={handleTriggerUpdate} disabled={isTriggeringUpdate}>
-                        {isTriggeringUpdate ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
-                        {isTriggeringUpdate ? 'Updating...' : updateInfo.update_type === 'major' ? 'Upgrade to Major Version' : 'Apply Update & Pull Code'}
-                      </HoloButton>
-                      {updateInfo.release_url && (
-                        <a href={updateInfo.release_url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: 'var(--accent)', textDecoration: 'none', fontFamily: 'JetBrains Mono' }}>
-                          View Release Notes ↗
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                    ✅ Meridian-X is running the latest version.
-                  </div>
-                )}
-                {updateMsg && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#34D399', fontFamily: 'JetBrains Mono' }}>
-                    {updateMsg}
-                  </div>
-                )}
-              </GlowCard>
-
-              {/* Proactive Guard Config */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Proactive Monitoring & System Guard</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>CPU Warn (%)</label>
-                      <input type="number" min="10" max="95" value={cpuWarn} onChange={e => setCpuWarn(parseFloat(e.target.value))} className="input-base" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>RAM Warn (%)</label>
-                      <input type="number" min="10" max="95" value={ramWarn} onChange={e => setRamWarn(parseFloat(e.target.value))} className="input-base" />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Disk Warn (%)</label>
-                      <input type="number" min="10" max="95" value={diskWarn} onChange={e => setDiskWarn(parseFloat(e.target.value))} className="input-base" />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Distraction Websites Blocklist (comma-separated)</label>
-                    <input type="text" value={distractions} onChange={e => setDistractions(e.target.value)} className="input-base" />
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* OPT-01 RAM & Performance Engine */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">⚡ RAM & Performance Engine (OPT-01)</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>Low-RAM Performance Mode</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>Strips blurs, backdrop filters, animations, and box shadows to maintain memory under 45MB RAM.</div>
-                    </div>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={isLowRam}
-                        onChange={e => toggleLowRamMode(e.target.checked)}
-                      />
-                      <span style={{ fontSize: 11, fontFamily: 'JetBrains Mono', color: isLowRam ? 'var(--accent)' : 'var(--text-dim)' }}>
-                        {isLowRam ? 'Enabled' : 'Disabled'}
-                      </span>
-                    </label>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Browser Tool Config */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">Web Browser Tool Settings</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Width (px)</label>
-                    <input type="number" min="320" max="3840" value={browserWidth} onChange={e => setBrowserWidth(parseInt(e.target.value))} className="input-base" />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Viewport Height (px)</label>
-                    <input type="number" min="240" max="2160" value={browserHeight} onChange={e => setBrowserHeight(parseInt(e.target.value))} className="input-base" />
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* MCP Servers Manager */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">MCP Servers Manager</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-                  {/* Active Servers List */}
-                  {Object.keys(mcpServers).length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Active Servers
-                      </label>
-                      {Object.entries(mcpServers).map(([name, srv]: [string, any]) => (
-                        <div key={name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>
-                              {name} <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 400, fontFamily: 'JetBrains Mono' }}>({srv.command})</span>
-                            </div>
-                            {srv.args && srv.args.length > 0 && (
-                              <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', wordBreak: 'break-all' }}>
-                                args: {srv.args.join(' ')}
-                              </div>
-                            )}
-                            {srv.env && Object.keys(srv.env).length > 0 && (
-                              <div style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono' }}>
-                                env: {Object.entries(srv.env).map(([k, v]) => `${k}=${v}`).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                          <HoloButton type="button" variant="danger" size="sm" onClick={() => handleRemoveMcpServer(name)}>
-                            <Trash2 size={12} />
-                          </HoloButton>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '12px 0', textAlign: 'center', border: '1px dashed var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
-                      No active MCP servers configured. Add one below to extend agent capabilities.
-                    </div>
-                  )}
-
-                  {/* Add New Server Form */}
-                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <label style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', display: 'block', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-                      Add Stdio MCP Server
-                    </label>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Server ID Name</label>
-                        <input type="text" value={newServerName} onChange={e => setNewServerName(e.target.value)} placeholder="e.g. sqlite" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Startup Command</label>
-                        <input type="text" value={newServerCommand} onChange={e => setNewServerCommand(e.target.value)} placeholder="e.g. npx" className="input-base" style={{ height: 32, fontSize: 11 }} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Arguments (comma-separated)</label>
-                      <input type="text" value={newServerArgs} onChange={e => setNewServerArgs(e.target.value)} placeholder="e.g. -y, @modelcontextprotocol/server-sqlite, --db, test.db" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Environment Variables (comma-separated KEY=VAL)</label>
-                      <input type="text" value={newServerEnv} onChange={e => setNewServerEnv(e.target.value)} placeholder="e.g. API_KEY=abc, DB_PATH=def" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-                      <HoloButton type="button" variant="primary" size="sm" onClick={handleAddMcpServer} disabled={!newServerName.trim() || !newServerCommand.trim()}>
-                        <Plus size={12} /> Add Server
-                      </HoloButton>
-                    </div>
-                  </div>
-
-                </div>
-              </GlowCard>
-            </>
-          )}
-
-          {/* Category: Mascot & Style */}
-          {activeCategory === 'mascot' && (
-            <MascotTab
-              theme={theme}
-              setTheme={setTheme}
-              themeFilter={themeFilter}
-              setThemeFilter={setThemeFilter}
-              islandPosition={islandPosition}
-              setIslandPosition={setIslandPosition}
-              ttsVoice={ttsVoice}
-              handleVoiceChange={handleVoiceChange}
-              ttsVolume={ttsVolume}
-              handleVolumeChange={handleVolumeChange}
-              audioFxEnabled={audioFxEnabled}
-              handleAudioFxChange={handleAudioFxChange}
-              themes={THEMES}
-            />
-          )}
-
-          {/* System Card inside Guard */}
-          {activeCategory === 'guard' && (
-            <>
-              {/* System */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">System</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {/* Startup Toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Launch on Startup</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Automatically start Meridian-X when Windows boots.</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={startupEnabled}
-                      onChange={e => handleToggleStartup(e.target.checked)}
-                      style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                    />
-                  </div>
-
-                  {/* Game Mode */}
-                  {((window as any).__TAURI_INTERNALS__) && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)' }}>
-                      <div>
-                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", marginBottom: 2 }}>Desktop Game Mode</div>
-                        <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Suspends Alt+M / Alt+V hotkeys during full-screen games.</div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={gameMode}
-                        onChange={e => handleGameMode(e.target.checked)}
-                        style={{ width: 16, height: 16, accentColor: 'var(--accent)', cursor: 'pointer' }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Log Level & MongoDB URI */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 8, borderTop: '1px solid var(--border-subtle)', paddingTop: 10 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Log Level</label>
-                      <select value={logLevel} onChange={e => setLogLevel(e.target.value)} className="select-base" style={{ height: 32, fontSize: 11 }}>
-                        <option value="DEBUG">DEBUG</option>
-                        <option value="INFO">INFO</option>
-                        <option value="WARNING">WARNING</option>
-                        <option value="ERROR">ERROR</option>
-                        <option value="CRITICAL">CRITICAL</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>MongoDB URI</label>
-                      <input type="text" value={mongodbUri} onChange={e => setMongodbUri(e.target.value)} placeholder="mongodb://localhost:27017/meridian_kg" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }} />
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Security Guard Level 0/1 */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">🛡️ System Guard & Execution Rights</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSecurityGuard(1)}
-                      style={{
-                        padding: 12,
-                        textAlign: 'left',
-                        borderRadius: 'var(--radius-sm)',
-                        border: securityGuardLevel === 1 ? '1.5px solid var(--accent)' : '1px solid var(--border-subtle)',
-                        background: securityGuardLevel === 1 ? 'var(--bg-surface)' : 'var(--bg-panel)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ fontSize: 12, fontWeight: 700, color: securityGuardLevel === 1 ? 'var(--accent)' : 'var(--text-bright)' }}>
-                        Level 1: Standard Guard
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                        Requires confirmation prompt before running OS shell commands or mutating files.
-                      </div>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleToggleSecurityGuard(0)}
-                      style={{
-                        padding: 12,
-                        textAlign: 'left',
-                        borderRadius: 'var(--radius-sm)',
-                        border: securityGuardLevel === 0 ? '1.5px solid var(--danger)' : '1px solid var(--border-subtle)',
-                        background: securityGuardLevel === 0 ? 'rgba(239, 68, 68, 0.12)' : 'var(--bg-panel)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      <div style={{ fontSize: 12, fontWeight: 700, color: securityGuardLevel === 0 ? 'var(--danger)' : 'var(--text-bright)' }}>
-                        Level 0: Unrestricted PC Access Mode
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4 }}>
-                        Bypasses approval gates. Allows Meridian-X full unrestricted OS execution without confirmation prompts.
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </GlowCard>
-
-              {/* Continuous Autonomous Loop Mode */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">🔄 Autonomous Continuous Loop Mode</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Continuous Autonomous ReAct Loop</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
-                      Auto-continues multi-turn tool execution without requiring manual "continue" prompts.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleAutonomous(!autonomousMode)}
-                    style={{
-                      padding: '6px 14px',
-                      fontSize: 11,
-                      fontFamily: 'JetBrains Mono',
-                      fontWeight: 600,
-                      borderRadius: 'var(--radius-sm)',
-                      border: autonomousMode ? '1px solid var(--accent-2)' : '1px solid var(--border-subtle)',
-                      background: autonomousMode ? 'rgba(52, 211, 153, 0.15)' : 'var(--bg-panel)',
-                      color: autonomousMode ? 'var(--accent-2)' : 'var(--text-dim)',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {autonomousMode ? '⚡ ENABLED (AUTO)' : '⏸️ MANUAL STEP'}
-                  </button>
-                </div>
-              </GlowCard>
-
-              {/* Mobile Manual Pairing */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">📱 Desktop-to-Mobile App Pairing</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                    Pair Meridian Mobile companion app to sync backend control, voice triggers, and agent status. Enter details manually and verify.
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8 }}>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Desktop Host</label>
-                      <input type="text" value={pairHost} onChange={e => setPairHost(e.target.value)} placeholder="127.0.0.1" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Port</label>
-                      <input type="text" value={pairPort} onChange={e => setPairPort(e.target.value)} placeholder="4133" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 9, color: 'var(--text-dim)', display: 'block', marginBottom: 3 }}>Pairing Secret</label>
-                    <input type="password" value={pairSecret} onChange={e => setPairSecret(e.target.value)} placeholder="paste pairing secret" className="input-base" style={{ height: 32, fontSize: 11, fontFamily: 'JetBrains Mono' }} />
-                  </div>
-                  {pairStatus && (
-                    <div style={{ fontSize: 11, color: pairStatus.isError ? 'var(--danger)' : 'var(--success)' }}>{pairStatus.text}</div>
-                  )}
-                  <div>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleVerifyPairing} loading={isVerifyingPair} disabled={!pairSecret.trim()}>
-                      Verify Pairing
-                    </HoloButton>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
-          )}
-
-          {/* Category: Spend & Air-Gap */}
-          {activeCategory === 'spend' && (
-            <>
-              {/* Air-Gap Mode */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">🔒 Air-Gap Mode & Network Isolation</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Local-Only Air-Gap Isolation</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
-                        Hard-blocks all cloud AI providers, remote Ollama servers, and external network calls. Forces 100% local model inference.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleAirgap(!airgapStatus.airgap_active)}
-                      style={{
-                        padding: '6px 14px',
-                        fontSize: 11,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: 600,
-                        borderRadius: 'var(--radius-sm)',
-                        border: airgapStatus.airgap_active ? '1px solid var(--success)' : '1px solid var(--border-subtle)',
-                        background: airgapStatus.airgap_active ? 'rgba(52, 211, 153, 0.15)' : 'var(--bg-panel)',
-                        color: airgapStatus.airgap_active ? 'var(--success)' : 'var(--text-main)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {airgapStatus.airgap_active ? '🔒 AIR-GAP ACTIVE' : '🌐 CLOUD ALLOWED'}
-                    </button>
-                  </div>
-                  {airgapStatus.proof_badge && (
-                    <div style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'JetBrains Mono', background: 'var(--accent-muted)', padding: '6px 10px', borderRadius: 'var(--radius-sm)' }}>
-                      Proof Badge: {airgapStatus.proof_badge}
-                    </div>
-                  )}
-                </div>
-              </GlowCard>
-
-              {/* Monthly Spend Budget Cap & Toggle */}
-              <GlowCard className="glass" style={{ padding: 16 }}>
-                <div className="section-label">💰 Monthly LLM Spend Budget & Cap Controls</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  
-                  {/* Enable / Disable Budget Enforcement Toggle */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>Enforce Spend Budget Cap</div>
-                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>
-                        Automatically block API calls when monthly spend exceeds your cap threshold.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleBudgetEnabled(!budgetEnabled)}
-                      style={{
-                        padding: '6px 14px',
-                        fontSize: 11,
-                        fontFamily: 'JetBrains Mono',
-                        fontWeight: 600,
-                        borderRadius: 'var(--radius-sm)',
-                        border: budgetEnabled ? '1px solid var(--accent)' : '1px solid var(--border-subtle)',
-                        background: budgetEnabled ? 'var(--accent-muted)' : 'var(--bg-panel)',
-                        color: budgetEnabled ? 'var(--accent)' : 'var(--text-dim)',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {budgetEnabled ? 'ON (ENFORCED)' : 'OFF (DISABLED)'}
-                    </button>
-                  </div>
-
-                  {/* Budget Limit Input */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 10, alignItems: 'end' }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'JetBrains Mono', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Monthly Spend Cap ($ USD)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.50"
-                        min="1.00"
-                        value={newBudgetCap}
-                        onChange={e => setNewBudgetCap(e.target.value)}
-                        className="input-base"
-                        style={{ fontFamily: 'JetBrains Mono' }}
-                      />
-                    </div>
-                    <HoloButton type="button" variant="primary" size="sm" onClick={handleUpdateBudgetCap}>
-                      Save Cap
-                    </HoloButton>
-                  </div>
-
-                  {/* Current Monthly Cost Stats Meter */}
-                  <div style={{ padding: '12px', background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, color: 'var(--text-main)', fontFamily: 'JetBrains Mono' }}>Current Month Spend</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)', fontFamily: 'JetBrains Mono' }}>
-                        ${Number(spendStats.monthly_cost_usd || 0).toFixed(4)} / ${Number(spendStats.budget_cap_usd || 10).toFixed(2)}
-                      </span>
-                    </div>
-                    <div style={{ width: '100%', height: 6, background: 'var(--bg-panel)', borderRadius: 3, overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${Math.min(100, ((spendStats.monthly_cost_usd || 0) / (spendStats.budget_cap_usd || 10)) * 100)}%`,
-                          height: '100%',
-                          background: spendStats.budget_exceeded ? 'var(--danger)' : 'var(--accent)',
-                          transition: 'width 0.3s ease'
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </GlowCard>
-            </>
           )}
 
           {/* Save Button */}

@@ -14,6 +14,33 @@ logger = logging.getLogger("meridian_dynamic_tools")
 DYNAMIC_TOOLS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dynamic_tools")
 
 
+FORBIDDEN_CALLS = {"eval", "exec", "__import__", "compile"}
+FORBIDDEN_MODULES = {"subprocess", "socket", "ctypes", "pty", "posix", "nt"}
+FORBIDDEN_ATTRS = {"__subclasses__", "__globals__", "__code__", "__closure__", "__bases__"}
+
+
+def _validate_ast_safety(tree: ast.AST) -> Optional[str]:
+    """Inspects AST nodes for dangerous builtins, unsafe imports, and dunder attributes."""
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in FORBIDDEN_CALLS:
+                return f"Disallowed call to '{node.func.id}' in dynamic tool code."
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                root_pkg = alias.name.split(".")[0]
+                if root_pkg in FORBIDDEN_MODULES:
+                    return f"Disallowed module import '{alias.name}' in dynamic tool code."
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                root_pkg = node.module.split(".")[0]
+                if root_pkg in FORBIDDEN_MODULES:
+                    return f"Disallowed module import '{node.module}' in dynamic tool code."
+        elif isinstance(node, ast.Attribute):
+            if node.attr in FORBIDDEN_ATTRS:
+                return f"Disallowed attribute access '{node.attr}' in dynamic tool code."
+    return None
+
+
 def _ensure_dynamic_tools_dir() -> None:
     os.makedirs(DYNAMIC_TOOLS_DIR, exist_ok=True)
 
@@ -21,12 +48,17 @@ def create_dynamic_tool(tool_name: str, description: str, python_code: str, tier
     """Validates Python code via AST, writes file, and registers dynamic tool (AST-13)."""
     _ensure_dynamic_tools_dir()
     from src.tools.registry import register_dynamic_tool
-    # 1. AST Syntax validation
+    # 1. AST Syntax validation and security check
     try:
-        ast.parse(python_code)
+        parsed_tree = ast.parse(python_code)
     except SyntaxError as se:
         log_sensitive_action("SECURITY_VIOLATION", "dynamic_tool_syntax_error", {"tool_name": tool_name, "error": str(se)}, "FAILED")
         return f"Error: Provided Python code failed syntax validation: {se}"
+
+    sec_err = _validate_ast_safety(parsed_tree)
+    if sec_err:
+        log_sensitive_action("SECURITY_VIOLATION", "dynamic_tool_security_violation", {"tool_name": tool_name, "error": sec_err}, "FAILED")
+        return f"Error: Security policy violation in dynamic tool: {sec_err}"
 
     # 2. Persist tool code file
     tool_filename = f"{tool_name.lower().replace(' ', '_')}.py"
@@ -35,9 +67,15 @@ def create_dynamic_tool(tool_name: str, description: str, python_code: str, tier
     with open(file_path, "w", encoding="utf-8") as f:
         f.write(python_code)
 
-    # 3. Dynamic import & registration
+    # 3. Dynamic import & registration with restricted scope
     try:
-        module_scope: Dict[str, Any] = {}
+        import builtins
+        safe_builtins = {
+            k: getattr(builtins, k)
+            for k in dir(builtins)
+            if k not in FORBIDDEN_CALLS
+        }
+        module_scope: Dict[str, Any] = {"__builtins__": safe_builtins}
         exec(python_code, module_scope)
         
         func_to_register = None

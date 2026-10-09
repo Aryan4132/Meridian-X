@@ -322,6 +322,6 @@ def speak_text(text: str, voice_name: Optional[str] = None) -> str:
         return f"Successfully spoke text chunks (Chunks played: {played_chunks_count})"
         
     except ImportError:
-        return f"Error: 'supertonic', 'sounddevice', or 'soundfile' is not installed for audio playback."
+        return "Error: 'supertonic', 'sounddevice', or 'soundfile' is not installed for audio playback."
     except Exception as e:
         return f"TTS speech output failed: {e}"

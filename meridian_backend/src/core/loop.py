@@ -75,11 +75,28 @@ active_debates: Dict[str, Dict[str, Any]] = {}
 _temporal_graphs: Dict[str, Any] = {}
 
 _interrupt_event = threading.Event()
+_session_interrupts: Dict[str, threading.Event] = {}
+_session_interrupt_lock = threading.Lock()
 
 
-def interrupt_agent_loop():
-    """Signal the active agent loop to stop at the next safe checkpoint."""
+def get_session_interrupt_event(session_id: str = "default") -> threading.Event:
+    """Returns or creates the session-scoped interruption event."""
+    with _session_interrupt_lock:
+        if session_id not in _session_interrupts:
+            _session_interrupts[session_id] = threading.Event()
+        return _session_interrupts[session_id]
+
+
+def interrupt_agent_loop(session_id: Optional[str] = None):
+    """Signal active agent loop(s) to stop at the next safe checkpoint."""
     _interrupt_event.set()
+    with _session_interrupt_lock:
+        if session_id:
+            if session_id in _session_interrupts:
+                _session_interrupts[session_id].set()
+        else:
+            for ev in _session_interrupts.values():
+                ev.set()
 
 
 async def run_react_agent_loop(
@@ -198,14 +215,17 @@ async def run_react_agent_loop(
     consecutive_repeat_count = 0
     tool_retry_counts = {}
     created_temp_files = []
+    session_ev = get_session_interrupt_event(session_id)
+    session_ev.clear()
     _interrupt_event.clear()
     executed_tools_all_turns: List[str] = []
 
     try:
         while turn < max_turns:
             final_text = ""
-            if _interrupt_event.is_set():
+            if _interrupt_event.is_set() or session_ev.is_set():
                 _interrupt_event.clear()
+                session_ev.clear()
                 yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                 return
             turn += 1
@@ -404,7 +424,7 @@ async def run_react_agent_loop(
                     tool_retry_counts=tool_retry_counts,
                     created_temp_files=created_temp_files,
                     state=turn_state,
-                    interrupt_event=_interrupt_event,
+                    interrupt_event=session_ev,
                     exempt_tools=EXEMPT_TOOLS,
                     prompt=prompt,
                     brain_model=brain_model,

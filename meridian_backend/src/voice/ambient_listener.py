@@ -3,14 +3,15 @@ meridian_backend/src/voice/ambient_listener.py — PL-02 Production Backend Modu
 Continuous Ambient Listener with VAD & Speech Stream
 """
 
-import time
 import asyncio
 import logging
-from typing import Dict, Any, List, Optional, Callable
+import time
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger("meridian_ambient_listener")
 
-_RECENT_SPEECH_LOGS: List[Dict[str, Any]] = []
+_RECENT_SPEECH_LOGS: list[dict[str, Any]] = []
 _MAX_LOGS = 50
 
 
@@ -24,30 +25,44 @@ class ContinuousAmbientListener:
         self.sample_rate = sample_rate
         self.energy_threshold = energy_threshold
         self.is_listening = False
-        self.listeners: List[Callable[[Dict[str, Any]], None]] = []
-        self._loop_task: Optional[asyncio.Task] = None
+        self.listeners: list[Callable[[dict[str, Any]], None]] = []
+        self._loop_task: asyncio.Task | None = None
 
-    def add_speech_callback(self, callback: Callable[[Dict[str, Any]], None]):
+    def add_speech_callback(self, callback: Callable[[dict[str, Any]], None]):
         """Register callback for transcribed ambient speech events."""
         self.listeners.append(callback)
 
     def is_speech_chunk(self, audio_data: bytes) -> bool:
-        """Simple energy level / VAD calculation for raw PCM audio data."""
+        """Silero neural VAD calculation for raw PCM audio data with heuristic fallback."""
         if not audio_data:
             return False
+        # Calculate RMS energy first for baseline silence detection
         try:
             import struct
-            # Calculate RMS energy of 16-bit PCM samples
             samples = struct.unpack(f"<{len(audio_data)//2}h", audio_data)
             if not samples:
                 return False
             sum_squares = sum(s * s for s in samples)
             rms = (sum_squares / len(samples)) ** 0.5
-            return rms > self.energy_threshold
+            if rms < 5.0:  # Absolute silence
+                return False
         except Exception:
-            return len(audio_data) > 3200  # Fallback size threshold
+            rms = 0.0
 
-    async def process_audio_segment(self, audio_bytes: bytes, speaker_hint: str = "ambient") -> Dict[str, Any]:
+        # Try Silero neural VAD
+        try:
+            from src.voice.vad import get_silero_detector
+            silero = get_silero_detector()
+            if silero.get_speech_probability(audio_data) >= 0.5:
+                return True
+        except Exception as e:
+            logger.debug("[AmbientListener] Silero check fallback: %s", e)
+
+        # Fallback to energy threshold
+        return rms > self.energy_threshold if rms > 0.0 else len(audio_data) > 3200
+
+
+    async def process_audio_segment(self, audio_bytes: bytes, speaker_hint: str = "ambient") -> dict[str, Any]:
         """Transcribe incoming raw audio segment."""
         from src.voice.stt import transcribe_audio
 
@@ -113,6 +128,6 @@ def get_ambient_listener() -> ContinuousAmbientListener:
     return _global_ambient_listener
 
 
-def get_recent_ambient_transcripts(limit: int = 10) -> List[Dict[str, Any]]:
+def get_recent_ambient_transcripts(limit: int = 10) -> list[dict[str, Any]]:
     """Return recent ambient speech logs."""
     return _RECENT_SPEECH_LOGS[-limit:]

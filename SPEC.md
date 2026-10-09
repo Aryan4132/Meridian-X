@@ -342,7 +342,7 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
 
 ## Sub-Spec: Meridian-X Mobile APK & Companion Bridge Production Fix
 
-### Objectives
+### Mobile APK Objectives
 
 1. **Android Manifest & Permissions**:
    - Add required Android permissions: `RECORD_AUDIO`, `CAMERA`, `MODIFY_AUDIO_SETTINGS`, `ACCESS_WIFI_STATE`, `VIBRATE`.
@@ -356,14 +356,14 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
    - Quick connection preset chips for Emulator (`ws://10.0.2.2:4132/ws`), Localhost, and LAN IP.
 
 3. **Crash Prevention & Runtime Safety**:
-   - Graceful fallback for audio amplitude visualizer, camera vision preview, and secure storage read exceptions.
-   - Set Android `minSdk = 23` in `build.gradle.kts` for modern API compatibility.
+   - Graceful fallback for audio amplitude visualizer, camera vision preview, and secure storage read exceptio    - Set Android `minSdk = 23` in `build.gradle.kts` for modern API compatibility.
 
 4. **Production Build Pipeline**:
    - Execute clean build via `build_mobile.py` with tests verification.
    - Distribute signed/release APK to `executables/meridian-x_mobile.apk` with SHA-256 hash.
 
 ### Verification Commands
+
 - **Flutter Tests**: `flutter test` in `meridian_mobile`
 - **APK Build**: `python build_mobile.py --target apk`
 
@@ -371,7 +371,8 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
 
 ## Sub-Spec: Ultra-Low Latency Voice Engine & Accurate Multilingual Language Triage
 
-### Objectives
+### Voice Engine Objectives
+
 1. **Accurate Language Detection (Fix Hindi False Positives)**:
    - Purge English stopwords (`"hi"`, `"to"`, `"ab"`, `"se"`, `"ko"`, `"ki"`, `"ka"`, `"ke"`) from Hinglish keyword dictionary in `meridian_backend/src/core/mode.py`.
    - Prevent false `HINGLISH` triggering on common English greetings (`"Hi"`, `"Hi Meridian"`), prepositions (`"to"`), and short command phrases.
@@ -387,7 +388,8 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
 
 ## Sub-Spec: 10/10 Architecture & Performance Hardening
 
-### Objectives
+### Architecture Hardening Objectives
+
 1. **Intelligent Consensus Debate Gate ([`consensus_engine.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/consensus_engine.py))**:
    - Decouple consensus debate from monolithic `loop.py` into `consensus_engine.py`.
    - Only trigger consensus debate when code mutations, filesystem alterations, or explicit multi-step problem solving occurred.
@@ -404,8 +406,9 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
 
 ## Sub-Spec: Phase 2 God Files Refactoring (Zero Behavior Changes)
 
-### Objectives
-Split oversized backend modules (>1,000 lines) into modular subpackages with pure separation of concerns and strict backward-compatible re-exports:
+### Phase 2 Refactoring Objectives
+
+Split oversized backend modules (>1,000 lines) into modular subpackages with pure separation of concerns and strict backward-compatible re-exports:rts:
 1. **`proactive.py` (1,360 lines) -> `src/core/proactive/` package**:
    - `ergonomics.py`: Focus guardian, eye-strain (20-20-20), posture, hydration reminders.
    - `commits.py`: Git commit whisperer, workspace change tracker, daily/evening review digests.
@@ -427,11 +430,13 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
    - `api.py`: FastAPI application root mounting sub-routers via `app.include_router(...)`.
 
 ### Invariants & Boundaries
+
 - **Always**: Preserve all public API paths, HTTP methods, status codes, and JSON schemas.
 - **Always**: Preserve all function signatures and module-level re-exports so existing imports and pytest patches work transparently.
 - **Never**: Alter runtime behavior, default parameters, or response payloads.
 
 ### Verification
+
 - Backend pytest suite: `pytest meridian_backend/tests/` passes without regressions.
 - Frontend build & typecheck: `npm --prefix meridian_frontend run build` and `npx --prefix meridian_frontend tsc --noEmit` pass cleanly.
 
@@ -439,7 +444,8 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
 
 ## Sub-Spec: Sprint 21 - System Polish, Atomic Data Resilience, Repo Hygiene & Settings Modularization
 
-### Objectives
+### Sprint 21 Objectives
+
 1. **Repo Hygiene & Git Ignore**:
    - Remove accidental stray folder `meridian_backend/meridian_frontend/` containing `ProfileHeader.tsx`.
    - Update `.gitignore` to ignore `meridian_mobile/android/build/`, `brag-output/`, `skills-lock.json`.
@@ -451,10 +457,209 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
    - Modernize `src/tools/browser_agent.py` to route all web interactions through `browser_use_task` / `web_browser` with structured logger warning instead of silent error swallowing.
 5. **Frontend Settings Modularization**:
    - Modularize monolithic `Settings.tsx` (3,115 lines) by extracting tab components into `meridian_frontend/src/views/settings/`:
-     - `ModelsTab.tsx`
      - `MascotTab.tsx`
      - `VoiceTab.tsx`
-     - `GuardTab.tsx`
-     - `SpendTab.tsx`
      - `IntegrationsTab.tsx`
+     - `PasswordInput.tsx`
    - Maintain 100% backward compatibility of state, handlers, themes, and settings persistence.
+
+---
+
+## Sub-Spec: Sprint 22 - Background Three.js Optimization, Settings Completion & Signal Pruning
+
+### Sprint 22 Objectives
+
+1. **Three.js Background Render Loop Optimization**:
+   - In `meridian_frontend/src/Mascot3DCharacter.tsx`, pause `requestAnimationFrame` loop when `document.hidden` is true using `visibilitychange` event listener.
+2. **Lazy-Load Settings in Shell**:
+   - In `meridian_frontend/src/components/Shell.tsx`, lazy-load `Settings` view with `React.lazy()` and `Suspense` to reduce initial bundle evaluation overhead.
+3. **Structured Logging & Linter Hygiene**:
+   - In `meridian_backend/src/voice/wakeword.py`, replace console `print()` with `logger.info()`.
+   - In `meridian_backend/tests/test_tools.py`, remove duplicate `import os`.
+4. **Cancellation Signal Pruning & Memory Safety**:
+   - In `meridian_backend/src/core/loop_stream.py`, store cancel signals with timestamps and prune entries older than 1 hour.
+5. **Complete Settings Modularization (Phase 2)**:
+   - Extract `AiModelsTab.tsx`, `SystemGuardTab.tsx`, and `SpendAirGapTab.tsx` from `Settings.tsx` into `meridian_frontend/src/views/settings/`.
+   - Reduce `Settings.tsx` to a clean tab container under 250 lines.
+
+---
+
+## Sub-Spec: Sprint 23 - Daemon Logging Hygiene, Voice Error Transparency & Settings Dead State Pruning
+
+### Sprint 23 Objectives
+
+1. **Voice Daemon Structured Logging**:
+   - In `meridian_backend/src/voice/wakeword.py` and `meridian_backend/src/voice/stt.py`, replace all raw `print()` statements in audio loops and model loaders with structured logging (`logger.info()`, `logger.warning()`, `logger.debug()`) to prevent stdout buffer stalling and process deadlocks on Windows Tauri daemons.
+2. **Voice Delegate Exception Transparency**:
+   - In `meridian_backend/src/api/voice.py`, convert raw `print("Failed to delegate/initialize Supertonic engine:", e)` to `logger.error("Failed to delegate/initialize Supertonic engine: %s", e, exc_info=True)`.
+3. **Hardened Audio Tempfile Cleanup**:
+   - In `meridian_backend/src/voice/stt.py`, ensure temporary fallback audio file write & transcribe cleanly unlinks files across Windows file-locking scenarios with explicit error handling.
+4. **Settings Frontend Dead State Elimination**:
+   - In `meridian_frontend/src/views/Settings.tsx`, remove unused state hooks `scannedOnnxModels`, `isScanningOnnx`, `fetchScannedOnnxModels`, and redundant `handleBrowseOnnxFile` / `handleFileInputChange` duplications, eliminating unnecessary re-renders.
+
+---
+
+## Sub-Spec: Sprint 24 - Enterprise Security Hardening, Binary Swap Resilience, Perception API Safety, Session Interruption Isolation & Frontend Strict Type Safety
+
+### Sprint 24 Objectives
+
+1. **Security Hardening (CORS & Vault Auth Gates)**:
+   - In `meridian_backend/api.py`, remove dangerous wildcard `allow_origin_regex=r"https?://.*"` that permits arbitrary websites to access local daemon. Restrict to local interfaces (`localhost`, `127.0.0.1`, `[::1]`) and Tauri desktop schemes (`tauri://*`, `https?://tauri.localhost`).
+   - In `meridian_backend/src/api/vault.py`, guard vault endpoints (`/api/vault/keys`, `/api/vault/keys/{env_var}`, etc.) with `require_permission(["admin", "user"])` or loopback verification to prevent unauthorized secret scraping.
+   - Remove plaintext secret dumping to `os.environ["SMTP_PASSWORD"]` in `save_google_app_password_api`.
+2. **Updater Reliability & Windows File Locking**:
+   - In `meridian_backend/src/core/updater.py`, fix `safe_swap_binary`: on Windows, rename active `target_binary` to `target_binary.bak` before copying `new_binary`, avoiding `PermissionError [WinError 32]`.
+   - In `check_for_updates`, use `packaging.version.parse` for semantic version comparison to prevent bogus update triggers.
+3. **Perception API Safety & Robustness**:
+   - In `meridian_backend/src/api/perception.py`, replace `subprocess.Popen(["cmd", "/c", "start", "", target_url])` with Python standard `webbrowser.open(target_url)` to eliminate Windows shell injection vulnerabilities.
+   - In `api_vision_screenshot`, replace static temp file path with `tempfile.NamedTemporaryFile(suffix=".png", delete=False)` to prevent concurrent capture collisions.
+   - Provide structured Pydantic schemas for `/api/telephony/call`, `/api/crm/contact`, and `/api/sos/trigger`.
+4. **Agent Loop Session Isolation & Vault Durability**:
+   - In `meridian_backend/src/core/loop.py`, replace global `_interrupt_event` with session-scoped cancellation registry (`_session_interrupts`) keyed by `session_id`.
+   - In `meridian_backend/src/core/vault.py`, use `atomic_write_json` from `src.core.atomic_storage` to write `VAULT_FILE` atomically, preventing vault truncation on system crashes.
+5. **Frontend Strict Type Safety & Quality**:
+   - In `meridian_frontend/tsconfig.json`, enable `"strict": true` and `"noImplicitAny": true`, resolving any typing gaps across views and components.
+
+---
+
+## Sub-Spec: Sprint 25 - Loop Multi-Alias Remapping, VRAM Memoization, Stream Disconnect Hygiene & Frontend Compiler Hardening
+
+### Sprint 25 Objectives
+
+1. **Tool Argument Multi-Alias Remapping**:
+   - In `meridian_backend/src/core/loop_executor.py`, eliminate premature `break` in `PARAM_ALIASES` iteration so tool calls with multiple aliased parameters (e.g. `filepath` and `content_str`) are completely remapped rather than truncated.
+2. **Subprocess VRAM Query Memoization**:
+   - In `meridian_backend/src/core/llm_clients.py`, add a 5-second TTL cache to `get_gpu_vram_usage()`, eliminating high-frequency process spawning and `FileNotFoundError` exceptions on machines without NVIDIA GPUs.
+3. **SSE Stream Cancellation Hygiene & Daemon Logging**:
+   - In `meridian_backend/src/api/swarm.py`, cleanly catch `(asyncio.CancelledError, GeneratorExit)` in `swarm_stream` and `proactive_stream` and replace raw `print()` with structured `logger.debug()` calls.
+4. **TypeScript Compiler Enterprise Flags**:
+   - In `meridian_frontend/tsconfig.json`, enable `"noFallthroughCasesInSwitch": true` and `"forceConsistentCasingInFileNames": true`.
+
+---
+
+## Sub-Spec: Sprint 26 - Tool Ecosystem Modernization (Dynamic Signatures, Canonical Aliases & Execution Timeouts)
+
+### Sprint 26 Objectives
+
+1. **Dynamic Parameter Signature Reflection**:
+   - In `meridian_backend/src/core/loop_stream.py`, enhance `generate_tools_doc()` so that any tool without a hardcoded entry in `TOOL_SIGNATURES` automatically extracts its parameter names and default values via `inspect.signature(func)`. Ensure the LLM always receives exact `name(param="<...>", ...)` signatures for all 100+ registered tools.
+2. **Canonical Tool Aliases in Registry**:
+   - In `meridian_backend/src/tools/registry.py`, register missing canonical aliases for shell execution (`"shell"`, `"terminal"`, `"run_command"`) pointing to `nl_run`.
+3. **Execution Timeout Guard**:
+   - In `meridian_backend/src/tools/registry.py`, wrap tool execution in `asyncio.wait_for(..., timeout=timeout_seconds)` with an intelligent default (60s standard, 180s for browser and long-running test suites) to prevent hung subprocesses or frozen sockets from stalling the agent loop.
+
+---
+
+## Sub-Spec: Sprint 27 - High-Impact Engineering Modernization & Immediate ROI Hardening
+
+### Sprint 27 Objectives
+
+1. **CI Pipeline Modernization & Code Quality Gate**:
+   - Enhance `.github/workflows/verify.yml` with `ruff check` linting and formatting verification in the backend job, preserving existing pytest, frontend typecheck/build, and Flutter pipelines.
+2. **Dependency Hygiene & Tool Configuration**:
+   - Create root `pyproject.toml` with project metadata, dependencies version constraints, and configurations for `ruff`, `mypy`, and `pytest`.
+3. **Unified Structured Logging**:
+   - Create `meridian_backend/src/core/logger.py` providing standard `get_logger(name)` with structured format, level management, and clean console handlers.
+4. **Chat Router Modularity**:
+   - Extract chat and stream endpoints from `meridian_backend/api.py` into `meridian_backend/src/api/chat.py` with `APIRouter(prefix="/api/chat", tags=["chat"])`, keeping `api.py` as clean orchestrator.
+5. **Declarative `@tool` Registration Decorator**:
+   - Implement `@tool(name=None, tier=1, description=None)` decorator in `meridian_backend/src/tools/registry.py` for standard declarative tool registration.
+
+---
+
+## Sub-Spec: Sprint 28 - Stream Back-Pressure, Architecture & Contributor Docs, Dead Code Pruning & Type Safety
+
+### Sprint 28 Objectives
+
+1. **SSE Stream Generator Cooperative Back-Pressure**:
+   - In `meridian_backend/src/api/chat.py`, add `await asyncio.sleep(0)` within the SSE event streaming loop to yield control cooperatively back to the asyncio event loop between emitted tokens, preventing event loop starvation.
+2. **Architecture Specification**:
+   - Create `docs/architecture.md` detailing the 5-layer autonomous agent architecture (Sensors $\to$ ReAct Reasoning & Consensus $\to$ Tool Execution Registry $\to$ Memory & Cognitive Graph $\to$ Client Interfaces & WebSocket bus).
+3. **Contributor Guidelines**:
+   - Create `CONTRIBUTING.md` documenting developer workflow, setup instructions, linting via `ruff`, test verification via `pytest`, and PR hygiene.
+4. **Dead Script Pruning**:
+   - Remove obsolete standalone scripts `cleanup.py` and `create_shortcut.py`.
+5. **Type Safety & Model Hardening**:
+   - Add explicit return type annotations and schema validation across core database and dependency routines.
+
+---
+
+## Sub-Spec: Sprint 29 - Silero VAD Integration for Whisper Transcription & Real-Time Voice Streaming
+
+### Sprint 29 Objectives
+
+1. **Faster-Whisper Silero VAD Filter**:
+   - Enable `vad_filter=True` with `VadOptions` in `src.voice.stt:transcribe_audio_file` and `src.voice.stt:transcribe_audio_array` to eliminate silence hallucinations.
+2. **Unified Silero VAD Evaluator**:
+   - Create `src.voice.vad` with `SileroVADDetector` leveraging faster-whisper's bundled ONNX model (`faster_whisper.vad.get_vad_model`) with graceful heuristic fallback (RMS + pitch centroid) if unavailable.
+3. **Live Microphone Recording Integration**:
+   - Integrate Silero speech probability detection into `src.voice.stt:record_and_transcribe` for rapid speech start detection and silence timeout termination.
+4. **Duplex Voice Engine Barge-In Hardening**:
+   - Enhance `src.voice.duplex:DuplexVoiceEngine.check_barge_in` with Silero neural speech confidence to eliminate false-trigger interruptions from background noise.
+5. **Ambient Listener Speech Segmentation**:
+   - Wire Silero speech detector into `src.voice.ambient_listener:ContinuousAmbientListener.is_speech_chunk`.
+
+---
+
+## Sub-Spec: Sprint 30 - Production Keystore Signing & LAN Subnet Auto-Discovery for Mobile APK
+
+### Sprint 30 Objectives
+
+1. **Production Keystore Signing Configuration (`build.gradle.kts`)**:
+   - Load `key.properties` from `meridian_mobile/android/key.properties` if present.
+   - Bind `signingConfigs.create("release")` dynamically with keystore path, storePassword, keyAlias, keyPassword.
+   - Gracefully fallback to `signingConfigs.getByName("debug")` if `key.properties` is absent so developer workflow remains unbroken.
+2. **Automated Keystore Helper & Builder Extension (`build_mobile.py`)**:
+   - Add `--generate-keystore` flag and automated detection for release keystore properties.
+   - Ensure `key.properties`, `*.jks`, `*.keystore` are protected in `.gitignore`.
+3. **LAN Subnet Host Discovery Service (`lan_discovery.dart`)**:
+   - Discover active local network interface IPv4 address and calculate subnet prefix (e.g. `192.168.1.0/24`).
+   - Probe active HTTP endpoints (`/api/health`) across subnet candidates with low-latency asynchronous concurrent socket/HTTP checks.
+   - Return found desktop endpoints (`ws://<IP>:4132/ws`).
+4. **Pairing Modal UX Integration (`remote_pairing_modal.dart`)**:
+   - Add 1-click "SCAN LOCAL NETWORK" / "AUTO-DISCOVER DESKTOP" button with progress indicator.
+   - Automatically autofill detected desktop IP into host field and suggest one-tap pairing link.
+5. **Unit & Integration Verification**:
+   - Add tests in `meridian_mobile/test/` verifying URL normalization, network discovery parsing, and signing config resolution.
+
+---
+
+## Sub-Spec: Sprint 31 - Headless Web Research Optimization & Redundant Browser Suppression
+
+### Sprint 31 Objectives
+
+1. **Headless-First Research Directives (`src/core/mode.py`)**:
+   - Update `MODE_DIRECTIVES["RESEARCHER"]` to prioritize fast headless search (`search_web`, `search_news`, `autonomous_research`).
+   - Restrict `browser_use_task` to interactive flows (logins, form submission, visual UI tasks) or when explicitly requested by user.
+   - Update `MODE_DIRECTIVES["AUTO"]` to differentiate headless information retrieval vs live browser automation.
+2. **Parallel Browser Call De-duplication (`src/core/loop_dispatcher.py`)**:
+   - When user turn contains both headless search tools (`search_web`, `search_news`, `autonomous_research`) AND `browser_use_task`, suppress redundant `browser_use_task` unless prompt explicitly asks for browser UI interaction.
+   - Prevent disruptive Playwright window popup on desktop during ordinary research tasks.
+3. **Verification**:
+   - Unit tests verifying directive formatting, dispatcher tool conflict suppression, and regression safety.
+
+---
+
+## Sub-Spec: Sprint 32 - Full Audit Remediation & Core System Hardening
+
+### Sprint 32 Objectives
+
+1. **Critical Syntax & Python 3.10 Compatibility**:
+   - In `meridian_backend/src/core/lsp_client.py`: Remove backslash escape sequence from inside f-string at line 59 (`root_uri = f"file:///{self.root_dir.replace('\\', '/')}"`) by computing normalized path prior to string interpolation, ensuring compatibility with Python 3.10+.
+2. **Security Hardening**:
+   - In `meridian_backend/src/tools/dynamic_manager.py`: Add AST security validation to `create_dynamic_tool` forbidding dangerous calls (`eval`, `exec`, `__import__`, `open`, `__subclasses__`, `__globals__`) and unsafe system modules (`ctypes`, `socket`, `subprocess`) to prevent arbitrary code execution from untrusted LLM outputs.
+   - In `meridian_backend/src/core/workspace_orchestrator.py`: Remove `shell=True` from `Popen` calls, using safe argument lists with `shell=False`.
+   - In `meridian_backend/src/api/deps.py`: Remove `shell=True` from port clearance and taskkill execution, using sanitized integer PID list and direct process execution.
+   - In `meridian_backend/src/tools/external_connectors.py`: Make author name in `generate_draft_reply` configurable via `MERIDIAN_USER_NAME` or user profile instead of hardcoded string.
+3. **High & Medium Lint Remediation**:
+   - Fix empty f-strings (F541) across backend modules.
+   - Eliminate shadow import redefinitions (F811) in `meridian_backend/src/core/auth.py`, `meridian_backend/src/tools/registry.py` (duplicate `universal_search`), and `meridian_backend/src/tools/system_windows.py` (`game_mode_active`).
+   - Eliminate dead local variable assignments (F841) in `meridian_backend/src/api/deps.py` (`res`), `meridian_backend/src/core/loop_executor.py` (`has_var_positional`), `meridian_backend/src/core/lsp_client.py` (`init_res`), `meridian_backend/src/core/scheduler.py` (`status`), `meridian_backend/src/core/workflow_engine.py` (`edges`, `node_map`), `meridian_backend/src/tools/browser_use_agent.py` (`lower_task`), `meridian_backend/src/tools/expiry_sentinel.py` (`exp_dt`), `meridian_backend/src/tools/web.py` (`url`), `meridian_backend/database.py` (`ollama_host`).
+   - Fix membership test anti-pattern in `meridian_backend/src/core/consensus_engine.py:221`: `not x in y` -> `x not in y` (E713).
+   - In `meridian_backend/api.py`: Replace naive line-by-line `.env` parsing with `python-dotenv` `load_dotenv(env_path)`.
+4. **Silent Exception Transparency & Logging**:
+   - In `meridian_backend/src/core/proactive/guard.py`: Replace silent `except Exception: pass` blocks with `logger.debug` structured logs.
+5. **Frontend Package Hygiene**:
+   - Move `@types/three` from `dependencies` to `devDependencies` in `meridian_frontend/package.json`.
+6. **Verification Gate**:
+   - Verify all unit and integration tests pass cleanly and frontend typechecks/builds without errors.

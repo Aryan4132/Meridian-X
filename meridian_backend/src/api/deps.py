@@ -11,6 +11,9 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from database import save_user_profile
 
+from src.core.logger import get_logger
+
+logger = get_logger("deps")
 limiter = Limiter(key_func=get_remote_address)
 
 class ModelSettings(BaseModel):
@@ -33,7 +36,7 @@ class TTSRequest(BaseModel):
     voice: Optional[str] = "M1"
     lang: Optional[str] = "na"
 
-def update_local_env_file(key: str, val: str):
+def update_local_env_file(key: str, val: str) -> None:
     env_vars = {}
     from src.core.config import ENV_FILE as env_path
     
@@ -46,7 +49,7 @@ def update_local_env_file(key: str, val: str):
                         k, v = line.split("=", 1)
                         env_vars[k.strip()] = v.strip().strip("\"'")
         except Exception as e:
-            print(f"Failed to read existing .env file: {e}")
+            logger.warning(f"Failed to read existing .env file: {e}")
             
     env_vars[key] = val
     
@@ -54,11 +57,11 @@ def update_local_env_file(key: str, val: str):
         with open(env_path, "w", encoding="utf-8") as f:
             for k, v in env_vars.items():
                 f.write(f"{k}={v}\n")
-        print(f"[Env File] Successfully updated {key} in .env file.")
+        logger.info(f"Successfully updated {key} in .env file.")
     except Exception as e:
-        print(f"Failed to write to .env file: {e}")
+        logger.error(f"Failed to write to .env file: {e}")
 
-def sync_model_settings(modelSettings: ModelSettings):
+def sync_model_settings(modelSettings: ModelSettings) -> None:
     if modelSettings.apiProvider and modelSettings.apiProvider.strip():
         save_user_profile("meridian_provider", modelSettings.apiProvider.strip())
         os.environ["MERIDIAN_PROVIDER"] = modelSettings.apiProvider.strip()
@@ -132,7 +135,7 @@ def validate_sse_session_token(session_id: str, token: str) -> bool:
 def run_pip_audit_vulnerability_scanner() -> dict:
     """Runs background vulnerability scan on backend dependencies (SEC-15)."""
     try:
-        res = subprocess.run(["pip-audit", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run(["pip-audit", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         return {"status": "scanned", "result": "0 vulnerabilities found"}
     except Exception:
         return {"status": "skipped", "reason": "pip-audit package not installed"}
@@ -215,8 +218,13 @@ def ensure_port_available(port: int, host: str = "127.0.0.1") -> bool:
     my_pid = os.getpid()
     if platform.system() == "Windows":
         try:
-            cmd = f'powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"'
-            out = subprocess.run(cmd, capture_output=True, text=True, shell=True, timeout=5)
+            cmd = [
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                f"Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess",
+            ]
+            out = subprocess.run(cmd, capture_output=True, text=True, shell=False, timeout=5)
             pids = set()
             for line in out.stdout.split():
                 if line.strip().isdigit():
@@ -224,13 +232,13 @@ def ensure_port_available(port: int, host: str = "127.0.0.1") -> bool:
             for pid in pids:
                 if pid and pid != my_pid:
                     print(f"[Port Recovery] Terminating conflicting process PID {pid} on port {port}...")
-                    subprocess.run(f"taskkill /F /PID {pid}", capture_output=True, shell=True)
+                    subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, shell=False)
             time.sleep(1.0)
         except Exception as err:
             print(f"[Port Recovery] Windows port clearance failed: {err}")
     else:
         try:
-            subprocess.run(f"fuser -k {port}/tcp", shell=True, capture_output=True)
+            subprocess.run(["fuser", "-k", f"{port}/tcp"], capture_output=True, shell=False)
             time.sleep(0.5)
         except Exception as err:
             print(f"[Port Recovery] POSIX port clearance failed: {err}")

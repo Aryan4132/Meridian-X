@@ -10,11 +10,11 @@ import Timeline from '../views/Timeline';
 import Jobs from '../views/Jobs';
 import Clipboard from '../views/Clipboard';
 import Productivity from '../views/Productivity';
-import Settings from '../views/Settings';
 // Heavy views load on demand so the initial bundle stays lean.
 const SwarmDebate = lazy(() => import('../views/SwarmDebate'));
 const WorkflowBuilder = lazy(() => import('../views/WorkflowBuilder'));
 const MemoryEditor = lazy(() => import('../views/MemoryEditor'));
+const Settings = lazy(() => import('../views/Settings'));
 
 function ViewLoadingFallback() {
   return (
@@ -100,7 +100,7 @@ export default function Shell() {
                 { id: 'lobby', component: (<Suspense fallback={<ViewLoadingFallback />}><SwarmDebate /></Suspense>) },
                 { id: 'workflows', component: (<Suspense fallback={<ViewLoadingFallback />}><WorkflowBuilder /></Suspense>) },
                 { id: 'memory', component: (<Suspense fallback={<ViewLoadingFallback />}><MemoryEditor /></Suspense>) },
-                { id: 'settings', component: <Settings /> },
+                { id: 'settings', component: (<Suspense fallback={<ViewLoadingFallback />}><Settings /></Suspense>) },
               ].map(({ id, component }) => {
                 const isCurrent = activeTab === id;
                 return (

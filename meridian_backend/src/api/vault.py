@@ -61,7 +61,7 @@ def api_security_audit():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/api/vault/keys")
+@router.get("/api/vault/keys", dependencies=[Depends(require_permission(["admin", "user"]))])
 def api_list_vault_keys(include_secrets: bool = False, passphrase: str = "DEFAULT_VAULT_PASS"):
     try:
         from src.core.vault import list_custom_keys
@@ -69,7 +69,7 @@ def api_list_vault_keys(include_secrets: bool = False, passphrase: str = "DEFAUL
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/api/vault/keys")
+@router.post("/api/vault/keys", dependencies=[Depends(require_permission(["admin", "user"]))])
 def api_save_vault_key(req: CustomVaultKeyRequest):
     try:
         from src.core.vault import save_custom_key
@@ -85,7 +85,7 @@ def api_save_vault_key(req: CustomVaultKeyRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/api/vault/keys/{env_var}")
+@router.delete("/api/vault/keys/{env_var}", dependencies=[Depends(require_permission(["admin", "user"]))])
 def api_delete_vault_key(env_var: str, passphrase: str = "DEFAULT_VAULT_PASS"):
     try:
         from src.core.vault import delete_custom_key
@@ -178,7 +178,7 @@ async def get_oauth_connections_status_api():
         }
     return {"status": "success", "connections": status_dict}
 
-@router.post("/api/auth/google/app-password")
+@router.post("/api/auth/google/app-password", dependencies=[Depends(require_permission(["admin", "user"]))])
 async def save_google_app_password_api(payload: GoogleAppPasswordRequest):
     """Saves Gmail App Password into security vault and marks Google service connected."""
     from src.core.vault import save_secret
@@ -190,7 +190,6 @@ async def save_google_app_password_api(payload: GoogleAppPasswordRequest):
     save_secret("SMTP_EMAIL", clean_email, "DEFAULT_VAULT_PASS")
     save_secret("SMTP_PASSWORD", clean_pass, "DEFAULT_VAULT_PASS")
     os.environ["SMTP_EMAIL"] = clean_email
-    os.environ["SMTP_PASSWORD"] = clean_pass
     
     save_oauth_tokens("google", {
         "access_token": f"app_pass_{clean_pass[:6]}",

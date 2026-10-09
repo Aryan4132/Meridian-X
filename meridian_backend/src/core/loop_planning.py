@@ -217,7 +217,7 @@ async def run_htp_pipeline(
     yield sse_event_fn("thought", json.dumps({
         "id": f"htp-decomposed-{time.time()}",
         "type": "planning",
-        "text": f"[Hierarchical Task Planning] Checklist generated:\n" + "\n".join(f"- Task {t['id']}: {t['description']}" for t in checklist),
+        "text": "[Hierarchical Task Planning] Checklist generated:\n" + "\n".join(f"- Task {t['id']}: {t['description']}" for t in checklist),
         "status": "completed"
     }))
 

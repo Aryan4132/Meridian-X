@@ -49,7 +49,7 @@ def extract_text_from_file(file_path: str) -> str:
     else:
         raise ValueError(f"Unsupported file extension: '{ext}'. Supported formats: .txt, .md, .json, .csv, .pdf, .docx")
 
-def get_ollama_client_host():
+def get_ollama_client_host() -> str:
     host = os.environ.get("OLLAMA_HOST")
     if not host:
         try:
@@ -74,7 +74,7 @@ def get_ollama_client_host():
 # Global cache for Ollama client
 _cached_ollama_client = None
 
-def get_ollama_client():
+def get_ollama_client() -> Any:
     global _cached_ollama_client
     if _cached_ollama_client is None:
         import ollama
@@ -1326,7 +1326,7 @@ def consolidate_memory_sleep_cycle():
         # 2. Distill episodic conversations
         # BUG-38 fix: get_ollama_client_host is already defined in this file (line 38).
         # Importing from api creates a circular dependency (api imports database at startup).
-        ollama_host = get_ollama_client_host()
+        get_ollama_client_host()
         
         conn = None
         rows = []

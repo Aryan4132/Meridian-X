@@ -1,12 +1,10 @@
-<div align="center">
-
-<img src="logo.png" alt="Meridian-X Logo" width="200" />
-
 # 🪐 Meridian-X
 
-### Autonomous Offline-First Desktop AI Agent & Workspace Companion
+## Autonomous Offline-First Desktop AI Agent & Workspace Companion
 
-[![Version](https://img.shields.io/badge/version-0.1.5-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+![Meridian-X Logo](logo.png)
+
+[![Version](https://img.shields.io/badge/version-0.1.6-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
@@ -16,8 +14,6 @@
 **Meridian-X** is an autonomous, privacy-focused desktop AI agent built on **Tauri v2**, **React 19**, and **FastAPI**. It empowers developers with on-device local ReAct reasoning loops, multi-tier security gates, Model Context Protocol (MCP) server integration, local RAG vector search, and a 3D desktop companion overlay.
 
 [🌐 Releases](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Quick Start](#-quick-start) · [🏗️ Architecture](#%EF%B8%8F-architecture) · [🛡️ Security](#%EF%B8%8F-security--safety-gates)
-
-</div>
 
 ---
 

@@ -24,7 +24,7 @@ def gmail_send_mail(to: str, subject: str, body: str) -> str:
     """Sends an email via Gmail OAuth API."""
     headers = _get_bearer_header("google")
     if not headers:
-        return f"Error: OAuth token for Google Workspace is not connected. Please connect Google account in settings."
+        return "Error: OAuth token for Google Workspace is not connected. Please connect Google account in settings."
         
     try:
         import base64
@@ -218,8 +218,9 @@ def triage_inbox_emails(limit: int = 10) -> Dict[str, Any]:
 
 def generate_draft_reply(email_id: str, instructions: str = "Accept politely and offer to meet tomorrow at 2 PM") -> Dict[str, Any]:
     """Generates personalized AI draft reply in user's tone for a given email."""
+    author_name = os.getenv("MERIDIAN_USER_NAME", "Aryan Shukla")
     reply_body = (
-        f"Hi,\n\nThanks for reaching out. {instructions}.\n\nBest regards,\nAryan Shukla"
+        f"Hi,\n\nThanks for reaching out. {instructions}.\n\nBest regards,\n{author_name}"
     )
     return {
         "success": True,

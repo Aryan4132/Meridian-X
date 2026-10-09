@@ -76,7 +76,7 @@ def test_p2p_hmac_challenge_response():
     import threading
     import hashlib
     import hmac as hmac_mod
-    from src.core.p2p import authenticate_p2p_peer_challenge, respond_p2p_peer_challenge
+    from src.core.p2p import respond_p2p_peer_challenge
 
     secret = "unit_test_shared_secret"
 

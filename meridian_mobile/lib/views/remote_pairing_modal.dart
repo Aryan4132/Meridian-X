@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/secure_storage.dart';
 import '../core/theme.dart';
 import '../core/websocket_client.dart';
+import '../core/lan_discovery.dart';
 import '../providers/agent_chat_provider.dart';
 
 class RemotePairingModal extends ConsumerStatefulWidget {
@@ -18,6 +19,9 @@ class _RemotePairingModalState extends ConsumerState<RemotePairingModal> {
   final TextEditingController _hostController = TextEditingController();
   final TextEditingController _tokenController = TextEditingController();
   bool _isConnecting = false;
+  bool _isScanningLan = false;
+  String? _scanStatus;
+  List<DiscoveredHost> _discoveredHosts = [];
   String? _errorText;
 
   @override
@@ -25,6 +29,41 @@ class _RemotePairingModalState extends ConsumerState<RemotePairingModal> {
     super.initState();
     _loadSavedConfig();
   }
+
+  Future<void> _handleLanScan() async {
+    setState(() {
+      _isScanningLan = true;
+      _scanStatus = 'Detecting local network interfaces...';
+      _errorText = null;
+    });
+
+    try {
+      final hosts = await LanDiscoveryService.scanForDesktopHosts(
+        onProgress: (status) {
+          if (mounted) setState(() => _scanStatus = status);
+        },
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _isScanningLan = false;
+        _discoveredHosts = hosts;
+        if (hosts.isNotEmpty) {
+          _hostController.text = hosts.first.wsUrl;
+          _scanStatus = 'Found ${hosts.length} desktop engine(s)! Selected: ${hosts.first.ip}:${hosts.first.port}';
+        } else {
+          _scanStatus = 'No desktop engine found. Ensure desktop Meridian-X is running and on same Wi-Fi.';
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isScanningLan = false;
+        _scanStatus = 'Scan error: $e';
+      });
+    }
+  }
+
 
   Future<void> _loadSavedConfig() async {
     final savedUrl = await MeridianSecureStorage.getServerUrl();
@@ -160,6 +199,61 @@ class _RemotePairingModalState extends ConsumerState<RemotePairingModal> {
                 _buildPresetChip('Bridge Alt (4133)', 'ws://127.0.0.1:4133/ws'),
               ],
             ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isScanningLan ? null : _handleLanScan,
+                icon: _isScanningLan
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: MeridianTheme.cyanAccent),
+                      )
+                    : const Icon(Icons.radar, size: 16, color: MeridianTheme.cyanAccent),
+                label: Text(
+                  _isScanningLan ? 'SCANNING LOCAL NETWORK...' : 'AUTO-DISCOVER DESKTOP (LAN SCAN)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: MeridianTheme.cyanAccent,
+                  side: BorderSide(color: MeridianTheme.cyanAccent.withValues(alpha: 0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+            if (_scanStatus != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _scanStatus!,
+                style: TextStyle(
+                  color: _discoveredHosts.isNotEmpty ? MeridianTheme.emeraldGreen : MeridianTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+            if (_discoveredHosts.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: _discoveredHosts.map((host) {
+                  return ActionChip(
+                    avatar: const Icon(Icons.check_circle, size: 14, color: MeridianTheme.emeraldGreen),
+                    label: Text(host.label, style: const TextStyle(fontSize: 11, color: MeridianTheme.emeraldGreen)),
+                    backgroundColor: MeridianTheme.surfaceLight,
+                    side: BorderSide(color: MeridianTheme.emeraldGreen.withValues(alpha: 0.5)),
+                    onPressed: () {
+                      setState(() {
+                        _hostController.text = host.wsUrl;
+                        _errorText = null;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
             const SizedBox(height: 14),
             const Text(
               'WebSocket Endpoint URL',

@@ -153,6 +153,29 @@ async def process_tool_turn(
     last_tool_call = state.get("last_tool_call")
     consecutive_repeat_count = state.get("consecutive_repeat_count", 0)
 
+    # Filter redundant live browser GUI if headless search tools are also present in same turn
+    call_names = [name for name, _ in calls_to_execute]
+    has_headless_search = any(n in ("search_web", "search_news", "autonomous_research") for n in call_names)
+    has_browser_gui = any(n in ("browser_use_task", "browser_open") for n in call_names)
+    prompt_wants_browser = any(kw in (prompt or "").lower() for kw in ("browser", "open browser", "gui", "playwright", "click", "navigate to"))
+
+    if has_headless_search and has_browser_gui and not prompt_wants_browser:
+        filtered_calls = []
+        for name, args_s in calls_to_execute:
+            if name in ("browser_use_task", "browser_open"):
+                observations.append(
+                    f"<observation:{name}>[Optimized] Suppressed redundant live browser launch: fast headless search prioritized for research query. Use live browser only if UI interaction or explicit browser request is needed.</observation:{name}>"
+                )
+                yield _format_sse("thought", json.dumps({
+                    "id": f"dedup-{time.time()}-{name}",
+                    "type": "planning",
+                    "text": f"⚡ [Optimizer] Suppressed redundant '{name}' window in favor of fast headless search.",
+                    "status": "completed"
+                }))
+            else:
+                filtered_calls.append((name, args_s))
+        calls_to_execute = filtered_calls
+
     for tool_name, args_str in calls_to_execute:
         is_corrected, corrected_args, critique_err = critique_and_correct_tool_call(tool_name, args_str, client, model_source=model_source)
         if not is_corrected and critique_err:

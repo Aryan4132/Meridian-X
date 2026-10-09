@@ -101,7 +101,7 @@ def should_run_debate(
     if args:
         if isinstance(args[0], (list, tuple)) or args[0] is None:
             # (tool_calls, goal, finish_text, ...)
-            tool_calls = args[0]
+            tool_calls = list(args[0]) if args[0] is not None else None
             if len(args) > 1 and isinstance(args[1], str):
                 goal = args[1]
             if len(args) > 2 and isinstance(args[2], str):
@@ -112,7 +112,7 @@ def should_run_debate(
             if len(args) > 1 and isinstance(args[1], str):
                 finish_text = args[1]
             if len(args) > 2 and isinstance(args[2], (list, tuple)):
-                tool_calls = args[2]
+                tool_calls = list(args[2])
 
     # 1. Voice queries bypass debate for speed
     if is_voice:
@@ -218,7 +218,7 @@ async def run_debate(
 
         try:
             json.loads(refined)
-            if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and not ("apologize" in corrected_finish.lower()):
+            if has_search and ("apologize" in refined.lower() or "do not have access" in refined.lower()) and "apologize" not in corrected_finish.lower():
                 debated_finish = corrected_finish
             else:
                 debated_finish = await process_final_response(refined, user_lang, client)
@@ -252,7 +252,7 @@ async def handle_turn_finish(
     from src.core.loop_parser import process_final_response
     from database import get_auditor_model
 
-    is_voice_turn = (user_lang == "voice" or "voice" in str(active_model).lower())
+    is_voice_turn = (user_lang == "voice" or "voice" in active_model.lower())
     if not should_run_debate(tool_calls=executed_tools, goal=prompt, finish_text=finish_text, is_voice=is_voice_turn):
         fast_finish = await process_final_response(finish_text, user_lang, client)
         yield ("text", fast_finish)

@@ -454,7 +454,7 @@ def browser_find_and_click(description: str) -> str:
         try:
             _page.mouse.click(x, y)
             return f"Visually clicked coordinate ({x}, {y}) corresponding to '{description}'."
-        except Exception as e:
+        except Exception:
             pass
 
     # DOM Selector / Text Matching Fallback

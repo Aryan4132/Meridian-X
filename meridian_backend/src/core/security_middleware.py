@@ -106,7 +106,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                     )
                     return JSONResponse(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        content={"detail": f"Access forbidden. Untrusted referer header."}
+                        content={"detail": "Access forbidden. Untrusted referer header."}
                     )
 
         return await call_next(request)

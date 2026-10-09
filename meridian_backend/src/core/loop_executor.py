@@ -55,7 +55,6 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
         # 1. Tool Signature Verification
         try:
             sig = inspect.signature(func)
-            has_var_positional = any(p.kind == inspect.Parameter.VAR_POSITIONAL for p in sig.parameters.values())
             has_var_keyword = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values())
 
             required_params = []
@@ -80,7 +79,6 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                     if canonical in valid_params and canonical not in args:
                         args[canonical] = args.pop(p)
                         remapped = True
-                        break
 
             if remapped:
                 args_str = json.dumps(args)
@@ -237,7 +235,7 @@ async def prune_and_compress_history(history: List[Dict[str, str]], client: olla
         
     try:
         ingest_into_knowledge_base("archived_history", log_text, {"timestamp": time.time()})
-        print(f"[Context Governor] Archived context segments ingested into Turbovec RAG.")
+        print("[Context Governor] Archived context segments ingested into Turbovec RAG.")
     except Exception as e:
         print(f"[Context Governor] RAG ingestion failed: {e}")
         

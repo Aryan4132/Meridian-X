@@ -1,7 +1,6 @@
 import os
 import unittest
 import sys
-import os
 import json
 import shutil
 from unittest.mock import patch

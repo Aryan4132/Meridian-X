@@ -46,7 +46,7 @@ export function resolveTheme(t: string | null | undefined): ThemeId {
 }
 
 /** Applies theme without clobbering unrelated <html> classes (e.g. mascot-html). */
-export function applyThemeToDocument(t: string): void {
+export function applyThemeToDocument(t: string | null | undefined): void {
   const theme = resolveTheme(t);
   document.documentElement.setAttribute('data-theme', theme);
   const cls = document.documentElement.classList;

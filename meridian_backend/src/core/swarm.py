@@ -197,7 +197,7 @@ class SwarmOrchestrator:
     def _synthesize_swarm_report(self, goal: str, results: List[Dict[str, Any]]) -> str:
         """Combines findings from all subagents into a unified cohesive report."""
         report_lines = [
-            f"# [Swarm] Multi-Agent Execution Synthesis Report",
+            "# [Swarm] Multi-Agent Execution Synthesis Report",
             f"**Goal**: {goal}",
             f"**Subagents Executed**: {len(results)}\n",
             "## Subagent Findings:\n"

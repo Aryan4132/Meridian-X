@@ -11,8 +11,8 @@ def audit_usb_peripherals() -> str:
     """
     # Active watchdog status snapshot
     return (
-        f"🔌 USB Watchdog Sentinel Status:\n"
-        f"- Storage Devices Mounted: 0 untrusted storage volumes\n"
-        f"- HID Keystroke Analyzer: Active (BadUSB burst rate threshold < 100wpm)\n"
-        f"- Status: SECURE — No unknown USB hardware detected."
+        "🔌 USB Watchdog Sentinel Status:\n"
+        "- Storage Devices Mounted: 0 untrusted storage volumes\n"
+        "- HID Keystroke Analyzer: Active (BadUSB burst rate threshold < 100wpm)\n"
+        "- Status: SECURE — No unknown USB hardware detected."
     )

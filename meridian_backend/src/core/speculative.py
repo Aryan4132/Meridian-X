@@ -88,7 +88,7 @@ async def preheat_tool(tool_name: str, partial_args_str: str):
 
         # --- Shell / Python execution: warm the pipeline ---
         elif tool_name in ["nl_run", "run_python", "run_command"]:
-            print(f"[Speculative Engine] Pre-heating shell/python execution pipeline environment.")
+            print("[Speculative Engine] Pre-heating shell/python execution pipeline environment.")
 
         # --- #13 FIX: LSP tools: pre-check if LSP socket/port is reachable ---
         elif tool_name.startswith("lsp_"):
@@ -100,7 +100,7 @@ async def preheat_tool(tool_name: str, partial_args_str: str):
                 conn.close()
                 print(f"[Speculative Engine] LSP server reachable at {lsp_host}:{lsp_port}")
             except Exception:
-                print(f"[Speculative Engine] LSP pre-check: server not yet reachable, skipping warm.")
+                print("[Speculative Engine] LSP pre-check: server not yet reachable, skipping warm.")
 
         # --- #13 FIX: Knowledge Graph tools: pre-warm DB handle (import triggers connection pool) ---
         elif tool_name.startswith("kg_") or tool_name in ["search_knowledge", "search_offline_docs"]:

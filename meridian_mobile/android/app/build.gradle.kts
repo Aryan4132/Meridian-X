@@ -1,8 +1,28 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties").takeIf { it.exists() }
+    ?: project.file("key.properties").takeIf { it.exists() }
+
+val resolvedStoreFile: File? = if (keystorePropertiesFile != null) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    val rawPath = keystoreProperties.getProperty("storeFile")
+    if (rawPath != null) {
+        val f1 = file(rawPath)
+        val f2 = rootProject.file(rawPath)
+        if (f1.exists()) f1 else if (f2.exists()) f2 else f1
+    } else null
+} else null
+
+val hasReleaseSigning = resolvedStoreFile != null && resolvedStoreFile.exists() &&
+    keystoreProperties.getProperty("keyAlias") != null
 
 android {
     namespace = "com.meridian.meridian_mobile"
@@ -25,11 +45,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = resolvedStoreFile
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseSigning && signingConfigs.findByName("release") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }
