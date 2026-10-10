@@ -375,3 +375,14 @@
   - Move `@types/three` to `devDependencies` in `meridian_frontend/package.json`.
 - [x] Task 32.6: Verification & Quality Gate:
   - Run pytest test suite, ruff check, and frontend build.
+
+## Task 33: Anti-Hallucination, Tool-Enforced File Creation & Resilient JSON Parsing
+
+- [x] Task 33.1: Write failing reproduction tests in `meridian_backend/tests/test_response_resilience.py` for malformed proactive JSON, unescaped quotes, trailing bracket fragments, and system prompt anti-hallucination assertions.
+- [x] Task 33.2: Update `meridian_backend/src/core/mode.py` to add strict physical file system access directives, anti-hallucination rules, and proactive suggestions format constraints.
+- [x] Task 33.3: Enhance `process_final_response()` in `meridian_backend/src/core/loop_parser.py` with dirty/nested quote sanitization, bracket balancing, and raw JSON leak prevention.
+- [x] Task 33.4: Harden `formatFinalText()` in `meridian_frontend/src/views/Timeline.tsx` to prevent display of raw internal suggestion JSON.
+- [x] Task 33.5: Run pytest verification suite and verify all tests pass.
+- [x] Task 33.6: Perform code review and simplification pass.
+
+

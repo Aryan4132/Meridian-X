@@ -153,45 +153,139 @@ async def transliterate_to_devanagari(text: str, client: ollama.Client) -> str:
 
 
 
-async def process_final_response(text: str, user_lang: str, client: ollama.Client) -> str:
-    """Processes final model response JSON block, formatting speech and transliteration if needed."""
-    cleaned_text = text.strip()
-    json_data = None
-    is_json = False
+def repair_and_extract_json(text: str) -> Optional[Dict[str, Any]]:
+    """Tries multiple recovery strategies to extract or repair structured response JSON."""
+    if not text or not text.strip():
+        return None
+    cleaned = text.strip()
 
+    # 1. Direct attempt
     try:
-        json_data = json.loads(cleaned_text)
-        is_json = True
+        data = json.loads(cleaned)
+        if isinstance(data, dict):
+            return data
     except Exception:
         pass
 
-    if not is_json:
-        start_idx = cleaned_text.find('{')
-        end_idx = cleaned_text.rfind('}')
-        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-            potential_json = cleaned_text[start_idx:end_idx+1]
+    # 2. Normalize common malformed action shell("...") patterns and unescaped quotes
+    def _fix_shell_action(m: re.Match) -> str:
+        cmd = m.group(1).strip("'\"")
+        return '"action": ' + json.dumps(cmd)
+
+    repaired = re.sub(
+        r'"action"\s*:\s*"shell\((.*?)\)"',
+        _fix_shell_action,
+        cleaned
+    )
+    repaired = re.sub(
+        r'("action"\s*:\s*")([^"]*)"([^",}\]]*)"(\s*[,}\]])',
+        r'\1\2\"\3\"\4',
+        repaired
+    )
+
+    try:
+        data = json.loads(repaired)
+        if isinstance(data, dict):
+            return data
+    except Exception:
+        pass
+
+    # 3. Substring between outer braces
+    start_idx = repaired.find('{')
+    end_idx = repaired.rfind('}')
+    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+        potential = repaired[start_idx:end_idx+1]
+        try:
+            data = json.loads(potential)
+            if isinstance(data, dict):
+                return data
+        except Exception:
+            pass
+
+    # 4. Strip trailing unbalanced brackets (e.g. from proactive_suggestions array dumps)
+    stripped = repaired.rstrip(']}').strip()
+    if stripped.startswith('{'):
+        try:
+            data = json.loads(stripped + '}')
+            if isinstance(data, dict):
+                if "title" in data and "action" in data and "chat" not in data:
+                    return {"proactive_suggestions": [data]}
+                return data
+        except Exception:
+            pass
+
+    # 5. Model returned a list: [{"title": ...}]
+    if repaired.startswith('[') and repaired.endswith(']'):
+        try:
+            data = json.loads(repaired)
+            if isinstance(data, list):
+                return {"proactive_suggestions": data}
+        except Exception:
+            pass
+
+    # 6. Regex extraction of key fields
+    chat_match = re.search(r'"chat"\s*:\s*"((?:[^"\\]|\\.)*)"', repaired)
+    speech_match = re.search(r'"speech"\s*:\s*"((?:[^"\\]|\\.)*)"', repaired)
+    lang_match = re.search(r'"lang"\s*:\s*"((?:[^"\\]|\\.)*)"', repaired)
+
+    if chat_match or speech_match:
+        res = {
+            "chat": chat_match.group(1) if chat_match else "",
+            "speech": speech_match.group(1) if speech_match else (chat_match.group(1) if chat_match else ""),
+            "lang": lang_match.group(1) if lang_match else "en"
+        }
+        sug_match = re.search(r'"proactive_suggestions"\s*:\s*(\[[^\]]+\])', repaired)
+        if sug_match:
             try:
-                json_data = json.loads(potential_json)
-                is_json = True
+                res["proactive_suggestions"] = json.loads(sug_match.group(1))
             except Exception:
                 pass
+        return res
 
-    if not is_json:
-        chat_match = re.search(r'"chat"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
-        speech_match = re.search(r'"speech"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
-        lang_match = re.search(r'"lang"\s*:\s*"((?:[^"\\]|\\.)*)"', cleaned_text)
+    # 7. Check if text is only a suggestion object: {"title": "...", "action": "..."}
+    title_match = re.search(r'"title"\s*:\s*"([^"]+)"', repaired)
+    action_match = re.search(r'"action"\s*:\s*(?:"([^"]+)"|"shell\((.*?)\)")', repaired)
+    type_match = re.search(r'"type"\s*:\s*"([^"]+)"', repaired)
+    if title_match:
+        act = action_match.group(1) if action_match and action_match.group(1) else (action_match.group(2) if action_match else "")
+        act = (act or "").strip().strip("'\"")
+        return {
+            "proactive_suggestions": [{
+                "title": title_match.group(1).strip(),
+                "action": act,
+                "type": type_match.group(1).strip() if type_match else "command"
+            }]
+        }
 
-        if chat_match or speech_match:
-            json_data = {}
-            json_data["chat"] = chat_match.group(1) if chat_match else ""
-            json_data["speech"] = speech_match.group(1) if speech_match else json_data["chat"]
-            json_data["lang"] = lang_match.group(1) if lang_match else "en"
-            is_json = True
+    return None
 
-    if not is_json or json_data is None:
-        return text
 
+async def process_final_response(text: str, user_lang: str, client: ollama.Client) -> str:
+    """Processes final model response JSON block, formatting speech and transliteration if needed."""
+    cleaned_text = text.strip()
+    json_data = repair_and_extract_json(cleaned_text)
+
+    if json_data is None:
+        # Check if cleaned_text looks like an internal JSON or tool dump
+        if re.search(r'^\s*[\{\[]', cleaned_text) or '"action":' in cleaned_text or '"title":' in cleaned_text:
+            title_m = re.search(r'"title"\s*:\s*"([^"]+)"', cleaned_text)
+            fallback_msg = f"Task completed. Suggested follow-up: {title_m.group(1)}." if title_m else "Task completed."
+            json_data = {"chat": fallback_msg, "speech": fallback_msg, "lang": "en"}
+        else:
+            return text
+
+    # Ensure chat is populated if only proactive suggestions exist
     chat = json_data.get("chat", "")
+    if not isinstance(chat, str) or not chat.strip():
+        sugs = json_data.get("proactive_suggestions", [])
+        if sugs and isinstance(sugs, list) and len(sugs) > 0:
+            first_sug = sugs[0]
+            sug_title = first_sug.get("title") if isinstance(first_sug, dict) else str(first_sug)
+            chat = f"Task processed. Recommended next step: {sug_title}."
+        else:
+            chat = "Task completed successfully."
+        json_data["chat"] = chat
+
     speech = json_data.get("speech", "") or chat
     lang = (json_data.get("lang") or "en").lower().strip()
     u_lang = (user_lang or "english").lower().strip()
@@ -211,9 +305,14 @@ async def process_final_response(text: str, user_lang: str, client: ollama.Clien
         sanitized_suggestions = []
         for item in json_data["proactive_suggestions"]:
             if isinstance(item, dict) and item.get("title"):
+                act_str = str(item.get("action", "")).strip()
+                # Clean any outer shell(...) wrapper
+                shell_match = re.match(r'^shell\((.*)\)$', act_str, flags=re.IGNORECASE)
+                if shell_match:
+                    act_str = shell_match.group(1).strip().strip("'\"")
                 sanitized_suggestions.append({
                     "title": str(item.get("title", "")).strip(),
-                    "action": str(item.get("action", "")).strip(),
+                    "action": act_str,
                     "type": str(item.get("type", "suggestion")).strip().lower()
                 })
             elif isinstance(item, str) and item.strip():

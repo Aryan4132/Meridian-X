@@ -358,7 +358,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   // This extracts just the human-readable chat portion from that wrapper.
   const extractChatText = (raw: string): string => {
     const trimmed = raw.trim();
-    if (trimmed.startsWith('{')) {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
         const parsed = JSON.parse(trimmed);
         if (parsed.type === 'error' || parsed.error) {
@@ -366,7 +366,20 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         }
         if (parsed.chat) return parsed.chat;
         if (parsed.text) return parsed.text;
-      } catch { /* not JSON, return as-is */ }
+        if (parsed.proactive_suggestions && Array.isArray(parsed.proactive_suggestions) && parsed.proactive_suggestions.length > 0) {
+          const first = parsed.proactive_suggestions[0];
+          return `Task processed. Recommended next step: ${first.title || first}.`;
+        }
+        if (parsed.title) {
+          return `Suggested follow-up: ${parsed.title}.`;
+        }
+      } catch {
+        // Not clean JSON - check if it is a leaked internal JSON dump or bracket fragment
+        const titleMatch = trimmed.match(/"title"\s*:\s*"([^"]+)"/);
+        if (titleMatch) {
+          return `Task processed. Recommended next step: ${titleMatch[1]}.`;
+        }
+      }
     }
     return raw;
   };

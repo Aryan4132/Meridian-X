@@ -663,3 +663,28 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
    - Move `@types/three` from `dependencies` to `devDependencies` in `meridian_frontend/package.json`.
 6. **Verification Gate**:
    - Verify all unit and integration tests pass cleanly and frontend typechecks/builds without errors.
+
+---
+
+## Sub-Spec: Sprint 33 - Anti-Hallucination, Tool Enforcement & Finish Parsing Resilience
+
+### Sprint 33 Objectives
+
+1. **System Prompt Anti-Hallucination & Physical File Creation Enforcement (`src/core/mode.py`)**:
+   - Instruct the LLM explicitly that it possesses full physical file system execution via local tools (`write_file`, `scaffold_project`, `nl_run`, `open_file`, etc.).
+   - Explicitly forbid the standard LLM disclaimer: "Since I cannot create physical folders on your machine...".
+   - Mandate that when the user asks to create, build, or write files/projects, the agent MUST call `<call:write_file>` or `<call:scaffold_project>` or `<call:nl_run>` rather than merely printing code or claiming completion without execution.
+   - Mandate that inside `<finish>`, `proactive_suggestions`'s `action` field must be a valid raw CLI command or prompt string without pseudocode wrapping (e.g. `shell(...)` or unescaped nested double quotes).
+
+2. **Resilient JSON Recovery & Leakage Prevention (`src/core/loop_parser.py`)**:
+   - In `process_final_response()`, implement robust JSON sanitization:
+     - Repair unescaped quotes inside string values (e.g., `"action": "shell("...")"` -> `"action": "shell(\"...\")"` or strip outer wrapper).
+     - Handle truncated or trailing bracket JSON fragments (e.g., `[{"title": ...}]}`).
+     - Fallback extraction: if JSON parsing still fails, ensure raw internal JSON schemas (`{"title":...}`, `{"proactive_suggestions":...}`, `{"chat":...}`) never leak raw JSON syntax into user-facing chat text. Extract readable text or generate a clean user message.
+
+3. **Frontend Timeline Fallback Hardening (`meridian_frontend/src/views/Timeline.tsx`)**:
+   - In `formatFinalText()`, detect unparsed JSON fragments or raw suggestion syntax and sanitize display so raw JSON code blocks are not rendered as conversational chat text.
+
+4. **Unit Verification Suite (`meridian_backend/tests/test_response_resilience.py`)**:
+   - Add unit tests verifying prompt anti-hallucination directives, JSON repair of unescaped quotes, trailing bracket repair, and zero raw JSON leakage.
+
