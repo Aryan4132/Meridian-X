@@ -1,7 +1,7 @@
 import os
 import json
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Tuple, Any, Dict
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -39,6 +39,52 @@ class ExportRequest(BaseModel):
 
 class UndoReq(BaseModel):
     action_id: Optional[str] = None
+
+
+def parse_sse_events_for_chat(events: Any) -> Tuple[str, List[Dict[str, Any]]]:
+    """Parses a sequence of SSE strings and reconstructs conversational text and thoughts."""
+    accumulated_text = ""
+    thoughts: List[Dict[str, Any]] = []
+
+    for event_str in events:
+        blocks = event_str.split("\n\n")
+        for block in blocks:
+            if not block.strip():
+                continue
+            event_type = ""
+            data_lines = []
+            for line in block.splitlines():
+                if line.startswith("event:"):
+                    event_type = line.split(":", 1)[1].strip()
+                elif line.startswith("data:"):
+                    val = line[5:]
+                    if val.startswith(" "):
+                        val = val[1:]
+                    data_lines.append(val)
+
+            payload = "\n".join(data_lines)
+            if not payload:
+                continue
+
+            if event_type == "thought":
+                try:
+                    parsed = json.loads(payload)
+                    if isinstance(parsed, dict):
+                        thoughts.append(parsed)
+                except Exception:
+                    pass
+            elif event_type == "text":
+                try:
+                    parsed = json.loads(payload)
+                    if isinstance(parsed, dict) and "chat" in parsed:
+                        accumulated_text = str(parsed["chat"])
+                    else:
+                        accumulated_text += payload
+                except Exception:
+                    accumulated_text += payload
+
+    return accumulated_text, thoughts
+
 
 @router.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -80,8 +126,7 @@ async def chat(request: ChatRequest):
         brain_model = (modelSettings.brainModel if model_source == "local" else modelSettings.selectedModel) or modelSettings.brainModel or modelSettings.selectedModel or get_user_profile("meridian_model") or os.environ.get("MERIDIAN_MODEL") or ""
         ollama_host = get_ollama_client_host()
 
-        accumulated_text = ""
-        thoughts = []
+        collected_events = []
         async for event_str in run_react_agent_loop(
             request.prompt,
             brain_model,
@@ -89,19 +134,9 @@ async def chat(request: ChatRequest):
             model_source=model_source,
             api_provider=api_provider
         ):
-            for line in event_str.splitlines():
-                if line.startswith("data: "):
-                    raw_data = line[6:]
-                    try:
-                        parsed = json.loads(raw_data)
-                        if isinstance(parsed, dict):
-                            if "text" in parsed and "type" in parsed:
-                                thoughts.append(parsed)
-                            elif "chat" in parsed:
-                                accumulated_text = parsed["chat"]
-                    except Exception:
-                        if not raw_data.startswith("{"):
-                            accumulated_text += raw_data
+            collected_events.append(event_str)
+
+        accumulated_text, thoughts = parse_sse_events_for_chat(collected_events)
 
         try:
             from src.voice.wakeword import resume_wakeword

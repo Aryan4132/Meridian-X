@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Check, Save, Cpu, Sparkles, Mic, ShieldCheck, DollarSign, Plug } from 'lucide-react';
+import { Check, Save, Cpu, Sparkles, Mic, ShieldCheck, DollarSign, Plug, Network } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { API_BASE_URL, getApiBaseUrl, getApiKey } from '../config';
 import { SystemUsage } from '../types';
@@ -17,12 +17,14 @@ import MascotTab from './settings/MascotTab';
 import VoiceTab from './settings/VoiceTab';
 import IntegrationsTab from './settings/IntegrationsTab';
 import AiModelsTab from './settings/AiModelsTab';
+import MultiModeTab from './settings/MultiModeTab';
 import SystemGuardTab from './settings/SystemGuardTab';
 import SpendAirGapTab from './settings/SpendAirGapTab';
 import PasswordInput from './settings/PasswordInput';
 
 const SETTINGS_TABS = [
   { id: 'models', label: 'AI Models', icon: Cpu },
+  { id: 'multimode', label: 'Multi-Mode Routing', icon: Network },
   { id: 'mascot', label: 'Mascot & Style', icon: Sparkles },
   { id: 'voice', label: 'Voice & Audio', icon: Mic },
   { id: 'guard', label: 'System Guard', icon: ShieldCheck },
@@ -123,7 +125,7 @@ function KeyLockModal({ open, mode, error, password, setPassword, onClose, onSub
 export default function Settings() {
   const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
   const { isLowRam, toggleLowRamMode } = useLowRamMode();
-  const [activeCategory, setActiveCategory] = useState<'models' | 'mascot' | 'voice' | 'guard' | 'spend' | 'integrations'>('models');
+  const [activeCategory, setActiveCategory] = useState<'models' | 'multimode' | 'mascot' | 'voice' | 'guard' | 'spend' | 'integrations'>('models');
   const [provider, setProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
   const [modelSource, setModelSource] = useState(() => localStorage.getItem('MERIDIAN_MODEL_SOURCE') || (provider === 'ollama' ? 'local' : 'api'));
   const [ollamaHost, setOllamaHost] = useState(() => localStorage.getItem('OLLAMA_HOST') || 'http://localhost:11434');
@@ -1174,6 +1176,10 @@ export default function Settings() {
               handleAddVaultKey={handleAddVaultKey}
               isKeyLockUnlocked={isKeyLockUnlocked}
             />
+          )}
+
+          {activeCategory === 'multimode' && (
+            <MultiModeTab />
           )}
 
           {activeCategory === 'mascot' && (

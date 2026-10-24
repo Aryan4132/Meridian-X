@@ -56,6 +56,7 @@ from src.api.automation import router as automation_router
 from src.api.swarm import router as swarm_router
 from src.api.profile import router as profile_router
 from src.api.workspace import router as workspace_router
+from database import get_ollama_client_host  # re-export for backwards compatibility
 
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
@@ -104,8 +105,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to bind proactive event loop:", e)
     try:
-        from src.core.clipboard import start_clipboard_monitoring
-        start_clipboard_monitoring()
+        from database import get_user_profile
+        clip_pref = get_user_profile("smart_clipboard_enabled")
+        if str(clip_pref).lower() != "false":
+            from src.core.clipboard import start_clipboard_monitoring
+            start_clipboard_monitoring()
+        else:
+            print("[Startup] Clipboard monitoring idle (smart_clipboard_enabled is false).")
     except Exception as e:
         print("Failed to start clipboard monitoring:", e)
 
@@ -137,9 +143,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to initialize MCP servers:", e)
     try:
-        from src.core.p2p import p2p_node
-        msg = p2p_node.start()
-        print(msg)
+        if os.environ.get("P2P_ENABLED", "false").lower() in ("true", "1", "yes"):
+            from src.core.p2p import p2p_node
+            msg = p2p_node.start()
+            print(msg)
+        else:
+            print("[Startup] P2P mesh sync idle (enable with P2P_ENABLED=true).")
     except Exception as e:
         print("Failed to start P2P sync node:", e)
     try:
@@ -148,10 +157,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print("Failed to start workspace watcher:", e)
     try:
-        from src.voice.wakeword import start_wakeword_monitoring
-        start_wakeword_monitoring()
+        from database import get_user_profile
+        wakeword_pref = get_user_profile("wakeword_enabled")
+        wakeword_env = os.environ.get("WAKEWORD_ENABLED", "false")
+        is_wakeword_on = str(wakeword_pref if wakeword_pref is not None else wakeword_env).lower() in ("true", "1", "yes")
+        if is_wakeword_on:
+            from src.voice.wakeword import start_wakeword_monitoring
+            start_wakeword_monitoring()
+            print("[Startup] Wake word monitoring active.")
+        else:
+            print("[Startup] Wake word monitoring idle (enable in Settings).")
     except Exception as e:
         print("Failed to start wake word monitoring:", e)
+
 
     if not os.environ.get("TELEGRAM_BOT_TOKEN"):
         print("[Startup] Telegram bridge disabled: TELEGRAM_BOT_TOKEN not set.")

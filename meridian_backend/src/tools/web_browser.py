@@ -56,6 +56,7 @@ _page_ctx: Any = None  # BrowserContext used to mint pages for attached sessions
 # Engine ids accepted by browser_open(browser=...).
 BROWSER_ENGINES = ("chromium", "chrome", "edge", "firefox", "attached")
 _session_cdp_url: Optional[str] = None  # CDP endpoint of an attached session
+_latest_frame_b64: Optional[str] = None  # Most recent base64 JPEG viewport frame
 
 
 def _meridian_profile_dir() -> str:
@@ -397,6 +398,25 @@ def browser_screenshot(output_path: str = "browser.png") -> str:
         return f"Captured annotated viewport screenshot and saved to '{output_path}'."
     except Exception as e:
         return f"Failed to capture browser screenshot: {e}"
+
+def browser_capture_b64() -> Optional[str]:
+    """Captures the active browser viewport as a base64-encoded JPEG image string."""
+    global _page, _latest_frame_b64
+    if not _page_alive():
+        return _latest_frame_b64
+    try:
+        import base64
+        img_bytes = _page.screenshot(type="jpeg", quality=60)
+        b64_str = base64.b64encode(img_bytes).decode("utf-8")
+        _latest_frame_b64 = f"data:image/jpeg;base64,{b64_str}"
+        return _latest_frame_b64
+    except Exception:
+        return _latest_frame_b64
+
+def get_latest_browser_frame() -> Optional[str]:
+    """Returns the most recently captured browser viewport frame."""
+    return _latest_frame_b64
+
 
 def _locate_element_by_vision(description: str) -> Optional[tuple]:
     """Uses moondream:1.8b to visually locate coordinates on current screenshot."""

@@ -130,6 +130,48 @@ def route_model_by_complexity(prompt: str, brain_model: str, model_source: str =
     return brain_model
 
 
+def resolve_route_for_task(
+    prompt: str,
+    default_model: str,
+    default_provider: str,
+    default_source: str = "cloud"
+) -> Tuple[str, str, str, str]:
+    """
+    Dynamically routes a prompt to a specialized model, provider, and source
+    based on cognitive mode classification and user multi-mode configuration.
+    Returns: (mode, resolved_model, resolved_provider, resolved_source)
+    """
+    from database import get_task_routing_enabled, get_task_model_routes
+    from src.core.mode import classify_mode
+
+    mode = classify_mode(prompt)
+    if not get_task_routing_enabled():
+        return mode, default_model, default_provider, default_source
+
+    routes = get_task_model_routes()
+    route = routes.get(mode)
+    if not route or not isinstance(route, dict):
+        return mode, default_model, default_provider, default_source
+
+    target_provider = (route.get("provider") or default_provider).lower().strip()
+    target_model = route.get("model") or default_model
+    target_source = route.get("source") or ("local" if target_provider == "ollama" else "cloud")
+
+    # If target provider is cloud/API, check if an API key exists
+    if target_source in ("cloud", "api") and target_provider not in ("ollama", "local"):
+        try:
+            from src.core.llm_provider import get_api_key
+            key = get_api_key(target_provider)
+            if not key:
+                print(f"[MultiMode Router] Missing API key for routed provider '{target_provider}'. Falling back to default '{default_provider}'.")
+                return mode, default_model, default_provider, default_source
+        except Exception as e:
+            print(f"[MultiMode Router] Error validating key for '{target_provider}': {e}. Falling back.")
+            return mode, default_model, default_provider, default_source
+
+    return mode, target_model, target_provider, target_source
+
+
 async def run_memory_summarization_background(ollama_host: str):
     """Distills episodic conversations into facts in the knowledge graph in the background."""
     try:

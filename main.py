@@ -16,17 +16,38 @@ backend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "meridian
 sys.path.insert(0, backend_dir)
 
 from src.core.loop import run_react_agent_loop
-from api import get_ollama_client_host
+from database import get_ollama_client_host
 
 async def run_cli_goal(goal: str, model: str):
+    from database import get_model_source, get_api_provider, get_brain_model
+    if not model:
+        try:
+            model = get_brain_model()
+        except Exception:
+            model = "llama3.2"
+
+    model_source = "local"
+    api_provider = "gemini"
+    try:
+        model_source = get_model_source()
+        api_provider = get_api_provider()
+    except Exception:
+        pass
+
     print(f"🚀 Initializing Meridian CLI Loop for goal: '{goal}'...")
-    print(f"🧠 Model: {model}")
+    print(f"🧠 Model: {model} (Source: {model_source}, Provider: {api_provider})")
     print("--------------------------------------------------")
     
     ollama_host = get_ollama_client_host()
     
     # Run the generator
-    async for event_str in run_react_agent_loop(goal, model, ollama_host):
+    async for event_str in run_react_agent_loop(
+        prompt=goal,
+        brain_model=model,
+        ollama_host=ollama_host,
+        model_source=model_source,
+        api_provider=api_provider,
+    ):
         # Parse SSE events for CLI output
         lines = event_str.split("\n")
         event_type = ""
@@ -78,7 +99,7 @@ async def run_cli_goal(goal: str, model: str):
                 approved = ans.lower().strip() == 'y'
                 
                 # Directly approve in local memory since loop is running in CLI process
-                from src.core.loop import active_confirmations
+                from src.core.confirmations import active_confirmations
                 conf_id = conf.get("id")
                 if conf_id in active_confirmations:
                     active_confirmations[conf_id]["approved"] = approved

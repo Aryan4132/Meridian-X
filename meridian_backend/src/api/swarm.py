@@ -4,7 +4,7 @@ import json
 import socket
 import logging
 import asyncio
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -18,6 +18,7 @@ class VerifyPairingRequest(BaseModel):
 
 class LobbyDebateRequest(BaseModel):
     prompt: str
+    model_routes: Optional[Dict[str, str]] = None
 
 class SwarmAutoFixRequest(BaseModel):
     target_path: Optional[str] = None
@@ -132,13 +133,17 @@ def post_verify_pairing(req: VerifyPairingRequest):
 async def lobby_debate(request: LobbyDebateRequest):
     try:
         from database import get_brain_model, get_user_profile
-        provider = get_user_profile("meridian_provider") or os.environ.get("MERIDIAN_PROVIDER", "ollama")
-        model = get_brain_model()
+        from src.core.swarm import resolve_role_model_and_provider
 
-        async def get_completion(prompt_text: str) -> str:
+        routes = request.model_routes or {}
+        coder_m, coder_p, _ = resolve_role_model_and_provider("bug_fixer", routes.get("coder"))
+        qa_m, qa_p, _ = resolve_role_model_and_provider("researcher", routes.get("qa"))
+        auditor_m, auditor_p, _ = resolve_role_model_and_provider("auditor", routes.get("auditor"))
+
+        async def get_completion(prompt_text: str, prov: str, mod: str) -> str:
             from src.core.llm_provider import generate_completion_stream
             parts = []
-            async for chunk in generate_completion_stream([{"role": "user", "content": prompt_text}], provider, model):
+            async for chunk in generate_completion_stream([{"role": "user", "content": prompt_text}], prov, mod):
                 if chunk.startswith("Error:"):
                     raise Exception(chunk)
                 stripped = chunk.strip()
@@ -153,7 +158,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Request: {request.prompt}\n\n"
             f"Output your implementation along with a brief description of your strategy. Do not wrap the final code yet."
         )
-        coder_msg = await get_completion(coder_prompt)
+        coder_msg = await get_completion(coder_prompt, coder_p, coder_m)
         
         qa_prompt = (
             f"You are the QA Tester agent in the developer sandbox. Review the Coder's implementation below "
@@ -161,7 +166,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Coder's response:\n{coder_msg}\n\n"
             f"Point out potential bugs, edge cases, incorrect assumptions, or performance issues in their code. Suggest fixes."
         )
-        qa_msg = await get_completion(qa_prompt)
+        qa_msg = await get_completion(qa_prompt, qa_p, qa_m)
         
         auditor_prompt = (
             f"You are the Security & Performance Auditor agent in the developer sandbox. Review the Coder's "
@@ -171,7 +176,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"Analyze security vulnerabilities (e.g. SQL injection, path traversal, buffer overflows), resource efficiency, "
             f"and overall readability. Propose optimizations."
         )
-        auditor_msg = await get_completion(auditor_prompt)
+        auditor_msg = await get_completion(auditor_prompt, auditor_p, auditor_m)
         
         final_prompt = (
             f"You are the Coder agent. Incorporate all feedback from the QA Tester and Auditor to "
@@ -182,7 +187,7 @@ async def lobby_debate(request: LobbyDebateRequest):
             f"- Auditor Security Review: {auditor_msg}\n\n"
             f"Provide your final explanation of the changes made, followed by the complete code block wrapped in standard markdown code fences (e.g. ```python ... ```)."
         )
-        final_msg = await get_completion(final_prompt)
+        final_msg = await get_completion(final_prompt, coder_p, coder_m)
         
         proposed_code = ""
         code_block_match = re.findall(r'```(?:python|javascript|typescript|json|html|css|bash|powershell|sql|rs|cpp|c)?\n(.*?)```', final_msg, re.DOTALL)
@@ -192,20 +197,25 @@ async def lobby_debate(request: LobbyDebateRequest):
             proposed_code = final_msg
             
         debate_logs = [
-            f"Coder: {coder_msg}",
-            f"QA Tester: {qa_msg}",
-            f"Auditor: {auditor_msg}",
+            f"Coder ({coder_m} on {coder_p}): {coder_msg}",
+            f"QA Tester ({qa_m} on {qa_p}): {qa_msg}",
+            f"Auditor ({auditor_m} on {auditor_p}): {auditor_msg}",
             f"Coder (Final): {final_msg}"
         ]
         decision = f"Consensus reached. Proposed code:\n{proposed_code}" if proposed_code else final_msg
 
         return {
             "status": "success",
+            "models": {
+                "coder": {"model": coder_m, "provider": coder_p},
+                "qa": {"model": qa_m, "provider": qa_p},
+                "auditor": {"model": auditor_m, "provider": auditor_p}
+            },
             "debate": [
-                {"agent": "Coder", "avatar": "👨‍💻", "message": coder_msg},
-                {"agent": "QA Tester", "avatar": "🧪", "message": qa_msg},
-                {"agent": "Auditor", "avatar": "🔍", "message": auditor_msg},
-                {"agent": "Coder (Final)", "avatar": "🚀", "message": final_msg}
+                {"agent": "Coder", "avatar": "👨‍💻", "model": coder_m, "message": coder_msg},
+                {"agent": "QA Tester", "avatar": "🧪", "model": qa_m, "message": qa_msg},
+                {"agent": "Auditor", "avatar": "🔍", "model": auditor_m, "message": auditor_msg},
+                {"agent": "Coder (Final)", "avatar": "🚀", "model": coder_m, "message": final_msg}
             ],
             "debate_logs": debate_logs,
             "decision": decision,
