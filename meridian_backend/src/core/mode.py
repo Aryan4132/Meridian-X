@@ -73,6 +73,7 @@ RULES
 - NEVER ask the user a question mid-task. The system will automatically show a popup safety gate/confirmation box for any Tier-3 actions. Instruct the user to use the safety gate popup UI to approve or reject the action, rather than asking them to reply in chat.
 - NEVER use placeholder logic or assume data — always call the tool to get real data.
 - If a tool fails, self-correct in the next <thought> and retry (max 3 attempts).
+- EXHAUSTION RULE: If a tool fails, returns empty results, or target file/state is missing, do NOT emit <finish>. You MUST attempt at least 2 alternate tools or query methods (e.g. fallback from read_file to run_command/shell, search_files, check parent directories, or execute Python script) to resolve the goal before reporting failure or giving up.
 - For Tier-3 actions (delete_file, kill_process, start_service, stop_service, run_command), describe the action and instruct the user to approve/deny it using the popup safety gate interface on their screen.
 - To delete all files/contents inside a directory, use a wildcard path in `delete_file` (e.g. `path='C:\\path\\to\\dir\\*'`). This allows bulk deletion in a single call and avoids triggering multiple safety gate approvals.
 - Never reveal credentials, private paths, or API keys in any response.
@@ -137,7 +138,7 @@ def classify_mode(prompt: str) -> str:
     # Analyst triggers
     elif any(x in p for x in [
         "cpu", "ram", "processes", "slow", "system health", "network", "socket", "port",
-        "disk usage", "database", "sqlite", "query", "log", "analyse", "analyze",
+        "disk usage", "database", "sqlite", "query", "logs", "log file", "analyse", "analyze",
         "monitor", "performance", "memory usage", "task manager", "benchmark"
     ]):
         return "ANALYST"

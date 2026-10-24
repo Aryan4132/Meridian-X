@@ -21,6 +21,7 @@ from src.tools.web_browser import (
     browser_highlight_elements,
     browser_click_element,
     browser_type_element,
+    browser_capture_b64,
     _page_alive,
 )
 
@@ -236,6 +237,7 @@ Do NOT include markdown formatting or explanations. JSON only:"""
                 "url": curr_url,
                 "title": curr_title,
                 "decision": decision,
+                "frame": browser_capture_b64(),
                 "timestamp": time.time(),
             }
 
@@ -290,6 +292,8 @@ Do NOT include markdown formatting or explanations. JSON only:"""
             "page_title": _get_page_title(),
             "result": final_result,
             "steps_log": history,
+            "history": history,
+            "last_frame": browser_capture_b64(),
         }
 
 

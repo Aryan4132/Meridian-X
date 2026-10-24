@@ -154,6 +154,13 @@
       "quantity": "2 cartons",
       "priority": "normal",
       "added_at": "2026-10-09 23:25"
+    },
+    {
+      "id": "g_1791812604",
+      "name": "Oat Milk",
+      "quantity": "2 cartons",
+      "priority": "normal",
+      "added_at": "2026-10-12 19:13"
     }
   ],
   "chores": [
@@ -306,6 +313,13 @@
     },
     {
       "id": "c_1791568501",
+      "title": "Water plants",
+      "assigned_to": "Self",
+      "due_date": "Today",
+      "completed": false
+    },
+    {
+      "id": "c_1791812604",
       "title": "Water plants",
       "assigned_to": "Self",
       "due_date": "Today",

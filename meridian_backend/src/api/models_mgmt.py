@@ -1,7 +1,7 @@
 import os
 import json
 import urllib.request
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -254,4 +254,62 @@ async def save_custom_llm_config_api(payload: CustomLLMConfigRequest):
         "message": "Custom AI model provider endpoint saved successfully.",
         "base_url": payload.base_url,
         "model": payload.model
+    }
+
+
+class TaskRoutesPayload(BaseModel):
+    enabled: bool
+    routes: Dict[str, Any]
+
+class TestTaskRoutePayload(BaseModel):
+    prompt: str
+
+@router.get("/api/settings/task-routes")
+def get_task_routes_api():
+    from database import get_task_routing_enabled, get_task_model_routes, DEFAULT_TASK_ROUTES
+    return {
+        "status": "success",
+        "enabled": get_task_routing_enabled(),
+        "routes": get_task_model_routes(),
+        "default_routes": DEFAULT_TASK_ROUTES
+    }
+
+@router.post("/api/settings/task-routes")
+def save_task_routes_api(payload: TaskRoutesPayload):
+    from database import set_task_routing_enabled, set_task_model_routes
+    set_task_routing_enabled(payload.enabled)
+    set_task_model_routes(payload.routes)
+    return {
+        "status": "success",
+        "enabled": payload.enabled,
+        "routes": payload.routes
+    }
+
+@router.post("/api/settings/task-routes/test")
+def test_task_route_api(payload: TestTaskRoutePayload):
+    from database import get_brain_model, get_api_provider, get_model_source
+    from src.core.loop_planning import resolve_route_for_task
+    from src.core.mode import classify_mode
+
+    mode = classify_mode(payload.prompt)
+    default_model = get_brain_model() or "default"
+    default_provider = get_api_provider() or "ollama"
+    default_source = get_model_source() or "cloud"
+
+    resolved_mode, target_model, target_provider, target_source = resolve_route_for_task(
+        prompt=payload.prompt,
+        default_model=default_model,
+        default_provider=default_provider,
+        default_source=default_source
+    )
+
+    is_fallback = (target_model, target_provider, target_source) == (default_model, default_provider, default_source)
+
+    return {
+        "status": "success",
+        "classified_mode": resolved_mode,
+        "target_model": target_model,
+        "target_provider": target_provider,
+        "target_source": target_source,
+        "is_fallback": is_fallback
     }

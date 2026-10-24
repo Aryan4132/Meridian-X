@@ -385,4 +385,76 @@
 - [x] Task 33.5: Run pytest verification suite and verify all tests pass.
 - [x] Task 33.6: Perform code review and simplification pass.
 
+## Task 34: Full Code Audit Bug Remediation & Resilience Hardening
 
+- [x] Task 34.1: Write reproduction and regression test suite in `meridian_backend/tests/test_audit_bugfixes.py` covering:
+  - Non-streaming SSE text accumulation with multiline output and JSON responses
+  - Concurrent Tier-0 read-only tool failures avoiding ToT backtrack
+  - LLM linter responses ("No issues detected.", "OK", versus syntax warnings)
+  - Approval gate dangerous command checks for `shell`, `terminal`, `nl_to_shell`
+  - Thread-safe stream queue with backpressure in `async_iter_stream`
+- [x] Task 34.2: Fix `meridian_backend/src/api/chat.py` non-streaming SSE parsing and accumulation.
+- [x] Task 34.3: Fix `meridian_backend/src/core/loop_dispatcher.py` to isolate concurrent read-only tool failures from ToT backtrack.
+- [x] Task 34.4: Fix `meridian_backend/src/core/loop_executor.py` lint validation logic to eliminate false positives.
+- [x] Task 34.5: Fix `meridian_backend/src/core/loop.py` temporary system message cleanup using identity-based tracking.
+- [x] Task 34.6: Fix `meridian_backend/src/core/confirmations.py` approval gate to cover all shell aliases, and module-level lock.
+- [x] Task 34.7: Fix `meridian_backend/src/core/loop_stream.py` to use `asyncio.run_coroutine_threadsafe(queue.put(...), loop)` in `async_iter_stream`.
+- [x] Task 34.8: Run pytest verification suite and ensure 100% passing tests.
+- [x] Task 34.9: Perform code review and simplification pass.
+
+## Task 35: Exhaustive Fallback & Anti-Surrender Resilience Engine
+
+- [x] Task 35.1: Write failing reproduction/unit tests in `meridian_backend/tests/test_exhaustive_fallback.py` covering:
+  - Turn limit defaults (10 turns instead of 1 when autonomous mode is false)
+  - Granular retry budget hashing by tool name + arguments
+  - Imperative ToT backtrack observations forbidding early `<finish>`
+  - MCTS pruning threshold lowered and single candidate bypass
+  - Anti-surrender exhaustion rule in system prompt
+  - Wake word multi-engine fallback on missing ONNX model
+- [x] Task 35.2: Update `meridian_backend/src/core/loop.py` turn cap default from 1 to 10 for multi-step fallback exploration.
+- [x] Task 35.3: Update `meridian_backend/src/core/mode.py` system prompt template with the EXHAUSTION RULE.
+- [x] Task 35.4: Update `meridian_backend/src/core/loop_dispatcher.py`:
+  - Granular retry budgets tracked by `(session_id, tool_name, args_hash)`
+  - MCTS threshold set to 0.15 and bypass if single candidate
+  - Imperative anti-surrender ToT backtrack observation
+- [x] Task 35.5: Update `meridian_backend/src/voice/wakeword.py`:
+  - Graceful fallback cascade to built-in openWakeWord or Silero VAD without disabling monitoring
+- [x] Task 35.6: Run pytest test suite and ensure 100% pass rate.
+- [x] Task 35.7: Senior code review and code simplification pass.
+
+## Task 36: Voice Pipeline Hardening & Neural VAD Integration
+
+- [x] Task 36.1: Add unit tests in `meridian_backend/tests/test_voice_hardening.py` covering:
+  - Neural Silero VAD evaluation fallback in wakeword loop
+  - Dynamic input device resolution with fallback to default device
+  - Cooldown debounce preventing duplicate triggers
+  - Continuous window speech extension
+- [x] Task 36.2: Implement `get_input_device_index()` in `meridian_backend/src/voice/wakeword.py` with device fallback.
+- [x] Task 36.3: Implement `extend_continuous_window()` in `meridian_backend/src/voice/wakeword.py`.
+- [x] Task 36.4: Integrate `get_silero_detector()` and post-trigger debounce cooldown in `_listen_loop()` in `meridian_backend/src/voice/wakeword.py`.
+- [x] Task 36.5: Run pytest test suite to verify tests pass.
+- [x] Task 36.6: Code review and simplification pass.
+
+## Task 37: System-Wide Reliability, Tool Output Budgeting & Parity Hardening
+
+- [x] Task 37.1: Write failing unit tests in `meridian_backend/tests/test_system_hardening.py` covering:
+  - `truncate_tool_observation()` head/tail truncation on large outputs
+  - `sanitize_tool_args_str()` auto-healing Python dict literals (`True`, `False`, `None`, single quotes)
+  - `stop_active_tts()` invocation on wakeword trigger and barge-in
+  - CLI model provider parity resolution
+- [x] Task 37.2: Implement `sanitize_tool_args_str()` in `meridian_backend/src/core/loop_executor.py` and invoke before LLM critique.
+- [x] Task 37.3: Implement `truncate_tool_observation()` in `meridian_backend/src/core/loop_dispatcher.py` for concurrent and sequential tool observations.
+- [x] Task 37.4: Hook `stop_active_tts()` on wakeword detection in `src/voice/wakeword.py` and in `interrupt_agent_loop()` in `src/core/loop.py`.
+- [x] Task 37.5: Update `main.py` CLI to resolve `model_source`, `api_provider`, and default model from database.
+- [x] Task 37.6: Run pytest test suite to verify all tests pass.
+- [x] Task 37.7: Senior code review and code simplification pass.
+
+## Task 38: Multi-Mode Dynamic Task & Provider Routing
+
+- [x] Task 38.1: Write comprehensive unit tests in `meridian_backend/tests/test_multimode_routing.py` covering database persistence, mode routing resolution, provider key fallback, and API endpoint schemas.
+- [x] Task 38.2: Implement database methods in `meridian_backend/database.py`: `get_task_routing_enabled()`, `set_task_routing_enabled()`, `get_task_model_routes()`, `set_task_model_routes()`.
+- [x] Task 38.3: Implement `resolve_route_for_task()` in `meridian_backend/src/core/loop_planning.py` with provider key validation and graceful fallback.
+- [x] Task 38.4: Hook `resolve_route_for_task()` into `meridian_backend/src/core/loop.py` turn execution and emit model routing event/thought.
+- [x] Task 38.5: Add `GET /api/settings/task-routes`, `POST /api/settings/task-routes`, and `POST /api/settings/task-routes/test` in `meridian_backend/api.py`.
+- [x] Task 38.6: Build `meridian_frontend/src/views/settings/MultiModeTab.tsx` and integrate into `meridian_frontend/src/views/Settings.tsx` with master toggle, provider/model dropdowns, and interactive route simulator.
+- [x] Task 38.7: Run pytest test suite and frontend build check to verify 100% green verification gate.

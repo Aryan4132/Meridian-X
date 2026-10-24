@@ -272,16 +272,22 @@ def create_model_response_stream(
         pass
 
     if model_source == "local" or (api_provider or "").lower() == "ollama":
+        # ANTI-HALLUCINATION: Stop tokens ensure local 7B/8B models stop generation
+        # immediately when closing a tool call tag or trying to fake observations.
+        options = {
+            "temperature": 0.6,
+            "repeat_penalty": 1.15,
+            "top_p": 0.9,
+            "num_ctx": 8192,
+            "stop": ["</call>", "</observation>"]
+        }
         return client.chat(
             model=active_model,
             messages=history,
             stream=True,
-            options={
-                "temperature": 0.7,
-                "repeat_penalty": 1.15,
-                "top_p": 0.9
-            }
+            options=options
         )
+
 
     from src.core.llm_provider import get_api_key
     from src.core.llm_clients import get_cached_openai_client, get_cached_anthropic_client
@@ -362,20 +368,18 @@ async def async_iter_stream(stream: Any) -> AsyncGenerator[Any, None]:
     def _producer():
         try:
             for item in stream:
-                while True:
-                    try:
-                        loop.call_soon_threadsafe(queue.put_nowait, item)
-                        break
-                    except asyncio.QueueFull:
-                        time.sleep(0.01)
+                future = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
+                future.result()
         except Exception as exc:
             try:
-                loop.call_soon_threadsafe(queue.put_nowait, {"error": str(exc)})
+                future = asyncio.run_coroutine_threadsafe(queue.put({"error": str(exc)}), loop)
+                future.result()
             except Exception:
                 pass
         finally:
             try:
-                loop.call_soon_threadsafe(queue.put_nowait, _END)
+                future = asyncio.run_coroutine_threadsafe(queue.put(_END), loop)
+                future.result()
             except Exception:
                 pass
 

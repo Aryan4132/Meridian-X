@@ -88,8 +88,13 @@ def get_session_interrupt_event(session_id: str = "default") -> threading.Event:
 
 
 def interrupt_agent_loop(session_id: Optional[str] = None):
-    """Signal active agent loop(s) to stop at the next safe checkpoint."""
+    """Signal active agent loop(s) to stop at the next safe checkpoint and silence TTS."""
     _interrupt_event.set()
+    try:
+        from src.voice.tts import stop_active_tts
+        stop_active_tts()
+    except Exception:
+        pass
     with _session_interrupt_lock:
         if session_id:
             if session_id in _session_interrupts:
@@ -181,6 +186,29 @@ async def run_react_agent_loop(
 
     from src.core.mode import build_system_prompt, detect_user_language, classify_mode
     detected_mode = classify_mode(prompt)
+
+    # Dynamic multi-mode routing
+    try:
+        from src.core.loop_planning import resolve_route_for_task
+        mode, routed_model, routed_prov, routed_src = resolve_route_for_task(
+            prompt=prompt,
+            default_model=brain_model,
+            default_provider=api_provider,
+            default_source=model_source,
+        )
+        detected_mode = mode
+        if (routed_model, routed_prov, routed_src) != (brain_model, api_provider, model_source):
+            yield sse_event("thought", json.dumps({
+                "type": "planning",
+                "text": f"[Multi-Mode Router] {detected_mode} task routed to {routed_prov.upper()} ({routed_model}) [{routed_src}].",
+                "tool": "multi_mode_router"
+            }))
+            brain_model = routed_model
+            api_provider = routed_prov
+            model_source = routed_src
+    except Exception as e:
+        print("[Multi-Mode] Route resolution warning:", e)
+
     tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt)
 
     # Load workspace config overrides
@@ -203,7 +231,7 @@ async def run_react_agent_loop(
 
     try:
         from database import get_autonomous_mode
-        max_turns = 25 if get_autonomous_mode() else 1
+        max_turns = 25 if get_autonomous_mode() else 10
     except Exception:
         max_turns = 20
 
@@ -259,7 +287,7 @@ async def run_react_agent_loop(
             else:
                 is_verified, warning_msg = True, ""
 
-            temp_sys_idx = -1
+            temp_sys_msg = None
             if not is_verified:
                 yield sse_event("thought", json.dumps({
                     "id": f"self-question-{turn}-{time.time()}",
@@ -267,8 +295,8 @@ async def run_react_agent_loop(
                     "text": "[Self-Questioning] Lack verified information for target path/dependencies. Injecting exploratory search gate...",
                     "status": "completed"
                 }))
-                history.append({"role": "user", "content": f"[SYSTEM — Self-Questioning Gate Warning]: {warning_msg}"})
-                temp_sys_idx = len(history) - 1
+                temp_sys_msg = {"role": "user", "content": f"[SYSTEM — Self-Questioning Gate Warning]: {warning_msg}"}
+                history.append(temp_sys_msg)
 
             # Dynamic VRAM/RAM Offloading Scheduler
             vram_load = get_gpu_vram_usage()
@@ -357,9 +385,9 @@ async def run_react_agent_loop(
                     return
 
                 if _interrupt_event.is_set():
-                    if temp_sys_idx != -1 and temp_sys_idx < len(history):
-                        history.pop(temp_sys_idx)
-                        temp_sys_idx = -1
+                    if temp_sys_msg is not None and temp_sys_msg in history:
+                        history.remove(temp_sys_msg)
+                        temp_sys_msg = None
                     yield sse_event("thought", json.dumps({"type": "planning", "text": "Voice barge-in detected. Interrupting execution.", "status": "completed"}))
                     return
 
@@ -403,9 +431,9 @@ async def run_react_agent_loop(
                         executed_tools_all_turns.append(event["name"])
                         calls_to_execute.append((event["name"], event["args"]))
 
-            if temp_sys_idx != -1 and temp_sys_idx < len(history):
-                history.pop(temp_sys_idx)
-                temp_sys_idx = -1
+            if temp_sys_msg is not None and temp_sys_msg in history:
+                history.remove(temp_sys_msg)
+                temp_sys_msg = None
 
             if calls_to_execute:
                 turn_state = {
@@ -470,10 +498,12 @@ async def run_react_agent_loop(
         try:
             from database import get_sqlite_conn
             conn = get_sqlite_conn()
-            cursor = conn.cursor()
-            cursor.execute("SELECT COUNT(*) FROM conversations")
-            total_rows = cursor.fetchone()[0]
-            conn.close()
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM conversations")
+                total_rows = cursor.fetchone()[0]
+            finally:
+                conn.close()
             if total_rows >= 10:
                 asyncio.create_task(run_memory_summarization_background(ollama_host))
         except Exception as e:

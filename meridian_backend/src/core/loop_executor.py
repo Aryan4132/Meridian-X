@@ -25,7 +25,40 @@ def clean_final_text(text: str) -> str:
     return text.strip()
 
 
-def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama.Client, model_source: str = "local") -> Tuple[bool, str, str]:
+def sanitize_tool_args_str(args_str: str) -> str:
+    """Auto-heals Python dictionary syntax, single quotes, and Python literals into valid JSON."""
+    cleaned = (args_str or "").strip()
+    if not cleaned or cleaned == "{}":
+        return "{}"
+    try:
+        json.loads(cleaned)
+        return cleaned
+    except Exception:
+        pass
+
+    # Try ast.literal_eval for Python dictionary literals
+    try:
+        evaluated = ast.literal_eval(cleaned)
+        if isinstance(evaluated, dict):
+            return json.dumps(evaluated)
+    except Exception:
+        pass
+
+    # Regex heuristic for single quotes and Python booleans/None
+    try:
+        repaired = re.sub(r"'([^'\\]*(?:\\.[^'\\]*)*)'", r'"\1"', cleaned)
+        repaired = re.sub(r'\bTrue\b', 'true', repaired)
+        repaired = re.sub(r'\bFalse\b', 'false', repaired)
+        repaired = re.sub(r'\bNone\b', 'null', repaired)
+        json.loads(repaired)
+        return repaired
+    except Exception:
+        pass
+
+    return args_str
+
+
+def critique_and_correct_tool_call(tool_name: str, args_str: str, client: Optional[Any] = None, model_source: str = "local") -> Tuple[bool, str, str]:
     """Inspects tool signature and code blocks locally/cloud to auto-correct errors."""
     try:
         if tool_name not in TOOL_REGISTRY:
@@ -34,6 +67,7 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
         tool_meta = TOOL_REGISTRY[tool_name]
         func = tool_meta["func"]
         
+        args_str = sanitize_tool_args_str(args_str)
         try:
             args = json.loads(args_str) if args_str.strip() else {}
         except Exception as e:
@@ -172,7 +206,16 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: ollama
                 try:
                     from src.core.llm_provider import call_llm_sync
                     lint_resp = call_llm_sync([{"role": "user", "content": lint_prompt}], model=get_auditor_model()).strip()
-                    if "OK" not in lint_resp.upper() and len(lint_resp) > 5:
+                    clean_resp = lint_resp.upper()
+                    is_clean = (
+                        clean_resp in ("OK", "OK.", "LOOKS OK", "ALL OK", "NO ISSUES", "NO ISSUES DETECTED", "NO ISSUES DETECTED.", "CODE IS VALID")
+                        or clean_resp.startswith("OK")
+                    )
+                    has_explicit_issues = any(
+                        marker in clean_resp
+                        for marker in ("ERROR:", "WARNING:", "UNDEFINED NAME", "SYNTAXERROR", "CRITICAL ISSUE", "LOGIC ERROR")
+                    )
+                    if not is_clean and (has_explicit_issues or ("OK" not in clean_resp and len(clean_resp) > 25)):
                         return False, args_str, f"Python Lint Warning: Compiler warning or logic error detected in code block:\n{lint_resp}"
                 except Exception:
                     pass

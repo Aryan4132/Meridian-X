@@ -486,35 +486,60 @@ class StreamingXMLParser:
                     break
                     
             elif self.state == "call":
-                tag = f"</call:{self.current_call_name}>"
-                end_pos = self.buffer.find(tag)
+                tag1 = f"</call:{self.current_call_name}>"
+                tag2 = "</call>"
+                end_pos1 = self.buffer.find(tag1)
+                end_pos2 = self.buffer.find(tag2)
+                end_pos = -1
+                tag_len = 0
+                if end_pos1 != -1 and (end_pos2 == -1 or end_pos1 <= end_pos2):
+                    end_pos = end_pos1
+                    tag_len = len(tag1)
+                elif end_pos2 != -1:
+                    end_pos = end_pos2
+                    tag_len = len(tag2)
+
                 if end_pos != -1:
                     self.current_call_args += self.buffer[:end_pos]
-                    self.buffer = self.buffer[end_pos + len(tag):]
+                    self.buffer = self.buffer[end_pos + tag_len:]
                     events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
                     self.state = "idle"
                 else:
-                    implicit_tags = ["<thought>", "<finish>", "<call:"]
+                    # ANTI-HALLUCINATION: If the model emits simulated observations or moves to another tag,
+                    # cut off the call args immediately and purge the simulated observation.
+                    implicit_tags = ["<thought>", "<finish>", "<call:", "<observation"]
                     found_implicit = -1
+                    found_tag = ""
                     for itag in implicit_tags:
                         pos = self.buffer.find(itag)
                         if pos != -1:
                             if found_implicit == -1 or pos < found_implicit:
                                 found_implicit = pos
+                                found_tag = itag
                                 
                     if found_implicit != -1:
                         self.current_call_args += self.buffer[:found_implicit]
-                        self.buffer = self.buffer[found_implicit:]
+                        # If the model tried to simulate an observation, drop through to end of observation block
+                        if found_tag == "<observation":
+                            obs_end = self.buffer.find("</observation", found_implicit)
+                            if obs_end != -1:
+                                close_gt = self.buffer.find(">", obs_end)
+                                self.buffer = self.buffer[close_gt + 1:] if close_gt != -1 else ""
+                            else:
+                                self.buffer = ""
+                        else:
+                            self.buffer = self.buffer[found_implicit:]
                         events.append({"type": "call", "name": self.current_call_name, "args": self.current_call_args})
                         self.state = "idle"
                         continue
                         
                     match_len = 0
-                    for i in range(len(tag) - 1, 0, -1):
-                        prefix = tag[:i]
-                        if self.buffer.endswith(prefix):
-                            match_len = i
-                            break
+                    for tag in [tag1, tag2]:
+                        for i in range(len(tag) - 1, 0, -1):
+                            prefix = tag[:i]
+                            if self.buffer.endswith(prefix) and i > match_len:
+                                match_len = i
+
                             
                     if match_len > 0:
                         consume_part = self.buffer[:-match_len]

@@ -8,7 +8,7 @@ import os
 import asyncio
 import json
 import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from src.core.loop_stream import format_sse_event
 
 
@@ -53,6 +53,44 @@ SWARM_ROLE_MODELS = {
 }
 
 
+def resolve_role_model_and_provider(role: str, custom_model: Optional[str] = None) -> Tuple[str, str, str]:
+    """
+    Resolves specialized model, provider, and model_source for a subagent role.
+    Returns: (model_name, provider, model_source)
+    """
+    role = role.lower()
+    model = custom_model or SWARM_ROLE_MODELS.get(role, "llama3.2")
+
+    from src.core.llm_auth import get_api_key
+
+    mod_lower = model.lower()
+    if "/" in mod_lower:
+        prov, m = mod_lower.split("/", 1)
+        if prov in ("anthropic", "gemini", "openai", "deepseek", "groq", "openrouter", "ollama"):
+            return m, prov, prov
+
+    if "claude" in mod_lower:
+        provider = "anthropic"
+        source = "anthropic"
+    elif "gemini" in mod_lower:
+        provider = "gemini"
+        source = "gemini"
+    elif "deepseek" in mod_lower:
+        provider = "deepseek"
+        source = "deepseek"
+    elif "gpt-" in mod_lower or "o1" in mod_lower or "o3" in mod_lower:
+        provider = "openai"
+        source = "openai"
+    elif "groq" in mod_lower:
+        provider = "groq"
+        source = "groq"
+    else:
+        provider = "ollama"
+        source = "ollama"
+
+    return model, provider, source
+
+
 class SwarmAgent:
     """Represents an autonomous specialized subagent in the swarm."""
 
@@ -61,7 +99,13 @@ class SwarmAgent:
         current_date_str = datetime.now().strftime("%Y-%m-%d")
         self.role = role.lower()
         self.name = name or f"Swarm-{role.capitalize()}Agent"
-        self.model = model or SWARM_ROLE_MODELS.get(self.role)
+        
+        # Heterogeneous model and provider resolution
+        model_name, provider, source = resolve_role_model_and_provider(self.role, custom_model=model)
+        self.model = model_name
+        self.provider = provider
+        self.model_source = source
+
         base_prompt = SWARM_ROLE_PROMPTS.get(
             self.role,
             f"You are a specialized Swarm Agent focused on {self.role} tasks."
@@ -79,14 +123,14 @@ class SwarmAgent:
         Invokes run_react_agent_loop(is_worker=True) with role model binding.
         """
         start_time = time.time()
-        print(f"[Swarm Engine] Starting subagent '{self.name}' (Role: {self.role}, Model: {self.model or 'default'})...")
+        print(f"[Swarm Engine] Starting subagent '{self.name}' (Role: {self.role}, Model: {self.model or 'default'}, Provider: {self.provider})...")
 
         try:
             from src.core.loop import run_react_agent_loop
             from database import get_brain_model, get_model_source, get_ollama_client_host
 
             brain_model = self.model or get_brain_model()
-            model_source = get_model_source()
+            model_source = self.model_source or get_model_source()
             ollama_host = get_ollama_client_host()
 
 

@@ -174,5 +174,13 @@
     "due_day_of_month": 15,
     "category": "entertainment",
     "created_at": "2026-10-09 23:25:00"
+  },
+  {
+    "id": "bill_1791812603",
+    "payee": "Netflix",
+    "amount": 19.99,
+    "due_day_of_month": 15,
+    "category": "entertainment",
+    "created_at": "2026-10-12 19:13:23"
   }
 ]

@@ -7,13 +7,10 @@ import asyncio
 from typing import Dict, Any, Tuple, Optional
 
 active_confirmations: Dict[str, Any] = {}
-_confirmations_lock: Optional[asyncio.Lock] = None
+_confirmations_lock: asyncio.Lock = asyncio.Lock()
 
 
 def get_confirmations_lock() -> asyncio.Lock:
-    global _confirmations_lock
-    if _confirmations_lock is None:
-        _confirmations_lock = asyncio.Lock()
     return _confirmations_lock
 
 
@@ -40,10 +37,13 @@ async def pop_confirmation(conf_id: str) -> bool:
         return conf_data.get("approved", False)
 
 
-def check_approval_gate(tool_name: str, kwargs: Dict[str, Any]) -> Tuple[bool, str]:
+def check_approval_gate(tool_name: str, kwargs: Optional[Dict[str, Any]] = None, **extra: Any) -> Tuple[bool, str]:
     """Evaluates whether a tool execution requires human approval gate (PL-12)."""
+    args_map = dict(kwargs or {})
+    args_map.update(extra)
+
     # Check force flag or env override or Level 0 Unrestricted Mode
-    if kwargs.get("force") or kwargs.get("bypass_guard") or os.getenv("MERIDIAN_DISABLE_SYSTEM_GUARD") == "1":
+    if args_map.get("force") or args_map.get("bypass_guard") or os.getenv("MERIDIAN_DISABLE_SYSTEM_GUARD") == "1":
         return False, ""
 
     try:
@@ -55,8 +55,9 @@ def check_approval_gate(tool_name: str, kwargs: Dict[str, Any]) -> Tuple[bool, s
 
     if tool_name in ("delete_file", "db_execute", "kill_process"):
         return True, f"Action '{tool_name}' requires explicit user confirmation."
-    if tool_name in ("run_command", "nl_run"):
-        cmd = str(kwargs.get("command", "") or kwargs.get("natural_language", "")).lower()
+
+    if tool_name in ("run_command", "nl_run", "shell", "terminal", "nl_to_shell"):
+        cmd = str(args_map.get("command", "") or args_map.get("cmd", "") or args_map.get("natural_language", "")).lower()
         dangerous = ["rm ", "rmdir", "format ", "drop ", "del /", "kill ", "sudo "]
         if any(d in cmd for d in dangerous):
             return True, f"Potentially dangerous command detected ('{cmd}'). Explicit confirmation required."

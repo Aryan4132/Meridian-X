@@ -10,6 +10,7 @@ import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { API_BASE_URL } from '../config';
 import { streamingAudio } from '../services/streamingAudioPlayer';
+import CodeDiffViewer from '../components/ui/CodeDiffViewer';
 
 // Preprocessor for LaTeX math symbols, arrows, and formatting (e.g. \rightarrow, $\rightarrow$, \Rightarrow, \textbf)
 const preprocessLatex = (text: string): string => {
@@ -121,7 +122,28 @@ interface TimelineProps {
   onThoughtsUpdate: (feed: { thoughts: string[]; streaming: boolean }) => void;
 }
 
-// Collapsible ReAct thoughts (memoized to isolate re-renders during fast text streaming)
+// Helper to classify thought step type
+const getThoughtMeta = (text: string) => {
+  const t = text.toUpperCase();
+  if (t.includes('[PLANNING]') || t.includes('PLANNING')) {
+    return { label: 'PLAN', color: '#6366f1', bg: 'rgba(99, 102, 241, 0.15)' };
+  }
+  if (t.includes('[EXEC]') || t.includes('EXECUTING') || t.includes('<CALL:')) {
+    return { label: 'EXEC', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)' };
+  }
+  if (t.includes('[OBSERVATION]') || t.includes('OBSERVATION') || t.includes('<OBSERVATION>')) {
+    return { label: 'OBSERVE', color: '#10b981', bg: 'rgba(16, 185, 129, 0.15)' };
+  }
+  if (t.includes('[STATUS]')) {
+    return { label: 'STATUS', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.15)' };
+  }
+  if (t.includes('[WARNING]') || t.includes('ERROR:')) {
+    return { label: 'WARN', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)' };
+  }
+  return { label: 'STEP', color: 'var(--accent)', bg: 'color-mix(in srgb, var(--accent) 15%, transparent)' };
+};
+
+// Collapsible ReAct thoughts & step accordions
 const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts: string[] }) {
   const [open, setOpen] = useState(false);
   return (
@@ -130,20 +152,26 @@ const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts
       border: '1px solid var(--border-subtle)',
       borderRadius: 'var(--radius-sm)',
       overflow: 'hidden',
+      background: 'rgba(0, 0, 0, 0.2)'
     }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 6,
-          padding: '5px 10px', background: 'none', border: 'none', cursor: 'pointer',
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 10px', background: 'none', border: 'none', cursor: 'pointer',
           color: 'var(--accent)', fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 600,
         }}
       >
-        <motion.span animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.15 }} style={{ display: 'inline-flex' }}>
-          <ChevronRight size={11} />
-        </motion.span>
-        ReAct Thoughts ({thoughts.length})
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <motion.span animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.15 }} style={{ display: 'inline-flex' }}>
+            <ChevronRight size={11} />
+          </motion.span>
+          ReAct Reasoning Loop ({thoughts.length} steps)
+        </span>
+        <span style={{ fontSize: 9, opacity: 0.7, color: 'var(--text-dim)' }}>
+          {open ? 'Collapse' : 'Expand'}
+        </span>
       </button>
       <AnimatePresence initial={false}>
         {open && (
@@ -152,17 +180,200 @@ const ThoughtsBlock = React.memo(function ThoughtsBlock({ thoughts }: { thoughts
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             style={{ overflow: 'hidden' }}
           >
-            <ol style={{
-              margin: 0, padding: '6px 10px 8px 28px', borderTop: '1px solid var(--border-subtle)',
-              display: 'flex', flexDirection: 'column', gap: 4,
+            <div style={{
+              margin: 0, padding: '6px 10px 8px 10px', borderTop: '1px solid var(--border-subtle)',
+              display: 'flex', flexDirection: 'column', gap: 6,
             }}>
-              {thoughts.map((t, i) => (
-                <li key={i} style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: "'JetBrains Mono', monospace", lineHeight: 1.5, wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>{preprocessLatex(t)}</li>
-              ))}
-            </ol>
+              {thoughts.map((t, i) => {
+                const meta = getThoughtMeta(t);
+                return (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 8,
+                    fontSize: 11,
+                    color: 'var(--text-dim)',
+                    fontFamily: "'JetBrains Mono', monospace",
+                    lineHeight: 1.5,
+                    wordBreak: 'break-word',
+                    overflowWrap: 'anywhere',
+                    whiteSpace: 'pre-wrap',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(255, 255, 255, 0.02)'
+                  }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      color: meta.color,
+                      background: meta.bg,
+                      flexShrink: 0,
+                      marginTop: 1
+                    }}>
+                      {meta.label} #{i + 1}
+                    </span>
+                    <span style={{ flex: 1 }}>{preprocessLatex(t)}</span>
+                  </div>
+                );
+              })}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+});
+
+// MessageBody that renders markdown + syntax-highlighted diffs
+const MessageBody = React.memo(function MessageBody({ content }: { content: string }) {
+  if (!content) return null;
+
+  // Detect ```diff ... ``` or ```patch ... ``` blocks
+  const diffRegex = /```(?:diff|patch)\n([\s\S]*?)```/g;
+  if (!diffRegex.test(content)) {
+    return (
+      <div
+        className="markdown-content"
+        style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
+        dangerouslySetInnerHTML={renderMarkdown(content)}
+      />
+    );
+  }
+
+  diffRegex.lastIndex = 0;
+  const segments: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = diffRegex.exec(content)) !== null) {
+    const textBefore = content.substring(lastIndex, match.index);
+    if (textBefore.trim()) {
+      segments.push(
+        <div
+          key={`md-${lastIndex}`}
+          className="markdown-content"
+          style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
+          dangerouslySetInnerHTML={renderMarkdown(textBefore)}
+        />
+      );
+    }
+    const diffCode = match[1];
+    segments.push(
+      <CodeDiffViewer key={`diff-${match.index}`} diffText={diffCode} />
+    );
+    lastIndex = diffRegex.lastIndex;
+  }
+
+  const textAfter = content.substring(lastIndex);
+  if (textAfter.trim()) {
+    segments.push(
+      <div
+        key={`md-${lastIndex}`}
+        className="markdown-content"
+        style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
+        dangerouslySetInnerHTML={renderMarkdown(textAfter)}
+      />
+    );
+  }
+
+  return <div>{segments}</div>;
+});
+
+// Live Autonomous Browser-Use Viewport Card
+const BrowserLiveHUD = React.memo(function BrowserLiveHUD() {
+  const [frame, setFrame] = useState<string | null>(null);
+  const [active, setActive] = useState(false);
+  const [open, setOpen] = useState(true);
+
+  useEffect(() => {
+    let interval: any;
+    const checkFrame = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/browser/frame`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.frame) {
+            setFrame(data.frame);
+            setActive(!!data.active);
+          }
+        }
+      } catch {}
+    };
+
+    checkFrame();
+    interval = setInterval(checkFrame, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (!frame) return null;
+
+  return (
+    <div style={{
+      margin: '8px 0',
+      borderRadius: '8px',
+      border: '1px solid var(--border-subtle)',
+      background: 'rgba(12, 14, 20, 0.85)',
+      overflow: 'hidden'
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '5px 10px',
+        background: 'rgba(255, 255, 255, 0.03)',
+        borderBottom: open ? '1px solid var(--border-subtle)' : 'none',
+        fontSize: '11px',
+        color: 'var(--text-main)'
+      }}>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            background: 'none',
+            border: 'none',
+            color: 'var(--accent)',
+            cursor: 'pointer',
+            padding: 0,
+            fontWeight: 600,
+            fontSize: '11px'
+          }}
+        >
+          {open ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <span>Autonomous Browser Viewport</span>
+          {active && (
+            <span style={{
+              display: 'inline-block',
+              width: 6,
+              height: 6,
+              borderRadius: '50%',
+              background: '#10b981',
+              boxShadow: '0 0 6px #10b981'
+            }} />
+          )}
+        </button>
+      </div>
+      {open && (
+        <div style={{ padding: '6px', textAlign: 'center', background: '#000' }}>
+          <img
+            src={frame}
+            alt="Browser Viewport"
+            style={{
+              maxWidth: '100%',
+              maxHeight: '260px',
+              borderRadius: '4px',
+              objectFit: 'contain',
+              display: 'block',
+              margin: '0 auto'
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 });
@@ -968,11 +1179,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
                     )}
 
                     {msg.thoughts?.length > 0 && <ThoughtsBlock thoughts={msg.thoughts} />}
-                    <div
-                      className="markdown-content"
-                      style={{ fontSize: 13, color: 'var(--text-main)', margin: 0, lineHeight: 1.6 }}
-                      dangerouslySetInnerHTML={renderMarkdown(msg.content)}
-                    />
+                    <MessageBody content={msg.content} />
                     {msg.confirmation && <SafetyGate gate={msg.confirmation} onConfirm={handleConfirm} />}
                     {msg.proposedHeal && <HealBlock heal={msg.proposedHeal} onApply={handleApplyHeal} />}
                   </div>
@@ -1099,16 +1306,13 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
               )}
 
               {streaming && (
-                <div
-                  className="markdown-content"
-                  style={{ fontSize: 13, color: 'var(--text-main)', margin: '6px 0 0', lineHeight: 1.6 }}
-                  dangerouslySetInnerHTML={renderMarkdown(streaming)}
-                />
+                <MessageBody content={streaming} />
               )}
             </div>
           </motion.div>
         )}
 
+        <BrowserLiveHUD />
         <div ref={chatEndRef} />
       </div>
 

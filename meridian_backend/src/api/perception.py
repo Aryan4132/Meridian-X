@@ -31,6 +31,17 @@ class SosTriggerRequest(BaseModel):
     trigger_phrase: Optional[str] = "emergency help"
     contacts: Optional[Any] = None
 
+class TerminalCrashRequest(BaseModel):
+    command: str
+    exit_code: Optional[int] = 1
+    stderr: Optional[str] = ""
+
+class ErrorSenseRequest(BaseModel):
+    app_name: Optional[str] = "Application"
+    error_type: Optional[str] = "Error"
+    error_text: str
+    suggested_fix: Optional[str] = None
+
 @router.post("/api/vision/screenshot")
 def api_vision_screenshot():
     temp_path = None
@@ -63,6 +74,45 @@ def api_vision_screenshot():
                 os.remove(temp_path)
             except Exception:
                 pass
+
+@router.get("/api/browser/frame")
+def api_browser_get_frame():
+    """Returns the most recent live base64 viewport frame of the autonomous browser."""
+    from src.tools.web_browser import get_latest_browser_frame, _page_alive
+    frame = get_latest_browser_frame()
+    return {
+        "status": "success",
+        "active": _page_alive(),
+        "frame": frame
+    }
+
+@router.post("/api/perception/terminal-crash")
+def api_perception_terminal_crash(req: TerminalCrashRequest):
+    """PL-04: Dispatches proactive nudge when a terminal process crashes."""
+    try:
+        from src.core.proactive import on_terminal_crash
+        on_terminal_crash(command=req.command, exit_code=req.exit_code or 1, stderr=req.stderr or "")
+        return {"status": "success", "command": req.command, "exit_code": req.exit_code}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/api/perception/error-sense")
+def api_perception_error_sense(req: ErrorSenseRequest):
+    """PL-03/PL-04: Bridges perceived screen/window errors to proactive nudge engine."""
+    try:
+        from src.core.proactive import publish_nudge_sync
+        publish_nudge_sync(
+            nudge_type="perceived_error",
+            title=f"⚠️ {req.error_type} in {req.app_name}",
+            message=f"{req.error_text}\n\nSuggested Fix: {req.suggested_fix}" if req.suggested_fix else req.error_text,
+            action_hint="1-Click Review Fix" if req.suggested_fix else "Investigate Error",
+            icon="🚨",
+            mascot_state="thinking",
+            action="auto_fix_error"
+        )
+        return {"status": "success", "app_name": req.app_name, "error_type": req.error_type}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @router.get("/api/perception/screen")
 async def api_perception_screen(prompt: Optional[str] = None):

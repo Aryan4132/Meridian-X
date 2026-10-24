@@ -13,6 +13,9 @@ Implement core enterprise-grade agent capabilities in Meridian-X:
 7. **Primary Autonomous Web Browser Engine**: Default agent browsing and research workflows to `BrowserUseAgent` (`browser_use_task`), utilizing Set-of-Marks visual DOM indexing and multi-step reasoning.
 8. **Retire Butler Music Player Tool**: Remove `play_youtube_music` and `verify_media_playing` from tool registry, routing general media hotkey actions strictly through `src.tools.system.control_media_playback`.
 9. **Best-in-Class Tool Consolidation**: Where multiple duplicate or overlapping tools exist across browser automation, code reviews, notifications, scheduling, clipboard, and search, standardize and route all calls to the best-performing, most resilient implementation.
+10. **Local Model Stopping Tokens & Anti-Hallucination**: Stop sequences (`stop=["</call>", "</call:"]`) and context window settings (`num_ctx: 8192`) on Ollama stream calls to eliminate simulated observation hallucinations.
+11. **Fast-Boot Lazy Daemon Lifecycles**: Guard wakeword audio listeners, P2P network threads, and clipboard monitors behind user preference toggles to achieve <1s backend boot time and <250MB idle RAM.
+
 
 ## Tech Stack
 
@@ -408,7 +411,8 @@ Drastically reduce voice roundtrip latency (<250ms TTFA output, <100ms input) an
 
 ### Phase 2 Refactoring Objectives
 
-Split oversized backend modules (>1,000 lines) into modular subpackages with pure separation of concerns and strict backward-compatible re-exports:rts:
+Split oversized backend modules (>1,000 lines) into modular subpackages with pure separation of concerns and strict backward-compatible re-exports:
+
 1. **`proactive.py` (1,360 lines) -> `src/core/proactive/` package**:
    - `ergonomics.py`: Focus guardian, eye-strain (20-20-20), posture, hydration reminders.
    - `commits.py`: Git commit whisperer, workspace change tracker, daily/evening review digests.
@@ -687,4 +691,130 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
 
 4. **Unit Verification Suite (`meridian_backend/tests/test_response_resilience.py`)**:
    - Add unit tests verifying prompt anti-hallucination directives, JSON repair of unescaped quotes, trailing bracket repair, and zero raw JSON leakage.
+
+---
+
+## Sub-Spec: Sprint 34 - Full Code Audit Bug Remediation & Resilience Hardening
+
+### Sprint 34 Objectives
+
+1. **Non-Streaming Endpoint SSE Accumulation Resilience (`meridian_backend/src/api/chat.py`)**:
+   - Properly parse SSE events by splitting on `\n\n` boundaries and extracting `event:` and `data:` components.
+   - For `event: text`, extract `"chat"` from parsed JSON payloads when emitted from `<finish>` turn completion, or append raw multiline chunks while preserving line breaks.
+   - Guard against non-text SSE events (errors, confirmations, suggestions) polluting conversational text.
+
+2. **Concurrent Read-Only Tool Isolation & Non-Backtracking (`meridian_backend/src/core/loop_dispatcher.py`)**:
+   - Prevent Tier-0 concurrent read-only tool failures from triggering Tree-of-Thoughts (`tot_failed = True`) backtracks.
+   - Preserve valid observations from concurrent tools that succeeded in the same batch.
+
+3. **LLM Linting False-Positive Elimination (`meridian_backend/src/core/loop_executor.py`)**:
+   - Replace brittle `"OK" not in lint_resp.upper()` with structured acceptance matching (`OK`, `NO ISSUES`, `CODE IS VALID`) and explicit error/warning keyword detection.
+
+4. **Race-Free Temporary System Message Cleanup (`meridian_backend/src/core/loop.py`)**:
+   - Replace stale integer index popping (`temp_sys_idx`) with safe identity-based message removal (`temp_sys_msg in history`).
+
+5. **Approval Gate Coverage for Shell Aliases (`meridian_backend/src/core/confirmations.py`)**:
+   - Expand `check_approval_gate` to check dangerous command patterns for `"shell"`, `"terminal"`, `"nl_to_shell"`, in addition to `"run_command"` and `"nl_run"`.
+   - Initialize `_confirmations_lock` deterministically at module level.
+
+6. **Thread-Safe Stream Backpressure in Async Queue (`meridian_backend/src/core/loop_stream.py`)**:
+   - Replace lossy `loop.call_soon_threadsafe(queue.put_nowait)` with `asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()` for true thread-safe backpressure without dropped tokens.
+
+---
+
+## Sub-Spec: Sprint 35 - Exhaustive Fallback & Anti-Surrender Resilience Engine
+
+### Sprint 35 Objectives
+
+1. **Interactive/CLI Turn Limit Elevation (`src/core/loop.py`)**:
+   - Raise default turn limit from `1` to `10` when autonomous mode is disabled, enabling multi-step fallback problem solving during interactive and CLI sessions.
+2. **Exhaustion & Anti-Surrender Prompt Directives (`src/core/mode.py`)**:
+   - Enforce an explicit EXHAUSTION RULE in system prompts: models must attempt at least 2 alternative tools/methods (e.g. `run_command`, `search_files`, python scripts) before giving up or concluding with `<finish>`.
+3. **Imperative ToT Backtrack Recovery (`src/core/loop_dispatcher.py`)**:
+   - Strengthen Tree-of-Thoughts backtrack observations with actionable, imperative directives preventing premature surrender and forcing alternative tool selection.
+4. **MCTS Pruning Threshold Optimization (`src/core/loop_dispatcher.py`)**:
+   - Lower MCTS branch pruning cutoff from `0.35` to `0.15` and skip pruning if only a single candidate action is proposed.
+5. **Granular Per-Tool Argument Retry Budgets (`src/core/loop_dispatcher.py`)**:
+   - Track tool retries by signature `(session_id, tool_name, args_hash)` rather than just `(session_id, tool_name)`, allowing agents to try the same tool with different arguments.
+6. **Graceful Wake Word Fallback Cascade (`src/voice/wakeword.py`)**:
+   - If custom ONNX model is missing or fails to load, gracefully fall back to pre-trained built-in models or Silero VAD energy detection without shutting down monitoring.
+
+---
+
+## Sub-Spec: Sprint 36 - Voice Pipeline Hardening & Neural VAD Integration
+
+### Sprint 36 Objectives
+
+1. **Neural Silero VAD Integration (`src/voice/wakeword.py`)**:
+   - Wire `get_silero_detector()` into wakeword fallback, evaluating audio chunks with real neural speech probability (0.0 to 1.0) and graceful heuristic fallback.
+2. **Audio Input Device Failover & User Mic Selection (`src/voice/wakeword.py`)**:
+   - Query user profile `audio_input_device`. Fallback to system default input device if missing or invalid, avoiding stream crashes when USB/BT mics toggle.
+3. **Post-Trigger Debounce & Buffer Cooldown (`src/voice/wakeword.py`)**:
+   - Implement cooldown timestamp to prevent echo double-triggers after waking.
+4. **Dynamic Speech Activity Continuous Window Extension (`src/voice/wakeword.py`)**:
+   - Extend continuous window duration (`extend_continuous_window`) dynamically when speech activity is detected.
+
+---
+
+## Sub-Spec: Sprint 37 - System-Wide Reliability, Tool Output Budgeting & Parity Hardening
+
+### Sprint 37 Objectives
+
+1. **CLI Cloud/Local Configuration Parity (`main.py`)**:
+   - Resolve active `model_source` and `api_provider` from SQLite database, enabling CLI execution against cloud providers (Gemini, Claude, OpenAI) when configured.
+   - Fall back to `get_brain_model()` if CLI `--model` argument is empty.
+2. **Safe Tool Output Truncator Guard (`src/core/loop_dispatcher.py`)**:
+   - Add `truncate_tool_observation()` to bound single tool outputs to 12,000 characters, retaining head and tail while omitting the middle to prevent context window blowout.
+3. **Immediate TTS Audio Interrupt on Barge-in (`src/voice/wakeword.py` & `src/core/loop.py`)**:
+   - Call `stop_active_tts()` when wake word triggers or agent loop receives interrupt signal, instantly killing audio playback.
+4. **Fuzzy Python/JSON Tool Call Auto-Healer (`src/core/loop_executor.py`)**:
+   - Implement `sanitize_tool_args_str()` with AST literal evaluation and Python dictionary repair (`True`/`False`/`None` and single quotes), auto-healing formatting mistakes before LLM critique.
+
+---
+
+## Sub-Spec: Sprint 38 - Multi-Mode Dynamic Task & Provider Routing
+
+### Sprint 38 Objectives
+
+1. **Database Task Route Configuration (`meridian_backend/database.py`)**:
+   - Implement `get_task_routing_enabled()` and `set_task_routing_enabled(enabled: bool)`.
+   - Implement `get_task_model_routes()` and `set_task_model_routes(routes: Dict[str, Dict[str, str]])` storing custom provider/model/source mappings per cognitive mode (`ENGINEER`, `REVIEWER`, `RESEARCHER`, `OPERATOR`, `ANALYST`, `PROACTIVE`).
+2. **Task-Based Dynamic Turn Router (`src/core/loop_planning.py`)**:
+   - Implement `resolve_route_for_task(prompt, brain_model, api_provider, model_source) -> Tuple[str, str, str, str]`.
+   - Matches prompt against `classify_mode()` and swaps model and provider dynamically per task when task routing is enabled.
+3. **Agent Loop Multi-Provider Integration (`src/core/loop.py`)**:
+   - Call `resolve_route_for_task()` in `run_react_agent_loop` and emit SSE thought notice when task routing activates.
+4. **Task Routes REST Endpoints (`meridian_backend/api.py`)**:
+   - Expose `GET /api/settings/task-routes` and `POST /api/settings/task-routes`.
+5. **Multi-Mode Routing Settings UI (`meridian_frontend/src/views/settings/MultiModeTab.tsx`)**:
+   - Build responsive, premium glassmorphism settings tab with master enable toggle, per-task provider and model selectors, preset options, and real-time route simulator.
+
+---
+
+## Sub-Spec: Sprint 39 - Intelligence & Telemetry Suite
+
+### Sprint 39 Objectives
+
+1. **Hybrid Sparse-Dense RAG with Reciprocal Rank Fusion (PL-08, PL-11)**:
+   - Extend [`src/db/rag.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/rag.py) to perform hybrid search: BM25 keyword matching + Turbovec dense embeddings combined via Reciprocal Rank Fusion (RRF).
+   - Expose `hybrid_search_knowledge_base(query: str, limit: int = 5, bm25_weight: float = 0.5)` alongside pure vector search.
+   - Guarantee deterministic in-memory CPU fallback embeddings in [`src/db/embeddings.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/embeddings.py) when Ollama and OpenAI are offline.
+
+2. **Live Browser-Use Mini-HUD Streaming & Viewport Frames**:
+   - Add `browser_capture_b64()` in [`src/tools/web_browser.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/tools/web_browser.py) to extract base64-encoded JPEG viewports during automation.
+   - Add live viewport capture and step event hooks in [`src/tools/browser_use_agent.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/tools/browser_use_agent.py) to stream step state to event bus.
+   - Expose endpoint `GET /api/browser/frame` in [`meridian_backend/api.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/api.py).
+   - Render live Browser Mini-HUD overlay card in [`meridian_frontend/src/views/Timeline.tsx`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/views/Timeline.tsx).
+
+3. **Perception Stream to Proactive Nudges Bridge (PL-03, PL-04)**:
+   - Bridge [`src/api/perception.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/api/perception.py) active window events, screen OCR errors, and terminal crashes directly into [`src/core/proactive/dispatcher.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/proactive/dispatcher.py).
+   - Trigger auto-fix suggestion nudges when error patterns or crashes are perceived in active window sense.
+
+4. **Collapsible ReAct Step Accordions & Diff Viewer in Timeline (PL-19)**:
+   - Build [`CodeDiffViewer.tsx`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/components/ui/CodeDiffViewer.tsx) to render syntax-highlighted diffs (unified additions/deletions).
+   - Enhance [`meridian_frontend/src/views/Timeline.tsx`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/views/Timeline.tsx) to detect markdown diff code blocks and auto-render interactive diffs and collapsible step accordions.
+
+5. **Heterogeneous Subagent Model Routing (PL-10)**:
+   - Enhance [`src/core/swarm.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/swarm.py) and [`src/api/swarm.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/api/swarm.py) with dynamic provider and source resolution per subagent role (`auditor` -> DeepSeek Coder / Claude, `planner` -> Claude Sonnet / Qwen, `researcher` -> Gemini Flash / Ollama).
+   - Support custom per-role model and provider overrides in `LobbyDebateRequest` and `SwarmAgent.execute`.
 

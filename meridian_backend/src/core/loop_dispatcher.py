@@ -38,33 +38,69 @@ EXEMPT_TOOLS = {
     "review_directory", "run_security_audit", "shell_history", "nl_to_shell"
 }
 
-# Per-tool retry budget tracker: {(session_id, tool_name): attempt_count}
-_tool_retry_budgets: Dict[Tuple[str, str], int] = {}
+# Per-tool retry budget tracker: {(session_id, tool_name, args_hash): attempt_count}
+_tool_retry_budgets: Dict[Tuple[str, str, str], int] = {}
 MAX_RETRY_PER_TOOL = 3
+
+
+def _args_hash(args: Any) -> str:
+    """Computes a stable string representation of arguments for granular retry tracking."""
+    try:
+        return json.dumps(args, sort_keys=True)
+    except Exception:
+        return str(args)
 
 
 def reset_tool_retry_budget(session_id: str, tool_name: Optional[str] = None) -> None:
     """Resets retry counter for a specific tool or an entire session."""
     global _tool_retry_budgets
     if tool_name:
-        _tool_retry_budgets.pop((session_id, tool_name), None)
+        keys_to_remove = [k for k in _tool_retry_budgets.keys() if k[0] == session_id and k[1] == tool_name]
+        for k in keys_to_remove:
+            _tool_retry_budgets.pop(k, None)
     else:
         keys_to_remove = [k for k in _tool_retry_budgets.keys() if k[0] == session_id]
         for k in keys_to_remove:
             _tool_retry_budgets.pop(k, None)
 
 
-def check_and_increment_retry(session_id: str, tool_name: str) -> bool:
+def check_and_increment_retry(session_id: str, tool_name: str, args: Optional[Any] = None) -> bool:
     """
     Returns True if the tool can be executed within its retry budget.
-    Increments the retry counter for the specified tool.
+    Increments the retry counter for the specified tool and argument signature.
     """
-    key = (session_id, tool_name)
+    arg_sig = _args_hash(args) if args is not None else ""
+    key = (session_id, tool_name, arg_sig)
     count = _tool_retry_budgets.get(key, 0)
     if count >= MAX_RETRY_PER_TOOL:
         return False
     _tool_retry_budgets[key] = count + 1
     return True
+
+
+def format_tot_backtrack_message(tool_name: str, args: Any, err_txt: str = "") -> str:
+    """Formats imperative Tree-of-Thoughts backtrack message enforcing alternate method exploration."""
+    try:
+        args_str = json.dumps(args)
+    except Exception:
+        args_str = str(args)
+    err_snippet = f": {err_txt}" if err_txt else ""
+    return (
+        f"<observation:{tool_name}>Error: Tool execution failed{err_snippet}. "
+        f"[Tree-of-Thoughts Backtrack]: Avoid calling '{tool_name}' with args {args_str} again as it fails in this environment. "
+        f"Do NOT emit <finish> or give up. You MUST choose an alternative tool from available tools or try a different approach to achieve the goal.</observation:{tool_name}>"
+    )
+
+
+def truncate_tool_observation(obs_text: str, max_chars: int = 12000) -> str:
+    """Safely truncates huge tool observations, retaining head and tail for context."""
+    if not obs_text or len(obs_text) <= max_chars:
+        return obs_text
+    keep_chars = max(100, (max_chars - 200) // 2)
+    head = obs_text[:keep_chars]
+    tail = obs_text[-keep_chars:]
+    omitted = len(obs_text) - (len(head) + len(tail))
+    return f"{head}\n\n... [Output truncated: {omitted:,} characters omitted to preserve context] ...\n\n{tail}"
 
 
 async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str = "default") -> List[Dict[str, Any]]:
@@ -84,7 +120,7 @@ async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str 
         tool_name = str(call.get("name") or "")
         tool_args = call.get("arguments", {})
 
-        if not check_and_increment_retry(session_id, tool_name):
+        if not check_and_increment_retry(session_id, tool_name, tool_args):
             results.append({
                 "index": idx,
                 "tool": tool_name,
@@ -246,7 +282,7 @@ async def process_tool_turn(
                 continue
 
         try:
-            if tier >= 1:
+            if tier >= 1 and len(calls_to_execute) > 1:
                 mcts_score = await score_candidate_branch(
                     tool_name=tool_name,
                     args_str=json.dumps(args),
@@ -254,11 +290,11 @@ async def process_tool_turn(
                     client=client,
                     model=active_model if model_source == "local" else None
                 )
-                if mcts_score < 0.35:
+                if mcts_score < 0.15:
                     yield _format_sse("thought", json.dumps({
                         "id": f"mcts-reject-{time.time()}",
                         "type": "warning",
-                        "text": f"[MCTS] Tool '{tool_name}' scored {mcts_score:.2f} (below threshold 0.35). Skipping — low-value branch.",
+                        "text": f"[MCTS] Tool '{tool_name}' scored {mcts_score:.2f} (below threshold 0.15). Skipping — low-value branch.",
                         "status": "failed"
                     }))
                     observations.append(
@@ -291,16 +327,10 @@ async def process_tool_turn(
 
         for br in _batch_results:
             name = br["tool"]
-            res = br["result"]
+            res = truncate_tool_observation(str(br["result"]))
             status = "success" if br["status"] == "SUCCESS" else "failed"
             observations.append(f"<observation:{name}>{res}</observation:{name}>")
             if status == "failed":
-                tot_failed = True
-                failed_tool = name
-                for c_name, c_args, c_t in concurrent_calls:
-                    if c_name == name:
-                        failed_args = c_args
-                        break
                 r_count = tool_retry_counts.get(name, 0) + 1
                 tool_retry_counts[name] = r_count
                 if r_count >= 3:
@@ -391,7 +421,8 @@ async def process_tool_turn(
                     "status": "running"
                 }))
 
-            observations.append(f"<observation:{tool_name}>{result}</observation:{tool_name}>")
+            truncated_result = truncate_tool_observation(result)
+            observations.append(f"<observation:{tool_name}>{truncated_result}</observation:{tool_name}>")
             yield _format_sse("thought", json.dumps({
                 "id": tool_run_id,
                 "type": "status",
@@ -447,7 +478,7 @@ async def process_tool_turn(
         }))
         history.append({
             "role": "user",
-            "content": f"<observation:{failed_tool}>Error: Tool execution failed. [Tree-of-Thoughts Backtrack]: Avoid calling '{failed_tool}' with args {json.dumps(failed_args)} again as it fails in this environment. Attempt an alternative search, verify paths, or try a different approach.</observation:{failed_tool}>"
+            "content": format_tot_backtrack_message(failed_tool, failed_args)
         })
     else:
         obs_payload = "\n".join(observations)
