@@ -385,6 +385,21 @@ def enrich_system_prompt(
     except Exception:
         pass
 
+    try:
+        from src.core.reflection_engine import get_reflection_engine
+        _re = get_reflection_engine()
+        _lessons = _re.get_relevant_lessons(prompt, limit=3)
+        if _lessons:
+            _lessons_txt = "\n".join(f"- {rule}" for rule in _lessons)
+            system_prompt += f"\n\n[🧠 LEARNED LESSONS & USER CONSTRAINTS]\n{_lessons_txt}"
+
+        _exps = _re.get_relevant_experiences(prompt, limit=2)
+        if _exps:
+            _exps_txt = "\n".join(f"- Goal: \"{e['goal']}\" -> Tools: {e['tools']} -> Outcome: {e['outcome']}" for e in _exps)
+            system_prompt += f"\n\n[PROVEN PAST TRAJECTORIES (FEW-SHOT)]\n{_exps_txt}"
+    except Exception:
+        pass
+
     return system_prompt
 
 

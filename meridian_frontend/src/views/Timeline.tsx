@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square, RotateCcw } from 'lucide-react';
+import { Trash2, Send, User, Bot, ShieldAlert, AlertTriangle, Check, X, Plus, Paperclip, ChevronDown, ChevronRight, Volume2, VolumeX, Square, RotateCcw, Eye, GitBranch, ClipboardCopy, Sparkles, Copy, CheckCheck, ShieldCheck, Cpu, Wand2 } from 'lucide-react';
 import { emit } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { Message } from '../types';
@@ -441,32 +441,88 @@ function HealBlock({ heal, onApply }: { heal: any; onApply: (path: string, code:
   );
 }
 
-const STARTER_PROMPTS = [
+interface StarterItem {
+  icon: string;
+  title: string;
+  desc: string;
+  prompt: string;
+  tag?: string;
+}
+
+interface StarterCategory {
+  title: string;
+  badge: string;
+  color: string;
+  items: StarterItem[];
+}
+
+const STARTER_CATEGORIES: StarterCategory[] = [
   {
-    icon: '🔍',
-    title: 'Audit Git Changes',
-    desc: 'Review staged & unstaged diffs and propose atomic commits',
-    prompt: 'Review git changes, explain modified files, and propose commit messages.'
+    title: 'Code & Architecture',
+    badge: 'DEV',
+    color: '#00f0ff',
+    items: [
+      {
+        icon: '⚡',
+        title: 'Workspace Quick Audit',
+        desc: 'Review staged diffs, branch status & repository hygiene',
+        prompt: 'Run workspace quick audit to inspect repository status, recent diffs, and health.',
+        tag: 'GIT'
+      },
+      {
+        icon: '🩺',
+        title: 'System Pre-Flight Doctor',
+        desc: 'Verify Python ML, ports, database WAL, and AI models',
+        prompt: 'Run system doctor diagnostics and verify environment health.',
+        tag: 'DOCTOR'
+      }
+    ]
   },
   {
-    icon: '⚡',
-    title: 'Run Dev Health Check',
-    desc: 'Inspect background daemons, port bindings, and test suites',
-    prompt: 'Check project health, inspect running services, and verify backend status.'
+    title: 'Vision & Perception',
+    badge: 'MULTIMODAL',
+    color: '#a855f7',
+    items: [
+      {
+        icon: '👁️',
+        title: 'Explain Active Screen',
+        desc: 'Diagnose current editor, browser, or terminal output',
+        prompt: 'Explain what is on my active screen right now and diagnose any errors or next steps.',
+        tag: 'OCR'
+      },
+      {
+        icon: '📋',
+        title: 'Transform Clipboard',
+        desc: 'Format messy stack traces, JSON, or code in clipboard',
+        prompt: 'Inspect my clipboard content and format or diagnose it.',
+        tag: 'CLIPBOARD'
+      }
+    ]
   },
   {
-    icon: '🤖',
-    title: 'Start Swarm Debate',
-    desc: 'Launch multi-agent consensus to evaluate system design',
-    prompt: 'Start a multi-agent debate to evaluate architecture options for this project.'
-  },
-  {
-    icon: '🎯',
-    title: 'Start Focus Sprint',
-    desc: 'Engage focus mode, mute distractions, and track 25m sprint',
-    prompt: 'Activate focus mode, mute distractions, and start a 25-minute Pomodoro.'
-  },
+    title: 'Autonomous Swarm',
+    badge: 'MULTI-AGENT',
+    color: '#34d399',
+    items: [
+      {
+        icon: '🤖',
+        title: 'Multi-Agent Consensus Debate',
+        desc: 'Engage 3 rival personas to evaluate engineering trade-offs',
+        prompt: 'Start a multi-agent debate to evaluate architecture options for this project.',
+        tag: 'CONSENSUS'
+      },
+      {
+        icon: '🧠',
+        title: 'Reflexion & Learned Rules',
+        desc: 'Query persistent memory graph and user constraints',
+        prompt: 'Search memory for recent learned rules, user preferences, and tasks.',
+        tag: 'MEMORY'
+      }
+    ]
+  }
 ];
+
+const STARTER_PROMPTS = STARTER_CATEGORIES.flatMap(c => c.items);
 
 export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [messages, setMessages] = useState<any[]>([{
@@ -491,6 +547,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
   const [ttsEnabled, setTtsEnabled] = useState(() => localStorage.getItem('meridian_dashboard_tts') === 'true');
   const [taskQueue, setTaskQueue] = useState<{ id: number; text: string }[]>([]);
   const [stagedFile, setStagedFile] = useState<File | null>(null);
+  const [copiedMsgId, setCopiedMsgId] = useState<string | number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const generationIdRef = useRef(0);
 
@@ -744,10 +801,11 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
             try {
               const errData = JSON.parse(payload);
               const errMsg = errData.error || errData.message || payload;
-              finalContent += `\n\n✕ Error: ${errMsg}\n`;
+              const issueHeader = String(errMsg).split('\n')[0].slice(0, 100);
+              finalContent += `\n\n> [!WARNING]\n> ### ⚠️ Main Issue: ${issueHeader}\n> **What Happened**: Execution encountered an issue.\n> **Suggested Action**: Review the details or ask me to diagnose and fix it.\n>\n> <details>\n> <summary>Technical Details</summary>\n>\n> \`\`\`text\n> ${errMsg}\n> \`\`\`\n> </details>\n`;
               setStreaming(finalContent);
             } catch {
-              finalContent += `\n\n✕ Error: ${payload}\n`;
+              finalContent += `\n\n> [!WARNING]\n> ### ⚠️ Main Issue: Execution Error\n> **What Happened**: ${payload}\n> **Suggested Action**: Check settings or ask me to propose a fix.\n`;
               setStreaming(finalContent);
             }
           }
@@ -786,7 +844,12 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           return [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: '⛔ **Execution stopped by user.**' }];
         });
       } else {
-        setMessages(prev => [...prev, { id: Date.now(), role: 'assistant', timestamp: Date.now(), content: 'Failed to reach local AI backend.' }]);
+        setMessages(prev => [...prev, {
+          id: Date.now(),
+          role: 'assistant',
+          timestamp: Date.now(),
+          content: '> [!WARNING]\n> ### ⚠️ Main Issue: Cannot Connect to Meridian Backend (:4132)\n> **What Happened**: The local FastAPI server on port 4132 is not responding or currently restarting.\n> **Why**: The Python backend process is closed, or port 4132 is occupied.\n> **Suggested Fix**: Run `restart_backend.bat` or verify the Python backend is active.'
+        }]);
       }
       setStreaming('');
       setStreamThoughts([]);
@@ -1070,6 +1133,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
         role="log"
         aria-live="polite"
         aria-label="Conversation messages"
+        className="modern-scrollbar"
         style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}
       >
         <AnimatePresence initial={false}>
@@ -1130,6 +1194,29 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
                       </span>
                       <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: "var(--font-mono, monospace)" }}>
                         {reltime(msg.timestamp)}
+                      {msg.content && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(msg.content);
+                            setCopiedMsgId(msg.id ?? i);
+                            setTimeout(() => setCopiedMsgId(null), 1800);
+                          }}
+                          title="Copy message content"
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: copiedMsgId === (msg.id ?? i) ? 'var(--success)' : 'var(--text-dim)',
+                            cursor: 'pointer',
+                            padding: 2,
+                            marginLeft: 6,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          {copiedMsgId === (msg.id ?? i) ? <Check size={11} /> : <Copy size={11} />}
+                        </button>
+                      )}
                       </span>
                     </div>
 
@@ -1185,68 +1272,186 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
                   </div>
                 </motion.div>
 
-                {/* Show starter suggestions when conversation is fresh */}
+                {/* AI Agent Command Center Hero */}
                 {i === 0 && messages.length <= 1 && (
                   <motion.div
-                    initial={{ opacity: 0, y: 10 }}
+                    initial={{ opacity: 0, y: 14 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                     style={{
-                      marginTop: 10,
-                      marginBottom: 10,
-                      padding: '16px 20px',
-                      background: 'color-mix(in srgb, var(--bg-panel) 80%, transparent)',
-                      border: '1px solid var(--border)',
-                      borderRadius: 'var(--radius-lg)',
-                      backdropFilter: 'blur(12px)',
-                      WebkitBackdropFilter: 'blur(12px)',
+                      marginTop: 6,
+                      marginBottom: 16,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 14,
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>
-                        Quick Autonomous Workflows
-                      </span>
-                      <span style={{ fontSize: 10, color: 'var(--accent)', background: 'var(--accent-muted)', padding: '2px 8px', borderRadius: 'var(--radius-xs)', fontFamily: "var(--font-mono, monospace)", fontWeight: 600 }}>
-                        1-CLICK STARTERS
-                      </span>
+                    {/* Hero Header Card */}
+                    <div
+                      className="glass-card-premium"
+                      style={{
+                        padding: '24px 28px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        position: 'relative',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div className="hero-radial-glow" />
+
+                      <div style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        background: 'color-mix(in srgb, var(--accent) 15%, transparent)',
+                        border: '1.5px solid var(--accent)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--accent)',
+                        marginBottom: 14,
+                        boxShadow: '0 0 24px var(--accent-muted)',
+                        position: 'relative',
+                      }}>
+                        <Bot size={24} />
+                        <span className="pulse-ring-active" style={{
+                          position: 'absolute',
+                          inset: -4,
+                          borderRadius: '50%',
+                          border: '1.5px solid var(--accent)',
+                          pointerEvents: 'none',
+                        }} />
+                      </div>
+
+                      <h2 style={{
+                        fontSize: 20,
+                        fontWeight: 800,
+                        fontFamily: "var(--font-heading, 'Outfit', sans-serif)",
+                        color: 'var(--text-bright)',
+                        margin: 0,
+                        letterSpacing: '-0.02em',
+                      }}>
+                        Meridian-X Autonomous Control Center
+                      </h2>
+
+                      <p style={{
+                        fontSize: 12,
+                        color: 'var(--text-dim)',
+                        maxWidth: 580,
+                        margin: '6px 0 16px',
+                        lineHeight: 1.6,
+                      }}>
+                        Full-stack ReAct agent orchestrating local tool execution, active screen vision perception, semantic RAG memory, and multi-agent debate.
+                      </p>
+
+                      {/* Live Readiness Pills */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                        <span className="glass-pill" style={{ cursor: 'default' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)' }} />
+                          <span>ReAct Core Engine Active</span>
+                        </span>
+                        <span className="glass-pill" style={{ cursor: 'default' }}>
+                          <ShieldCheck size={12} color="var(--accent)" />
+                          <span>Safety Gate: Tier 2 Guard</span>
+                        </span>
+                        <span className="glass-pill" style={{ cursor: 'default' }}>
+                          <Cpu size={12} color="#a855f7" />
+                          <span>FTS5 SQLite Memory</span>
+                        </span>
+                        <span className="glass-pill" style={{ cursor: 'default' }}>
+                          <Wand2 size={12} color="#34d399" />
+                          <span>Dynamic Tool Healing</span>
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Categorized Capability Starters */}
                     <div style={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                      gap: 10,
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+                      gap: 12,
                     }}>
-                      {STARTER_PROMPTS.map((item, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setInput(item.prompt);
-                            textareaRef.current?.focus();
-                          }}
-                          className="glass-hover"
+                      {STARTER_CATEGORIES.map((cat, catIdx) => (
+                        <div
+                          key={catIdx}
                           style={{
                             display: 'flex',
                             flexDirection: 'column',
-                            gap: 4,
-                            padding: '12px 14px',
-                            textAlign: 'left',
-                            background: 'var(--bg-surface)',
+                            gap: 8,
+                            padding: '14px',
+                            background: 'color-mix(in srgb, var(--bg-panel) 70%, transparent)',
                             border: '1px solid var(--border-subtle)',
-                            borderRadius: 'var(--radius-md)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                            borderRadius: 'var(--radius-lg)',
+                            backdropFilter: 'blur(12px)',
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <span style={{ fontSize: 16 }}>{item.icon}</span>
-                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-bright)' }}>
-                              {item.title}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-bright)', letterSpacing: '0.02em' }}>
+                              {cat.title}
+                            </span>
+                            <span style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              color: cat.color,
+                              background: `color-mix(in srgb, ${cat.color} 12%, transparent)`,
+                              border: `1px solid color-mix(in srgb, ${cat.color} 30%, transparent)`,
+                              padding: '1px 6px',
+                              borderRadius: 4,
+                              fontFamily: 'var(--font-mono, monospace)',
+                            }}>
+                              {cat.badge}
                             </span>
                           </div>
-                          <span style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.4 }}>
-                            {item.desc}
-                          </span>
-                        </button>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {cat.items.map((item, itemIdx) => (
+                              <button
+                                key={itemIdx}
+                                type="button"
+                                onClick={() => {
+                                  setInput(item.prompt);
+                                  textareaRef.current?.focus();
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: 8,
+                                  padding: '10px 12px',
+                                  textAlign: 'left',
+                                  background: 'var(--bg-surface)',
+                                  border: '1px solid var(--border-subtle)',
+                                  borderRadius: 'var(--radius-md)',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+                                }}
+                                onMouseEnter={e => {
+                                  e.currentTarget.style.borderColor = `color-mix(in srgb, ${cat.color} 40%, transparent)`;
+                                  e.currentTarget.style.transform = 'translateY(-1px)';
+                                  e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.3)';
+                                }}
+                                onMouseLeave={e => {
+                                  e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                                  e.currentTarget.style.transform = 'none';
+                                  e.currentTarget.style.boxShadow = 'none';
+                                }}
+                              >
+                                <span style={{ fontSize: 16, lineHeight: 1.2 }}>{item.icon}</span>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, overflow: 'hidden' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-bright)' }}>
+                                      {item.title}
+                                    </span>
+                                  </div>
+                                  <span style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>
+                                    {item.desc}
+                                  </span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </motion.div>
@@ -1346,6 +1551,55 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           </div>
         </div>
       )}
+
+      {/* Elevated Quick Action Floating Bar */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        overflowX: 'auto',
+        padding: '3px 2px',
+        marginBottom: 6,
+        scrollbarWidth: 'none',
+      }}>
+        {[
+          { label: 'Explain Active Screen', icon: Eye, color: '#00f0ff', prompt: 'Explain what is on my active screen right now and diagnose any errors or next steps.' },
+          { label: 'Git Quick Audit', icon: GitBranch, color: '#34d399', prompt: 'Run workspace quick audit to inspect repository status, recent diffs, and health.' },
+          { label: 'Transform Clipboard', icon: ClipboardCopy, color: '#fbbf24', prompt: 'Inspect my clipboard content and format or diagnose it.' },
+          { label: 'System Doctor', icon: ShieldCheck, color: '#818cf8', prompt: 'Run system doctor diagnostics and verify environment health.' },
+          { label: 'Swarm Debate', icon: Bot, color: '#f472b6', prompt: 'Start a multi-agent debate to evaluate architecture options for this project.' },
+        ].map(({ label, icon: ActionIcon, color, prompt }, actIdx) => (
+          <button
+            key={actIdx}
+            type="button"
+            onClick={() => {
+              setInput(prompt);
+              textareaRef.current?.focus();
+            }}
+            className="glass-pill"
+            style={{
+              padding: '4px 11px',
+              fontSize: '11px',
+              background: `color-mix(in srgb, ${color} 10%, rgba(20, 24, 35, 0.75))`,
+              borderColor: `color-mix(in srgb, ${color} 28%, transparent)`,
+              color: color,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = `color-mix(in srgb, ${color} 20%, rgba(20, 24, 35, 0.85))`;
+              e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 50%, transparent)`;
+              e.currentTarget.style.boxShadow = `0 0 12px color-mix(in srgb, ${color} 25%, transparent)`;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = `color-mix(in srgb, ${color} 10%, rgba(20, 24, 35, 0.75))`;
+              e.currentTarget.style.borderColor = `color-mix(in srgb, ${color} 28%, transparent)`;
+              e.currentTarget.style.boxShadow = 'none';
+            }}
+          >
+            <ActionIcon size={12} />
+            <span>{label}</span>
+          </button>
+        ))}
+      </div>
 
       {/* Input HUD */}
       <form onSubmit={onSubmitPrompt} style={{

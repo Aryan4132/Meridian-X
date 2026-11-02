@@ -269,6 +269,14 @@ def browser_open(url: str, visible: bool = True, profile: bool = False,
                     _browser = _playwright.chromium.launch_persistent_context(**launch_kw)  # type: ignore
                 except Exception as _pe:
                     _p_err = str(_pe).lower()
+                    if "profile" in _p_err and ("in use" in _p_err or "already" in _p_err):
+                        # Don't leak the driver process on a locked profile.
+                        _close_session()
+                        return (
+                            "Failed to open persistent profile: it is locked by another "
+                            "running browser. Close Chrome windows using that profile, or "
+                            f"pass a different profile_dir. Details: {_pe}"
+                        )
                     if "executable doesn't exist" in _p_err or "playwright install" in _p_err:
                         _launched = False
                         for _ch in ["chrome", "msedge"]:
@@ -285,17 +293,6 @@ def browser_open(url: str, visible: bool = True, profile: bool = False,
                             raise _pe
                     else:
                         raise _pe
-                except Exception as e:
-                    err = str(e)
-                    if "profile" in err.lower() and ("in use" in err.lower() or "already" in err.lower()):
-                        # Don't leak the driver process on a locked profile.
-                        _close_session()
-                        return (
-                            "Failed to open persistent profile: it is locked by another "
-                            "running browser. Close Chrome windows using that profile, or "
-                            f"pass a different profile_dir. Details: {e}"
-                        )
-                    raise
                 _session_profile = want_profile
                 _session_browser = browser
             else:
@@ -596,44 +593,58 @@ def browser_get_interactive_elements() -> List[Dict[str, Any]]:
     script = """
     () => {
         const items = [];
-        const elements = document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], [role="link"], [role="textbox"], [onclick]');
         let idx = 1;
-        elements.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 2 && rect.height > 2 &&
-                rect.bottom >= 0 && rect.top <= window.innerHeight &&
-                rect.right >= 0 && rect.left <= window.innerWidth) {
-                const style = window.getComputedStyle(el);
-                if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                    let text = (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || el.title || '').trim().replace(/\\s+/g, ' ');
-                    text = text.substring(0, 100);
-                    
-                    let sel = '';
-                    if (el.id) {
-                        sel = '#' + CSS.escape(el.id);
-                    } else if (el.name) {
-                        sel = `${el.tagName.toLowerCase()}[name="${CSS.escape(el.name)}"]`;
-                    } else if (el.placeholder) {
-                        sel = `${el.tagName.toLowerCase()}[placeholder*="${CSS.escape(el.placeholder)}"]`;
-                    } else if (el.getAttribute('aria-label')) {
-                        sel = `[aria-label="${CSS.escape(el.getAttribute('aria-label'))}"]`;
-                    } else {
-                        sel = el.tagName.toLowerCase();
+
+        function collectInteractive(root) {
+            const selector = 'button, a[href], input, textarea, select, [role="button"], [role="link"], [role="textbox"], [onclick]';
+            const elements = root.querySelectorAll(selector);
+            elements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 2 && rect.height > 2 &&
+                    rect.bottom >= 0 && rect.top <= window.innerHeight &&
+                    rect.right >= 0 && rect.left <= window.innerWidth) {
+                    const style = window.getComputedStyle(el);
+                    if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                        let text = (el.innerText || el.value || el.placeholder || el.getAttribute('aria-label') || el.title || '').trim().replace(/\\s+/g, ' ');
+                        text = text.substring(0, 100);
+                        
+                        let sel = '';
+                        if (el.id) {
+                            sel = '#' + CSS.escape(el.id);
+                        } else if (el.name) {
+                            sel = `${el.tagName.toLowerCase()}[name="${CSS.escape(el.name)}"]`;
+                        } else if (el.placeholder) {
+                            sel = `${el.tagName.toLowerCase()}[placeholder*="${CSS.escape(el.placeholder)}"]`;
+                        } else if (el.getAttribute('aria-label')) {
+                            sel = `[aria-label="${CSS.escape(el.getAttribute('aria-label'))}"]`;
+                        } else {
+                            sel = el.tagName.toLowerCase();
+                        }
+                        
+                        items.push({
+                            index: idx,
+                            tag: el.tagName.toLowerCase(),
+                            text: text,
+                            selector: sel,
+                            x: Math.round(rect.left + rect.width / 2),
+                            y: Math.round(rect.top + rect.height / 2),
+                            type: el.type || ''
+                        });
+                        idx++;
                     }
-                    
-                    items.push({
-                        index: idx,
-                        tag: el.tagName.toLowerCase(),
-                        text: text,
-                        selector: sel,
-                        x: Math.round(rect.left + rect.width / 2),
-                        y: Math.round(rect.top + rect.height / 2),
-                        type: el.type || ''
-                    });
-                    idx++;
                 }
-            }
-        });
+            });
+
+            // Inspect open shadow roots for web components
+            const allElements = root.querySelectorAll('*');
+            allElements.forEach(node => {
+                if (node.shadowRoot) {
+                    collectInteractive(node.shadowRoot);
+                }
+            });
+        }
+
+        collectInteractive(document);
         return items;
     }
     """
@@ -653,8 +664,14 @@ def browser_highlight_elements() -> str:
             return _NOT_OPEN_MSG
     script = """
     () => {
-        document.querySelectorAll('.meridian-mark-badge').forEach(b => b.remove());
-        document.querySelectorAll('.meridian-mark-outline').forEach(o => o.classList.remove('meridian-mark-outline'));
+        function removeMarks(root) {
+            root.querySelectorAll('.meridian-mark-badge').forEach(b => b.remove());
+            root.querySelectorAll('.meridian-mark-outline').forEach(o => o.classList.remove('meridian-mark-outline'));
+            root.querySelectorAll('*').forEach(n => {
+                if (n.shadowRoot) removeMarks(n.shadowRoot);
+            });
+        }
+        removeMarks(document);
         
         let style = document.getElementById('meridian-mark-style');
         if (!style) {
@@ -679,27 +696,36 @@ def browser_highlight_elements() -> str:
             document.head.appendChild(style);
         }
         
-        const elements = document.querySelectorAll('button, a[href], input, textarea, select, [role="button"], [role="link"], [role="textbox"], [onclick]');
         let idx = 1;
-        elements.forEach(el => {
-            const rect = el.getBoundingClientRect();
-            if (rect.width > 2 && rect.height > 2 &&
-                rect.bottom >= 0 && rect.top <= window.innerHeight &&
-                rect.right >= 0 && rect.left <= window.innerWidth) {
-                const style = window.getComputedStyle(el);
-                if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
-                    el.classList.add('meridian-mark-outline');
-                    el.setAttribute('data-meridian-index', String(idx));
-                    const badge = document.createElement('span');
-                    badge.className = 'meridian-mark-badge';
-                    badge.innerText = `[${idx}]`;
-                    badge.style.top = `${rect.top + window.scrollY}px`;
-                    badge.style.left = `${rect.left + window.scrollX}px`;
-                    document.body.appendChild(badge);
-                    idx++;
+        function highlightInRoot(root) {
+            const selector = 'button, a[href], input, textarea, select, [role="button"], [role="link"], [role="textbox"], [onclick]';
+            const elements = root.querySelectorAll(selector);
+            elements.forEach(el => {
+                const rect = el.getBoundingClientRect();
+                if (rect.width > 2 && rect.height > 2 &&
+                    rect.bottom >= 0 && rect.top <= window.innerHeight &&
+                    rect.right >= 0 && rect.left <= window.innerWidth) {
+                    const style = window.getComputedStyle(el);
+                    if (style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0') {
+                        el.classList.add('meridian-mark-outline');
+                        el.setAttribute('data-meridian-index', String(idx));
+                        const badge = document.createElement('span');
+                        badge.className = 'meridian-mark-badge';
+                        badge.innerText = `[${idx}]`;
+                        badge.style.top = `${rect.top + window.scrollY}px`;
+                        badge.style.left = `${rect.left + window.scrollX}px`;
+                        document.body.appendChild(badge);
+                        idx++;
+                    }
                 }
-            }
-        });
+            });
+
+            root.querySelectorAll('*').forEach(n => {
+                if (n.shadowRoot) highlightInRoot(n.shadowRoot);
+            });
+        }
+
+        highlightInRoot(document);
         return idx - 1;
     }
     """

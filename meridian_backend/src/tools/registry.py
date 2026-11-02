@@ -13,7 +13,7 @@ from src.tools.geo_location import resolve_location, get_localized_weather, bias
 from src.tools.desktop import (
     screenshot, screenshot_region, ocr_screen, vision_analyze, find_on_screen,
     gui_click, gui_right_click, gui_double_click, gui_drag, gui_type, gui_hotkey, gui_scroll, get_mouse_position,
-    segment_screen, gui_click_badge, screenshot_to_code
+    segment_screen, gui_click_badge, screenshot_to_code, explain_active_screen
 )
 from src.tools.system import (
     list_windows, focus_window, resize_window, move_window, minimize_window, maximize_window, close_window,
@@ -26,7 +26,7 @@ from src.tools.system import (
 from src.tools.developer import (
     run_python, open_editor, git_status, git_commit, git_diff, git_create_snapshot, git_rollback, search_codebase,
     scaffold_project, run_tests, install_package, lint_file, format_file,
-    lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file
+    lsp_get_definition, lsp_get_references, lsp_get_hover_info, lsp_diagnose_file, workspace_quick_audit
 )
 from src.tools.communication import send_notification, send_email, read_emails, send_whatsapp_message, triage_and_read_emails, send_native_toast_notification, send_discord_message, read_discord_messages, add_discord_reaction, list_discord_channels
 from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_messages, list_whatsapp_chats, login_whatsapp_session, bridge_whatsapp_voice_call
@@ -56,7 +56,7 @@ from src.tools.recording import record_screen, stop_recording, analyze_recording
 from src.tools.video_editor import trim_video, concat_videos, change_video_speed, add_text_watermark, convert_video_to_gif, add_auto_subtitles
 
 
-from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore
+from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_pin, clipboard_restore, smart_clipboard_action
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
 from src.tools.papercoder import generate_paper2code
@@ -225,6 +225,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "gui_scroll": {"tier": 1, "func": gui_scroll},
     "get_mouse_position": {"tier": 0, "func": get_mouse_position},
     "screenshot_to_code": {"tier": 1, "func": screenshot_to_code},
+    "explain_active_screen": {"tier": 0, "func": explain_active_screen, "description": "Diagnose active desktop window, screen errors, code, and next steps in one shot."},
     
     # Window management
     "list_windows": {"tier": 0, "func": list_windows},
@@ -287,6 +288,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "git_create_snapshot": {"tier": 0, "func": git_create_snapshot},
     "git_rollback": {"tier": 2, "func": git_rollback},
     "search_codebase": {"tier": 0, "func": search_codebase},
+    "workspace_quick_audit": {"tier": 0, "func": workspace_quick_audit, "description": "Consolidated workspace health check: git status, diff stats, recent commits, and proposed atomic commit."},
     "scaffold_project": {"tier": 1, "func": scaffold_project},
     "run_tests": {"tier": 2, "func": run_tests},
     "install_package": {"tier": 2, "func": install_package},
@@ -460,6 +462,7 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "clipboard_search": {"tier": 0, "func": clipboard_search},
     "clipboard_pin": {"tier": 1, "func": clipboard_pin},
     "clipboard_restore": {"tier": 1, "func": clipboard_restore},
+    "smart_clipboard_action": {"tier": 0, "func": smart_clipboard_action, "description": "Inspect OS clipboard text, auto-detect type (JSON, code, stack trace, URL), and format or diagnose it."},
 
     # Voice control
     "voice_record_and_transcribe": {"tier": 1, "func": voice_record_and_transcribe},

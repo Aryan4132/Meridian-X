@@ -88,11 +88,24 @@ def get_session_interrupt_event(session_id: str = "default") -> threading.Event:
 
 
 def interrupt_agent_loop(session_id: Optional[str] = None):
-    """Signal active agent loop(s) to stop at the next safe checkpoint and silence TTS."""
+    """Signal active agent loop(s) to stop at the next safe checkpoint, silence TTS, and clean up spawned children."""
     _interrupt_event.set()
     try:
         from src.voice.tts import stop_active_tts
         stop_active_tts()
+    except Exception:
+        pass
+    # Clean up spawned child processes (Playwright, subagent runners, shell jobs)
+    try:
+        import psutil
+        current_process = psutil.Process(os.getpid())
+        for child in current_process.children(recursive=True):
+            try:
+                name = child.name().lower()
+                if any(x in name for x in ("chrome", "chromium", "msedge", "node", "cmd", "powershell", "bash")):
+                    child.terminate()
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                pass
     except Exception:
         pass
     with _session_interrupt_lock:
@@ -219,6 +232,15 @@ async def run_react_agent_loop(
         if workspace_model:
             print(f"[Workspace Config] Overriding brain model from '{brain_model}' to '{workspace_model}'")
             brain_model = resolve_local_model_name(workspace_model, client)
+
+    # Reflexion check: detect explicit user corrections and persist them
+    try:
+        from src.core.reflection_engine import detect_user_correction, get_reflection_engine
+        detected_rule = detect_user_correction(prompt)
+        if detected_rule:
+            get_reflection_engine().record_learned_lesson(detected_rule, category="correction", context=prompt)
+    except Exception:
+        pass
 
     user_lang = detect_user_language(prompt)
     system_prompt = build_system_prompt(prompt, brain_model, ollama_host, tools_doc)
@@ -493,6 +515,16 @@ async def run_react_agent_loop(
         if not is_worker and final_text.strip():
             add_to_conversations("assistant", final_text)
             add_to_semantic_cache(prompt, final_text)
+            if executed_tools_all_turns:
+                try:
+                    from src.core.reflection_engine import get_reflection_engine
+                    get_reflection_engine().record_task_experience(
+                        goal=prompt,
+                        tools_used=executed_tools_all_turns,
+                        outcome=final_text[:300]
+                    )
+                except Exception:
+                    pass
         add_to_task_log("ollama_api", 2, "success")
 
         try:

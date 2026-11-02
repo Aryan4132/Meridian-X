@@ -458,3 +458,76 @@
 - [x] Task 38.5: Add `GET /api/settings/task-routes`, `POST /api/settings/task-routes`, and `POST /api/settings/task-routes/test` in `meridian_backend/api.py`.
 - [x] Task 38.6: Build `meridian_frontend/src/views/settings/MultiModeTab.tsx` and integrate into `meridian_frontend/src/views/Settings.tsx` with master toggle, provider/model dropdowns, and interactive route simulator.
 - [x] Task 38.7: Run pytest test suite and frontend build check to verify 100% green verification gate.
+
+## Task 39: Intelligence & Telemetry Suite
+
+- [x] Task 39.1: Hybrid Sparse-Dense RAG with Reciprocal Rank Fusion & in-process fallback in `src/db/rag.py`.
+- [x] Task 39.2: Live Browser-Use Mini-HUD Streaming & Viewport Frame API in `src/tools/web_browser.py` and `src/tools/browser_use_agent.py`.
+- [x] Task 39.3: Perception Stream to Proactive Nudges Bridge in `src/api/perception.py`.
+- [x] Task 39.4: Collapsible ReAct Step Accordions & Diff Viewer in Timeline (`CodeDiffViewer.tsx`, `Timeline.tsx`).
+- [x] Task 39.5: Heterogeneous Subagent Model Routing in `src/core/swarm.py` and `src/api/swarm.py`.
+- [x] Task 39.6: Pytest and frontend build quality gate.
+
+## Task 40: System-Wide Polish, Performance & Resilience Suite
+
+- [x] Task 40.1: Router & Lifespan Modular Extraction into `src/api/websockets.py` and `src/core/lifespan.py`, shrinking `api.py` to 188 lines.
+- [x] Task 40.2: Frontend Bundle Optimization (lazy load Three.js 3D character) & Auto-Reconnect HUD banner (`ConnectionBanner.tsx`).
+- [x] Task 40.3: Process orphan kill on interrupt in `src/core/loop.py` & 15s timeout guard in `src/core/loop_dispatcher.py`.
+- [x] Task 40.4: Native SQLite FTS5 for Hybrid RAG in `src/db/connection.py` and `src/db/rag.py`.
+- [x] Task 40.5: Hardware-Backed Vault Master Key Resolution via OS Keyring in `src/core/vault.py`.
+- [x] Task 40.6: Playwright Shadow DOM & Bounding Box Element Resolution in `src/tools/web_browser.py`.
+- [x] Task 40.7: Full test suite verification gate (`test_sprint40.py` 6/6 passed, `npm run build` succeeded).
+
+## Task 41: User Delight, High-Leverage Compound Tools & Interactive Action HUD
+
+- [x] Task 41.1: Implement `explain_active_screen` in `src/tools/desktop.py` with window sense + vision/OCR fallback.
+- [x] Task 41.2: Implement `workspace_quick_audit` in `src/tools/developer.py` with multi-step git & syntax diagnosis.
+- [x] Task 41.3: Implement `smart_clipboard_action` in `src/tools/clipboard.py` with automated payload detection & formatting.
+- [x] Task 41.4: Register all three tools in `src/tools/registry.py`, `CORE_TOOLS_LIST`, and `TOOL_SIGNATURES` in `src/core/loop_stream.py`.
+- [x] Task 41.5: Add 1-click floating action chips in `meridian_frontend/src/views/Timeline.tsx` above chat input.
+- [x] Task 41.6: Add comprehensive unit tests in `meridian_backend/tests/test_user_delight_tools.py`.
+- [x] Task 41.7: Run verification gate: backend pytest suite and frontend typecheck (`tsc --noEmit`).
+
+
+## Task 42: Semantic Tool Retrieval & Pre-Execution Parameter Auto-Healing
+
+- [x] Task 42.1: Author `src/core/tool_indexer.py` with BM25 / token similarity inverted index and `find_relevant_tools()`.
+- [x] Task 42.2: Hook `find_relevant_tools()` into `generate_tools_doc()` in `src/core/loop_stream.py`.
+- [x] Task 42.3: Implement `auto_heal_tool_args()` in `src/core/loop_executor.py` for type coercion and path normalization.
+- [x] Task 42.4: Create comprehensive unit tests in `meridian_backend/tests/test_tool_intelligence.py`.
+- [x] Task 42.5: Run full pytest verification suite and ensure 100% passing tests.
+
+## Task 43: Continuous Self-Improvement & Reflexion Engine
+
+- [x] Task 43.1: Author `src/core/reflection_engine.py` with correction detection, lesson persistence, and experience trajectories.
+- [x] Task 43.2: Hook lesson and experience retrieval into `enrich_system_prompt()` in `src/core/loop_planning.py`.
+- [x] Task 43.3: Wire correction detection and trajectory recording into `src/core/loop.py`.
+- [x] Task 43.4: Author unit tests in `meridian_backend/tests/test_reflection_engine.py`.
+- [x] Task 43.5: Run full pytest verification suite and ensure 100% passing tests.
+
+## Task 44: Root Cause Error Diagnostics & Explainable Issue Cards
+
+- [x] Task 44.1: Author `src/core/error_diagnostics.py` with categorized pattern matching and explainable error formatter.
+- [x] Task 44.2: Hook `format_explainable_error_markdown()` into `src/core/loop_dispatcher.py` and `src/core/loop.py`.
+- [x] Task 44.3: Implement `ExplainableIssueCard` in `meridian_frontend/src/views/Timeline.tsx` with 1-click fix trigger.
+- [x] Task 44.4: Author unit tests in `meridian_backend/tests/test_error_diagnostics.py`.
+- [x] Task 44.5: Run full pytest verification suite and frontend build.
+
+## Task 45: Universal Doctor, Turnkey Docker Production Stack & Mobile QR Pairing
+
+- [x] Task 45.1: Create `doctor.py` in repo root with Python, torch/onnx, ports, database, ollama, frontend, and flutter diagnostics with `--fix` healing.
+- [x] Task 45.2: Update `Caddyfile` and `docker-compose.prod.yml` to support turnkey static frontend SPA serving, WebSocket upgrade proxying, and healthchecks.
+- [x] Task 45.3: Implement `GET /api/system/pairing-info` in `meridian_backend/src/api/system.py` with LAN IP resolution, auth tokens, and QR payload.
+- [x] Task 45.4: Add Mobile Pairing Modal in `meridian_frontend` with QR code view and manual copy buttons.
+- [x] Task 45.5: Author unit tests in `meridian_backend/tests/test_sprint45.py` and run doctor CLI.
+- [x] Task 45.6: Run full verification gate (`doctor.py`, pytest, frontend build).
+- [x] Task 45.7: Compile release Android APK (`meridian_mobile`) and deploy to `executables/meridian-x_mobile.apk`.
+
+## Task 46: UI, Layout & Visual Design System Elevation
+
+- [x] Task 46.1: Elevate `index.css` design system tokens, glassmorphism layers, typography, and glowing borders.
+- [x] Task 46.2: Modernize `NavRail.tsx` with active indicator pills, smooth micro-interactions, and version/health footer.
+- [x] Task 46.3: Upgrade `Timeline.tsx` with AI Agent Command Center hero, categorized starter cards, and refined message bubbles.
+- [x] Task 46.4: Polish floating Quick Action pills and modern input dock with multi-line expand and status badges.
+- [x] Task 46.5: Polish `StatusBar.tsx` and `RightDrawer.tsx` with live telemetry gauges and smooth transitions.
+- [x] Task 46.6: Run full verification gate (`tsc --noEmit` and `npm run build`).

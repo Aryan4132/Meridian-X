@@ -16,7 +16,6 @@ Implement core enterprise-grade agent capabilities in Meridian-X:
 10. **Local Model Stopping Tokens & Anti-Hallucination**: Stop sequences (`stop=["</call>", "</call:"]`) and context window settings (`num_ctx: 8192`) on Ollama stream calls to eliminate simulated observation hallucinations.
 11. **Fast-Boot Lazy Daemon Lifecycles**: Guard wakeword audio listeners, P2P network threads, and clipboard monitors behind user preference toggles to achieve <1s backend boot time and <250MB idle RAM.
 
-
 ## Tech Stack
 
 - **Backend**: Python 3.10+, FastAPI, AsyncIO, Pytest, Pydantic, HTTPX, SQLite / Graph Memory
@@ -817,4 +816,222 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
 5. **Heterogeneous Subagent Model Routing (PL-10)**:
    - Enhance [`src/core/swarm.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/swarm.py) and [`src/api/swarm.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/api/swarm.py) with dynamic provider and source resolution per subagent role (`auditor` -> DeepSeek Coder / Claude, `planner` -> Claude Sonnet / Qwen, `researcher` -> Gemini Flash / Ollama).
    - Support custom per-role model and provider overrides in `LobbyDebateRequest` and `SwarmAgent.execute`.
+
+---
+
+## Sub-Spec: Sprint 40 - System-Wide Polish, Performance & Resilience Suite
+
+### Sprint 40 Objectives
+
+1. **Router & Lifespan Clean Extraction (`meridian_backend/api.py`, `src/api/websockets.py`, `src/core/lifespan.py`)**:
+   - Extract `/ws`, `/api/ws/mobile`, `/ws/agent-status`, and custom swagger docs into [`meridian_backend/src/api/websockets.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/api/websockets.py).
+   - Move lifespan daemon startup/teardown logic into [`meridian_backend/src/core/lifespan.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/lifespan.py).
+   - Shrink [`meridian_backend/api.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/api.py) to under 250 lines of pure router mounting and middleware configuration.
+   - Update [`tasks/todo.md`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/tasks/todo.md) Task 2.3 status to complete.
+
+2. **Frontend Bundle Optimization & Reconnection HUD (`meridian_frontend/src/`)**:
+   - Code-split Three.js mascot canvas using `React.lazy` and `Suspense` in [`Mascot.tsx`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/components/Mascot.tsx) / [`App.tsx`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/App.tsx) to reduce initial vendor bundle.
+   - Dynamic lazy loading for heavy views: `Settings`, `WorkflowBuilder`, `MemoryEditor`, `SwarmDebate`.
+   - Add visual connection status indicator / auto-reconnect banner component with exponential backoff HUD.
+
+3. **Subprocess Orphan Clean-up & Concurrent Tool Timeout Guard (`src/core/loop.py`, `src/core/loop_dispatcher.py`)**:
+   - In [`interrupt_agent_loop()`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/loop.py), scan and terminate all active spawned subagent child processes and Playwright browser instances via `psutil`.
+   - In [`loop_dispatcher.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/loop_dispatcher.py), wrap individual concurrent Tier-0 tool calls in `asyncio.wait_for(timeout=15.0)` to eliminate hangs from stalled tool responses.
+
+4. **Native SQLite FTS5 for Hybrid RAG (`src/db/connection.py`, `src/db/rag.py`)**:
+   - Implement `knowledge_base_fts` SQLite virtual table via FTS5 with transparent fallback in [`src/db/connection.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/connection.py).
+   - In [`src/db/rag.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/rag.py), query SQLite FTS5 for C-level BM25 scoring before falling back to in-memory tokenizer.
+
+5. **Hardware-Backed Vault Master Key (`src/core/vault.py`)**:
+   - Add OS Keyring storage lookup in [`src/core/vault.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/vault.py) using the Python `keyring` library, with transparent zero-crash fallback to env/file persistence.
+
+6. **Playwright Shadow DOM & Bounding Box Element Resolution (`src/tools/web_browser.py`)**:
+   - Enhance element indexing in [`src/tools/web_browser.py`](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/tools/web_browser.py) to query open Shadow Roots and evaluate client bounding boxes for custom web components.
+
+---
+
+## Sub-Spec: Sprint 41 - User Delight, High-Leverage Compound Tools & Interactive Action HUD
+
+### Sprint 41 Objectives
+
+1. **High-Leverage Screen Diagnosis (`src/tools/desktop.py`)**:
+   - Implement `explain_active_screen(focus_area: Optional[str] = None) -> str`.
+   - Captures active screen snapshot, gathers active window context metadata via `get_active_window_sense()`, extracts visible errors/code/content via vision model with graceful OCR fallback, and returns structured diagnosis.
+
+2. **One-Shot Workspace Health Audit (`src/tools/developer.py`)**:
+   - Implement `workspace_quick_audit(repo_path: Optional[str] = None) -> str`.
+   - Executes consolidated git status check, diff inspection, recent commit log, and uncommitted secrets/syntax check, returning complete developer briefing with proposed atomic commits in a single roundtrip.
+
+3. **Smart Clipboard Transformer (`src/tools/clipboard.py`)**:
+   - Implement `smart_clipboard_action(mode: str = "auto") -> str`.
+   - Inspects clipboard content, identifies data type (JSON, code, stack trace, URL, SQL), and produces formatted/beautified output or diagnosis.
+
+4. **Tool Registry & Dynamic Signature Parity (`src/tools/registry.py`, `src/core/loop_stream.py`)**:
+   - Register `explain_active_screen`, `workspace_quick_audit`, and `smart_clipboard_action` in `TOOL_REGISTRY`.
+   - Add to `CORE_TOOLS_LIST` and `TOOL_SIGNATURES` in `loop_stream.py`.
+
+5. **Frontend Quick-Action Floating Chips (`meridian_frontend/src/views/Timeline.tsx`)**:
+   - Add sleek glassmorphism quick-action chips above chat input (Screen Explain, Git Audit, Clipboard Transform) for 1-click execution.
+
+6. **Unit Tests & Quality Verification**:
+   - Author `meridian_backend/tests/test_user_delight_tools.py` verifying execution, fallbacks, and signature resolution.
+   - Run pytest and frontend typecheck.
+
+
+
+---
+
+## Sub-Spec: Sprint 42 - Semantic Tool Retrieval & Pre-Execution Parameter Auto-Healing
+
+### Sprint 42 Objectives
+
+1. **Semantic Inverted Tool Indexer (`src/core/tool_indexer.py`)**:
+   - Parse all tool names, descriptions, and docstrings from `TOOL_REGISTRY`.
+   - Index terms and synonyms, providing BM25 / token similarity scoring.
+   - Implement `find_relevant_tools(prompt: str, top_k: int = 5) -> List[str]`.
+   - Dynamically surface relevant niche tools (e.g. `calculate_leave_by_time`, `detonate_attachment_sample`, `screen_incoming_call`) even when user prompt lacks hardcoded keywords.
+
+2. **Semantic Dynamic Tool Injection (`src/core/loop_stream.py`)**:
+   - Integrate `find_relevant_tools()` into `generate_tools_doc(mode, prompt)`.
+   - Automatically inject top semantic tool matches alongside core tools, keeping prompt token budget tight while achieving 100% recall.
+
+3. **Pre-Execution Parameter Auto-Healing & Path Normalizer (`src/core/loop_executor.py`)**:
+   - Implement `auto_heal_tool_args(sig: inspect.Signature, args: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]`.
+   - Auto-coerce string digits to `int`/`float` when parameter annotation expects numeric type.
+   - Auto-coerce string booleans (`"true"`, `"false"`) to `bool`.
+   - Normalize path separators (`\` -> `/`) and trim stray surrounding quotation marks.
+
+4. **Unit Tests & Quality Verification**:
+   - Create `meridian_backend/tests/test_tool_intelligence.py` testing semantic retrieval recall, parameter auto-coercion, and path sanitization.
+   - Quality gate: `pytest meridian_backend/tests/test_tool_intelligence.py`.
+
+
+---
+
+## Sub-Spec: Sprint 43 - Continuous Self-Improvement & Reflexion Engine
+
+### Sprint 43 Objectives
+
+1. **Reflexion & Lesson Extraction Engine (`src/core/reflection_engine.py`)**:
+   - Implement `ReflectionEngine` using `UnifiedCognitiveGraph` to store `learned_rule` and `task_experience` nodes.
+   - Implement `detect_user_correction(text: str) -> Optional[str]` to detect user corrections and extract persistent rules.
+   - Implement `record_learned_lesson(rule: str, category: str, context: Optional[str])`.
+   - Implement `record_task_experience(goal: str, tools_used: List[str], outcome: str)`.
+   - Implement `get_relevant_lessons(query: str, limit: int = 4)` and `get_relevant_experiences(query: str, limit: int = 2)`.
+
+2. **Context Enrichment Integration (`src/core/loop_planning.py`)**:
+   - In `enrich_system_prompt()`, inject retrieved lessons (`[LEARNED LESSONS & USER CONSTRAINTS]`) and past trajectories (`[PROVEN PAST TRAJECTORIES (FEW-SHOT)]`).
+
+3. **Agent Loop Lifecycle Hooks (`src/core/loop.py`)**:
+   - Check incoming prompts with `detect_user_correction()`; auto-save user constraints immediately.
+   - Record successful task trajectory upon valid `<finish>`.
+   - Record anti-pattern lesson on tool failure or critical exception.
+
+4. **Unit Tests & Quality Verification**:
+   - Create `meridian_backend/tests/test_reflection_engine.py` testing correction detection, lesson persistence, FTS5 retrieval, experience recording, and prompt injection.
+   - Quality gate: `pytest meridian_backend/tests/test_reflection_engine.py`.
+
+
+---
+
+## Sub-Spec: Sprint 44 - Root Cause Error Diagnostics & Explainable Issue Cards
+
+### Sprint 44 Objectives
+
+1. **Root Cause Error Diagnostic Engine (`src/core/error_diagnostics.py`)**:
+   - Parse raw exceptions, stack traces, and tool failure logs into structured explanations.
+   - Categorize failures: `FILE_NOT_FOUND`, `MODEL_UNAVAILABLE`, `CONNECTION_REFUSED`, `PERMISSION_DENIED`, `SYNTAX_ERROR`, `TIMEOUT`, `COMMAND_FAILED`.
+   - Provide `diagnose_error_root_cause(raw_error: str) -> Dict[str, str]` returning `main_issue`, `why`, `how_to_fix`, and `raw_details`.
+   - Provide `format_explainable_error_markdown(raw_error: str, tool_name: Optional[str]) -> str`.
+
+2. **Backend Error Emission Integration (`src/core/loop_dispatcher.py` & `src/core/loop.py`)**:
+   - In `loop_dispatcher.py`, format tool observations and failure thoughts using `format_explainable_error_markdown` instead of raw exception strings.
+   - In `loop.py`, format API failures and loop crashes with root cause explanation.
+
+3. **Frontend Explainable Issue Card (`meridian_frontend/src/views/Timeline.tsx`)**:
+   - Parse error events and network disconnects into human-friendly cards.
+   - Render `ExplainableIssueCard` showing **Main Issue**, **Why It Happened**, **Suggested Fix**, and collapsible Technical Trace.
+   - Add 1-click **Ask Agent to Fix** action button.
+
+4. **Unit Tests & Quality Verification**:
+   - Author `meridian_backend/tests/test_error_diagnostics.py` verifying categorization and markdown formatting across all error types.
+   - Quality gate: `pytest meridian_backend/tests/test_error_diagnostics.py` and `npm run build`.
+
+
+---
+
+## Sub-Spec: Sprint 45 - Universal Doctor, Turnkey Docker Production Stack & Mobile QR Pairing
+
+### Sprint 45 Objectives
+
+1. **Universal System Doctor CLI (`doctor.py`)**:
+   - Provide standalone CLI script in repo root: `python doctor.py [--fix] [--verbose] [--json]`.
+   - Comprehensive diagnostic checks:
+     - Python runtime & virtualenv environment.
+     - Critical native dependencies: PyTorch, ONNX, sounddevice, portaudio.
+     - Database health: SQLite schema integrity, FTS5 extensions, WAL mode.
+     - AI runtime: Ollama daemon status (11434) and locally pulled models.
+     - Network port availability: 4132 (Backend API/WS), 4133 (Companion/Frontend), 11434 (Ollama).
+     - Frontend asset readiness: `meridian_frontend/dist/index.html` and Node/npm version.
+     - Mobile Flutter toolchain availability.
+   - Self-healing mode (`--fix`):
+     - Terminate stale/hung processes holding ports 4132/4133.
+     - Initialize missing data directories and SQLite database schemas.
+     - Ensure required directories exist.
+
+2. **Turnkey Docker Production Stack (`docker-compose.prod.yml` & `Caddyfile`)**:
+   - Modernize `Caddyfile` to serve static SPA files from `/srv` with client-side fallback `try_files {path} /index.html`.
+   - Route `/api/*` and `/ws/*` endpoints with full WebSocket header upgrades to `meridian-backend:4132`.
+   - Update `docker-compose.prod.yml` with automated frontend static build/volume mount, backend healthchecks, and persistent Ollama model storage.
+
+3. **LAN Mobile Companion QR Pairing (`src/api/system.py` & Frontend Pairing Modal)**:
+   - Implement `GET /api/system/pairing-info` and `GET /api/mobile/pairing-info` returning:
+     - Auto-detected LAN IP address (via UDP probe).
+     - WebSocket agent endpoint (`ws://<lan_ip>:4132/ws/agent`).
+     - HTTP base URL (`http://<lan_ip>:4132`).
+     - Vault/system auth token.
+     - Standardized URI scheme `meridian://pair?url=...&token=...`.
+     - ASCII terminal QR code rendering fallback.
+   - Add "Pair Mobile" button and QR display in frontend settings/shell.
+
+4. **Unit Tests & Verification Gate**:
+   - Create `meridian_backend/tests/test_sprint45.py` validating doctor diagnostics, pairing info generation, and config files.
+   - Quality gate: `python doctor.py`, `pytest meridian_backend/tests/test_sprint45.py`, and `npm run build`.
+
+---
+
+## Sub-Spec: Sprint 46 - UI, Layout & Visual Design System Elevation
+
+### Sprint 46 Objectives
+
+1. **Design System & Aesthetics Modernization (`index.css`)**:
+   - Upgrade cyber-slate and dark palettes with deep OLED contrast, multi-tiered surface depths, and crisp luminescent border accents.
+   - Introduce `.glass-card-premium`, `.glow-subtle`, `.action-pill`, and modern scrollbars.
+   - Establish consistent typography hierarchy across `Outfit` (headings/hero), `Inter` (prose), and `JetBrains Mono` (technical metrics/code).
+
+2. **Elevated NavRail & Shell Navigation (`NavRail.tsx` & `Shell.tsx`)**:
+   - Sleek translucent navigation rail with active pill indicators and soft ambient backglow.
+   - Tooltips with hotkey indicators, smooth hover transitions, and clean bottom section with version tag and connection health.
+
+3. **Timeline Agent Command Center & Starter Hub (`Timeline.tsx`)**:
+   - Redesign fresh state into a premier **AI Agent Command Center Hero**:
+     - Radiant animated mascot status badge and greeting.
+     - Categorized 1-click starter prompts: *Coding & Architecture*, *Multimodal & Screen Sense*, *Git & Quality Audit*, *Clipboard & Tools*.
+     - Real-time capability indicators (RAG Knowledge, Brain Model, Local Hardware Guard).
+   - Enhance chat bubbles:
+     - User message: refined pill layout with user avatar and timestamp.
+     - Assistant message: distinct step headers, collapsible ReAct thought drawers with timing badges, and code blocks with quick-copy.
+   - Compound Quick Action Bar: upgraded floating action pills with distinct accent icons for Screen Sense, Git Audit, Smart Clipboard, and Terminal commands.
+
+4. **Floating Input Dock & Action Toolbar (`Timeline.tsx`)**:
+   - Floating frosted glass input dock with multi-line auto-expand.
+   - Integrated quick actions: file attachment pill with drag-and-drop indicator, autonomous mode toggle, voice input button, and luminous dynamic Send button.
+
+5. **StatusBar & Drawer Polish (`StatusBar.tsx` & `RightDrawer.tsx`)**:
+   - Refined status bar with live pulsing status indicators, air-gap security pill, mini-meters for CPU & RAM, and mobile pairing trigger.
+   - Polished right drawer with smooth transitions and real-time streaming vitals.
+
+6. **Quality Verification Gate**:
+   - Frontend typecheck: `npm --prefix meridian_frontend run lint` (`tsc --noEmit`).
+   - Production bundle compile: `npm --prefix meridian_frontend run build`.
 

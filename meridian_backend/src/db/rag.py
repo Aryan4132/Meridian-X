@@ -165,10 +165,26 @@ def hybrid_search_knowledge_base(query: str, limit: int = 5, bm25_weight: float 
                 for rank, id_val in enumerate(ids[0]):
                     dense_ranks[int(id_val)] = rank + 1
 
-        # 2. Sparse ranking via BM25
-        bm25_scores = compute_bm25_scores(query, all_rows)
-        bm25_sorted = sorted(bm25_scores.items(), key=lambda x: x[1], reverse=True)
-        sparse_ranks: Dict[int, int] = {doc_id: rank + 1 for rank, (doc_id, _) in enumerate(bm25_sorted)}
+        # 2. Sparse ranking via SQLite FTS5 (C-level BM25) or pure Python BM25 fallback
+        sparse_ranks: Dict[int, int] = {}
+        try:
+            fts_query = re.sub(r'[^\w\s]', '', query).strip()
+            if fts_query:
+                # Query SQLite FTS5 for ranked matches
+                cursor.execute(
+                    "SELECT rowid FROM knowledge_base_fts WHERE knowledge_base_fts MATCH ? ORDER BY bm25(knowledge_base_fts) LIMIT ?",
+                    (fts_query, len(all_rows))
+                )
+                fts_rows = cursor.fetchall()
+                for rank, r in enumerate(fts_rows):
+                    sparse_ranks[int(r[0])] = rank + 1
+        except Exception:
+            pass
+
+        if not sparse_ranks:
+            bm25_scores = compute_bm25_scores(query, all_rows)
+            bm25_sorted = sorted(bm25_scores.items(), key=lambda x: x[1], reverse=True)
+            sparse_ranks = {doc_id: rank + 1 for rank, (doc_id, _) in enumerate(bm25_sorted)}
 
         # 3. Reciprocal Rank Fusion (RRF)
         docs_by_id = {doc["id"]: doc for doc in all_rows}

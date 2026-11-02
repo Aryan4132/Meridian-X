@@ -70,6 +70,9 @@ TOOL_SIGNATURES: Dict[str, str] = {
     "terminal": 'terminal(command="<command>")',
     "run_command": 'run_command(command="<command>")',
     "nl_run": 'nl_run(command="<command_or_instruction>")',
+    "explain_active_screen": 'explain_active_screen(focus_area="<optional_focus_topic_or_error>")',
+    "workspace_quick_audit": 'workspace_quick_audit(repo_path="<optional_path>")',
+    "smart_clipboard_action": 'smart_clipboard_action(mode="auto")',
 }
 
 CORE_TOOLS_LIST = [
@@ -77,14 +80,14 @@ CORE_TOOLS_LIST = [
     "read_file", "write_file", "list_directory", "search_files", "delete_file",
     # Shell (3)
     "shell", "nl_run", "run_python",
-    # Developer (7)
-    "git_status", "git_commit", "git_diff", "search_codebase", "run_tests", "lint_file", "review_file",
+    # Developer (8)
+    "git_status", "git_commit", "git_diff", "search_codebase", "run_tests", "lint_file", "review_file", "workspace_quick_audit",
     # Browser (4)
     "browser_use_task", "browser_open", "browser_close", "browser_get_text",
-    # Desktop (7)
-    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file",
-    # System & Tasks (9)
-    "get_system_info", "get_hardware_info", "list_processes", "kill_process", "clipboard_get", "clipboard_set", "schedule_task", "schedule_once", "list_scheduled",
+    # Desktop (8)
+    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file", "explain_active_screen",
+    # System & Tasks (10)
+    "get_system_info", "get_hardware_info", "list_processes", "kill_process", "clipboard_get", "clipboard_set", "smart_clipboard_action", "schedule_task", "schedule_once", "list_scheduled",
     # Memory & Knowledge (4)
     "universal_search", "kg_query", "kg_search", "kg_add_fact",
     # Communications (4)
@@ -161,6 +164,15 @@ def generate_tools_doc(mode: Optional[str] = None, prompt: Optional[str] = None)
             selected_tools.add(t)
     except Exception:
         pass
+
+    # 4. Semantic inverted index tool retrieval
+    if prompt:
+        try:
+            from src.core.tool_indexer import find_relevant_tools
+            for t in find_relevant_tools(prompt, top_k=6):
+                selected_tools.add(t)
+        except Exception:
+            pass
 
     lines = []
     for name in selected_tools:

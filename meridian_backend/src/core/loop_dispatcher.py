@@ -129,11 +129,13 @@ async def dispatch_tool_batch(tool_calls: List[Dict[str, Any]], session_id: str 
             })
             continue
 
-        # #7 FIX: Direct async await — call_tool is already an async function.
+        # #7 FIX: Direct async await — call_tool is already an async function with timeout protection.
         async def _exec(index: int, name: str, args: dict):
             try:
-                out = await call_tool(name, args)  # was: await asyncio.to_thread(call_tool, name, args)
+                out = await asyncio.wait_for(call_tool(name, args), timeout=15.0)
                 return {"index": index, "tool": name, "status": "SUCCESS", "result": out}
+            except asyncio.TimeoutError:
+                return {"index": index, "tool": name, "status": "ERROR", "result": f"Error: Tool '{name}' timed out after 15 seconds."}
             except Exception as e:
                 return {"index": index, "tool": name, "status": "ERROR", "result": f"Error executing {name}: {e}"}
 
@@ -327,7 +329,14 @@ async def process_tool_turn(
 
         for br in _batch_results:
             name = br["tool"]
-            res = truncate_tool_observation(str(br["result"]))
+            raw_res = str(br["result"])
+            if br["status"] != "SUCCESS" and "Error" in raw_res:
+                try:
+                    from src.core.error_diagnostics import format_explainable_error_markdown
+                    raw_res = format_explainable_error_markdown(raw_res, tool_name=name)
+                except Exception:
+                    pass
+            res = truncate_tool_observation(raw_res)
             status = "success" if br["status"] == "SUCCESS" else "failed"
             observations.append(f"<observation:{name}>{res}</observation:{name}>")
             if status == "failed":
@@ -437,7 +446,17 @@ async def process_tool_turn(
             tot_failed = True
             failed_tool = tool_name
             failed_args = args
-            observations.append(f"<observation:{tool_name}>Error: {err_txt}</observation:{tool_name}>")
+
+            try:
+                from src.core.error_diagnostics import format_explainable_error_markdown, diagnose_error_root_cause
+                explainable_obs = format_explainable_error_markdown(err_txt, tool_name=tool_name)
+                diag = diagnose_error_root_cause(err_txt)
+                thought_err = f"Tool {tool_name} failed — {diag['main_issue']}"
+            except Exception:
+                explainable_obs = f"Error: {err_txt}"
+                thought_err = f"Tool {tool_name} failed: {err_txt}"
+
+            observations.append(f"<observation:{tool_name}>{explainable_obs}</observation:{tool_name}>")
 
             r_count = tool_retry_counts.get(tool_name, 0) + 1
             tool_retry_counts[tool_name] = r_count
@@ -456,7 +475,7 @@ async def process_tool_turn(
             yield _format_sse("thought", json.dumps({
                 "id": tool_run_id,
                 "type": "warning",
-                "text": f"Tool {tool_name} failed: {err_txt}",
+                "text": thought_err,
                 "status": "failed"
             }))
             add_to_task_log(tool_name, tier, "failed", err_txt)

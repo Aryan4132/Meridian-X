@@ -45,9 +45,10 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      - DOMAIN=${DOMAIN:-api.your-domain.com}
+      - DOMAIN=${DOMAIN:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./meridian_frontend/dist:/srv:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

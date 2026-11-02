@@ -14,7 +14,7 @@ from typing import Dict, Any, Tuple, Optional
 
 logger = logging.getLogger("meridian_updater")
 
-CURRENT_VERSION = "0.1.6"
+CURRENT_VERSION = "0.1.7"
 GITHUB_RELEASES_URL = "https://api.github.com/repos/Aryan4132/Meridian-X/releases/latest"
 
 

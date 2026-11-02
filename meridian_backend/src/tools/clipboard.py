@@ -96,3 +96,86 @@ def clipboard_restore(entry_id: str) -> str:
         return f"Successfully restored text to system clipboard: '{record['text'][:50]}...'"
     except Exception as e:
         return f"Failed to restore clipboard entry: {e}"
+
+
+def smart_clipboard_action(mode: str = "auto") -> str:
+    """Analyze current OS clipboard content, auto-detect its type (JSON, code, stack trace, URL, text), and format or diagnose it."""
+    try:
+        raw_text = pyperclip.paste()
+    except Exception as e:
+        return f"Unable to read OS clipboard: {str(e)}"
+
+    if not raw_text or not raw_text.strip():
+        return "Clipboard is empty or does not contain plain text."
+
+    content = raw_text.strip()
+    length = len(content)
+
+    # 1. JSON Detection & Formatting
+    if (content.startswith("{") and content.endswith("}")) or (content.startswith("[") and content.endswith("]")):
+        import json
+        try:
+            parsed = json.loads(content)
+            formatted = json.dumps(parsed, indent=2)
+            try:
+                pyperclip.copy(formatted)
+                copied_note = " (Prettified JSON copied to clipboard)"
+            except Exception:
+                copied_note = ""
+            return (
+                f"**Clipboard Content**: Valid JSON ({length} chars){copied_note}\n\n"
+                f"```json\n{formatted[:1500]}\n```"
+                + (f"\n*...truncated {len(formatted) - 1500} chars*" if len(formatted) > 1500 else "")
+            )
+        except Exception as json_err:
+            return (
+                f"**Clipboard Content**: Malformed JSON detected.\n"
+                f"**Parse Error**: `{json_err}`\n"
+                f"**Raw Preview**:\n```text\n{content[:500]}\n```\n"
+                f"💡 Propose asking agent to repair this JSON."
+            )
+
+    # 2. Stack Trace / Crash Detection
+    stack_indicators = ["Traceback (most recent call last):", "Error:", "Exception:", "at line", "Fatal error", "panic:"]
+    if any(ind in content for ind in stack_indicators):
+        lines = content.splitlines()
+        first_few = "\n".join(lines[:6])
+        last_few = "\n".join(lines[-4:])
+        return (
+            f"**Clipboard Content**: Error Stack Trace Detected ({len(lines)} lines)\n\n"
+            f"```text\n{first_few}\n...\n{last_few}\n```\n"
+            f"💡 **Diagnosis**: Clipboard holds an active crash or error. Ask me *'Fix the error in my clipboard'* to resolve it."
+        )
+
+    # 3. URL Detection
+    if content.startswith(("http://", "https://")):
+        import urllib.parse
+        parsed = urllib.parse.urlparse(content)
+        query_params = urllib.parse.parse_qs(parsed.query)
+        param_desc = f" ({len(query_params)} query parameters)" if query_params else ""
+        return (
+            f"**Clipboard Content**: Web URL\n"
+            f"**Host**: `{parsed.netloc}`\n"
+            f"**Path**: `{parsed.path or '/'}`{param_desc}\n"
+            f"💡 Ask me *'Fetch and summarize this URL'* or *'Open in browser'*."
+        )
+
+    # 4. Code Snippet Detection
+    code_indicators = ["def ", "class ", "import ", "function ", "const ", "export ", "public class ", "<div", "return "]
+    if any(ind in content for ind in code_indicators):
+        lines = content.splitlines()
+        return (
+            f"**Clipboard Content**: Code Snippet ({len(lines)} lines, {length} chars)\n\n"
+            f"```text\n{content[:1200]}\n```"
+            + (f"\n*...truncated {length - 1200} chars*" if length > 1200 else "")
+            + "\n💡 Ask me to *'Explain this code'*, *'Refactor this'*, or *'Write unit tests for this'*."
+        )
+
+    # 5. General Plain Text
+    words = content.split()
+    preview = content[:300] + ("..." if length > 300 else "")
+    return (
+        f"**Clipboard Content**: Plain Text ({len(words)} words, {length} characters)\n\n"
+        f"> {preview}\n\n"
+        f"💡 Ready to rewrite, translate, proofread, or ingest into knowledge base."
+    )

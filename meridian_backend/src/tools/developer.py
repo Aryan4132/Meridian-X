@@ -426,3 +426,104 @@ async def lsp_diagnose_file(filepath: str) -> str:
     except Exception as e:
         return f"LSP diagnostics query failed: {str(e)}"
 
+
+
+def workspace_quick_audit(repo_path: str = "") -> str:
+    """Consolidated workspace health check: git status, uncommitted changes, recent commits, and proposed atomic commits."""
+    import subprocess
+    import shutil
+
+    target_dir = os.path.abspath(repo_path) if repo_path else os.getcwd()
+
+    if not shutil.which("git"):
+        return "Git is not installed or not found in system PATH."
+
+    try:
+        # 1. Check if inside git repo
+        is_git = subprocess.run(
+            ["git", "rev-parse", "--is-inside-work-tree"],
+            cwd=target_dir, capture_output=True, text=True, timeout=5
+        )
+        if is_git.returncode != 0:
+            return f"Directory '{target_dir}' is not a git repository."
+
+        # 2. Branch name
+        branch_res = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=target_dir, capture_output=True, text=True, timeout=5
+        )
+        current_branch = branch_res.stdout.strip() or "HEAD (detached)"
+
+        # 3. Status porcelain
+        status_res = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=target_dir, capture_output=True, text=True, timeout=5
+        )
+        status_lines = [l for l in status_res.stdout.splitlines() if l.strip()]
+
+        # 4. Diff stat
+        diff_stat_res = subprocess.run(
+            ["git", "diff", "--stat"],
+            cwd=target_dir, capture_output=True, text=True, timeout=5
+        )
+        diff_stat = diff_stat_res.stdout.strip()
+
+        # 5. Recent commits
+        log_res = subprocess.run(
+            ["git", "log", "-n", "3", "--oneline"],
+            cwd=target_dir, capture_output=True, text=True, timeout=5
+        )
+        recent_commits = log_res.stdout.strip()
+
+        # Build clean briefing
+        lines = [
+            f"### 🛡️ Workspace Health Audit (`{os.path.basename(target_dir)}`)",
+            f"**Branch**: `{current_branch}` | **Modified/Untracked Files**: {len(status_lines)}",
+            ""
+        ]
+
+        if not status_lines:
+            lines.append("✅ **Working Tree Clean**: No uncommitted changes detected.")
+        else:
+            lines.append("**Changed Files:**")
+            staged = []
+            unstaged = []
+            untracked = []
+            for item in status_lines:
+                code = item[:2]
+                fname = item[3:]
+                if code[0] in ("M", "A", "D", "R"):
+                    staged.append(f"  • [Staged] `{fname}`")
+                elif code[1] in ("M", "D"):
+                    unstaged.append(f"  • [Unstaged] `{fname}`")
+                elif code == "??":
+                    untracked.append(f"  • [Untracked] `{fname}`")
+                else:
+                    unstaged.append(f"  • [`{code}`] `{fname}`")
+
+            if staged:
+                lines.extend(staged[:10])
+            if unstaged:
+                lines.extend(unstaged[:10])
+            if untracked:
+                lines.extend(untracked[:10])
+
+            if len(status_lines) > 30:
+                lines.append(f"  *...and {len(status_lines) - 30} more files*")
+
+        if diff_stat:
+            lines.append("\n**Diff Summary:**")
+            lines.append(f"```text\n{diff_stat[:400]}\n```")
+
+        if recent_commits:
+            lines.append("\n**Recent History:**")
+            lines.append(f"```text\n{recent_commits}\n```")
+
+        if status_lines:
+            sample_files = [item[3:] for item in status_lines[:3]]
+            joined = ", ".join(sample_files)
+            lines.append(f"\n💡 **Suggested Atomic Action**: Review diffs and commit with message: `feat/fix: update {joined}`")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Workspace audit failed: {str(e)}"

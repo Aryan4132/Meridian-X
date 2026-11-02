@@ -270,20 +270,40 @@ def load_all_secrets(passphrase: Optional[str] = None) -> Dict[str, str]:
 
 def get_vault_passphrase() -> str:
     """
-    Derives a machine-bound master passphrase using HMAC-SHA256 of MERIDIAN_API_KEY
-    and system identity metadata (hostname + username) (SEC-05).
+    Derives a machine-bound master passphrase using OS Keyring (Windows Credential Locker,
+    macOS Keychain, Linux SecretService) with HMAC-SHA256 fallback (SEC-05).
     """
     import hmac
     import platform
     import getpass
 
+    # 1. Check OS Keyring for hardware/credential locker stored master key
+    try:
+        import importlib
+        keyring = importlib.import_module("keyring")
+        stored_key = keyring.get_password("meridian_vault", "master_key")
+        if stored_key:
+            return stored_key
+    except Exception:
+        pass
+
     api_key = os.environ.get("MERIDIAN_API_KEY", "DEFAULT_MERIDIAN_KEY")
     machine_identity = f"{platform.node()}:{getpass.getuser()}"
-    return hmac.new(
+    derived_key = hmac.new(
         api_key.encode("utf-8"),
         machine_identity.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
+
+    # Attempt to persist derived key into OS Keyring for subsequent hardware-isolated lookups
+    try:
+        import importlib
+        keyring = importlib.import_module("keyring")
+        keyring.set_password("meridian_vault", "master_key", derived_key)
+    except Exception:
+        pass
+
+    return derived_key
 
 
 def _resolve_passphrase(passphrase: Optional[str] = None) -> str:

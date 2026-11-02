@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
-import Mascot from './Mascot';
+const Mascot = lazy(() => import('./Mascot'));
 import BootSequence from './startup/BootSequence';
 import SetupWizard from './startup/SetupWizard';
 import Shell from './components/Shell';
@@ -126,7 +126,13 @@ function MainRouter() {
     setStage('shell');
   };
 
-  if (windowType === 'mascot') return <Mascot />;
+  if (windowType === 'mascot') {
+    return (
+      <Suspense fallback={<div style={{ padding: 16, color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>Loading Mascot…</div>}>
+        <Mascot />
+      </Suspense>
+    );
+  }
 
   return (
     <AppProvider>
