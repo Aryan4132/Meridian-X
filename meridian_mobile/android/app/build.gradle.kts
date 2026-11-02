@@ -39,7 +39,7 @@ android {
         applicationId = "com.meridian.meridian_mobile"
         // You can update the following values to match your application needs.
         // Require Android 6.0+ (API 23) for robust audio/mic/camera permissions
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

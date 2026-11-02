@@ -1,10 +1,11 @@
 import os
 import json
 import signal
+import socket
 import platform
 import shutil
 import psutil
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -17,7 +18,7 @@ from database import get_ollama_client_host
 
 router = APIRouter(tags=["system"])
 
-CURRENT_VERSION = "0.1.6"
+CURRENT_VERSION = "0.1.7"
 _auto_download_in_progress = False
 _auto_download_ready = False
 
@@ -434,3 +435,102 @@ def get_cache_stats():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+class PairingInfoResponse(BaseModel):
+    lan_ip: str
+    port: int
+    ws_url: str
+    http_url: str
+    auth_token: str
+    pairing_uri: str
+    qr_payload: str
+    tailscale_ip: Optional[str] = None
+    all_endpoints: List[Dict[str, Any]] = []
+    ascii_qr: Optional[str] = None
+
+@router.get("/api/system/pairing-info", response_model=PairingInfoResponse)
+@router.get("/api/mobile/pairing-info", response_model=PairingInfoResponse)
+def get_mobile_pairing_info():
+    """MOB-02: Returns LAN/Tailscale connection endpoints and QR pairing payload for mobile companion app."""
+    try:
+        from src.core.mobile_bridge import get_network_addresses
+        net = get_network_addresses()
+        port = net.get("default_port", 4132)
+        local_ips = net.get("local_ips", [])
+        lan_ip = local_ips[0] if local_ips else "127.0.0.1"
+        ts_ips = net.get("tailscale_ips", [])
+        ts_ip = ts_ips[0] if ts_ips else None
+        
+        auth_token = os.getenv("MERIDIAN_PAIRING_PASSWORD") or os.getenv("MERIDIAN_CUSTOM_PASSWORD") or "meridian_local_pair"
+        ws_url = f"ws://{lan_ip}:{port}/ws"
+        http_url = f"http://{lan_ip}:{port}"
+        pairing_uri = f"meridian://pair?url={ws_url}&token={auth_token}"
+        
+        qr_dict = {
+            "url": ws_url,
+            "token": auth_token,
+            "http_url": http_url,
+            "lan_ip": lan_ip,
+            "port": port,
+            "device": socket.gethostname(),
+            "pairing_uri": pairing_uri,
+        }
+        qr_payload = json.dumps(qr_dict)
+        
+        ascii_qr = None
+        try:
+            import qrcode
+            import io
+            qr = qrcode.QRCode()
+            qr.add_data(pairing_uri)
+            f = io.StringIO()
+            qr.print_ascii(out=f, invert=True)
+            ascii_qr = f.getvalue()
+        except Exception:
+            pass
+
+        return {
+            "lan_ip": lan_ip,
+            "port": port,
+            "ws_url": ws_url,
+            "http_url": http_url,
+            "auth_token": auth_token,
+            "pairing_uri": pairing_uri,
+            "qr_payload": qr_payload,
+            "tailscale_ip": ts_ip,
+            "all_endpoints": net.get("endpoints", []),
+            "ascii_qr": ascii_qr,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/api/system/pairing-qr.svg")
+@router.get("/api/mobile/pairing-qr.svg")
+def get_pairing_qr_svg():
+    """Generates a clean standalone SVG QR code vector for mobile companion pairing."""
+    from src.core.mobile_bridge import get_network_addresses
+    import io
+    from fastapi.responses import Response
+
+    net = get_network_addresses()
+    port = net.get("default_port", 4132)
+    local_ips = net.get("local_ips", [])
+    lan_ip = local_ips[0] if local_ips else "127.0.0.1"
+    auth_token = os.getenv("MERIDIAN_PAIRING_PASSWORD") or os.getenv("MERIDIAN_CUSTOM_PASSWORD") or "meridian_local_pair"
+    ws_url = f"ws://{lan_ip}:{port}/ws"
+    pairing_uri = f"meridian://pair?url={ws_url}&token={auth_token}"
+
+    try:
+        import qrcode
+        import qrcode.image.svg
+        factory = qrcode.image.svg.SvgPathImage
+        img = qrcode.make(pairing_uri, image_factory=factory, box_size=10)
+        stream = io.BytesIO()
+        img.save(stream)
+        svg_bytes = stream.getvalue()
+        return Response(content=svg_bytes, media_type="image/svg+xml")
+    except Exception:
+        fallback_svg = f'<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="10" y="100" fill="#00ffff">meridian://pair</text></svg>'
+        return Response(content=fallback_svg, media_type="image/svg+xml")
+
+

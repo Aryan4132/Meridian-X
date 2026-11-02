@@ -1,6 +1,7 @@
 # Task Checklist - Phase 2: Refactor God Files (Pure Split, Zero Behavior Changes)
 
 ## Completed - Phase 1 Hardening
+
 - [x] Task 1: Consensus debate gate decoupling & unit test (`pytest meridian_backend/tests/test_consensus_gate.py` passes 8/8)
 - [x] Task 2: Structured logging (eliminate bare `except Exception: pass`) across target files
 - [x] Task 3: Unified audio streaming singleton in Mascot & Timeline
@@ -10,6 +11,7 @@
 ---
 
 ## Active - Phase 2: Refactor God Files
+
 - [x] Task 2.1: Refactor `meridian_backend/src/core/proactive.py` (1,360 lines) into modular `src/core/proactive/` package
   - Acceptance:
     - `src/core/proactive/ergonomics.py`: Focus guardian, 20-20-20 eye strain, posture, hydration reminders.
@@ -29,7 +31,7 @@
     - `src/core/loop.py`: Orchestrator coordinating ReAct flow while preserving exact `run_react_agent_loop` signature and return values.
   - Verify: `pytest meridian_backend/tests/test_consensus_gate.py meridian_backend/tests/test_loop*.py meridian_backend/tests/test_day*.py meridian_backend/tests/test_sprint2_features.py` passes (58/58 green).
 
-- [ ] Task 2.3: Refactor `meridian_backend/api.py` (4,427 lines) into modular router package (`meridian_backend/api/`)
+- [x] Task 2.3: Refactor `meridian_backend/api.py` (4,427 lines) into modular router package (`meridian_backend/api/`)
   - Acceptance:
     - `meridian_backend/api/chat.py`: Chat execution, live SSE loop streaming (`/api/chat`, `/api/chat/stream`).
     - `meridian_backend/api/voice.py`: Speech synthesis, transcription, duplex audio endpoints.
@@ -57,7 +59,6 @@
     - `database.py`: Clean Facade re-exporting all symbols for 100% backward compatibility (shrunk from 1,736 lines to 98 lines).
     - No file in `src/db/` exceeds 250 lines.
   - Verify: `pytest tests/test_database.py ...` (36/36 passed clean).
-
 
 - [x] Task 3.1: Local Model Stopping Tokens & Anti-Hallucination (`src/core/loop_stream.py`, `src/core/loop_parser.py`)
   - Acceptance:
@@ -128,6 +129,52 @@
   - Acceptance: All backend pytest suites pass 100%, frontend compiles with 0 errors.
   - Verify: `pytest meridian_backend/tests/` (19/19 passed), `npm --prefix meridian_frontend run build` (built cleanly).
 
+---
 
+## Completed - Sprint 40: System-Wide Polish, Performance & Resilience Suite
 
+- [x] Task 40.1: Router & Lifespan Modular Extraction
+  - Acceptance:
+    - Create `meridian_backend/src/api/websockets.py` containing `/ws`, `/api/ws/mobile`, `/ws/agent-status`, and custom swagger docs.
+    - Create `meridian_backend/src/core/lifespan.py` extracting all daemon startup/teardown logic.
+    - Reduce `meridian_backend/api.py` to pure router aggregator (<250 lines).
+  - Verify: FastAPI app starts cleanly, websocket routes intact, pytest passes.
+  - Files: `meridian_backend/src/api/websockets.py`, `meridian_backend/src/core/lifespan.py`, `meridian_backend/api.py`
 
+- [x] Task 40.2: Frontend Bundle Optimization & Reconnect HUD
+  - Acceptance:
+    - Lazy load Three.js Canvas / Mascot via `React.lazy` and `Suspense`.
+    - Code-split `Settings`, `WorkflowBuilder`, `MemoryEditor`, `SwarmDebate`.
+    - Add `ConnectionBanner.tsx` with live SSE/WebSocket auto-reconnect backoff indication.
+  - Verify: `npx --prefix meridian_frontend tsc --noEmit` passes 0 errors, `npm --prefix meridian_frontend run build` produces smaller main chunk.
+  - Files: `meridian_frontend/src/App.tsx`, `meridian_frontend/src/components/Mascot.tsx`, `meridian_frontend/src/components/ui/ConnectionBanner.tsx`
+
+- [x] Task 40.3: Agent Concurrency Timeout & Subprocess Orphan Cleanup
+  - Acceptance:
+    - In `src/core/loop.py` (`interrupt_agent_loop`), terminate any child worker processes or browser instances.
+    - In `src/core/loop_dispatcher.py`, bound concurrent Tier-0 tool executions with `asyncio.wait_for(..., timeout=15.0)`.
+  - Verify: Pytest verifies interrupt terminates children and slow tools don't stall turn loop.
+  - Files: `meridian_backend/src/core/loop.py`, `meridian_backend/src/core/loop_dispatcher.py`
+
+- [x] Task 40.4: Native SQLite FTS5 for Hybrid RAG
+  - Acceptance:
+    - Create `knowledge_base_fts` virtual table using FTS5 in `src/db/connection.py`.
+    - In `src/db/rag.py`, leverage SQLite FTS5 for C-level BM25 scoring with fallback to in-memory tokenizer.
+  - Verify: Pytest verifies FTS5 creation and hybrid search integration.
+  - Files: `meridian_backend/src/db/connection.py`, `meridian_backend/src/db/rag.py`
+
+- [x] Task 40.5: Hardware-Backed Vault Master Key Resolution
+  - Acceptance:
+    - In `src/core/vault.py`, attempt OS keyring storage lookup with clean fallback to file/env.
+  - Verify: Pytest verifies vault initialization and encryption/decryption works seamlessly.
+  - Files: `meridian_backend/src/core/vault.py`
+
+- [x] Task 40.6: Playwright Shadow DOM & Bounding Box Element Resolution
+  - Acceptance:
+    - In `src/tools/web_browser.py`, expand interactive element scanner to traverse open shadow roots and inspect bounding rects.
+  - Verify: Pytest verifies shadow DOM elements detected.
+  - Files: `meridian_backend/src/tools/web_browser.py`
+
+- [x] Task 40.7: Comprehensive Sprint 40 Verification Gate
+  - Acceptance: All pytest suites pass 100%, frontend compiles with 0 errors.
+  - Verify: `pytest meridian_backend/tests/test_sprint40.py`, `npm --prefix meridian_frontend run build`.

@@ -115,7 +115,7 @@ export default function RightDrawer({
           </div>
 
           {/* Content */}
-          <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 16, width: '100%', boxSizing: 'border-box' }}>
+          <div className="modern-scrollbar" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingBottom: 16, width: '100%', boxSizing: 'border-box' }}>
 
             {/* TIMELINE: Live ReAct thoughts */}
             {activeTab === 'timeline' && (

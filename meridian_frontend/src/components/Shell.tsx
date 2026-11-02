@@ -26,6 +26,7 @@ function ViewLoadingFallback() {
 
 import AmbientParticles from './ui/AmbientParticles';
 import ProactiveGuardBanner from './ProactiveGuardBanner';
+import ConnectionBanner from './ui/ConnectionBanner';
 
 export default function Shell() {
   const { activeTab, setActiveTab } = useApp();
@@ -70,6 +71,7 @@ export default function Shell() {
 
   return (
     <ToastProvider>
+      <ConnectionBanner />
       <ProactiveGuardBanner />
       <div style={{
 

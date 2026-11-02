@@ -57,6 +57,28 @@ def _create_tables(conn: sqlite3.Connection) -> None:
         )
     """)
 
+    try:
+        cursor.execute("""
+            CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_base_fts USING fts5(
+                source,
+                chunk_text,
+                content='knowledge_base',
+                content_rowid='id'
+            )
+        """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS kb_ai AFTER INSERT ON knowledge_base BEGIN
+                INSERT INTO knowledge_base_fts(rowid, source, chunk_text) VALUES (new.id, new.source, new.chunk_text);
+            END;
+        """)
+        cursor.execute("""
+            CREATE TRIGGER IF NOT EXISTS kb_ad AFTER DELETE ON knowledge_base BEGIN
+                INSERT INTO knowledge_base_fts(knowledge_base_fts, rowid, source, chunk_text) VALUES('delete', old.id, old.source, old.chunk_text);
+            END;
+        """)
+    except Exception as e:
+        print("[Database] FTS5 initialization fallback (standard full-text):", e)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS task_log (
             id TEXT PRIMARY KEY,

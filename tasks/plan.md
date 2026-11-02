@@ -1,21 +1,27 @@
-# Implementation Plan - Sprint 39: Intelligence & Telemetry Suite
+# Implementation Plan - Sprint 40: System-Wide Polish, Performance & Resilience Suite
 
 ## Overview
-Implement the 5 core improvements across Meridian-X:
-1. Hybrid Sparse-Dense RAG with Reciprocal Rank Fusion & in-process fallback (PL-08, PL-11)
-2. Live Browser-Use Mini-HUD Streaming & Viewport Frame API
-3. Perception Stream to Proactive Nudges Bridge (PL-03, PL-04)
-4. Collapsible ReAct Step Accordions & Diff Viewer in Timeline (PL-19)
-5. Heterogeneous Subagent Model Routing (PL-10)
+
+Implement the 6 strategic system-wide improvements:
+
+1. Pure Router Aggregator: Extract WebSocket endpoints to `meridian_backend/src/api/websockets.py`, move lifecycle logic to `meridian_backend/src/core/lifespan.py`, shrinking `api.py` under 250 lines.
+2. Frontend Bundle & Connection Polish: Lazy load Three.js mascot canvas, code-split heavy views, and add reconnect HUD with exponential backoff on WebSocket / SSE drops.
+3. Subprocess & Concurrency Guard: Kill orphan subagents and browser instances on interrupt, add timeout wrappers on Tier-0 concurrent tool dispatches.
+4. Native SQLite FTS5 for Hybrid RAG: Setup FTS5 virtual table for lightning-fast keyword search with transparent fallback.
+5. Hardware-Backed Vault Security: OS Keyring lookup with zero-crash fallback.
+6. Playwright Shadow DOM & Bounding Box Element Resolution: Enhance element indexing to inspect Shadow DOM and client bounding rects.
 
 ## Architecture Decisions
-- **Hybrid RAG**: Implement pure Python BM25 scoring inside `src/db/rag.py` and combine with Turbovec dense scores using Reciprocal Rank Fusion `rrf_score = 0.5/(60 + dense_rank) + 0.5/(60 + bm25_rank)`.
-- **Browser-Use HUD**: Capture lightweight JPEG base64 frames during `BrowserUseAgent` step executions, cache last frame in memory, and broadcast over SSE and `GET /api/browser/frame`.
-- **Perception Bridge**: In `src/api/perception.py`, when error sense or terminal crash endpoints are called, automatically call `publish_nudge_sync` to surface actionable suggestions to the user without manual triggers.
-- **Timeline Accordions & Diffs**: Detect unified diffs in markdown blocks (`diff` or `patch`) and render with visual green/red lines. Group ReAct step logs into collapsible badges.
-- **Heterogeneous Swarm**: Resolve model provider and model source per subagent role (`gemini` for researcher, `anthropic`/`deepseek` for auditor/planner) dynamically in `SwarmAgent.execute` and `lobby_debate`.
+
+- **WebSockets & Lifespan**: Create `meridian_backend/src/api/websockets.py` with `APIRouter()` mounting `/ws`, `/api/ws/mobile`, `/ws/agent-status`. Create `meridian_backend/src/core/lifespan.py` holding `lifespan(app: FastAPI)` context manager.
+- **Frontend Code Splitting**: In `meridian_frontend/src/App.tsx`, load views with `React.lazy()` and `Suspense`. In `Mascot.tsx`, lazy-load Three.js components. Add `ConnectionBanner.tsx` for connection tracking.
+- **Process Guard & Timeouts**: In `meridian_backend/src/core/loop.py`, `interrupt_agent_loop` terminates children of current process matching browser/python subagents. In `loop_dispatcher.py`, `asyncio.wait_for(task, timeout=15.0)` around concurrent tool executions.
+- **SQLite FTS5**: In `src/db/connection.py`, create `CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_base_fts USING fts5(...)` with graceful `sqlite3.OperationalError` handling if compile option omitted. In `src/db/rag.py`, query FTS5 if present, falling back to pure Python BM25.
+- **Vault Keyring**: In `src/core/vault.py`, attempt `import keyring` and retrieve/store vault master secret. Fall back silently to existing file/env key.
+- **Browser DOM Inspection**: In `src/tools/web_browser.py`, expand JS evaluation script to recursively traverse `element.shadowRoot` to capture interactive buttons and inputs inside web components.
 
 ## Verification Checkpoints
-- Checkpoint 1 (Backend RAG & Swarm): Pytest for hybrid RAG search and heterogeneous swarm routing.
-- Checkpoint 2 (Browser & Perception): Pytest for browser frame capture and perception nudge bridge.
-- Checkpoint 3 (Frontend): Typecheck with `tsc --noEmit` and build with `npm run build`.
+
+- Checkpoint 1 (Backend Modularization & FTS5): Pytest for websockets router, lifespan, and FTS5 hybrid RAG.
+- Checkpoint 2 (Interrupt & Keyring): Pytest for loop interrupt and vault keyring resolution.
+- Checkpoint 3 (Frontend Build & Typecheck): Verify `tsc --noEmit` and `npm run build` succeeds with reduced bundle chunks.

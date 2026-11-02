@@ -8,7 +8,7 @@ try:
     pyautogui.FAILSAFE = True
 except Exception:
     pyautogui = None
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional
 from src.core.audit_logger import log_sensitive_action
 
 def screenshot(output_path: str) -> str:
@@ -252,3 +252,65 @@ def screenshot_to_code(image_path: str, tech_stack: str = "html/css/vanilla js")
     return vision_analyze(image_path, prompt)
 
 
+
+
+def explain_active_screen(focus_area: Optional[str] = None) -> str:
+    """Capture the active desktop/window, extract visual & text content, and provide an actionable diagnosis."""
+    import tempfile
+
+    try:
+        from src.core.screen_sense import get_active_window_metadata
+        sense = get_active_window_metadata()
+    except Exception:
+        sense = {"title": "Active Desktop", "process": "Unknown"}
+
+    temp_img = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tf:
+            temp_img = tf.name
+
+        try:
+            screenshot(temp_img)
+        except Exception as screen_err:
+            return (
+                f"**Active Window**: {sense.get('title', 'Desktop')} (Process: {sense.get('process', 'Unknown')})\n"
+                f"**Screen Capture Note**: Display capture unavailable ({screen_err})."
+            )
+
+        prompt = (
+            f"Analyze this screenshot of the user's active screen (Active Window: '{sense.get('title', 'Unknown')}'). "
+            f"Focus particularly on {focus_area if focus_area else 'any visible errors, code snippets, logs, dialogs, or active state'}. "
+            f"Provide a structured summary:\n"
+            f"1. Active Context / App: What application or view is open?\n"
+            f"2. Observations: What specific content or error messages are visible?\n"
+            f"3. Recommended Next Steps: What should the user or assistant do next to resolve or proceed?"
+        )
+
+        vision_result = vision_analyze(temp_img, prompt)
+
+        if "Vision analysis failed" in vision_result or "No response from vision model" in vision_result:
+            ocr_text = ocr_screen(temp_img)
+            if ocr_text and "failed" not in ocr_text.lower():
+                return (
+                    f"**Active Window**: {sense.get('title', 'Desktop')} (Process: {sense.get('process', 'Unknown')})\n\n"
+                    f"**Extracted Text (OCR Fallback)**:\n{ocr_text[:800]}\n\n"
+                    f"**Assessment**: Extracted text from active screen. Ready for instruction."
+                )
+            return (
+                f"**Active Window**: {sense.get('title', 'Desktop')} (Process: {sense.get('process', 'Unknown')})\n\n"
+                f"**Screen Status**: Captured active display. Vision model is currently offline/unavailable.\n"
+                f"**Suggestion**: Ensure an Ollama vision model (e.g. `moondream` or `llava`) is configured for visual diagnosis."
+            )
+
+        return (
+            f"**Active Window**: {sense.get('title', 'Desktop')} (Process: {sense.get('process', 'Unknown')})\n\n"
+            f"{vision_result}"
+        )
+    except Exception as e:
+        return f"Failed to capture or explain active screen: {str(e)}"
+    finally:
+        if temp_img and os.path.exists(temp_img):
+            try:
+                os.remove(temp_img)
+            except Exception:
+                pass

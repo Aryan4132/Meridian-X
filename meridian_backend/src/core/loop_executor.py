@@ -58,6 +58,64 @@ def sanitize_tool_args_str(args_str: str) -> str:
     return args_str
 
 
+def auto_heal_tool_args(sig: inspect.Signature, args: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
+    """Auto-coerces string numbers/booleans and normalizes file paths matching function signature."""
+    healed = False
+    new_args = dict(args)
+
+    for param_name, param in sig.parameters.items():
+        if param_name not in new_args:
+            continue
+        val = new_args[param_name]
+
+        # 1. Strip accidental wrapping quotes
+        if isinstance(val, str) and len(val) >= 2 and ((val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'"))):
+            val = val[1:-1]
+            new_args[param_name] = val
+            healed = True
+
+        # 2. Path normalization
+        if isinstance(val, str) and any(pk in param_name.lower() for pk in ["path", "file", "dir", "folder"]):
+            if "\\" in val and not val.startswith("\\\\"):
+                val = val.replace("\\", "/")
+                new_args[param_name] = val
+                healed = True
+
+        # 3. Numeric & boolean coercion based on annotations or defaults
+        annot = param.annotation
+        default_val = param.default if param.default is not inspect.Parameter.empty else None
+
+        # Boolean coercion
+        if annot is bool or isinstance(default_val, bool):
+            if isinstance(val, str):
+                v_lower = val.strip().lower()
+                if v_lower in ("true", "1", "yes"):
+                    new_args[param_name] = True
+                    healed = True
+                elif v_lower in ("false", "0", "no"):
+                    new_args[param_name] = False
+                    healed = True
+
+        # Integer coercion (ensure not bool)
+        elif annot is int or (isinstance(default_val, int) and not isinstance(default_val, bool)):
+            if isinstance(val, str):
+                v_str = val.strip()
+                if v_str.isdigit() or (v_str.startswith("-") and v_str[1:].isdigit()):
+                    new_args[param_name] = int(v_str)
+                    healed = True
+
+        # Float coercion
+        elif annot is float or isinstance(default_val, float):
+            if isinstance(val, str):
+                try:
+                    new_args[param_name] = float(val.strip())
+                    healed = True
+                except ValueError:
+                    pass
+
+    return new_args, healed
+
+
 def critique_and_correct_tool_call(tool_name: str, args_str: str, client: Optional[Any] = None, model_source: str = "local") -> Tuple[bool, str, str]:
     """Inspects tool signature and code blocks locally/cloud to auto-correct errors."""
     try:
@@ -115,6 +173,11 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: Option
                         remapped = True
 
             if remapped:
+                args_str = json.dumps(args)
+
+            # Auto-heal parameter types, booleans, and path strings
+            args, healed_args = auto_heal_tool_args(sig, args)
+            if healed_args:
                 args_str = json.dumps(args)
 
             missing = [p for p in required_params if p not in args]

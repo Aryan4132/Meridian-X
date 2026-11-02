@@ -4,7 +4,7 @@
 
 ![Meridian-X Logo](logo.png)
 
-[![Version](https://img.shields.io/badge/version-0.1.6-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
+[![Version](https://img.shields.io/badge/version-0.1.7-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)

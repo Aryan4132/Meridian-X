@@ -15,7 +15,7 @@ import {
   X,
   Play
 } from 'lucide-react';
-import { Mascot3DCharacter } from './Mascot3DCharacter';
+const Mascot3DCharacter = React.lazy(() => import('./Mascot3DCharacter').then(m => ({ default: m.Mascot3DCharacter })));
 import { API_BASE_URL } from './config';
 import { applyThemeToDocument, resolveTheme, DEFAULT_THEME } from './AppContext';
 import { streamingAudio } from './services/streamingAudioPlayer';
@@ -84,13 +84,15 @@ export function MascotCharacter({ state, accentColor, speechAmplitude = 0, theme
       }`} />
 
       <div className="w-full h-full flex items-center justify-center relative z-10">
-        <Mascot3DCharacter
-          state={state}
-          accentColor={stateColor}
-          speechAmplitude={speechAmplitude}
-          themeMode={themeMode}
-          size={32}
-        />
+        <React.Suspense fallback={<div className="w-6 h-6 rounded-full bg-[var(--accent)] opacity-30 animate-pulse" />}>
+          <Mascot3DCharacter
+            state={state}
+            accentColor={stateColor}
+            speechAmplitude={speechAmplitude}
+            themeMode={themeMode}
+            size={32}
+          />
+        </React.Suspense>
       </div>
 
       {/* Floating sleep Zzz particles */}
