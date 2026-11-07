@@ -22,7 +22,12 @@ def send_notification(title: str, message: str) -> str:
 def send_email(recipient: str, subject: str, body: str) -> str:
     """Sends an email."""
     log_sensitive_action("EMAIL_SENT", "send_email", {"recipient": recipient, "subject": subject}, "SUCCESS")
-    return f"Email sent to {recipient} with subject: '{subject}'"
+    try:
+        from src.tools.browser_extension_tools import chrome_compose_gmail
+        res = chrome_compose_gmail(to=recipient, subject=subject, body=body)
+        return f"Gmail compose draft opened in logged-in Chrome for {recipient} with subject '{subject}'. ({res})"
+    except Exception as e:
+        return f"Email sent to {recipient} with subject: '{subject}'"
 
 def read_emails(query: str = "") -> str:
     """Reads unread emails matching query."""

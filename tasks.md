@@ -531,3 +531,31 @@
 - [x] Task 46.4: Polish floating Quick Action pills and modern input dock with multi-line expand and status badges.
 - [x] Task 46.5: Polish `StatusBar.tsx` and `RightDrawer.tsx` with live telemetry gauges and smooth transitions.
 - [x] Task 46.6: Run full verification gate (`tsc --noEmit` and `npm run build`).
+
+## Task 47: Native Browser Extension Bridge (Manifest V3)
+
+- [x] Task 47.1: Author Chrome Extension package (`meridian_extension/`) with `manifest.json`, `background.js`, `content.js`, `popup.html`, `popup.js`, and icon assets.
+- [x] Task 47.2: Create Backend Extension WebSocket Router (`meridian_backend/src/api/browser_extension.py` & `src/core/browser_extension_hub.py`) with connection manager, heartbeats, and correlation-tracked RPC dispatch.
+- [x] Task 47.3: Implement Agent Extension Tools (`meridian_backend/src/tools/browser_extension_tools.py`) and wire into `src/tools/registry.py` and tool signatures.
+- [x] Task 47.4: Integrate Extension Bridge with `BrowserUseAgent` in `src/tools/browser_use_agent.py` and `src/tools/web_browser.py` as primary non-locking browser driver.
+- [x] Task 47.5: Author comprehensive unit tests in `meridian_backend/tests/test_browser_extension.py`.
+- [x] Task 47.6: Run verification gate: pytest suite and extension validation.
+
+
+## Task 48: Real-Time Voice Overhaul (Streaming STT, Kokoro TTS & Neural Biometrics)
+
+- [ ] Task 48.1: Implement real-time streaming STT chunk processor in `src/voice/stt.py` and WebSocket endpoint in `src/api/voice.py` emitting interim live transcripts.
+- [ ] Task 48.2: Upgrade `src/voice/voice_biometrics.py` with neural speaker embedding extractor (ECAPA-TDNN / Resemblyzer) replacing MD5 hash logic.
+- [ ] Task 48.3: Implement chunked audio streaming (Opus/MP3) in `src/api/voice.py` and `src/services/streamingAudioPlayer.ts` with Kokoro-82M and Edge-TTS provider options.
+- [ ] Task 48.4: Add WebRTC Acoustic Echo Cancellation (AEC) and unified `AUDIO_KILL` barge-in event bus in `src/voice/duplex.py`.
+- [ ] Task 48.5: Integrate Flutter `record` audio capture in `meridian_mobile/lib/providers/voice_orb_provider.dart` for hardware microphone streaming.
+- [ ] Task 48.6: Author pytest suite in `meridian_backend/tests/test_voice_overhaul.py`.
+
+## Task 49: Computer Vision & Physical Sentinel Overhaul
+
+- [ ] Task 49.1: Replace dummy face hashes in `src/core/vision_face.py` with MediaPipe Face Mesh / OpenCV YuNet landmark detection and presence tracker.
+- [ ] Task 49.2: Connect `src/core/vision_gesture.py` to live camera feed with MediaPipe Hands classifier (open-palm, thumbs-up, swipe gestures).
+- [ ] Task 49.3: Implement hardware RTSP video stream capture via OpenCV `cv2.VideoCapture` and YOLOv8n object detection in `src/core/camera_sentinel.py`.
+- [ ] Task 49.4: Integrate Flutter `camera` preview and frame snapshot streaming in `meridian_mobile/lib/views/camera_vision_view.dart`.
+- [ ] Task 49.5: Add on-device Fast-OCR pre-pass (PaddleOCR / Tesseract) in `src/core/vision.py` for local screen text extraction.
+- [ ] Task 49.6: Author pytest suite in `meridian_backend/tests/test_vision_overhaul.py`.

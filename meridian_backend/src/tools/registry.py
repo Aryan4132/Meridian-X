@@ -33,6 +33,20 @@ from src.tools.whatsapp_manager import manage_whatsapp_contacts, read_whatsapp_m
 from src.tools.health_ingest import sync_wearable_health_data, get_health_metrics_summary
 from src.tools.wellness import track_hydration, trigger_ergonomic_break, calculate_daily_wellness_score
 
+from src.tools.browser_extension_tools import (
+    chrome_get_active_tab,
+    chrome_read_page,
+    chrome_click_element,
+    chrome_fill_input,
+    chrome_scroll,
+    chrome_open_tab,
+    chrome_edit_element,
+    chrome_navigate,
+    chrome_get_interactive_elements,
+    chrome_compose_gmail,
+    is_chrome_extension_available,
+)
+
 # Import newly implemented advanced capability tools
 from src.tools.vault import vault_set, vault_get, vault_list, vault_delete
 from src.tools.knowledge import kg_add_entity, kg_add_relation, kg_query, kg_search, kg_add_fact, kg_get_facts, kg_traverse, suggest_cross_project_patterns
@@ -200,6 +214,16 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "edit_pdf_document": {"tier": 1, "func": edit_pdf_document},
     
     # Web & Network
+    "chrome_get_active_tab": {"tier": 0, "func": chrome_get_active_tab},
+    "chrome_read_page": {"tier": 0, "func": chrome_read_page},
+    "chrome_click_element": {"tier": 1, "func": chrome_click_element},
+    "chrome_fill_input": {"tier": 1, "func": chrome_fill_input},
+    "chrome_scroll": {"tier": 0, "func": chrome_scroll},
+    "chrome_open_tab": {"tier": 1, "func": chrome_open_tab, "description": "Open new URL in personal Chrome tab via extension."},
+    "chrome_edit_element": {"tier": 1, "func": chrome_edit_element, "description": "Edit DOM element text or HTML on active tab."},
+    "chrome_navigate": {"tier": 1, "func": chrome_navigate, "description": "Navigate the active Chrome tab to a new URL via the extension."},
+    "chrome_get_interactive_elements": {"tier": 0, "func": chrome_get_interactive_elements, "description": "List all visible interactive elements on the active Chrome tab with selectors."},
+    "chrome_compose_gmail": {"tier": 1, "func": chrome_compose_gmail, "description": "Open pre-filled Gmail draft with recipient, subject, and body in personal Chrome browser."},
     "universal_search": {"tier": 0, "func": universal_search, "description": "Unified cross-system search across AST code symbols, RAG knowledge docs, conversation memories, and workspace files."},
     "query_cognitive_graph": {"tier": 0, "func": query_cognitive_graph, "description": "Multi-hop relational search across the Unified Cognitive Graph linking code AST, frontend views, backend routes, and episodic memories."},
     "search_web": {"tier": 0, "func": search_web},
@@ -516,6 +540,16 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "get_market_watchlist": {"tier": 0, "func": get_market_watchlist},
     "scan_downloads_folder": {"tier": 0, "func": scan_downloads_folder},
     "organize_downloads": {"tier": 2, "func": organize_downloads},
+    "chrome_get_active_tab": {"tier": 0, "func": chrome_get_active_tab},
+    "chrome_read_page": {"tier": 0, "func": chrome_read_page},
+    "chrome_click_element": {"tier": 1, "func": chrome_click_element},
+    "chrome_fill_input": {"tier": 1, "func": chrome_fill_input},
+    "chrome_scroll": {"tier": 0, "func": chrome_scroll},
+    "chrome_open_tab": {"tier": 1, "func": chrome_open_tab, "description": "Open new URL in personal Chrome tab via extension."},
+    "chrome_edit_element": {"tier": 1, "func": chrome_edit_element, "description": "Edit DOM element text or HTML on active tab."},
+    "chrome_navigate": {"tier": 1, "func": chrome_navigate, "description": "Navigate the active Chrome tab to a new URL via the extension."},
+    "chrome_get_interactive_elements": {"tier": 0, "func": chrome_get_interactive_elements, "description": "List all visible interactive elements on the active Chrome tab with selectors."},
+    "chrome_compose_gmail": {"tier": 1, "func": chrome_compose_gmail, "description": "Open pre-filled Gmail draft with recipient, subject, and body in personal Chrome browser."},
     "universal_search": {"tier": 0, "func": universal_search},
     "capture_screenshot_memory": {"tier": 1, "func": capture_screenshot_memory},
     "query_screenshot_memory": {"tier": 0, "func": query_screenshot_memory},

@@ -400,6 +400,28 @@ def enrich_system_prompt(
     except Exception:
         pass
 
+    # Inject Chrome Extension & Personal Account capabilities context
+    try:
+        from src.core.browser_extension_hub import extension_manager
+        if extension_manager.is_connected:
+            system_prompt += (
+                "\n\n[🌐 CHROME EXTENSION CONNECTED]\n"
+                "The user's personal Google Chrome browser is connected via the Meridian Extension. "
+                "You have direct access to their active logged-in browser session (Gmail, Google, GitHub, Jira, YouTube, etc.). "
+                "Tools: `chrome_compose_gmail(to, subject, body)`, `chrome_open_tab(url)`, `chrome_get_active_tab()`, "
+                "`chrome_read_page()`, `chrome_click_element(selector, text)`, `chrome_fill_input(selector, value)`, `chrome_edit_element()`, `chrome_scroll()`. "
+                "RULE: For Gmail, email sending, or logged-in services, ALWAYS call `chrome_compose_gmail` or `chrome_*` tools. "
+                "NEVER call `browser_use_task` or `browser_open` for Gmail (standalone Playwright browsers lack cookies and Google blocks them)."
+            )
+        else:
+            system_prompt += (
+                "\n\n[🌐 CHROME EXTENSION STATUS: STANDBY / DISCONNECTED]\n"
+                "To compose/send Gmail or open URLs in the user's logged-in personal browser, use `chrome_compose_gmail(to, subject, body)` "
+                "or `chrome_open_tab(url)`. They automatically route to the user's default Chrome profile and open the draft without login prompts."
+            )
+    except Exception:
+        pass
+
     return system_prompt
 
 

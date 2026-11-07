@@ -1035,3 +1035,36 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
    - Frontend typecheck: `npm --prefix meridian_frontend run lint` (`tsc --noEmit`).
    - Production bundle compile: `npm --prefix meridian_frontend run build`.
 
+---
+
+## Sub-Spec: Sprint 47 - Native Browser Extension Bridge (Manifest V3)
+
+### Sprint 47 Objectives
+
+1. **Manifest V3 Chrome Extension (`meridian_extension/`)**:
+   - `manifest.json`: Manifest V3 specification with `activeTab`, `scripting`, `storage`, and `tabs` permissions.
+   - `background.js`: Service worker with auto-reconnecting WebSocket client connected to `ws://localhost:4132/api/browser/extension` (with fallback to `ws://localhost:8000/api/browser/extension`).
+   - `content.js`: Injected script for extracting active tab DOM content, visible text, form fields, taking viewport snapshots, Set-of-Marks visual badges, and executing clicks/inputs directly in the user's logged-in session.
+   - `popup.html` & `popup.js`: Polished Meridian HUD popup displaying live connection status, current tab info, 1-click "Send Page to Meridian", and quick actions.
+
+2. **Backend Extension Bridge Hub (`meridian_backend/src/api/browser_extension.py`)**:
+   - WebSocket router mounted at `/api/browser/extension` with bidirectional JSON messaging.
+   - Live extension connection tracking with ping/pong heartbeats to keep Manifest V3 service workers awake.
+   - RPC request/response handling with correlation IDs for async tool calls (`get_active_tab`, `extract_page_text`, `click_element`, `fill_input`, `take_screenshot`).
+
+3. **Agent Extension Tool Suite (`meridian_backend/src/tools/browser_extension_tools.py`)**:
+   - `extension_get_active_tab()`: Returns current active URL, title, and page summary from user's logged-in Chrome.
+   - `extension_extract_page(selector: Optional[str])`: Returns clean text and interactive element map from current page.
+   - `extension_click(selector_or_text: str)`: Clicks button/link on active tab using real user session.
+   - `extension_fill(selector: str, value: str, submit: bool)`: Types value into input field and optionally submits.
+   - Auto-registers in `src/tools/registry.py` and `src/core/loop_stream.py`.
+
+4. **Automated Fallback Cascade in Browser Agent**:
+   - When user asks to browse or interact with a logged-in site (Google, YouTube, GitHub, Jira), agent first checks if Chrome extension is connected.
+   - If connected: executes action via user's live browser session with zero profile locks.
+   - If not connected: falls back cleanly to Playwright browser engine with helpful prompt explaining how to load extension.
+
+5. **Unit Tests & Verification Gate**:
+   - `meridian_backend/tests/test_browser_extension.py` with mock WebSocket extension client.
+   - Pytest pass + frontend typecheck + extension manifest validation.
+

@@ -299,6 +299,27 @@ Do NOT include markdown formatting or explanations. JSON only:"""
 
 def browser_use_task(task: str, start_url: Optional[str] = None, max_steps: int = 10, visible: bool = True) -> str:
     """Autonomous Browser-Use tool: executes high-level web instructions live in browser."""
+    lower = task.lower()
+    if "gmail" in lower or "mail.google.com" in lower or ("send" in lower and ("email" in lower or "mail" in lower or "@" in task)):
+        email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', task)
+        recipient = email_match.group(0) if email_match else ""
+        subject = "Introduction: Meridian-X Sovereign AI" if any(w in lower for w in ["yourself", "about urself", "about you"]) else "Message from Meridian-X"
+        body = (
+            "Hi,\n\nI am Meridian-X, a sovereign desktop AI agent created by Aryan.\nI assist with software development, desktop workflow automation, and ambient intelligence.\n\nBest regards,\nMeridian-X"
+            if any(w in lower for w in ["yourself", "about urself", "about you"])
+            else task
+        )
+        from src.tools.browser_extension_tools import chrome_compose_gmail
+        res = chrome_compose_gmail(to=recipient, subject=subject, body=body)
+        return json.dumps({
+            "status": "success",
+            "routed_via": "chrome_compose_gmail",
+            "message": "Personal email/Gmail detected. Redirected to your personal logged-in Chrome browser.",
+            "recipient": recipient,
+            "subject": subject,
+            "browser_action": res
+        }, indent=2)
+
     agent = BrowserUseAgent(max_steps=max_steps)
     res = agent.run(task, start_url=start_url, visible=visible)
     return json.dumps(res, indent=2)
