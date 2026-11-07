@@ -10,7 +10,48 @@ on:
 # Output: sidecar-{windows|macos|linux} GitHub Artifact
 # ────────────────────────────────────────────────────────────────
 jobs:
+# ────────────────────────────────────────────────────────────────
+# JOB 0 — Build Mobile APK
+# Output: app-release.apk GitHub Release Asset
+# ────────────────────────────────────────────────────────────────
+  build-mobile:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Dependencies
+        run: |
+          cd meridian_mobile
+          flutter pub get
+
+      - name: Build APK
+        run: |
+          cd meridian_mobile
+          flutter build apk --release
+
+      - name: Upload APK to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: meridian_mobile/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-backend:
+
     permissions:
       contents: write
     strategy:
