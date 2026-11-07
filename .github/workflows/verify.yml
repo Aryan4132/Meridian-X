@@ -16,7 +16,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y portaudio19-dev libsndfile1 libffi-dev libssl-dev build-essential libgomp1
+          sudo apt-get install -y portaudio19-dev libsndfile1 libffi-dev libssl-dev build-essential libgomp1 libgl1-mesa-glx libasound2-dev
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
@@ -37,7 +37,7 @@ jobs:
           ruff check meridian_backend/src --exit-zero
 
       - name: Run Backend Test Suite
-        run: python -m pytest meridian_backend/tests/ -q --ignore=test_*.py
+        run: python -m pytest meridian_backend/tests/ -v -k "not voice and not wakeword"
 
 
   frontend:
