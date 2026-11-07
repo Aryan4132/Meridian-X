@@ -71,6 +71,16 @@ TOOL_SIGNATURES: Dict[str, str] = {
     "run_command": 'run_command(command="<command>")',
     "nl_run": 'nl_run(command="<command_or_instruction>")',
     "explain_active_screen": 'explain_active_screen(focus_area="<optional_focus_topic_or_error>")',
+    "chrome_get_active_tab": 'chrome_get_active_tab()',
+    "chrome_read_page": 'chrome_read_page(max_length=6000)',
+    "chrome_click_element": 'chrome_click_element(selector="<css_selector_or_text>", text="<optional_button_text>")',
+    "chrome_fill_input": 'chrome_fill_input(selector="<input_selector>", value="<text>", submit=False)',
+    "chrome_scroll": 'chrome_scroll(direction="down", amount=500)',
+    "chrome_open_tab": 'chrome_open_tab(url="https://...")',
+    "chrome_edit_element": 'chrome_edit_element(selector="<selector>", text="<new_text>", html="<new_html>")',
+    "chrome_navigate": 'chrome_navigate(url="https://...")',
+    "chrome_get_interactive_elements": 'chrome_get_interactive_elements()',
+    "chrome_compose_gmail": 'chrome_compose_gmail(to="<email>", subject="<subject>", body="<body>")',
     "workspace_quick_audit": 'workspace_quick_audit(repo_path="<optional_path>")',
     "smart_clipboard_action": 'smart_clipboard_action(mode="auto")',
 }
@@ -85,7 +95,7 @@ CORE_TOOLS_LIST = [
     # Browser (4)
     "browser_use_task", "browser_open", "browser_close", "browser_get_text",
     # Desktop (8)
-    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file", "explain_active_screen",
+    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file", "explain_active_screen", "chrome_get_active_tab", "chrome_read_page", "chrome_click_element", "chrome_fill_input", "chrome_scroll", "chrome_open_tab", "chrome_edit_element", "chrome_navigate", "chrome_get_interactive_elements", "chrome_compose_gmail",
     # System & Tasks (10)
     "get_system_info", "get_hardware_info", "list_processes", "kill_process", "clipboard_get", "clipboard_set", "smart_clipboard_action", "schedule_task", "schedule_once", "list_scheduled",
     # Memory & Knowledge (4)

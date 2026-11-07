@@ -57,6 +57,7 @@ from src.api.swarm import router as swarm_router
 from src.api.profile import router as profile_router
 from src.api.workspace import router as workspace_router
 from src.api.websockets import router as websockets_router
+from src.api.browser_extension import router as browser_extension_router
 from src.core.lifespan import lifespan
 from database import get_ollama_client_host  # re-export for backwards compatibility
 
@@ -151,7 +152,7 @@ app.add_middleware(
         "http://10.0.2.2:4132",
         "http://10.0.2.2:4133",
     ],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|\[::1\]|10\.0\.2\.2)(:\d+)?$",
+    allow_origin_regex=r"^(https?://(localhost|127\.0\.0\.1|\[::1\]|10\.0\.2\.2)(:\d+)?|chrome-extension://.*)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -171,7 +172,7 @@ app.include_router(automation_router)
 app.include_router(swarm_router)
 app.include_router(profile_router)
 app.include_router(workspace_router)
-
+app.include_router(browser_extension_router)
 
 app.include_router(websockets_router)
 

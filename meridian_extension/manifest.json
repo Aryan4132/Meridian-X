@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Meridian-X Desktop AI Bridge",
+  "version": "1.0.1",
+  "description": "Seamlessly bridges your daily logged-in Chrome browser with Meridian-X sovereign local AI.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Meridian-X AI Bridge"
+  }
+}

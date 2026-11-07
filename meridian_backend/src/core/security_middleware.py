@@ -84,6 +84,7 @@ class TrustedOriginMiddleware(BaseHTTPMiddleware):
                     lower_origin.startswith("http://192.168.")
                     or lower_origin.startswith("http://10.")
                     or lower_origin.startswith("http://172.")
+                    or lower_origin.startswith("chrome-extension://")
                     or "trycloudflare.com" in lower_origin
                 )
                 if lower_origin not in self.allowed_origins and not is_lan_or_tunnel:
