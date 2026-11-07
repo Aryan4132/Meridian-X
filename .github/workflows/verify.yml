@@ -16,7 +16,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y portaudio19-dev libsndfile1 libffi-dev libssl-dev build-essential libgomp1 libgl1-mesa-glx libasound2-dev
+          sudo apt-get install -y portaudio19-dev libsndfile1 libffi-dev libssl-dev build-essential libgomp1 libgl1 libglx-mesa0 libasound2-dev
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
