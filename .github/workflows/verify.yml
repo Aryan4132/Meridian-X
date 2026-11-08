@@ -34,7 +34,8 @@ jobs:
 
       - name: Lint with Ruff
         run: |
-          ruff check meridian_backend/src --exit-zero
+          cd meridian_backend
+          ruff check src --exit-zero
 
       - name: Run Backend Test Suite
         run: python -m pytest meridian_backend/tests/ -v -k "not voice and not wakeword"
