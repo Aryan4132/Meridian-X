@@ -540,6 +540,7 @@
 - [x] Task 47.4: Integrate Extension Bridge with `BrowserUseAgent` in `src/tools/browser_use_agent.py` and `src/tools/web_browser.py` as primary non-locking browser driver.
 - [x] Task 47.5: Author comprehensive unit tests in `meridian_backend/tests/test_browser_extension.py`.
 - [x] Task 47.6: Run verification gate: pytest suite and extension validation.
+- [x] Task 47.7: Headless CI PortAudio crash fix and pytest-asyncio integration in `meridian_backend/src/voice/wakeword.py` & `.github/workflows/verify.yml`.
 
 
 ## Task 48: Real-Time Voice Overhaul (Streaming STT, Kokoro TTS & Neural Biometrics)

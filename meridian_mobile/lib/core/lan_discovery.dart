@@ -84,7 +84,7 @@ class LanDiscoveryService {
 
   /// Scan local network for running Meridian desktop engine instances.
   static Future<List<DiscoveredHost>> scanForDesktopHosts({
-    List<int> ports = const [4132, 8765],
+    List<int> ports = const [4133, 4132, 8765],
     Duration probeTimeout = const Duration(milliseconds: 400),
     void Function(String message)? onProgress,
   }) async {

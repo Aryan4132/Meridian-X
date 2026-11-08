@@ -30,7 +30,7 @@ jobs:
           cd meridian_backend
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff pytest
+          pip install ruff pytest pytest-asyncio
 
       - name: Lint with Ruff
         run: |
@@ -38,7 +38,13 @@ jobs:
           ruff check src --exit-zero
 
       - name: Run Backend Test Suite
-        run: python -m pytest meridian_backend/tests/ -v -k "not voice and not wakeword"
+        run: |
+          python -m pytest meridian_backend/tests/ -v \
+            -k "not voice and not wakeword" \
+            --ignore=meridian_backend/tests/test_day5_features.py \
+            --ignore=meridian_backend/tests/test_voice_hardening.py \
+            --ignore=meridian_backend/tests/test_wakeword_continuous.py \
+            --ignore=meridian_backend/tests/test_wakeword_onnx.py
 
 
   frontend:

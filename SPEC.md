@@ -15,6 +15,7 @@ Implement core enterprise-grade agent capabilities in Meridian-X:
 9. **Best-in-Class Tool Consolidation**: Where multiple duplicate or overlapping tools exist across browser automation, code reviews, notifications, scheduling, clipboard, and search, standardize and route all calls to the best-performing, most resilient implementation.
 10. **Local Model Stopping Tokens & Anti-Hallucination**: Stop sequences (`stop=["</call>", "</call:"]`) and context window settings (`num_ctx: 8192`) on Ollama stream calls to eliminate simulated observation hallucinations.
 11. **Fast-Boot Lazy Daemon Lifecycles**: Guard wakeword audio listeners, P2P network threads, and clipboard monitors behind user preference toggles to achieve <1s backend boot time and <250MB idle RAM.
+12. **Headless CI Resilience & Pytest-Asyncio Test Collection**: Safely handle PortAudio / PulseAudio initialization errors (`PortAudioError`) on headless runners in `src.voice.wakeword`, ignore hardware-dependent voice tests during CI collection, and install `pytest-asyncio` for `@pytest.mark.asyncio` support.
 
 ## Tech Stack
 

@@ -382,43 +382,23 @@ def create_model_response_stream(
 
 
 async def async_iter_stream(stream: Any) -> AsyncGenerator[Any, None]:
-    """Wraps synchronous generator streams in a threadsafe async generator queue."""
-    queue: asyncio.Queue = asyncio.Queue(maxsize=512)
-    loop = asyncio.get_running_loop()
-    _END = object()
-
-    def _producer():
-        try:
-            for item in stream:
-                future = asyncio.run_coroutine_threadsafe(queue.put(item), loop)
-                future.result()
-        except Exception as exc:
-            try:
-                future = asyncio.run_coroutine_threadsafe(queue.put({"error": str(exc)}), loop)
-                future.result()
-            except Exception:
-                pass
-        finally:
-            try:
-                future = asyncio.run_coroutine_threadsafe(queue.put(_END), loop)
-                future.result()
-            except Exception:
-                pass
-
-    producer_task = asyncio.create_task(asyncio.to_thread(_producer))
-    try:
-        while True:
-            item = await queue.get()
-            if item is _END:
-                break
+    """Wraps synchronous or asynchronous generator streams into an async generator without thread deadlock."""
+    if hasattr(stream, "__aiter__"):
+        async for item in stream:
             yield item
-    finally:
-        if not producer_task.done():
-            producer_task.cancel()
-            try:
-                await producer_task
-            except (asyncio.CancelledError, Exception):
-                pass
+        return
+
+    iterator = iter(stream)
+    sentinel = object()
+    while True:
+        try:
+            item = await asyncio.to_thread(lambda: next(iterator, sentinel))
+        except Exception as exc:
+            yield {"error": str(exc)}
+            break
+        if item is sentinel:
+            break
+        yield item
 
 
 def extract_chunk_content(chunk: Any, model_source: str, api_provider: str) -> str:

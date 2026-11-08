@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 try:
     import sounddevice as sd
-except (ImportError, OSError) as err:
+except Exception as err:
     logger.warning("sounddevice module not available for wakeword: %s", err)
     sd = None
 from src.core.proactive import publish_nudge_sync
