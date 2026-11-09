@@ -54,8 +54,9 @@ def test_doctor_ports_check():
 
 def test_doctor_frontend_check():
     res = doctor.check_frontend()
-    assert res["dist_exists"] is True
-    assert res["status"] == "PASS"
+    assert res["status"] in ("PASS", "WARN")
+    assert isinstance(res["dist_exists"], bool)
+    assert "node_version" in res
 
 
 def test_doctor_self_healing_safe_execution():

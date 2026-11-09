@@ -14,15 +14,17 @@ def test_get_latest_browser_frame_and_mock(monkeypatch):
 
 def test_browser_use_agent_records_frame(monkeypatch):
     from src.tools.browser_use_agent import BrowserUseAgent
+    import src.tools.browser_use_agent as bua
     import src.tools.web_browser as wb
 
     monkeypatch.setattr(wb, "_page_alive", lambda: True)
-    monkeypatch.setattr(wb, "browser_open", lambda *a, **k: "Opened")
-    monkeypatch.setattr(wb, "browser_wait", lambda *a, **k: None)
-    monkeypatch.setattr(wb, "browser_highlight_elements", lambda *a, **k: None)
-    monkeypatch.setattr(wb, "browser_get_interactive_elements", lambda: [])
-    monkeypatch.setattr(wb, "browser_get_text", lambda: "Page body text")
-    monkeypatch.setattr(wb, "browser_capture_b64", lambda: "data:image/jpeg;base64,mockscreenshot")
+    monkeypatch.setattr(bua, "browser_open", lambda *a, **k: "Opened")
+    monkeypatch.setattr(bua, "browser_wait", lambda *a, **k: None)
+    monkeypatch.setattr(bua, "browser_highlight_elements", lambda *a, **k: None)
+    monkeypatch.setattr(bua, "browser_get_interactive_elements", lambda: [])
+    monkeypatch.setattr(bua, "browser_get_text", lambda: "Page body text")
+    monkeypatch.setattr(bua, "browser_capture_b64", lambda: "data:image/jpeg;base64,mockscreenshot")
+    monkeypatch.setattr(BrowserUseAgent, "_plan_with_llm", lambda *a, **k: {"action": "finish", "result": "Done"})
 
     agent = BrowserUseAgent(max_steps=1)
     res = agent.run("Search for AI", start_url="https://google.com", visible=False)

@@ -9,25 +9,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class TestDatabase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        # Override data dir for testing to prevent polluting production db
-        cls.orig_data_dir = os.environ.get("MERIDIAN_DATA_DIR")
-        cls.test_dir = os.path.abspath("test_database_dir")
-        os.environ["MERIDIAN_DATA_DIR"] = cls.test_dir
-
-        # Ensure modules are reimported under the test environment
-        for mod in list(sys.modules.keys()):
-            if mod.startswith("src.db") or mod in ["src.core.config", "database"]:
-                del sys.modules[mod]
+        from database import init_tables
+        init_tables()
 
     @classmethod
     def tearDownClass(cls):
-        # Clean up database dir
-        if os.path.exists(cls.test_dir):
-            shutil.rmtree(cls.test_dir)
-        if cls.orig_data_dir is not None:
-            os.environ["MERIDIAN_DATA_DIR"] = cls.orig_data_dir
-        elif "MERIDIAN_DATA_DIR" in os.environ:
-            del os.environ["MERIDIAN_DATA_DIR"]
+        pass
 
     def test_sqlite_connectivity(self):
         from database import get_sqlite_conn, init_tables

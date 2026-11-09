@@ -1,3 +1,4 @@
+from unittest.mock import AsyncMock
 """
 Sprint 47 Unit Tests: Native Chrome Extension Bridge & Agent Tools
 Synchronous mock unit testing without hanging event loop calls.
@@ -26,7 +27,7 @@ def test_extension_manager_status_when_disconnected():
 
 def test_extension_manager_connect_disconnect_sync():
     mgr = ExtensionConnectionManager()
-    mock_ws = MagicMock()
+    mock_ws = AsyncMock()
     asyncio.run(mgr.connect(mock_ws))
     assert mgr.is_connected
     assert len(mgr.active_sockets) == 1

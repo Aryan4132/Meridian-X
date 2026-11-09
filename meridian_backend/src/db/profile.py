@@ -171,18 +171,28 @@ def get_user_preference(key: str, default: Any = None) -> Any:
     val = get_user_profile(key)
     return val if val is not None else default
 
+def _current_get_user_profile(key: str) -> Any:
+    import sys
+    db = sys.modules.get("database")
+    if db and hasattr(db, "get_user_profile") and db.get_user_profile is not get_user_profile:
+        return db.get_user_profile(key)
+    return get_user_profile(key)
+
 def get_auditor_model() -> str:
     try:
-        model = get_user_profile("meridian_auditor_model")
+        model = _current_get_user_profile("meridian_auditor_model")
         if model:
             return str(model)
     except Exception:
         pass
-    return os.environ.get("MERIDIAN_AUDITOR_MODEL", "qwen2.5-coder:7b")
+    auditor = os.environ.get("MERIDIAN_AUDITOR_MODEL")
+    if auditor:
+        return auditor
+    return get_brain_model()
 
 def get_model_source() -> str:
     try:
-        source = get_user_profile("meridian_model_source")
+        source = _current_get_user_profile("meridian_model_source")
         if source:
             return str(source).strip()
     except Exception:
@@ -254,7 +264,7 @@ def set_task_model_routes(routes: dict) -> None:
 
 def get_brain_model() -> str:
     try:
-        model = get_user_profile("meridian_model")
+        model = _current_get_user_profile("meridian_model")
         if model:
             return str(model)
     except Exception:
@@ -263,7 +273,7 @@ def get_brain_model() -> str:
 
 def get_vision_model() -> str:
     try:
-        model = get_user_profile("meridian_vision_model")
+        model = _current_get_user_profile("meridian_vision_model")
         if model:
             return str(model)
     except Exception:

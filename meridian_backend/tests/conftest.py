@@ -1,3 +1,29 @@
+
+# --- CI AUTO-PATCH: Headless Display & Mode Isolation ---
+import os
+import sys
+
+os.environ["TESTING"] = "true"
+os.environ["PYTEST_CURRENT_TEST"] = "1"
+from unittest.mock import MagicMock
+import pytest
+
+# 1. Prevent mouseinfo / pyautogui from crashing on headless Linux without X11 DISPLAY
+if sys.platform.startswith("linux") and "DISPLAY" not in os.environ:
+    os.environ["DISPLAY"] = ":99"
+    # Mock mouseinfo if no X server is actually listening on :99
+    sys.modules.setdefault("mouseinfo", MagicMock())
+
+@pytest.fixture(autouse=True)
+def _ci_isolate_event_loop_and_state():
+    yield
+    # Reset airgap / local_only_mode so test_day9 doesn't pollute subsequent tests
+    try:
+        from src.core.mode import set_local_only_mode
+        set_local_only_mode(False)
+    except Exception:
+        pass
+
 """Shared pytest fixtures for Meridian-X backend tests.
 
 FIX: previously every test file hand-rolled sys.path insertion and data-dir
@@ -6,6 +32,9 @@ and execution-order dependence. This conftest centralizes that once per run.
 """
 import os
 import sys
+
+os.environ["TESTING"] = "true"
+os.environ["PYTEST_CURRENT_TEST"] = "1"
 import tempfile
 
 BACKEND_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -257,8 +257,9 @@ _last_mongo_check = 0.0
 
 def get_mongo_db() -> Optional[pymongo.database.Database]:
     """Returns MongoDB database handle, or None if offline or in isolated test environment."""
+    import sys
     data_dir = os.environ.get("MERIDIAN_DATA_DIR", "")
-    if "test" in data_dir.lower() or os.environ.get("TESTING", "").lower() in ("1", "true", "yes"):
+    if "test" in data_dir.lower() or os.environ.get("TESTING", "").lower() in ("1", "true", "yes") or "PYTEST_CURRENT_TEST" in os.environ or "pytest" in sys.modules:
         return None
 
     global _mongo_client, _mongo_online, _last_mongo_check

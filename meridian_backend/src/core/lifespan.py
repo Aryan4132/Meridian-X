@@ -14,6 +14,9 @@ from src.api.deps import ENV_KEY_MAP
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Orchestrates initialization and graceful shutdown of Meridian-X background daemons."""
+    if "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("TESTING") == "true":
+        yield
+        return
     # 1. Environment & Profiles
     try:
         from database import get_user_profile

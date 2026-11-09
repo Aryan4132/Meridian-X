@@ -1,3 +1,17 @@
+
+class _HybridRow:
+    def __init__(self, d):
+        self._d = d
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            keys = ["id", "source", "chunk_text", "metadata"]
+            return self._d[keys[key]]
+        return self._d[key]
+    def keys(self):
+        return ["id", "source", "chunk_text", "metadata"]
+    def __iter__(self):
+        return iter(self.keys())
+
 import pytest
 import sqlite3
 from src.db.rag import compute_bm25_scores, hybrid_search_knowledge_base
@@ -23,14 +37,15 @@ def test_hybrid_search_knowledge_base_fallback_and_ranking(monkeypatch):
         {"id": 12, "source": "tools.md", "chunk_text": "Playwright browser automation click and type", "metadata": {}}
     ]
 
-    # Mock get_sqlite_conn to return mock rows
+    # Mock get_sqlite_conn to return mock rows and trigger fallback
     class MockCursor:
         def execute(self, query, params=None):
-            pass
+            if "knowledge_base_fts" in query:
+                raise sqlite3.OperationalError("no such table: knowledge_base_fts")
         def fetchone(self):
             return (len(test_docs),)
         def fetchall(self):
-            return test_docs
+            return [_HybridRow(d) for d in test_docs]
 
     class MockConn:
         def cursor(self):
@@ -39,6 +54,7 @@ def test_hybrid_search_knowledge_base_fallback_and_ranking(monkeypatch):
             pass
 
     monkeypatch.setattr("src.db.rag.get_sqlite_conn", lambda: MockConn())
+    monkeypatch.setattr("src.db.rag.get_embedding", lambda q: None)
     
     # Query for exact keyword 'Playwright'
     results = hybrid_search_knowledge_base("Playwright browser", limit=2)

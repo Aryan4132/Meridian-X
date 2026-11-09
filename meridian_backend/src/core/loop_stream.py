@@ -95,7 +95,7 @@ CORE_TOOLS_LIST = [
     # Browser (4)
     "browser_use_task", "browser_open", "browser_close", "browser_get_text",
     # Desktop (8)
-    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file", "explain_active_screen", "chrome_get_active_tab", "chrome_read_page", "chrome_click_element", "chrome_fill_input", "chrome_scroll", "chrome_open_tab", "chrome_edit_element", "chrome_navigate", "chrome_get_interactive_elements", "chrome_compose_gmail",
+    "screenshot", "ocr_screen", "vision_analyze", "list_windows", "focus_window", "open_app", "open_file", "explain_active_screen",
     # System & Tasks (10)
     "get_system_info", "get_hardware_info", "list_processes", "kill_process", "clipboard_get", "clipboard_set", "smart_clipboard_action", "schedule_task", "schedule_once", "list_scheduled",
     # Memory & Knowledge (4)
@@ -113,7 +113,7 @@ CORE_TOOLS_LIST = [
 MODE_SPECIALIZED_TOOLS = {
     "ENGINEER": ["git_create_snapshot", "git_rollback", "lsp_get_definition", "lsp_get_references", "lsp_get_hover_info", "lsp_diagnose_file", "format_file", "scaffold_project"],
     "REVIEWER": ["review_diff", "review_directory", "export_review", "run_security_audit"],
-    "OPERATOR": ["gui_click", "gui_type", "browser_click_element", "browser_type_element", "browser_press_key", "browser_scroll", "browser_wait", "browser_screenshot"],
+    "OPERATOR": ["gui_click", "gui_type", "browser_click_element", "browser_type_element", "browser_press_key", "browser_scroll", "browser_wait", "browser_screenshot", "chrome_click_element", "chrome_fill_input", "chrome_scroll", "chrome_open_tab", "chrome_edit_element", "chrome_get_interactive_elements"],
     "ANALYST": ["db_query", "db_schema", "watch_log", "tail_log", "get_network_connections", "get_wifi_networks", "get_disk_info"],
     "RESEARCHER": ["search_web", "search_news", "fetch_page", "scrape_table", "autonomous_research"],
 }
@@ -127,6 +127,7 @@ KEYWORD_SKILLS_MAP = {
     ("health", "step", "sleep", "heart", "hydration"): ["sync_wearable_health_data", "get_health_metrics_summary", "track_hydration", "trigger_ergonomic_break", "calculate_daily_wellness_score"],
     ("weather", "location", "geo"): ["resolve_location", "get_localized_weather", "bias_query_spatially"],
     ("phishing", "password", "totp", "wifi", "dns", "usb", "sandbox", "audit"): ["check_url_reputation", "generate_totp_code", "audit_password_strength", "assess_wifi_security", "audit_dns_health", "audit_usb_peripherals", "detonate_attachment_sample"],
+    ("chrome", "gmail", "tab", "extension"): ["chrome_get_active_tab", "chrome_read_page", "chrome_navigate", "chrome_compose_gmail", "chrome_open_tab", "chrome_click_element", "chrome_fill_input", "chrome_scroll", "chrome_edit_element", "chrome_get_interactive_elements"],
 }
 
 def get_dynamic_tool_signature(name: str, func: Any) -> str:

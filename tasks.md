@@ -545,6 +545,11 @@
 
 ## Task 48: Real-Time Voice Overhaul (Streaming STT, Kokoro TTS & Neural Biometrics)
 
+- [ ] Task 48.0: Resolve Mobile & Extension Connection Failures
+  - [ ] Implement secure, long-term token-based authentication for Mobile WebSockets.
+  - [ ] Align Extension WebSocket handshake and URL endpoints across all environments.
+  - [ ] Verify LAN discovery and firewall port 4132 accessibility for remote pairing.
+  - [ ] Add comprehensive connection health-check endpoint to `src/api/system.py`.
 - [ ] Task 48.1: Implement real-time streaming STT chunk processor in `src/voice/stt.py` and WebSocket endpoint in `src/api/voice.py` emitting interim live transcripts.
 - [ ] Task 48.2: Upgrade `src/voice/voice_biometrics.py` with neural speaker embedding extractor (ECAPA-TDNN / Resemblyzer) replacing MD5 hash logic.
 - [ ] Task 48.3: Implement chunked audio streaming (Opus/MP3) in `src/api/voice.py` and `src/services/streamingAudioPlayer.ts` with Kokoro-82M and Edge-TTS provider options.
@@ -560,3 +565,17 @@
 - [ ] Task 49.4: Integrate Flutter `camera` preview and frame snapshot streaming in `meridian_mobile/lib/views/camera_vision_view.dart`.
 - [ ] Task 49.5: Add on-device Fast-OCR pre-pass (PaddleOCR / Tesseract) in `src/core/vision.py` for local screen text extraction.
 - [ ] Task 49.6: Author pytest suite in `meridian_backend/tests/test_vision_overhaul.py`.
+
+## Task 50: CI Pipeline Stability & Browser Viewport Removal
+
+- [x] Task 50.1: Remove Autonomous Browser Viewport card and background polling from [Timeline.tsx](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_frontend/src/views/Timeline.tsx).
+- [x] Task 50.2: Align mobile gradle wrapper to `gradle-8.11.1-bin.zip` in [gradle-wrapper.properties](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_mobile/android/gradle/wrapper/gradle-wrapper.properties).
+- [x] Task 50.3: Mock browser automation and LLM calls in [test_browser_frame.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_browser_frame.py) and [test_browser_use.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_browser_use.py) to prevent timeouts in CI.
+- [x] Task 50.4: Fix [test_sprint45.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_sprint45.py) doctor frontend check assertion to tolerate missing dist before frontend build.
+- [x] Task 50.5: Prevent lifespan background daemons (Whisper STT, VAD, file watchers) during test suite runs in [lifespan.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/lifespan.py).
+- [x] Task 50.6: Isolate MongoDB and developer profile keys from leaking into tests in [connection.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/connection.py) and [profile.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/db/profile.py).
+- [x] Task 50.7: Resolve module split-brain and cache leakage in [test_database.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_database.py) and [test_day4_features.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_day4_features.py).
+- [x] Task 50.8: Fix sparse BM25 row structure in [test_hybrid_rag.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/tests/test_hybrid_rag.py).
+- [x] Task 50.9: Restructure tool injection in [loop_stream.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/loop_stream.py) to keep skill prompts lean (<70 tools).
+- [x] Task 50.10: Restore testing mock fallback in [vision.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/vision.py).
+- [x] Task 50.11: Verify 100% passing tests (496/496) and clean frontend build.

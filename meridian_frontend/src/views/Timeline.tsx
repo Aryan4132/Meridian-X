@@ -282,9 +282,9 @@ const MessageBody = React.memo(function MessageBody({ content }: { content: stri
   return <div>{segments}</div>;
 });
 
-// Live Autonomous Browser-Use Viewport Card
-const BrowserLiveHUD = React.memo(function BrowserLiveHUD() {
-  const [frame, setFrame] = useState<string | null>(null);
+
+// Removed BrowserLiveHUD
+/*
   const [active, setActive] = useState(false);
   const [open, setOpen] = useState(true);
 
@@ -377,6 +377,8 @@ const BrowserLiveHUD = React.memo(function BrowserLiveHUD() {
     </div>
   );
 });
+
+*/
 
 // Safety gate card (inside bot message)
 function SafetyGate({ gate, onConfirm }: { gate: any; onConfirm: (id: string, approved: boolean) => void }) {
@@ -1517,7 +1519,7 @@ export default function Timeline({ onThoughtsUpdate }: TimelineProps) {
           </motion.div>
         )}
 
-        <BrowserLiveHUD />
+
         <div ref={chatEndRef} />
       </div>
 

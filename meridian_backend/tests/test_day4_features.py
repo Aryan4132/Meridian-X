@@ -5,9 +5,8 @@ import tempfile
 import subprocess
 from unittest.mock import patch, AsyncMock, MagicMock
 
-# Add src and backend root to sys.path
+# Add backend root to sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
 
 from src.core.llm_provider import scan_and_redact_secrets, call_llm, call_llm_sync
 from src.tools.review import review_file, review_diff, review_directory, export_review
