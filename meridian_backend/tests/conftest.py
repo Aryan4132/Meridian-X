@@ -9,10 +9,14 @@ from unittest.mock import MagicMock
 import pytest
 
 # 1. Prevent mouseinfo / pyautogui from crashing on headless Linux without X11 DISPLAY
-if sys.platform.startswith("linux") and "DISPLAY" not in os.environ:
-    os.environ["DISPLAY"] = ":99"
-    # Mock mouseinfo if no X server is actually listening on :99
+if sys.platform.startswith("linux"):
+    if "DISPLAY" not in os.environ:
+        os.environ["DISPLAY"] = ":99"
     sys.modules.setdefault("mouseinfo", MagicMock())
+    try:
+        import pyautogui
+    except Exception:
+        sys.modules["pyautogui"] = MagicMock()
 
 @pytest.fixture(autouse=True)
 def _ci_isolate_event_loop_and_state():
