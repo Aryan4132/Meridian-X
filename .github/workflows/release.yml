@@ -337,6 +337,8 @@ jobs:
 
       - name: Upload APK to Release
         run: |
-          gh release upload "${{ github.ref_name }}" app-release.apk --clobber
+          APK_FILE=$(find . -name "*.apk" | head -n 1)
+          echo "Found APK at: $APK_FILE"
+          gh release upload "${{ github.ref_name }}" "$APK_FILE" --clobber --repo "${{ github.repository }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
