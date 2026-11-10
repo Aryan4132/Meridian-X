@@ -153,7 +153,7 @@ def start_plugin_hot_reload(tool_registry: Dict[str, Dict[str, Any]]):
     only when reload_dynamic_plugins() is explicitly invoked by the user/tool.
     """
     global _observer
-    if _observer is not None:
+    if _observer is not None or os.environ.get("TESTING") == "true" or "pytest" in sys.modules:
         return
 
     try:

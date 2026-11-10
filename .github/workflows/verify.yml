@@ -49,6 +49,17 @@ jobs:
             --ignore=tests/test_wakeword_onnx.py \
             --ignore=tests/test_silero_vad.py
 
+      - name: Report Test Failures
+        if: failure()
+        run: |
+          cd meridian_backend
+          python -m pytest tests/ --lf -v --tb=short > failure_report.txt 2>&1 || true
+          cat failure_report.txt
+          echo "### Backend Test Failures" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat failure_report.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
 
   frontend:
     runs-on: ubuntu-latest
