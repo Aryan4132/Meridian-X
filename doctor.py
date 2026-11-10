@@ -84,7 +84,7 @@ def check_dependencies() -> Dict[str, Any]:
             m = __import__(mod_name)
             ver = getattr(m, "__version__", "installed")
             results[mod_name] = {"installed": True, "version": str(ver), "label": label}
-        except ImportError:
+        except (ImportError, Exception):
             results[mod_name] = {"installed": False, "version": None, "label": label}
             if mod_name in ("fastapi", "uvicorn", "pydantic"):
                 missing_critical.append(mod_name)

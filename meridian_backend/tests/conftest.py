@@ -17,6 +17,12 @@ if sys.platform.startswith("linux"):
         import pyautogui
     except Exception:
         sys.modules["pyautogui"] = MagicMock()
+    try:
+        import sounddevice
+    except Exception:
+        mock_sd = MagicMock()
+        mock_sd.__version__ = "0.4.0"
+        sys.modules["sounddevice"] = mock_sd
 
 @pytest.fixture(autouse=True)
 def _ci_isolate_event_loop_and_state():
