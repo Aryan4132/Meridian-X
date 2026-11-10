@@ -33,7 +33,13 @@ class MemoryConsolidationEngine:
     """Handles conversation summarization, semantic entity extraction, and memory consolidation into long-term storage."""
 
     def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path or os.path.join(os.path.dirname(__file__), "..", "..", "meridian_memory", "memory.db")
+        data_dir = os.environ.get("MERIDIAN_DATA_DIR")
+        if db_path:
+            self.db_path = db_path
+        elif data_dir:
+            self.db_path = os.path.join(data_dir, "meridian_memory", "memory.db")
+        else:
+            self.db_path = os.path.join(os.path.dirname(__file__), "..", "..", "meridian_memory", "memory.db")
         self._history: List[ConsolidationResult] = []
 
     def summarize_messages(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:

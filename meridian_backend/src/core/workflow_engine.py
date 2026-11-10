@@ -15,15 +15,22 @@ from src.tools.external_connectors import (
     workspace_sync_page
 )
 
-WORKFLOWS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "meridian_memory", "workflows.json")
+def _get_workflows_file() -> str:
+    data_dir = os.environ.get("MERIDIAN_DATA_DIR")
+    if data_dir:
+        return os.path.join(data_dir, "workflows.json")
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "meridian_memory", "workflows.json")
+
+WORKFLOWS_FILE = _get_workflows_file()
 
 
 def _load_workflows() -> Dict[str, Dict[str, Any]]:
     """Loads saved workflows from JSON storage."""
-    if not os.path.exists(WORKFLOWS_FILE):
+    file_path = _get_workflows_file()
+    if not os.path.exists(file_path):
         return {}
     try:
-        with open(WORKFLOWS_FILE, "r", encoding="utf-8") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {}
@@ -31,8 +38,9 @@ def _load_workflows() -> Dict[str, Dict[str, Any]]:
 
 def _save_workflows(data: Dict[str, Dict[str, Any]]) -> None:
     """Saves workflow dictionary to storage."""
-    os.makedirs(os.path.dirname(WORKFLOWS_FILE), exist_ok=True)
-    with open(WORKFLOWS_FILE, "w", encoding="utf-8") as f:
+    file_path = _get_workflows_file()
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    with open(file_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
 
 

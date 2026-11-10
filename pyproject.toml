@@ -67,7 +67,7 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 minversion = "8.0"
-pythonpath = ["meridian_backend", "meridian_backend/src"]
+pythonpath = [".", "meridian_backend", "meridian_backend/src"]
 testpaths = ["meridian_backend/tests"]
 python_files = ["test_*.py"]
 asyncio_mode = "strict"

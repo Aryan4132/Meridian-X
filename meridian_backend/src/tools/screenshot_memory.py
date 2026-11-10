@@ -9,7 +9,7 @@ import json
 from datetime import datetime
 from typing import Dict, Any, List
 
-SNAPSHOTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "screenshot_memory")
+SNAPSHOTS_DIR = os.path.join(os.environ.get("MERIDIAN_DATA_DIR") or os.path.join(os.path.dirname(os.path.dirname(__file__)), "data"), "screenshot_memory")
 
 def capture_screenshot_memory(app_context: str = "Active Window") -> str:
     """
