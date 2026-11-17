@@ -49,12 +49,22 @@ jobs:
           cd meridian_mobile
           set -o pipefail
           flutter build apk --release --no-tree-shake-icons -v 2>&1 | tee build_mobile.log || {
-            echo "=== FAILED BUILD LOG SUMMARY ==="
-            grep -i -C 3 -E "error|exception|failure" build_mobile.log | tail -n 40 || true
-            ERR_MSG=$(grep -i -E "error|exception|failure" build_mobile.log | tail -n 5 | tr '\n' ' ' | tr -d '"' | cut -c 1-200)
+            echo "=== FAILED BUILD LOG SUMMARY (LAST 60 LINES) ==="
+            tail -n 60 build_mobile.log
+            echo "=== ROOT CAUSES ==="
+            grep -B 1 -A 5 -i "Caused by:" build_mobile.log | tail -n 20 || true
+            ERR_MSG=$(grep -A 2 -i "Caused by:" build_mobile.log | tail -n 3 | tr '\n' ' ' | tr -d '"' | cut -c 1-250)
             echo "::error title=Flutter Build Failure::${ERR_MSG:-Gradle build failed}"
             exit 1
           }
+
+      - name: Upload Build Log on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-build-log
+          path: meridian_mobile/build_mobile.log
+          retention-days: 1
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
