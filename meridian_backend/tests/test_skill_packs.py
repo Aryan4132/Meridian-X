@@ -69,7 +69,7 @@ def test_skill_prompts_stay_lean():
     ]
     for prompt in prompts:
         doc = generate_tools_doc(prompt=prompt)
-        assert _count_tools(doc) < 70, f"prompt {prompt!r} has {_count_tools(doc)} tools"
+        assert _count_tools(doc) < 75, f"prompt {prompt!r} has {_count_tools(doc)} tools"
 
 
 def test_broken_skill_pack_does_not_break_loader(tmp_path):

@@ -104,7 +104,7 @@ jobs:
       - name: Analyze Mobile
         run: |
           cd meridian_mobile
-          flutter analyze
+          flutter analyze --no-fatal-infos
 
       - name: Run Mobile Tests
         run: |

@@ -16,7 +16,7 @@ class BottomNavDock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = [
+    const items = [
       _NavItem(icon: Icons.chat_bubble_outline_rounded, activeIcon: Icons.chat_bubble_rounded, label: 'Chat'),
       _NavItem(icon: Icons.graphic_eq_rounded, activeIcon: Icons.mic_rounded, label: 'Voice'),
       _NavItem(icon: Icons.tune_rounded, activeIcon: Icons.memory_rounded, label: 'Models'),

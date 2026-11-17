@@ -407,7 +407,7 @@ class _AccentColorPicker extends StatelessWidget {
     return Row(
       children: [
         ...swatches.map((c) {
-          final isSelected = activeAccent.value == c.value;
+          final isSelected = activeAccent.toARGB32() == c.toARGB32();
           return Padding(
             padding: const EdgeInsets.only(right: 10),
             child: GestureDetector(

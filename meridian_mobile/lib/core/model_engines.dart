@@ -46,7 +46,7 @@ enum CloudProvider {
     }
   }
 
-  String get secureStorageKey => 'meridian_api_key_${name}';
+  String get secureStorageKey => 'meridian_api_key_$name';
 }
 
 class ModelDescriptor {
