@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme.dart';
+import 'core/theme_engine.dart';
+import 'core/model_engines.dart';
 import 'core/secure_storage.dart';
 import 'providers/agent_chat_provider.dart';
-import 'views/voice_orb_hud.dart';
-import 'views/thought_carousel.dart';
+import 'views/chat_stream_view.dart';
+import 'views/voice_mode_view.dart';
+import 'views/model_hub_view.dart';
+import 'views/settings_view.dart';
+import 'views/bottom_nav_dock.dart';
 import 'views/camera_vision_view.dart';
 import 'views/remote_pairing_modal.dart';
 
@@ -16,15 +21,17 @@ void main() {
   );
 }
 
-class MeridianMobileApp extends StatelessWidget {
+class MeridianMobileApp extends ConsumerWidget {
   const MeridianMobileApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeState = ref.watch(themeProvider);
+
     return MaterialApp(
       title: 'Meridian-X Mobile',
       debugShowCheckedModeBanner: false,
-      theme: MeridianTheme.darkTheme,
+      theme: themeState.themeData,
       home: const MeridianHomeScreen(),
     );
   }
@@ -38,7 +45,7 @@ class MeridianHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _MeridianHomeScreenState extends ConsumerState<MeridianHomeScreen> {
-  final TextEditingController _promptController = TextEditingController();
+  int _selectedTabIndex = 0;
   bool _showVisionView = false;
 
   @override
@@ -67,36 +74,36 @@ class _MeridianHomeScreenState extends ConsumerState<MeridianHomeScreen> {
     );
   }
 
-  void _submitPrompt() {
-    final text = _promptController.text;
-    if (text.trim().isNotEmpty) {
-      ref.read(agentChatProvider.notifier).sendPrompt(text);
-      _promptController.clear();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final themeState = ref.watch(themeProvider);
+    final colors = themeState.colors;
     final agentState = ref.watch(agentChatProvider);
+    final engineState = ref.watch(engineManagerProvider);
     final telemetry = agentState.telemetry;
 
     return Scaffold(
-      backgroundColor: MeridianTheme.background,
+      backgroundColor: colors.background,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
+        backgroundColor: colors.background,
+        elevation: 0,
+        titleSpacing: 16,
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 10,
-              height: 10,
+              width: 9,
+              height: 9,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: agentState.isConnected ? MeridianTheme.emeraldGreen : MeridianTheme.roseError,
                 boxShadow: [
                   BoxShadow(
-                    color: (agentState.isConnected ? MeridianTheme.emeraldGreen : MeridianTheme.roseError).withValues(alpha: 0.5),
-                    blurRadius: 6,
-                  )
+                    color: (agentState.isConnected ? MeridianTheme.emeraldGreen : MeridianTheme.roseError)
+                        .withValues(alpha: 0.6),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
                 ],
               ),
             ),
@@ -105,159 +112,140 @@ class _MeridianHomeScreenState extends ConsumerState<MeridianHomeScreen> {
               'MERIDIAN-X',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-                fontSize: 18,
+                letterSpacing: 1.4,
+                fontSize: 16,
               ),
             ),
           ],
         ),
         actions: [
-          IconButton(
-            onPressed: () => setState(() => _showVisionView = !_showVisionView),
-            icon: Icon(
-              Icons.camera_alt,
-              color: _showVisionView ? MeridianTheme.cyanAccent : MeridianTheme.textSecondary,
+          // Active Model Quick Pill
+          InkWell(
+            onTap: () => setState(() => _selectedTabIndex = 2),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: colors.surface,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: colors.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome, color: colors.primaryAccent, size: 12),
+                  const SizedBox(width: 6),
+                  Text(
+                    engineState.activeModel.name,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            tooltip: 'Toggle Camera Vision',
           ),
+          const SizedBox(width: 8),
+
+          // Host Ping Pill
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: colors.surfaceLight,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.speed, size: 11, color: colors.secondaryAccent),
+                const SizedBox(width: 4),
+                Text(
+                  '${telemetry.pingMs}ms',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
+
+          // Remote Pairing Shortcut
           IconButton(
             onPressed: _openPairingModal,
-            icon: const Icon(Icons.qr_code_2, color: MeridianTheme.purpleAccent),
-            tooltip: 'Remote Pairing',
+            icon: Icon(Icons.qr_code_2, color: colors.primaryAccent, size: 20),
+            tooltip: 'Remote Pairing QR',
+            visualDensity: VisualDensity.compact,
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            // Telemetry Status Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: MeridianTheme.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: MeridianTheme.surfaceLight),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _TelemetryBadge(
-                    icon: Icons.memory,
-                    label: 'CPU',
-                    value: '${telemetry.cpuPercent.toInt()}%',
-                    color: MeridianTheme.cyanAccent,
-                  ),
-                  _TelemetryBadge(
-                    icon: Icons.speed,
-                    label: 'PING',
-                    value: '${telemetry.pingMs} ms',
-                    color: MeridianTheme.purpleAccent,
-                  ),
-                  _TelemetryBadge(
-                    icon: Icons.verified_user,
-                    label: 'ANTI-HALLUCINATION',
-                    value: telemetry.antiHallucinationActive ? 'ACTIVE' : 'OFF',
-                    color: MeridianTheme.emeraldGreen,
-                  ),
-                ],
-              ),
-            ),
-
-            // Vision Camera Scanner Viewport if active
-            if (_showVisionView) const CameraVisionView(),
-
-            // Voice Orb Visualizer HUD
-            const Expanded(
-              child: Center(
-                child: SingleChildScrollView(
-                  child: VoiceOrbHUD(),
+            // Camera Vision Scanner Viewport if toggled
+            if (_showVisionView) ...[
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: colors.primaryAccent.withValues(alpha: 0.5)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Stack(
+                  children: [
+                    const CameraVisionView(),
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: InkWell(
+                        onTap: () => setState(() => _showVisionView = false),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, size: 16, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ],
 
-            // Agent Thought Stream Carousel
-            const ThoughtCarouselWidget(),
-
-            // Interactive Quick Prompt Command Input
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
+            // Main Tab Viewport Stack (Preserves scroll & state)
+            Expanded(
+              child: IndexedStack(
+                index: _selectedTabIndex,
                 children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _promptController,
-                      onSubmitted: (_) => _submitPrompt(),
-                      decoration: InputDecoration(
-                        hintText: 'Ask Meridian agent or invoke action...',
-                        hintStyle: const TextStyle(color: MeridianTheme.textSecondary, fontSize: 13),
-                        filled: true,
-                        fillColor: MeridianTheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: MeridianTheme.surfaceLight),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: MeridianTheme.cyanAccent),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      ),
-                      style: const TextStyle(color: MeridianTheme.textPrimary, fontSize: 14),
-                    ),
+                  ChatStreamView(
+                    onToggleVision: () => setState(() => _showVisionView = !_showVisionView),
+                    isVisionActive: _showVisionView,
                   ),
-                  const SizedBox(width: 10),
-                  FloatingActionButton.small(
-                    onPressed: _submitPrompt,
-                    backgroundColor: MeridianTheme.cyanAccent,
-                    foregroundColor: Colors.black,
-                    elevation: 4,
-                    child: const Icon(Icons.send, size: 18),
-                  ),
+                  const VoiceModeView(),
+                  const ModelHubView(isEmbedded: true),
+                  const SettingsView(),
                 ],
               ),
+            ),
+
+            // Floating Frosted Glass Bottom Navigation Dock
+            BottomNavDock(
+              currentIndex: _selectedTabIndex,
+              onSelectTab: (index) => setState(() => _selectedTabIndex = index),
+              colors: colors,
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _TelemetryBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _TelemetryBadge({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 6),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(color: MeridianTheme.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
-            ),
-            Text(
-              value,
-              style: const TextStyle(color: MeridianTheme.textPrimary, fontSize: 11, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

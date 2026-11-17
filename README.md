@@ -5,15 +5,16 @@
 ![Meridian-X Logo](logo.png)
 
 [![Version](https://img.shields.io/badge/version-0.1.7-blueviolet)](https://github.com/Aryan4132/Meridian-X/releases)
-[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-blue?logo=tauri&logoColor=white)](https://tauri.app)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux%20%7C%20Android-blue?logo=tauri&logoColor=white)](https://tauri.app)
+[![Flutter](https://img.shields.io/badge/Flutter-v3.29%2B-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](https://www.python.org)
 [![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?logo=tauri&logoColor=white)](https://tauri.app)
 [![FastAPI](https://img.shields.io/badge/FastAPI-async-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Meridian-X** is an autonomous, privacy-focused desktop AI agent built on **Tauri v2**, **React 19**, and **FastAPI**. It empowers developers with on-device local ReAct reasoning loops, multi-tier security gates, Model Context Protocol (MCP) server integration, local RAG vector search, and a 3D desktop companion overlay.
+**Meridian-X** is an autonomous, privacy-focused desktop AI agent and mobile companion built on **Tauri v2**, **React 19**, **FastAPI**, and **Flutter**. It empowers developers with on-device local ReAct reasoning loops, multi-tier security gates, Model Context Protocol (MCP) server integration, local RAG vector search, a 3D desktop companion overlay, and a fully standalone or companion Android application with real cloud inference and on-device GGUF model downloading.
 
-[🌐 Releases](https://github.com/Aryan4132/Meridian-X/releases) · [📖 Quick Start](#-quick-start) · [🏗️ Architecture](#%EF%B8%8F-architecture) · [🛡️ Security](#%EF%B8%8F-security--safety-gates)
+[🌐 Releases](https://github.com/Aryan4132/Meridian-X/releases) · [📱 Android APK](executables/meridian-x_mobile.apk) · [📖 Quick Start](#-quick-start) · [🏗️ Architecture](#%EF%B8%8F-architecture) · [🛡️ Security](#%EF%B8%8F-security--safety-gates)
 
 ---
 
@@ -46,16 +47,25 @@
 - **Document & Code Ingestion**: Parses PDF, Markdown, Python, DOCX, and JSON into a localized SQLite WAL database with vector embeddings.
 - **Code Graph AST**: Parses symbol definitions, callers, callees, and change impact matrices.
 
+### 📱 Meridian-X Mobile (Standalone & Desktop Companion)
+
+- **Standalone Autonomous Execution**: Direct HTTPS REST inference to Google Gemini, Groq, OpenAI, DeepSeek, and Anthropic with zero PC desktop dependency.
+- **Real GGUF Downloader & Validation**: Streams HuggingFace GGUF models directly to phone storage with live byte tracking and `0x46554747` header magic byte validation.
+- **Executive Glassmorphic UI**: Floating 4-tab frosted glass dock (`Chat`, `Voice`, `Models`, `Settings`), collapsible thought accordions, 1-tap message copying, and zero keyboard layout overflows.
+- **Spatial Voice Mode**: Fullscreen voice orb HUD with real-time speech waveform visualization, Voice Activity Detection (VAD) indicator, and interim transcripts.
+- **Dual-Mode Companion**: Instantly pair with desktop backend via LAN IP or QR code for cross-device telemetry, or run detached as an on-device personal assistant.
+
 ---
 
 ## 🏗️ Architecture
 
 ```mermaid
 flowchart TB
-    subgraph UI["🖥️ Presentation & UI Layer"]
+    subgraph UI["🖥️ Presentation & Client Layer"]
         direction LR
         UI_MAIN["React 19 + TS Desktop UI<br/>(Tauri v2)"]
         UI_HUD["3D Mascot & Overlay HUD<br/>(Three.js)"]
+        UI_MOBILE["Flutter Android App<br/>(Standalone / Companion)"]
     end
 
     subgraph GATEWAY["⚡ Backend Gateway & Security"]
@@ -92,6 +102,8 @@ flowchart TB
 
     UI_MAIN <-->|"Tauri IPC / REST / SSE"| FASTAPI
     UI_HUD <-->|"State Sync"| FASTAPI
+    UI_MOBILE -.->|"LAN WebSocket Pairing"| FASTAPI
+    UI_MOBILE -->|"Direct REST & GGUF"| CLOUD
     FASTAPI --> SEC_GATE
     SEC_GATE --> REACT
     REACT <-->|"Retry & Fix"| HEAL
@@ -114,7 +126,7 @@ flowchart TB
     classDef knowledgeStyle fill:#fce7f3,stroke:#db2777,stroke-width:2px,color:#831843
     classDef toolStyle fill:#fee2e2,stroke:#dc2626,stroke-width:2px,color:#7f1d1d
 
-    class UI_MAIN,UI_HUD uiStyle
+    class UI_MAIN,UI_HUD,UI_MOBILE uiStyle
     class FASTAPI,SEC_GATE gatewayStyle
     class REACT,HEAL coreStyle
     class OLLAMA,CLOUD modelStyle
@@ -130,6 +142,7 @@ flowchart TB
 
 - **Python**: 3.11 or higher
 - **Node.js**: v20 or higher
+- **Flutter**: 3.29 or higher (optional, for mobile development)
 - **Ollama** (optional for local LLMs): [ollama.com](https://ollama.com)
 
 ### 1. Installation
@@ -156,7 +169,7 @@ chmod +x start_desktop.sh
 
 ### 2. Development Run
 
-To run the frontend and backend in development mode:
+To run the desktop frontend and backend in development mode:
 
 ```bash
 # Terminal 1: Backend Service
@@ -166,6 +179,30 @@ python main.py
 cd meridian_frontend
 npm install
 npm run dev
+```
+
+### 3. Mobile Companion & Standalone App (Android)
+
+Pre-built Android package ready to test immediately:
+- **Download APK**: [`executables/meridian-x_mobile.apk`](executables/meridian-x_mobile.apk)
+
+Install on connected Android phone via ADB:
+
+```bash
+adb install -r executables/meridian-x_mobile.apk
+```
+
+Or run and compile with Flutter:
+
+```bash
+cd meridian_mobile
+flutter pub get
+
+# Run on connected handset / emulator
+flutter run
+
+# Compile standalone APK
+flutter build apk --debug
 ```
 
 ---

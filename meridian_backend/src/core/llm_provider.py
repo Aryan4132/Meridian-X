@@ -54,7 +54,11 @@ async def generate_completion_stream(
   """
   provider, model = normalize_provider_and_model(provider, model)
   retries = 3
-  timeout_config = httpx.Timeout(120.0, connect=10.0, read=120.0)
+  # Local Ollama inference can be slow or take time to load weights into memory; disable read timeout for Ollama
+  if provider == "ollama":
+    timeout_config = httpx.Timeout(None, connect=30.0)
+  else:
+    timeout_config = httpx.Timeout(180.0, connect=15.0, read=180.0)
 
   # OPS-04: Local-Only Air-Gap Mode Check
   try:

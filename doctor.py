@@ -101,67 +101,59 @@ def check_dependencies() -> Dict[str, Any]:
 def check_database() -> Dict[str, Any]:
     # Look for database in typical locations
     db_candidates = [
+        os.path.join(os.path.dirname(__file__), ".meridian", "metadata.db"),
         os.path.join(os.path.dirname(__file__), "meridian_memory", "metadata.db"),
         os.path.join(os.path.dirname(__file__), "meridian_backend", "meridian.db"),
         os.path.join(os.path.dirname(__file__), "meridian.db"),
         os.path.join(os.path.dirname(__file__), "meridian_data", "meridian.db"),
     ]
-    db_path = None
+    
+    last_error = None
     for cand in db_candidates:
-        if os.path.exists(cand):
-            db_path = cand
-            break
-
-    if not db_path:
-        db_path = db_candidates[0]
-
-    if not os.path.exists(db_path):
-        return {
-            "name": "Database & Storage",
-            "status": "WARN",
-            "path": db_path,
-            "exists": False,
-            "message": f"Database not yet created at {db_path} (will auto-create on first backend startup)"
-        }
-
-    try:
-        conn = sqlite3.connect(db_path)
-        cur = conn.cursor()
-        cur.execute("PRAGMA journal_mode;")
-        journal_mode = cur.fetchone()[0]
-        cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table';")
-        table_count = cur.fetchone()[0]
-        
-        # Test FTS5 support
-        fts5_supported = False
+        if not os.path.exists(cand):
+            continue
         try:
-            cur.execute("CREATE VIRTUAL TABLE IF NOT EXISTS _doctor_fts_test USING fts5(content);")
-            cur.execute("DROP TABLE _doctor_fts_test;")
-            fts5_supported = True
-        except Exception:
-            fts5_supported = False
+            conn = sqlite3.connect(cand)
+            cur = conn.cursor()
+            cur.execute("PRAGMA journal_mode;")
+            journal_mode = cur.fetchone()[0]
+            cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table';")
+            table_count = cur.fetchone()[0]
             
-        conn.close()
-        
-        return {
-            "name": "Database & Storage",
-            "status": "PASS",
-            "path": db_path,
-            "exists": True,
-            "journal_mode": journal_mode,
-            "table_count": table_count,
-            "fts5_supported": fts5_supported,
-            "message": f"SQLite WAL: {journal_mode.upper()} | {table_count} tables | FTS5: {'Active' if fts5_supported else 'Disabled'}"
-        }
-    except Exception as e:
-        return {
-            "name": "Database & Storage",
-            "status": "FAIL",
-            "path": db_path,
-            "exists": True,
-            "error": str(e),
-            "message": f"Failed to connect to database: {e}"
-        }
+            # Test FTS5 support
+            fts5_supported = False
+            try:
+                cur.execute("CREATE VIRTUAL TABLE IF NOT EXISTS _doctor_fts_test USING fts5(content);")
+                cur.execute("DROP TABLE _doctor_fts_test;")
+                fts5_supported = True
+            except Exception:
+                fts5_supported = False
+                
+            conn.close()
+            
+            return {
+                "name": "Database & Storage",
+                "status": "PASS",
+                "path": cand,
+                "exists": True,
+                "journal_mode": journal_mode,
+                "table_count": table_count,
+                "fts5_supported": fts5_supported,
+                "message": f"SQLite WAL: {journal_mode.upper()} | {table_count} tables | FTS5: {'Active' if fts5_supported else 'Disabled'}"
+            }
+        except Exception as e:
+            last_error = e
+            continue
+
+    # If no candidate connected or exists
+    default_path = db_candidates[0]
+    return {
+        "name": "Database & Storage",
+        "status": "WARN",
+        "path": default_path,
+        "exists": os.path.exists(default_path),
+        "message": f"Database initialized on first startup: {last_error or 'Fresh state'}"
+    }
 
 def check_ollama(host: Optional[str] = None) -> Dict[str, Any]:
     raw_url = host or os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")

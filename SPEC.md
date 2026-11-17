@@ -1069,3 +1069,116 @@ Split oversized backend modules (>1,000 lines) into modular subpackages with pur
    - `meridian_backend/tests/test_browser_extension.py` with mock WebSocket extension client.
    - Pytest pass + frontend typecheck + extension manifest validation.
 
+---
+
+## Sub-Spec: Sprint 51 - Mobile Tri-Engine Runtime, RAM Telemetry & Theme Engine
+
+### Sprint 51 Objectives
+
+1. **Tri-Engine Runtime Architecture (`meridian_mobile`)**:
+   - **On-Device Local Engine (GGUF / llama.cpp)**: Execute quantized small LLMs directly on the mobile device (Qwen 2.5 0.5B/1.5B, SmolLM2 1.7B, Llama 3.2 1B). Offline, zero network dependency.
+   - **Direct Cloud API Engine**: Direct HTTPS calls to Gemini, Groq, OpenAI, Anthropic, DeepSeek, and OpenRouter with 0 MB on-device model RAM footprint. Encrypted key storage in `flutter_secure_storage`.
+   - **Desktop Agent Bridge**: Seamless fallback/sync over WebSocket to Meridian-X desktop backend (port 4132/4133) for full OS automation, Playwright web browsing, and dev tools.
+   - **Unified Engine Controller**: Single contract interface `ModelEngine` with streaming completions, tool calling abstraction, and automatic error recovery.
+
+2. **Hardware RAM Telemetry & Real-Time Safety Guarantees**:
+   - **Hardware Telemetry Provider**: Detects total device physical RAM, currently available/free RAM, and calculates safe AI budget (`Available RAM - 1.2GB OS reserve`).
+   - **Dynamic Memory Estimator**:
+     $$\text{RAM Required} = \text{Model Size (GGUF MB)} + \text{KV Cache Size}(N_{\text{ctx}}) + \text{Execution Overhead}$$
+   - **Safety Classification**:
+     - 🟢 **Optimal**: Margin $\ge 1000\text{ MB}$. Green indicator, unrestricted execution.
+     - 🟡 **Tight**: Margin between $250\text{ MB}$ and $999\text{ MB}$. Amber warning banner.
+     - 🔴 **Danger / OOM Risk**: Margin $< 250\text{ MB}$. Red warning badge, prevents model load to avoid OS kill.
+   - **Interactive Context Window Scaler**: User slider (512 to 4096 tokens) dynamically updates KV cache size and recalculates safety badge in real-time.
+
+3. **Handcrafted Anti-"AI-Generated" Design System & Theme Engine**:
+   - **Typography & Surface Layers**: Custom font hierarchy (`Plus Jakarta Sans` / `Outfit` / `Inter`), frosted glass blur (`BackdropFilter`), 1px luminescent border glow (`0x14FFFFFF` to `0x26FFFFFF`).
+   - **Curated Theme Presets**:
+     - `OLED Abyss`: Pure black `#030712` with midnight borders.
+     - `Tokyo Cyber`: Deep `#0F172A` navy with electric cyan & violet accents.
+     - `Nord Frost`: Slate `#2E3440` with arctic glacial accents.
+     - `Minimalist Studio`: Muted charcoal `#18181B` with warm bronze/amber accents.
+   - **Dynamic Accent Color Picker**: User-selectable custom accent tint saved in preferences.
+   - **Haptic Feedback & Fluid Transitions**: Spring physics curves (`Curves.easeOutQuart`) and tactile ticks on model/theme changes.
+
+4. **On-Device Hybrid Tool Runner**:
+   - Search APIs (Tavily / DuckDuckGo / Brave) executed directly from mobile client.
+   - Local device tools: battery status, connectivity status, clipboard, local document parsing.
+   - Hybrid Intent Router: Routes mobile actions locally and routes PC automation (browser, terminal, git) to Desktop Bridge when connected.
+
+5. **Model Hub & Engine Selector Screen (`model_hub_view.dart`)**:
+   - Header with Live RAM HUD gauge and dynamic memory breakdown.
+   - Segmented tab bar: `On-Device (GGUF)`, `Cloud APIs`, `Desktop Bridge`.
+   - Card gallery with quantization tags (`Q4_K_M`, `Q8_0`), download progress bar, RAM meter, and active model checkmark.
+   - API Key configuration modal with encrypted storage and connection test ping.
+
+6. **Testing & Verification**:
+   - Flutter unit and widget tests for RAM estimation formulas, safety thresholds, and engine switching.
+   - Backward compatibility verification with existing WebSocket bridge and voice orb views.
+
+---
+
+## Sub-Spec: Sprint 52 - Mobile Layout Overhaul & Executive UX
+
+### Sprint 52 Objectives
+
+1. **Dual Experience Architecture (Chat Feed & Spatial Voice)**:
+   - Provide a seamless executive navigation bar / segmented switch between **Chat Stream** and **Voice HUD**.
+   - In **Chat Mode**:
+     - Full conversational message stream showing user prompts and streaming agent answers.
+     - Formatted message cards with code container blocks, timestamp, sender role badge, and 1-tap copy action.
+     - Expandable thought process pill ("Thinking... [N steps]") that expands inline without crowding the chat.
+     - Quick suggestion chips for rapid prompts ("System status", "Check tasks", "Search web", "Pair desktop").
+     - Keyboard-safe layout with `ListView.builder` auto-scrolling to bottom on new messages, zero pixel overflows.
+   - In **Voice Mode**:
+     - Immersive full-screen spatial voice orb with real-time waveform aura and listening state.
+     - Live transcript banner showing spoken text as it streams.
+     - Floating audio controls (mic mute, VAD toggle, interrupt button).
+2. **Integrated Executive Navigation Dock**:
+   - Floating frosted glass bottom dock with 4 distinct destinations:
+     1. 💬 **Chat**: Conversational AI stream with persistent message history and inline thought cards.
+     2. 🎙️ **Voice**: Full-screen spatial voice orb with live waveform and mic controls.
+     3. 🧠 **Models**: Direct embedded Model Hub with RAM HUD, on-device GGUF / Cloud APIs / Desktop Bridge switch.
+     4. ⚙️ **Settings**: Palette selection (`OLED Abyss`, `Tokyo Cyber`, `Nord Frost`, `Minimalist Studio`), accent glow, pairing QR, and connection status.
+3. **Responsive Keyboard & Screen Safety**:
+   - Wrap interactive prompt input inside an elevated floating dock anchored to `SafeArea(bottom: true)`.
+   - Ensure `resizeToAvoidBottomInset: true` seamlessly resizes the chat list without squishing fixed containers or triggering layout overflows.
+4. **Anti-"AI-Generated" Design Polish**:
+   - Sleek glassmorphism surfaces (`BackdropFilter` with blur `16.0`, 1px borders `0x14FFFFFF`).
+   - Plus Jakarta Sans typography, micro-animations (`flutter_animate`), and high-contrast OLED black aesthetics.
+   - Subtle glowing indicators for agent connection status, battery, and telemetry.
+
+---
+
+## Sub-Spec: Sprint 54 - Real Mobile Engine Execution, HTTP GGUF Downloader & Decoupled Chat
+
+### Sprint 54 Objectives
+
+1. **Real Cloud API Engine Execution (`meridian_mobile/lib/core/model_engines.dart`)**:
+   - Direct HTTPS REST client using `dart:io` `HttpClient`.
+   - Google Gemini 1.5 Flash (`generativelanguage.googleapis.com` generateContent endpoint).
+   - Groq LPU (`api.groq.com/openai/v1/chat/completions` with Llama 3.1 8B).
+   - OpenAI (`api.openai.com/v1/chat/completions` with GPT-4o-mini).
+   - DeepSeek (`api.deepseek.com/chat/completions`).
+   - Anthropic (`api.anthropic.com/v1/messages`).
+   - Streaming/chunked token emission directly into the UI with zero desktop PC dependency.
+2. **Real GGUF Model Downloader & Storage Pipeline**:
+   - Real HTTP file streaming via `HttpClient` to app model storage directory.
+   - Live byte counting: received bytes, total content-length bytes, chunk-by-chunk file writing.
+   - Real cancellation (`HttpClient.close()`, file handle cleanup).
+   - Integrity check: Verifies GGUF magic bytes (`0x46554747` / "GGUF") on downloaded files.
+3. **Decoupled Standalone Mobile Chat (`meridian_mobile/lib/providers/agent_chat_provider.dart`)**:
+   - Remove hard dependency on port 4132 desktop WebSocket.
+   - Tri-Engine intent router:
+     - When active engine is `CloudApiEngine`: execute real HTTPS call directly on phone.
+     - When active engine is `OnDeviceLlamaEngine`: execute local GGUF engine offline.
+     - When active engine is `DesktopBridgeEngine`: forward prompt to desktop WebSocket if connected, otherwise guide user.
+   - Live token-by-token message appending in `AgentChatNotifier`.
+4. **Testing & Verification**:
+   - Author `meridian_mobile/test/real_engines_test.dart` testing Cloud API parsing, GGUF downloading, and decoupled chat.
+   - Run `flutter test` across all test suites.
+   - Compile Android APK with `flutter build apk --debug`.
+
+
+
+

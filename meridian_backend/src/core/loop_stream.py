@@ -148,42 +148,65 @@ def get_dynamic_tool_signature(name: str, func: Any) -> str:
         return name
 
 
-def generate_tools_doc(mode: Optional[str] = None, prompt: Optional[str] = None) -> str:
-    """Returns formatted string documentation presenting <70 core and mode-specialized tools."""
+def generate_tools_doc(mode: Optional[str] = None, prompt: Optional[str] = None, brain_model: Optional[str] = None) -> str:
+    """Returns formatted string documentation presenting tools (compact 5-8 tools for SLMs/small models, full suite for cloud/large models)."""
     from src.tools.registry import TOOL_REGISTRY
+    from src.core.mode import is_small_model
 
-    selected_tools = set(CORE_TOOLS_LIST)
-
-    # 1. Mode-based skill injection
-    if mode and mode.upper() in MODE_SPECIALIZED_TOOLS:
-        for t in MODE_SPECIALIZED_TOOLS[mode.upper()]:
-            selected_tools.add(t)
-
-    # 2. Keyword-based lazy skill injection
-    if prompt:
-        p_lower = prompt.lower()
-        for kws, tools in KEYWORD_SKILLS_MAP.items():
-            if any(kw in p_lower for kw in kws):
-                for t in tools:
+    # SLM / Small Model Mode: Prune tools drastically to prevent context overflow and model confusion
+    if brain_model and is_small_model(brain_model):
+        selected_tools = set()
+        if prompt:
+            p_lower = prompt.lower()
+            for kws, tools in KEYWORD_SKILLS_MAP.items():
+                if any(kw in p_lower for kw in kws):
+                    for t in tools[:3]:
+                        selected_tools.add(t)
+            try:
+                from src.core.tool_indexer import find_relevant_tools
+                for t in find_relevant_tools(prompt, top_k=4):
                     selected_tools.add(t)
+            except Exception:
+                pass
 
-    # 3. Data-driven skill packs (plugins/skills/*/SKILL.md + tools.yaml).
-    #    Additive only; any loader failure keeps the hardcoded maps above.
-    try:
-        from src.core.skills_loader import load_skill_packs, match_skills_for_prompt
-        for t in match_skills_for_prompt(prompt or "", load_skill_packs()):
-            selected_tools.add(t)
-    except Exception:
-        pass
+        # Ensure general primary tools are present if list is small
+        essential_tools = ["shell", "read_file", "write_file", "search_web", "list_directory"]
+        for et in essential_tools:
+            if len(selected_tools) >= 8:
+                break
+            selected_tools.add(et)
+    else:
+        selected_tools = set(CORE_TOOLS_LIST)
 
-    # 4. Semantic inverted index tool retrieval
-    if prompt:
+        # 1. Mode-based skill injection
+        if mode and mode.upper() in MODE_SPECIALIZED_TOOLS:
+            for t in MODE_SPECIALIZED_TOOLS[mode.upper()]:
+                selected_tools.add(t)
+
+        # 2. Keyword-based lazy skill injection
+        if prompt:
+            p_lower = prompt.lower()
+            for kws, tools in KEYWORD_SKILLS_MAP.items():
+                if any(kw in p_lower for kw in kws):
+                    for t in tools:
+                        selected_tools.add(t)
+
+        # 3. Data-driven skill packs (plugins/skills/*/SKILL.md + tools.yaml).
         try:
-            from src.core.tool_indexer import find_relevant_tools
-            for t in find_relevant_tools(prompt, top_k=6):
+            from src.core.skills_loader import load_skill_packs, match_skills_for_prompt
+            for t in match_skills_for_prompt(prompt or "", load_skill_packs()):
                 selected_tools.add(t)
         except Exception:
             pass
+
+        # 4. Semantic inverted index tool retrieval
+        if prompt:
+            try:
+                from src.core.tool_indexer import find_relevant_tools
+                for t in find_relevant_tools(prompt, top_k=6):
+                    selected_tools.add(t)
+            except Exception:
+                pass
 
     lines = []
     for name in selected_tools:
@@ -295,21 +318,41 @@ def create_model_response_stream(
         pass
 
     if model_source == "local" or (api_provider or "").lower() == "ollama":
-        # ANTI-HALLUCINATION: Stop tokens ensure local 7B/8B models stop generation
-        # immediately when closing a tool call tag or trying to fake observations.
+        from src.core.mode import is_small_model
+        is_slm = is_small_model(active_model or brain_model)
+
+        # SLM Tuning: Dynamic context sizing and low temperature to ensure strict tool syntax
+        ctx_tokens = 4096 if is_slm else 8192
+        try:
+            from database import get_user_profile
+            user_ctx = get_user_profile("context_token_limit")
+            if user_ctx and str(user_ctx).isdigit():
+                ctx_tokens = int(user_ctx)
+        except Exception:
+            pass
+
         options = {
-            "temperature": 0.6,
+            "temperature": 0.2 if is_slm else 0.5,
             "repeat_penalty": 1.15,
             "top_p": 0.9,
-            "num_ctx": 8192,
-            "stop": ["</call>", "</observation>"]
+            "num_ctx": ctx_tokens,
+            "num_predict": 2048,
+            "stop": ["</call>", "</observation>", "</tool_call>"]
         }
-        return client.chat(
-            model=active_model,
-            messages=history,
-            stream=True,
-            options=options
-        )
+
+        # Keep model warm in VRAM/RAM for 30m to eliminate multi-second cold starts between turns
+        chat_kwargs: Dict[str, Any] = {
+            "model": active_model,
+            "messages": history,
+            "stream": True,
+            "options": options,
+            "keep_alive": "30m"
+        }
+        try:
+            return client.chat(**chat_kwargs)
+        except TypeError:
+            chat_kwargs.pop("keep_alive", None)
+            return client.chat(**chat_kwargs)
 
 
     from src.core.llm_provider import get_api_key

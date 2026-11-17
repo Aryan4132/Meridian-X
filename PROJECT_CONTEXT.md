@@ -1,8 +1,8 @@
 # MERIDIAN-X SYSTEM ARCHITECTURE & TECHNICAL CONTEXT DOCUMENT
 
 > **Target Audience**: AI Agents, Technical Automation Parsers & Developers  
-> **Version**: `v0.1.6`  
-> **Last Updated**: `2026-10-09`  
+> **Version**: `v0.1.7`  
+> **Last Updated**: `2026-11-17`  
 > **Repository Roots**:  
 > Core Application: `c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X`  
 > Website/Marketing: `c:/Users/aryan/OneDrive/Dokumen/Mini_Project/meridian_website`  
@@ -13,15 +13,16 @@
 
 - **Name**: Meridian-X
 - **Type**: Agentic Desktop Workspace Companion, Autonomous ReAct Engine & Multi-Agent Ecosystem
-- **OS Support**: Windows 11 (64-bit), macOS 12+ (Apple Silicon/Intel), Linux (Ubuntu/Debian/Arch/Fedora)
+- **OS Support**: Windows 11 (64-bit), macOS 12+ (Apple Silicon/Intel), Linux (Ubuntu/Debian/Arch/Fedora), Android (10+)
 - **Frontend Stack**: Tauri v2, React 19, TypeScript, Vite, Three.js (3D Mascot), Anime.js, Tailwind CSS v4, Lucide Icons, Glassmorphism Tokens
-- **Mobile Stack**: Flutter (Android, iOS, macOS, Linux, Windows), Resilient WebSocket Client (`/ws`, `/api/ws/mobile`), Live Activity Stream
+- **Mobile Stack**: Flutter 3.29+, Dart 3.7+, `dart:io` `HttpClient` Direct HTTPS REST Inference (Gemini, Groq, OpenAI, DeepSeek, Anthropic), GGUF Chunked HTTP Downloader with Magic Byte (`0x46554747`) Verification, Secure Storage (`flutter_secure_storage`), Animated Frosted Glass Dock, Spatial Voice Orb HUD, Zero Desktop Dependency Mode
 - **Backend Stack**: Python 3.10+, FastAPI (Modular `src/api/` Routers), Uvicorn, SlowAPI, Pydantic v2, PyInstaller
 - **Inference Layer**:
   - Local LLMs via Ollama (`Llama 3.2`, `Llama 3.1`, `Qwen 2.5`, `Mistral`) with Quantization Selection (`Q4_K_M`, `Q4_0`, `Q5_K_M`, `Q8_0`, `F16`)
   - Cloud Providers (OpenAI, Anthropic, Gemini, Groq, OpenRouter, DeepSeek)
+  - Mobile Direct Inference (Cloud HTTPS REST + On-Device GGUF local model storage)
 - **Storage & RAG Layer**: Turbovec (Sub-ms Vector RAG), SQLite WAL (`database.py`), MongoDB (Graph RAG Sync), Temporal Graph Engine, Cognitive Graph (`src/core/cognitive_graph.py`)
-- **Voice Engine**: Supertonic local TTS (10 voices), Faster-Whisper local STT, OpenWakeWord ONNX Engine ("Hey Meridian")
+- **Voice Engine**: Supertonic local TTS (10 voices), Faster-Whisper local STT, OpenWakeWord ONNX Engine ("Hey Meridian"), Mobile Voice Orb with live VAD and dynamic speech waveforms
 - **Automation & Integration**: BrowserUseAgent (Set-of-Marks visual DOM indexing), Model Context Protocol (MCP), Playwright Web Agent, Desktop GUI Macros, LSP Code Server, P2P Mesh Network, Standalone Resilient Bridge Daemon (Port 4133)
 
 ---
@@ -184,6 +185,17 @@
 - Added curated visual themes: **Tokyo Night Minimalist**, **Pure OLED Black**, and **VS Code Dark Pro**.
 - Dynamic custom accent color picker and frosted glassmorphic card overlays.
 
+### 📱 Meridian-X Mobile Suite (Sprints 51–54 · `MOB-01` to `MOB-16`)
+
+- **Standalone Autonomous Execution**: Direct client-side HTTPS REST streaming to Google Gemini 1.5 Flash, Groq LPU, OpenAI, DeepSeek, and Anthropic via native Dart `HttpClient` with zero desktop/PC dependency.
+- **Real GGUF Downloader & Validation**: Streams HuggingFace GGUF models directly to phone storage (`/meridian_models/`) with real-time byte tracking, cancellation support, and `0x46554747` GGUF header magic byte validation.
+- **Decoupled Standalone Mobile Chat**: User prompts dispatch directly through `activeEngine.streamInference()`, decoupling mobile chat from desktop WebSocket port 4132 while preserving companion bridge mode when connected.
+- **Executive Frosted Glass Mobile UI**: 4-tab floating capsule dock (`Chat`, `Voice`, `Models`, `Settings`), collapsible thought step accordions, 1-tap message copying, and keyboard-safe layout eliminating bottom render overflows.
+- **Spatial Voice HUD**: Full-screen Voice Orb HUD with dynamic waveform audio visualizer, live VAD indicator, interim transcript banner, and floating mic cutoff controls.
+- **Dual-Mode Companion**: Instantly pair with desktop backend via LAN IP or QR code for cross-device telemetry, or run detached as an on-device personal assistant.
+- **Verified Mobile Test Suite**: 30/30 unit and widget tests passing across layout, model hub, themes, engines, and chat dispatching.
+- **Production Artifact**: `executables/meridian-x_mobile.apk` (157.9 MB, debug release with embedded high-resolution adaptive and round launcher mipmaps).
+
 ---
 
 ## 3. FULL SYSTEM DATAFLOW & WORKFLOW GRAPH
@@ -198,6 +210,7 @@ graph TD
         T4["📋 Clipboard & Proactive Watchers"]
         T5["🤖 Social Bridges (Discord/Telegram/WhatsApp)"]
         T6["🌐 Remote API & P2P Peer Request"]
+        T7["📱 Mobile App (Standalone / Companion)"]
     end
 
     %% Security Gate
@@ -432,10 +445,35 @@ Meridian-X/
 │   │   └── components/           # UI Controls & Overlays
 │   │       ├── ServerConnectionModal.tsx # Multi-Backend URL Switcher
 │   │       └── CommandPalette.tsx        # Global Action Launcher
-├── meridian_mobile/              # Flutter Multiplatform Companion App (Android/iOS/macOS/Linux/Windows)
+├── executables/                  # Pre-Compiled Standalone Release Packages
+│   └── meridian-x_mobile.apk     # Standalone Android Debug/Release APK (157.9 MB)
+├── meridian_mobile/              # Flutter Standalone & Companion App (Android/iOS/macOS/Linux/Windows)
+│   ├── android/                  # Android Gradle Project & App Manifest with Logo Mipmaps
 │   ├── lib/                      # Flutter UI & State Management
-│   │   ├── main.dart             # Mobile App Entrypoint
-│   │   └── services/             # Resilient WebSocket & State Synchronization
+│   │   ├── main.dart             # Mobile App Entrypoint & IndexedStack Root Shell
+│   │   ├── core/                 # Core Device & Inference Engines
+│   │   │   ├── model_engines.dart    # Cloud HTTPS REST, Local Storage & GGUF Byte Downloader
+│   │   │   ├── theme_engine.dart     # Palette Controller & Glassmorphic Design Tokens
+│   │   │   ├── secure_storage.dart   # Encrypted Key Storage with In-Memory Unit Test Fallback
+│   │   │   └── mobile_tool_runner.dart # Direct Search & On-Device Telemetry Tools
+│   │   ├── models/               # Domain Models & State Objects
+│   │   │   ├── thought_step.dart     # Reasoning Thought Steps with copyWith
+│   │   │   └── ram_telemetry.dart    # Hardware Telemetry & Memory Profiling
+│   │   ├── providers/            # Riverpod State Providers
+│   │   │   └── agent_chat_provider.dart # Decoupled Standalone & Desktop Chat Dispatcher
+│   │   ├── services/             # Resilient WebSocket & State Synchronization
+│   │   └── views/                # Executive Glassmorphic View Layer
+│   │       ├── bottom_nav_dock.dart  # 4-Tab Floating Capsule Dock (Chat/Voice/Models/Settings)
+│   │       ├── chat_stream_view.dart # Conversational Stream with Thought Accordion & Chips
+│   │       ├── voice_mode_view.dart  # Spatial Voice Orb HUD with VAD Waveforms
+│   │       ├── model_hub_view.dart   # Model Hub with Byte Downloader & Cancellation
+│   │       └── settings_view.dart    # Executive Settings, Theme Picker & QR Pairing
+│   └── test/                     # Comprehensive Unit & Widget Test Suite (30/30 Passing)
+│       ├── layout_test.dart          # Bottom Dock & Viewport Safety Widget Tests
+│       ├── model_hub_and_theme_test.dart # Download State Machine & Theme Unit Tests
+│       ├── models_test.dart          # Telemetry & Thought Serialization Tests
+│       ├── real_engines_test.dart    # Cloud API, GGUF Magic Bytes & Offline Chat Tests
+│       └── widget_test.dart          # App Shell & Startup Smoke Tests
 ├── plugins/                      # Lazy Butler Skills SDK
 │   ├── bills/                    # Bill Radar Skill (SKILL.md + tools.yaml)
 │   ├── expiry/                   # Expiry Sentinel Skill

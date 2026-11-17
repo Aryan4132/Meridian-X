@@ -87,7 +87,8 @@ async def preheat_tool(tool_name: str, partial_args_str: str):
                 print(f"[Speculative Engine] Preheating image file access: {image_path}")
 
         # --- Shell / Python execution: warm the pipeline ---
-        elif tool_name in ["nl_run", "run_python", "run_command"]:
+        elif tool_name in ["shell", "nl_run", "run_python", "run_command"]:
+            await asyncio.to_thread(os.getcwd)
             print("[Speculative Engine] Pre-heating shell/python execution pipeline environment.")
 
         # --- #13 FIX: LSP tools: pre-check if LSP socket/port is reachable ---

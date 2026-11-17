@@ -217,16 +217,21 @@ def chat_stream(request: ChatRequest):
         reset_cancel_flag()
         try:
             generator = run_react_agent_loop(*args, **kwargs).__aiter__()
+            is_local_ollama = (api_provider or "").lower() == "ollama"
+            inactivity_timeout = None if is_local_ollama else 180.0
             while True:
                 try:
-                    event = await asyncio.wait_for(generator.__anext__(), timeout=120.0)
+                    if inactivity_timeout is not None:
+                        event = await asyncio.wait_for(generator.__anext__(), timeout=inactivity_timeout)
+                    else:
+                        event = await generator.__anext__()
                     yield event
                     # Cooperative yield to prevent event loop starvation under high token volume
                     await asyncio.sleep(0)
                 except StopAsyncIteration:
                     break
                 except asyncio.TimeoutError:
-                    err_msg = json.dumps({"chat": "\n[Stream Error: LLM response timed out after 120s of inactivity.]\n", "speech": "", "lang": "en"})
+                    err_msg = json.dumps({"chat": f"\n[Stream Error: LLM response timed out after {int(inactivity_timeout or 180)}s of inactivity.]\n", "speech": "", "lang": "en"})
                     yield f"event: text\ndata: {err_msg}\n\n"
                     break
         except (Exception, asyncio.CancelledError, GeneratorExit) as e:

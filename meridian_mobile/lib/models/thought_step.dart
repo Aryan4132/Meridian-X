@@ -49,6 +49,26 @@ class ThoughtStep {
     );
   }
 
+  ThoughtStep copyWith({
+    String? id,
+    int? stepNumber,
+    String? title,
+    String? detail,
+    ThoughtStatus? status,
+    DateTime? timestamp,
+    double? confidenceScore,
+  }) {
+    return ThoughtStep(
+      id: id ?? this.id,
+      stepNumber: stepNumber ?? this.stepNumber,
+      title: title ?? this.title,
+      detail: detail ?? this.detail,
+      status: status ?? this.status,
+      timestamp: timestamp ?? this.timestamp,
+      confidenceScore: confidenceScore ?? this.confidenceScore,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

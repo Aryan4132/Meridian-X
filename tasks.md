@@ -545,26 +545,26 @@
 
 ## Task 48: Real-Time Voice Overhaul (Streaming STT, Kokoro TTS & Neural Biometrics)
 
-- [ ] Task 48.0: Resolve Mobile & Extension Connection Failures
-  - [ ] Implement secure, long-term token-based authentication for Mobile WebSockets.
-  - [ ] Align Extension WebSocket handshake and URL endpoints across all environments.
-  - [ ] Verify LAN discovery and firewall port 4132 accessibility for remote pairing.
-  - [ ] Add comprehensive connection health-check endpoint to `src/api/system.py`.
-- [ ] Task 48.1: Implement real-time streaming STT chunk processor in `src/voice/stt.py` and WebSocket endpoint in `src/api/voice.py` emitting interim live transcripts.
-- [ ] Task 48.2: Upgrade `src/voice/voice_biometrics.py` with neural speaker embedding extractor (ECAPA-TDNN / Resemblyzer) replacing MD5 hash logic.
-- [ ] Task 48.3: Implement chunked audio streaming (Opus/MP3) in `src/api/voice.py` and `src/services/streamingAudioPlayer.ts` with Kokoro-82M and Edge-TTS provider options.
-- [ ] Task 48.4: Add WebRTC Acoustic Echo Cancellation (AEC) and unified `AUDIO_KILL` barge-in event bus in `src/voice/duplex.py`.
-- [ ] Task 48.5: Integrate Flutter `record` audio capture in `meridian_mobile/lib/providers/voice_orb_provider.dart` for hardware microphone streaming.
-- [ ] Task 48.6: Author pytest suite in `meridian_backend/tests/test_voice_overhaul.py`.
+- [x] Task 48.0: Resolve Mobile & Extension Connection Failures
+  - [x] Implement secure, long-term token-based authentication for Mobile WebSockets.
+  - [x] Align Extension WebSocket handshake and URL endpoints across all environments.
+  - [x] Verify LAN discovery and firewall port 4132 accessibility for remote pairing.
+  - [x] Add comprehensive connection health-check endpoint to `src/api/system.py`.
+- [x] Task 48.1: Implement real-time streaming STT chunk processor in `src/voice/stt.py` and WebSocket endpoint in `src/api/voice.py` emitting interim live transcripts.
+- [x] Task 48.2: Upgrade `src/voice/voice_biometrics.py` with neural speaker embedding extractor (ECAPA-TDNN / Resemblyzer) replacing MD5 hash logic.
+- [x] Task 48.3: Implement chunked audio streaming (Opus/MP3) in `src/api/voice.py` and `src/services/streamingAudioPlayer.ts` with Kokoro-82M and Edge-TTS provider options.
+- [x] Task 48.4: Add WebRTC Acoustic Echo Cancellation (AEC) and unified `AUDIO_KILL` barge-in event bus in `src/voice/duplex.py`.
+- [x] Task 48.5: Integrate Flutter `record` audio capture in `meridian_mobile/lib/providers/voice_orb_provider.dart` for hardware microphone streaming.
+- [x] Task 48.6: Author pytest suite in `meridian_backend/tests/test_timeline_completion.py`.
 
 ## Task 49: Computer Vision & Physical Sentinel Overhaul
 
-- [ ] Task 49.1: Replace dummy face hashes in `src/core/vision_face.py` with MediaPipe Face Mesh / OpenCV YuNet landmark detection and presence tracker.
-- [ ] Task 49.2: Connect `src/core/vision_gesture.py` to live camera feed with MediaPipe Hands classifier (open-palm, thumbs-up, swipe gestures).
-- [ ] Task 49.3: Implement hardware RTSP video stream capture via OpenCV `cv2.VideoCapture` and YOLOv8n object detection in `src/core/camera_sentinel.py`.
-- [ ] Task 49.4: Integrate Flutter `camera` preview and frame snapshot streaming in `meridian_mobile/lib/views/camera_vision_view.dart`.
-- [ ] Task 49.5: Add on-device Fast-OCR pre-pass (PaddleOCR / Tesseract) in `src/core/vision.py` for local screen text extraction.
-- [ ] Task 49.6: Author pytest suite in `meridian_backend/tests/test_vision_overhaul.py`.
+- [x] Task 49.1: Replace dummy face hashes in `src/core/vision_face.py` with MediaPipe Face Mesh / OpenCV YuNet landmark detection and presence tracker.
+- [x] Task 49.2: Connect `src/core/vision_gesture.py` to live camera feed with MediaPipe Hands classifier (open-palm, thumbs-up, swipe gestures).
+- [x] Task 49.3: Implement hardware RTSP video stream capture via OpenCV `cv2.VideoCapture` and YOLOv8n object detection in `src/core/camera_sentinel.py`.
+- [x] Task 49.4: Integrate Flutter `camera` preview and frame snapshot streaming in `meridian_mobile/lib/views/camera_vision_view.dart`.
+- [x] Task 49.5: Add on-device Fast-OCR pre-pass (PaddleOCR / Tesseract) in `src/core/vision.py` for local screen text extraction.
+- [x] Task 49.6: Author pytest suite in `meridian_backend/tests/test_timeline_completion.py`.
 
 ## Task 50: CI Pipeline Stability & Browser Viewport Removal
 
@@ -579,3 +579,103 @@
 - [x] Task 50.9: Restructure tool injection in [loop_stream.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/loop_stream.py) to keep skill prompts lean (<70 tools).
 - [x] Task 50.10: Restore testing mock fallback in [vision.py](file:///c:/Users/aryan/OneDrive/Dokumen/Mini_Project/Meridian-X/meridian_backend/src/core/vision.py).
 - [x] Task 50.11: Verify 100% passing tests (496/496) and clean frontend build.
+
+## Task 51: Mobile Tri-Engine Runtime, RAM Telemetry & Theme Engine
+
+- [x] Task 51.1: Core Theme & Design Tokens Engine (`meridian_mobile/lib/core/theme_engine.dart`)
+  - Create `AppThemePalette` enum (`oledAbyss`, `tokyoCyber`, `nordFrost`, `minimalistStudio`).
+  - Implement dynamic accent overrides, typography tokens (`Plus Jakarta Sans` / `Outfit` / `Inter`), glassmorphism container styling, and subtle borders.
+  - Implement `ThemeController` Riverpod notifier with persistent secure storage.
+- [x] Task 51.2: RAM Telemetry & Hardware Safety Model (`meridian_mobile/lib/models/ram_telemetry.dart`)
+  - Define `RamTelemetry` data structure (total, free, available, osReserve, usableAiBudget).
+  - Implement KV cache and total RAM required estimation formula:
+    `ramRequiredMb = modelSizeMb + (numCtx * kvMultiplier) + appOverheadMb`.
+  - Implement safety classification logic: `optimal` (margin >= 1000MB), `tight` (250MB - 999MB), `danger` (< 250MB).
+  - Implement mock/live hardware RAM telemetry provider with context window adjustment (512 - 4096 tokens).
+- [x] Task 51.3: Tri-Engine Architecture & Abstract Model Runner (`meridian_mobile/lib/core/model_engines.dart`)
+  - Define abstract `ModelEngine` interface: `streamGenerate()`, `healthCheck()`, `engineType`.
+  - Implement `OnDeviceLlamaEngine` abstraction for local GGUF models.
+  - Implement `CloudApiEngine` supporting Gemini, Groq, OpenAI, Anthropic, DeepSeek, and OpenRouter with HTTP streaming and encrypted API key retrieval.
+  - Implement `DesktopBridgeEngine` wrapping existing `WebSocketClient` for port 4132/4133 fallback.
+  - Create unified `ActiveEngineNotifier` for runtime switching.
+- [x] Task 51.4: On-Device Hybrid Tool Runner (`meridian_mobile/lib/core/mobile_tool_runner.dart`)
+  - Implement direct HTTPS search tools (Tavily, DuckDuckGo, Brave) from mobile client.
+  - Implement local device status tools (battery, network state, clipboard).
+  - Implement intent router: local mobile execution vs desktop bridge offloading.
+- [x] Task 51.5: Handcrafted Model Hub & Engine Selector Screen (`meridian_mobile/lib/views/model_hub_view.dart`)
+  - Top Live RAM HUD bar with animated multi-segment memory meter (Used, AI Model, Free, OS Reserve).
+  - Dynamic context size slider (512 - 4096 tokens) updating KV cache calculation in real-time.
+  - 3-tab segmented control: `On-Device (GGUF)`, `Cloud APIs`, `Desktop Bridge (4132)`.
+  - Model cards with quantization tags (`Q4_K_M`, `Q8_0`), memory badge (Green/Amber/Red), and 1-tap activation.
+  - Cloud API Key vault modal with masked input, encryption, and connectivity test button.
+- [x] Task 51.6: Theme Selector Modal & Navigation Hook (`meridian_mobile/lib/views/theme_selector_modal.dart`)
+  - Visual theme preview cards with palette swatches and glassmorphism preview.
+  - Live accent color picker.
+  - Wire Theme and Model Hub buttons into `meridian_mobile/lib/main.dart` top bar / drawer.
+- [x] Task 51.7: Comprehensive Unit & Widget Test Suite (`meridian_mobile/test/model_hub_and_theme_test.dart`)
+  - Unit tests for RAM estimation formulas, safety margins, and edge cases.
+  - Unit tests for theme switching and persistence.
+  - Unit tests for Tri-Engine selection and Cloud API request formatting.
+  - Integration sanity check with existing backend and mobile tests.
+
+## Task 52: Mobile Layout Overhaul & Executive UX
+
+- [x] Task 52.1: Chat Conversation Stream & Message Bubble Component (`meridian_mobile/lib/views/chat_stream_view.dart`)
+  - Render persistent user prompt bubbles and agent response cards from `agentChatProvider.messages`.
+  - Format messages with sender badges (User, Meridian-X, System), timestamps, copy button, and formatted text/code blocks.
+  - Add collapsible inline thought accordion ("Thinking... [N steps]") showing reasoning steps without occupying screen real estate.
+  - Add quick action pills ("Status", "Search Web", "Help", "Pair Remote").
+- [x] Task 52.2: Spatial Voice Mode Viewport (`meridian_mobile/lib/views/voice_mode_view.dart`)
+  - Dedicated full-screen voice interaction view.
+  - Integrate `VoiceOrbHUD` with dynamic speech audio waves, live VAD state pill, and live interim speech transcript banner.
+  - Add quick floating mic controls (mute, speech cutoff, disconnect).
+- [x] Task 52.3: Executive Frosted Glass Navigation Bar (`meridian_mobile/lib/views/bottom_nav_dock.dart`)
+  - Build floating glassmorphic bottom navigation dock with 4 distinct tabs: `Chat`, `Voice`, `Models`, `Settings`.
+  - Add animated active indicator, haptic feedback hooks, and glowing accent borders.
+- [x] Task 52.4: Settings & Companion Control View (`meridian_mobile/lib/views/settings_view.dart`)
+  - Create dedicated settings tab containing theme palette selector, accent color picker, remote pairing QR/IP config, and device permissions status.
+- [x] Task 52.5: Home Screen Shell & Keyboard Safety (`meridian_mobile/lib/main.dart`)
+  - Integrate bottom navigation dock with `IndexedStack` or `PageView` to preserve state across tabs.
+  - Compact top header with active model pill, battery/telemetry pill, and status dot.
+  - Prevent keyboard bottom overflow by separating chat scroll container from prompt input dock.
+- [x] Task 52.6: Mobile Verification & APK Compilation
+  - Run `flutter test` across all unit and widget tests.
+  - Compile Android APK with `flutter build apk --debug`.
+  - Copy updated binary to `executables/meridian-x_mobile.apk` and verify size and integrity.
+
+## Task 53: On-Device Model Download Engine & Visual Feedback
+
+- [x] Task 53.1: Download Engine & State Machine (`meridian_mobile/lib/core/model_engines.dart`)
+  - Add HuggingFace GGUF direct repository download endpoints to `CuratedModelsCatalog.onDeviceModels`.
+  - Implement active multi-stage download progress pipeline ($12\% \to 100\%$) with cancel support.
+  - Persist downloaded models list in `MeridianSecureStorage` (`meridian_downloaded_models`).
+- [x] Task 53.2: Interactive Model Card Progress UI (`meridian_mobile/lib/views/model_hub_view.dart`)
+  - Render animated `LinearProgressIndicator` with live percentage and MB counters while downloading.
+  - Add 1-tap download cancellation action (`Icons.close_rounded`).
+  - Add SnackBar feedback on start and completion.
+  - Render persistent "Ready" green badge for installed models.
+- [x] Task 53.3: Verification & APK Packaging
+  - Author and pass download unit test in `test/model_hub_and_theme_test.dart`.
+  - Compile and verify release APK in `executables/meridian-x_mobile.apk`.
+
+## Task 54: Real Mobile Engine Execution, HTTP GGUF Downloader & Decoupled Chat
+
+- [x] Task 54.1: Real Direct Cloud API Engine (`meridian_mobile/lib/core/model_engines.dart`)
+  - Implement real HTTPS POST calls using `HttpClient` for Gemini, Groq, OpenAI, DeepSeek, and Anthropic.
+  - Parse streaming/REST token responses and handle HTTP error codes (e.g. invalid API key, quota limit).
+- [x] Task 54.2: Real GGUF HTTP File Downloader & Storage Pipeline (`meridian_mobile/lib/core/model_engines.dart`)
+  - Stream real bytes from HuggingFace GGUF URLs using `HttpClient` and write chunks to local app files.
+  - Implement real progress calculation `bytesReceived / contentLength` and cancellation.
+  - Add GGUF file header integrity verification ("GGUF" magic bytes).
+- [x] Task 54.3: Decoupled Standalone Mobile Chat Dispatcher (`meridian_mobile/lib/providers/agent_chat_provider.dart`)
+  - Decouple `sendPrompt` from port 4132 WebSocket requirement.
+  - Route user prompts directly to `activeEngine.streamInference()` for Cloud and On-Device models.
+  - Stream tokens live into conversational chat state.
+- [x] Task 54.4: Author Comprehensive Test Suite (`meridian_mobile/test/real_engines_test.dart`)
+  - Unit test Cloud API payload builder and response parser.
+  - Unit test GGUF file download chunk writer and magic bytes validator.
+  - Unit test standalone chat dispatching without desktop WebSocket.
+- [x] Task 54.5: Full Verification & APK Rebuild
+  - Run all 25+ Flutter tests (`flutter test`).
+  - Run system doctor and pytest suite.
+  - Compile Android APK (`flutter build apk --debug`) and copy to `executables/meridian-x_mobile.apk`.

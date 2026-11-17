@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/websocket_client.dart';
+import '../core/model_engines.dart';
 import '../models/thought_step.dart';
 import '../models/telemetry.dart';
 
@@ -75,14 +76,16 @@ class AgentChatNotifier extends StateNotifier<AgentState> {
     });
   }
 
-  void sendPrompt(String text) {
+  Future<void> sendPrompt(String text, {ModelEngine? engine}) async {
     if (text.trim().isEmpty) return;
-    if (!state.isConnected) {
-      _appendSystemMessage('Not connected. Open Remote Pairing to link the desktop engine.');
+
+    // When targeting desktopBridge (or unspecified) and offline:
+    if ((engine == null || engine.engineType == ModelEngineType.desktopBridge) && !state.isConnected) {
+      _appendSystemMessage('Not connected. Open Remote Pairing to link the desktop engine, or select Cloud API in Models tab.');
       return;
     }
 
-    final userMsg = {'sender': 'user', 'text': text, 'timestamp': DateTime.now().toIso8601String()};
+    final userMsg = {'sender': 'user', 'text': text.trim(), 'timestamp': DateTime.now().toIso8601String()};
     final newMessages = List<Map<String, dynamic>>.from(state.messages)..add(userMsg);
 
     _stepCounter += 1;
@@ -90,7 +93,7 @@ class AgentChatNotifier extends StateNotifier<AgentState> {
       id: DateTime.now().millisecondsSinceEpoch.toString(),
       stepNumber: _stepCounter,
       title: 'Analyzing Prompt',
-      detail: text,
+      detail: text.trim(),
       status: ThoughtStatus.running,
       timestamp: DateTime.now(),
     );
@@ -98,13 +101,60 @@ class AgentChatNotifier extends StateNotifier<AgentState> {
     state = state.copyWith(
       messages: newMessages,
       thoughtSteps: [newStep, ...state.thoughtSteps],
-      activePrompt: text,
+      activePrompt: text.trim(),
     );
+
+    // If Cloud API or On-Device Llama engine:
+    if (engine != null && engine.engineType != ModelEngineType.desktopBridge) {
+      try {
+        final buffer = StringBuffer();
+        await for (final token in engine.streamInference(prompt: text.trim())) {
+          buffer.write(token);
+          _updateOrAppendAgentMessage(buffer.toString());
+        }
+        _updateLastThoughtStatus(ThoughtStatus.completed);
+      } catch (e) {
+        _appendSystemMessage('Engine execution error: $e');
+        _updateLastThoughtStatus(ThoughtStatus.failed);
+      }
+      return;
+    }
 
     _wsClient.sendMessage({
       'type': 'user_prompt',
-      'content': text,
+      'content': text.trim(),
     });
+  }
+
+  void _updateOrAppendAgentMessage(String fullText) {
+    if (state.messages.isNotEmpty &&
+        state.messages.last['sender'] == 'agent' &&
+        state.messages.last['_isStreaming'] == true) {
+      final updated = List<Map<String, dynamic>>.from(state.messages);
+      updated[updated.length - 1] = {
+        'sender': 'agent',
+        'text': fullText,
+        '_isStreaming': true,
+        'timestamp': updated.last['timestamp'],
+      };
+      state = state.copyWith(messages: updated);
+    } else {
+      final msg = {
+        'sender': 'agent',
+        'text': fullText,
+        '_isStreaming': true,
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      state = state.copyWith(messages: List<Map<String, dynamic>>.from(state.messages)..add(msg));
+    }
+  }
+
+  void _updateLastThoughtStatus(ThoughtStatus status) {
+    if (state.thoughtSteps.isNotEmpty) {
+      final updated = List<ThoughtStep>.from(state.thoughtSteps);
+      updated[0] = updated[0].copyWith(status: status);
+      state = state.copyWith(thoughtSteps: updated);
+    }
   }
 
   void _appendAgentMessage(String text) {

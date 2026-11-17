@@ -189,13 +189,27 @@ def browser_open(url: str, visible: bool = True, profile: bool = False,
     global _session_cdp_url
     try:
         from playwright.sync_api import sync_playwright
+        from src.tools.chrome_manager import detect_cdp_browser, launch_browser_in_debug_mode
+
+        # 1. Auto-discover any already-running browser with remote debugging enabled
+        if not cdp_url:
+            auto_detected = detect_cdp_browser()
+            if auto_detected:
+                cdp_url = auto_detected["cdp_url"]
+
+        # 2. Run Chrome/Edge/Brave in debugging mode with persistent profile instead of guest mode
+        if not cdp_url and visible and browser in ("chrome", "chromium", "edge", "brave"):
+            debug_res = launch_browser_in_debug_mode(port=9222, browser=browser, url=url, profile_dir=profile_dir)
+            if debug_res.get("success") and debug_res.get("cdp_url"):
+                cdp_url = debug_res["cdp_url"]
+
         if cdp_url:
             want = ("attached", cdp_url)
         else:
-            if browser not in ("chromium", "chrome", "edge", "firefox"):
+            if browser not in ("chromium", "chrome", "edge", "firefox", "brave"):
                 return (
                     f"Error: unknown browser '{browser}'. "
-                    f"Choose one of: chromium, chrome, edge, firefox — or pass "
+                    f"Choose one of: chromium, chrome, edge, brave, firefox — or pass "
                     f"cdp_url to attach to a running browser."
                 )
             want = (browser, None)

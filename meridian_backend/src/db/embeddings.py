@@ -55,13 +55,14 @@ def _get_fallback_embedding(text: str, dim: int = 768) -> List[float]:
         vec = vec / norm
     return vec.tolist()
 
-def _get_openai_embedding(text: str, api_key: str, dim: int = 768) -> Optional[List[float]]:
-    """Fetches OpenAI text-embedding-3-small embedding."""
+def _get_openai_embedding(text: str, api_key: str, dim: int = 768, model_name: str = "text-embedding-3-small") -> Optional[List[float]]:
+    """Fetches OpenAI embedding using configured model (text-embedding-3-small, text-embedding-3-large, etc)."""
     try:
         import httpx
         url = "https://api.openai.com/v1/embeddings"
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-        payload = {"model": "text-embedding-3-small", "input": text, "dimensions": dim}
+        target_model = model_name if ("text-embedding" in str(model_name)) else "text-embedding-3-small"
+        payload = {"model": target_model, "input": text, "dimensions": dim}
         res = httpx.post(url, headers=headers, json=payload, timeout=10.0)
         if res.status_code == 200:
             data = res.json()
@@ -80,7 +81,17 @@ def get_embedding(text: str) -> Optional[List[float]]:
     if len(text) > 2000:
         text = text[:2000]
 
-    # 1. Try OpenAI if key is present
+    embed_model = os.environ.get("EMBEDDING_MODEL")
+    if not embed_model:
+        try:
+            from src.db.profile import get_user_profile
+            embed_model = get_user_profile("embedding_model")
+        except Exception:
+            pass
+    if not embed_model or str(embed_model).startswith("for ex"):
+        embed_model = "nomic-embed-text"
+
+    # 1. Try OpenAI if key is present or requested model is OpenAI
     openai_key = os.environ.get("OPENAI_API_KEY")
     if not openai_key:
         try:
@@ -88,8 +99,8 @@ def get_embedding(text: str) -> Optional[List[float]]:
             openai_key = get_user_profile("openai_key")
         except Exception:
             pass
-    if openai_key:
-        vec = _get_openai_embedding(text, openai_key)
+    if openai_key and ("text-embedding" in str(embed_model) or "openai" in str(embed_model)):
+        vec = _get_openai_embedding(text, openai_key, model_name=str(embed_model))
         if vec is not None:
             return vec
 

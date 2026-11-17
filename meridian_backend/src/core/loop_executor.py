@@ -16,42 +16,106 @@ from src.core.bus import event_bus
 
 
 def clean_final_text(text: str) -> str:
-    """Safely extracts the final message and removes XML-like agent loop tags."""
+    """Safely extracts the final message and removes XML-like agent loop tags, simulated observations, and tool blocks."""
     text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
     text = re.sub(r"<call:\w+>.*?</call:\w+>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<tool_call>.*?</tool_call>", "", text, flags=re.DOTALL)
+    text = re.sub(r"<observation.*?>.*?</observation.*?>", "", text, flags=re.DOTALL)
     text = re.sub(r"</?thought>", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"</?think>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"</?finish>", "", text, flags=re.IGNORECASE)
     text = re.sub(r"</?call:\w+>", "", text, flags=re.IGNORECASE)
+    # Strip markdown tool call JSON blocks if they were part of an action
+    text = re.sub(r"```(?:json)?\s*\{\s*\"(?:tool|action|name)\"\s*:\s*\"[^\"]+\"[\s\S]*?\}\s*```", "", text)
     return text.strip()
 
 
-def sanitize_tool_args_str(args_str: str) -> str:
-    """Auto-heals Python dictionary syntax, single quotes, and Python literals into valid JSON."""
+PRIMARY_TOOL_ARGS = {
+    "shell": "command",
+    "nl_run": "command",
+    "run_command": "command",
+    "read_file": "path",
+    "write_file": "path",
+    "delete_file": "path",
+    "list_directory": "path",
+    "search_files": "query",
+    "search_codebase": "query",
+    "search_web": "query",
+    "run_python": "code",
+    "python_eval": "code",
+    "browser_use_task": "task",
+    "open_app": "app_name",
+    "focus_window": "title",
+}
+
+def sanitize_tool_args_str(args_str: str, tool_name: Optional[str] = None) -> str:
+    """Auto-heals Python dictionary syntax, single quotes, bare strings, and malformed inputs into valid JSON."""
     cleaned = (args_str or "").strip()
-    if not cleaned or cleaned == "{}":
+    if not cleaned or cleaned in ("{}", "null", "None"):
         return "{}"
+
+    # Strip code block fences if present
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned).strip()
+
+    # 1. Direct valid JSON check
     try:
-        json.loads(cleaned)
-        return cleaned
+        parsed = json.loads(cleaned)
+        if isinstance(parsed, dict):
+            return cleaned
+        if isinstance(parsed, str) and tool_name and tool_name in PRIMARY_TOOL_ARGS:
+            return json.dumps({PRIMARY_TOOL_ARGS[tool_name]: parsed})
     except Exception:
         pass
 
-    # Try ast.literal_eval for Python dictionary literals
+    # 2. Try ast.literal_eval for Python dictionary literals
     try:
         evaluated = ast.literal_eval(cleaned)
         if isinstance(evaluated, dict):
             return json.dumps(evaluated)
+        if isinstance(evaluated, str) and tool_name and tool_name in PRIMARY_TOOL_ARGS:
+            return json.dumps({PRIMARY_TOOL_ARGS[tool_name]: evaluated})
     except Exception:
         pass
 
-    # Regex heuristic for single quotes and Python booleans/None
+    # 3. Key-Value assignment parser (e.g. command="dir" or path='main.py')
+    kv_matches = re.findall(r'([a-zA-Z0-9_]+)\s*[=:]\s*(?:"([^"]*)"|\'([^\']*)\'|([^\s,;]+))', cleaned)
+    if kv_matches and not cleaned.startswith("{"):
+        kv_dict = {}
+        for m in kv_matches:
+            k = m[0]
+            val = m[1] if m[1] else (m[2] if m[2] else m[3])
+            kv_dict[k] = val
+        if kv_dict:
+            return json.dumps(kv_dict)
+
+    # 4. Bare parameter fallback for known single-arg tools
+    if tool_name and tool_name in PRIMARY_TOOL_ARGS and not cleaned.startswith("{") and "\n" not in cleaned:
+        bare_val = cleaned.strip('"\'')
+        return json.dumps({PRIMARY_TOOL_ARGS[tool_name]: bare_val})
+
+    # 5. Regex heuristic for single quotes, unquoted keys, and trailing commas
     try:
-        repaired = re.sub(r"'([^'\\]*(?:\\.[^'\\]*)*)'", r'"\1"', cleaned)
+        repaired = cleaned
+        # Replace single quotes on keys and values with double quotes
+        repaired = re.sub(r"'([^'\\]*(?:\\.[^'\\]*)*)'", r'"\1"', repaired)
+        # Quote unquoted keys: {command: "dir"} -> {"command": "dir"}
+        repaired = re.sub(r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'\1"\2":', repaired)
+        # Remove trailing commas: {"a": 1,} -> {"a": 1}
+        repaired = re.sub(r',\s*([}\]])', r'\1', repaired)
         repaired = re.sub(r'\bTrue\b', 'true', repaired)
         repaired = re.sub(r'\bFalse\b', 'false', repaired)
         repaired = re.sub(r'\bNone\b', 'null', repaired)
-        json.loads(repaired)
-        return repaired
+
+        # Wrap in braces if missing
+        if not repaired.startswith("{") and ":" in repaired:
+            repaired = "{" + repaired.rstrip(", ") + "}"
+
+        parsed = json.loads(repaired)
+        if isinstance(parsed, dict):
+            return json.dumps(parsed)
     except Exception:
         pass
 
@@ -125,10 +189,23 @@ def critique_and_correct_tool_call(tool_name: str, args_str: str, client: Option
         tool_meta = TOOL_REGISTRY[tool_name]
         func = tool_meta["func"]
         
-        args_str = sanitize_tool_args_str(args_str)
+        args_str = sanitize_tool_args_str(args_str, tool_name=tool_name)
         try:
             args = json.loads(args_str) if args_str.strip() else {}
+            if isinstance(args, str):
+                primary_param = PRIMARY_TOOL_ARGS.get(tool_name, "command")
+                args = {primary_param: args}
+                args_str = json.dumps(args)
         except Exception as e:
+            # Deterministic rescue before LLM
+            rescued = sanitize_tool_args_str(args_str, tool_name=tool_name)
+            try:
+                args = json.loads(rescued)
+                if isinstance(args, str):
+                    args = {PRIMARY_TOOL_ARGS.get(tool_name, "command"): args}
+                return True, json.dumps(args), "Auto-healed tool arguments via SLM syntax parser."
+            except Exception:
+                pass
             prompt = (
                 f"You are a syntax recovery engine. Correct the following invalid JSON arguments for tool '{tool_name}' so it is well-formed.\n"
                 f"Invalid JSON:\n{args_str}\n\n"

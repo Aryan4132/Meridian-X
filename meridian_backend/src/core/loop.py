@@ -51,6 +51,7 @@ from src.core.loop_executor import (
 from src.core.loop_parser import (
     StreamingXMLParser,
     resolve_local_model_name,
+    fallback_extract_tool_calls,
 )
 
 from src.core.loop_dispatcher import (
@@ -222,7 +223,7 @@ async def run_react_agent_loop(
     except Exception as e:
         print("[Multi-Mode] Route resolution warning:", e)
 
-    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt)
+    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt, brain_model=brain_model)
 
     # Load workspace config overrides
     if model_source == "local":
@@ -457,6 +458,15 @@ async def run_react_agent_loop(
                 history.remove(temp_sys_msg)
                 temp_sys_msg = None
 
+            if not calls_to_execute:
+                # Small Model Fallback: Check if model emitted tool calls in markdown, JSON, or function format
+                fallback_calls = fallback_extract_tool_calls(full_turn_text)
+                if fallback_calls:
+                    for fname, fargs in fallback_calls:
+                        executed_tools_all_turns.append(fname)
+                        calls_to_execute.append((fname, fargs))
+                    final_text = ""
+
             if calls_to_execute:
                 turn_state = {
                     "last_tool_call": last_tool_call,
@@ -489,7 +499,7 @@ async def run_react_agent_loop(
                     return
 
                 if turn_state.get("reloaded_plugins"):
-                    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt)
+                    tools_doc = generate_tools_doc(mode=detected_mode, prompt=prompt, brain_model=brain_model)
                     from src.core.mode import build_system_prompt
                     new_sys = build_system_prompt(prompt, brain_model, ollama_host, tools_doc)
                     history[0] = {"role": "system", "content": new_sys}

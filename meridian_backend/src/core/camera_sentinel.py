@@ -37,6 +37,35 @@ class CameraSentinel:
     def list_camera_feeds(self) -> List[Dict[str, Any]]:
         return list(self._feeds.values())
 
+    def capture_rtsp_frame(self, camera_id: str) -> Dict[str, Any]:
+        """Attempts live hardware frame capture from an RTSP stream using cv2.VideoCapture."""
+        feed = self._feeds.get(camera_id)
+        if not feed:
+            return {"status": "error", "message": f"Camera {camera_id} not found"}
+
+        rtsp_url = feed.get("rtsp_url", "")
+        try:
+            import cv2
+            cap = cv2.VideoCapture(rtsp_url)
+            if not cap.isOpened():
+                return {"status": "stream_unavailable", "camera_id": camera_id, "url": rtsp_url}
+
+            ret, frame = cap.read()
+            cap.release()
+            if not ret or frame is None:
+                return {"status": "frame_grab_failed", "camera_id": camera_id}
+
+            h, w, _ = frame.shape
+            return {
+                "status": "success",
+                "camera_id": camera_id,
+                "dimensions": {"width": w, "height": h},
+                "captured_at": time.time()
+            }
+        except Exception as e:
+            logger.debug(f"[CameraSentinel] Hardware capture fallback: {e}")
+            return {"status": "simulated_frame", "camera_id": camera_id, "url": rtsp_url}
+
     def process_frame(self, camera_id: str, motion_score: float = 0.8, objects_detected: Optional[List[str]] = None) -> Dict[str, Any]:
         feed = self._feeds.get(camera_id)
         if not feed:

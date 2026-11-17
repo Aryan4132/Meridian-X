@@ -36,7 +36,7 @@ async def decompose_goal_to_checklist(prompt: str, client: Any = None, model: Op
         from src.core.llm_provider import call_llm
         text = await asyncio.wait_for(
             call_llm([{"role": "user", "content": decomp_prompt}], model=model),
-            timeout=10.0
+            timeout=60.0
         )
         text = text.strip()
         if text.startswith("```"):

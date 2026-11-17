@@ -74,7 +74,12 @@ from src.tools.clipboard import clipboard_history, clipboard_search, clipboard_p
 from src.tools.voice import voice_record_and_transcribe, voice_speak
 from src.tools.dynamic_manager import generate_dynamic_tool
 from src.tools.papercoder import generate_paper2code
-from src.tools.chrome_manager import launch_chrome_with_profile, get_chrome_profile_status
+from src.tools.chrome_manager import (
+    launch_chrome_with_profile,
+    get_chrome_profile_status,
+    launch_browser_in_debug_mode,
+    detect_cdp_browser
+)
 from database import save_user_preference, get_user_preference
 
 from src.tools.ollama_manager import ollama_list_models, ollama_pull_model, ollama_delete_model
@@ -263,6 +268,8 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
     "open_file": {"tier": 1, "func": open_file},
     "open_url_in_browser": {"tier": 1, "func": open_url_in_browser},
     "launch_chrome_with_profile": {"tier": 1, "func": launch_chrome_with_profile},
+    "launch_browser_in_debug_mode": {"tier": 1, "func": launch_browser_in_debug_mode, "description": "Launch Chrome/Edge/Brave in debugging mode with persistent profile on remote debugging port."},
+    "detect_cdp_browser": {"tier": 0, "func": detect_cdp_browser, "description": "Detect any running browser with remote debugging enabled across ports 9222-9224."},
     "get_chrome_profile_status": {"tier": 0, "func": get_chrome_profile_status},
     "control_media_playback": {"tier": 1, "func": control_media_playback},
     "save_user_preference": {"tier": 1, "func": save_user_preference},
@@ -683,6 +690,72 @@ try:
     TOOL_REGISTRY["add_bookmark"] = {"func": add_bookmark, "description": "Add auto-tagged smart bookmark", "tier": 1}
 except Exception as _tool_err:
     print("[Registry] Day 16-18 tool registration warning:", _tool_err)
+
+
+# Register Day 19 & 20 Executive Butler & Cross-Device Tools
+try:
+    from src.core.butler_ritual import run_morning_ritual, run_evening_ritual
+    from src.tools.home_assistant import hass_list_devices, hass_set_light, hass_set_temperature
+    from src.core.concierge_agent import concierge_find_dining, concierge_calculate_transit_buffer
+    from src.core.butler_etiquette import set_butler_formality
+    from src.core.routine_executor import execute_disk_cleanup, prepare_weekly_report
+    from src.tools.os_automation import run_os_macro, save_os_macro
+    from src.core.android_automation import adb_list_devices, adb_launch_application
+    from src.core.device_handoff import handoff_sync_clipboard, handoff_create_session
+    from src.core.device_sentinel import list_mesh_devices
+
+    TOOL_REGISTRY["run_morning_ritual"] = {"func": run_morning_ritual, "description": "Run executive morning wake-up ritual with lighting and attire advice", "tier": 1}
+    TOOL_REGISTRY["run_evening_ritual"] = {"func": run_evening_ritual, "description": "Run evening wind-down ritual and daily task recap", "tier": 1}
+    TOOL_REGISTRY["hass_list_devices"] = {"func": hass_list_devices, "description": "List connected Home Assistant smart home devices", "tier": 0}
+    TOOL_REGISTRY["hass_set_light"] = {"func": hass_set_light, "description": "Set state and brightness for smart lighting entity", "tier": 1}
+    TOOL_REGISTRY["hass_set_temperature"] = {"func": hass_set_temperature, "description": "Adjust climate thermostat target temperature", "tier": 1}
+    TOOL_REGISTRY["concierge_find_dining"] = {"func": concierge_find_dining, "description": "Search curated dining recommendations matching dietary profile", "tier": 0}
+    TOOL_REGISTRY["concierge_calculate_transit_buffer"] = {"func": concierge_calculate_transit_buffer, "description": "Calculate transit leave-by time with airport buffers", "tier": 0}
+    TOOL_REGISTRY["set_butler_formality"] = {"func": set_butler_formality, "description": "Adjust AI personality formality slider (0.0 to 1.0)", "tier": 1}
+    TOOL_REGISTRY["execute_disk_cleanup"] = {"func": execute_disk_cleanup, "description": "Run proactive disk cleanup on caches and temporary files", "tier": 1}
+    TOOL_REGISTRY["prepare_weekly_report"] = {"func": prepare_weekly_report, "description": "Draft executive weekly status report email", "tier": 1}
+    TOOL_REGISTRY["run_os_macro"] = {"func": run_os_macro, "description": "Execute registered desktop GUI macro workflow", "tier": 1}
+    TOOL_REGISTRY["save_os_macro"] = {"func": save_os_macro, "description": "Register a new desktop GUI macro sequence", "tier": 1}
+    TOOL_REGISTRY["adb_list_devices"] = {"func": adb_list_devices, "description": "List connected physical and virtual Android ADB devices", "tier": 0}
+    TOOL_REGISTRY["adb_launch_application"] = {"func": adb_launch_application, "description": "Launch an Android package via ADB", "tier": 1}
+    TOOL_REGISTRY["handoff_sync_clipboard"] = {"func": handoff_sync_clipboard, "description": "Sync clipboard text across P2P mesh devices", "tier": 1}
+    TOOL_REGISTRY["handoff_create_session"] = {"func": handoff_create_session, "description": "Package active working state for mobile or desktop handoff", "tier": 1}
+    TOOL_REGISTRY["list_mesh_devices"] = {"func": list_mesh_devices, "description": "List all peer mesh devices, battery levels, and latency", "tier": 0}
+except Exception as _butler_err:
+    print("[Registry] Day 19-20 tool registration warning:", _butler_err)
+
+# Register Day 23 & 24 Lifestyle, Family & Security Tools
+try:
+    from src.tools.car_logbook import log_vehicle_service, get_vehicle_service_prediction
+    from src.tools.family_board import family_post_announcement, family_add_task, family_get_board
+    from src.tools.photo_organizer import organize_index_photo, organize_find_duplicate_photos
+    from src.tools.routine_composer import compose_save_routine, compose_run_routine, compose_list_routines
+    from src.tools.day_planner import plan_executive_day
+    from src.tools.secure_shredder import secure_shred_file
+    from src.tools.expense_pool import add_pool_expense, get_pool_settlement
+    from src.tools.parental_controls import set_kids_screen_budget, check_kids_url
+    from src.tools.habit_tracker import habit_log, habit_get_summary
+
+    TOOL_REGISTRY["log_vehicle_service"] = {"func": log_vehicle_service, "description": "Log vehicle maintenance and oil service", "tier": 1}
+    TOOL_REGISTRY["get_vehicle_service_prediction"] = {"func": get_vehicle_service_prediction, "description": "Predict remaining km and days until vehicle service", "tier": 0}
+    TOOL_REGISTRY["family_post_announcement"] = {"func": family_post_announcement, "description": "Broadcast an announcement to family companion board", "tier": 1}
+    TOOL_REGISTRY["family_add_task"] = {"func": family_add_task, "description": "Add a synchronized task or chore to the family board", "tier": 1}
+    TOOL_REGISTRY["family_get_board"] = {"func": family_get_board, "description": "Retrieve household announcements and shared tasks", "tier": 0}
+    TOOL_REGISTRY["organize_index_photo"] = {"func": organize_index_photo, "description": "Index a photo into local album with deduplication hash", "tier": 1}
+    TOOL_REGISTRY["organize_find_duplicate_photos"] = {"func": organize_find_duplicate_photos, "description": "Scan and report duplicate image files", "tier": 0}
+    TOOL_REGISTRY["compose_save_routine"] = {"func": compose_save_routine, "description": "Save a sequence of tool actions as a named composite routine", "tier": 1}
+    TOOL_REGISTRY["compose_run_routine"] = {"func": compose_run_routine, "description": "Execute a saved composite agent routine", "tier": 1}
+    TOOL_REGISTRY["compose_list_routines"] = {"func": compose_list_routines, "description": "List all registered composite agent routines", "tier": 0}
+    TOOL_REGISTRY["plan_executive_day"] = {"func": plan_executive_day, "description": "Generate dynamic day plan with weather and transit buffers", "tier": 0}
+    TOOL_REGISTRY["secure_shred_file"] = {"func": secure_shred_file, "description": "DoD 5220.22-M compliant multi-pass secure file shredder", "tier": 2}
+    TOOL_REGISTRY["add_pool_expense"] = {"func": add_pool_expense, "description": "Add shared trip or household expense to split pool", "tier": 1}
+    TOOL_REGISTRY["get_pool_settlement"] = {"func": get_pool_settlement, "description": "Calculate minimum transaction settlement graph for shared expenses", "tier": 0}
+    TOOL_REGISTRY["set_kids_screen_budget"] = {"func": set_kids_screen_budget, "description": "Configure screen time quota and bedtime lockout for family profile", "tier": 1}
+    TOOL_REGISTRY["check_kids_url"] = {"func": check_kids_url, "description": "Validate URL against parental domain blocklist", "tier": 0}
+    TOOL_REGISTRY["habit_log"] = {"func": habit_log, "description": "Log completion for daily habit and update streak counter", "tier": 1}
+    TOOL_REGISTRY["habit_get_summary"] = {"func": habit_get_summary, "description": "Get summary of all active habit streaks and targets", "tier": 0}
+except Exception as _day23_err:
+    print("[Registry] Day 23-24 tool registration warning:", _day23_err)
 
 
 async def call_tool(name: str, args: Dict[str, Any]) -> str:

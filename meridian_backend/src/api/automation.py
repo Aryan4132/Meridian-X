@@ -377,3 +377,49 @@ async def generate_component_boilerplate(payload: BoilerplateGeniePayload):
 @router.get("/api/commit-whisperer/inspect")
 async def inspect_commit_status():
     return commit_whisperer.inspect_staged_commit()
+
+# Day 19 & 20 Executive Butler & Cross-Device Endpoints
+class RitualRequest(BaseModel):
+    user_name: Optional[str] = "User"
+
+class FormalityRequest(BaseModel):
+    formality: float
+
+class HandoffRequest(BaseModel):
+    goal: str
+    target_device: Optional[str] = "mobile"
+
+@router.post("/api/butler/morning-ritual")
+async def api_morning_ritual(payload: RitualRequest):
+    from src.core.butler_ritual import butler_ritual_engine
+    return butler_ritual_engine.execute_morning_ritual(user_name=payload.user_name)
+
+@router.post("/api/butler/evening-ritual")
+async def api_evening_ritual(payload: RitualRequest):
+    from src.core.butler_ritual import butler_ritual_engine
+    return butler_ritual_engine.execute_evening_ritual(user_name=payload.user_name)
+
+@router.post("/api/butler/formality")
+async def api_set_formality(payload: FormalityRequest):
+    from src.core.butler_etiquette import butler_etiquette_engine
+    return butler_etiquette_engine.set_formality(payload.formality)
+
+@router.post("/api/butler/maintenance")
+async def api_run_maintenance():
+    from src.core.routine_executor import routine_executor
+    return routine_executor.trigger_scheduled_maintenance()
+
+@router.get("/api/mesh/devices")
+async def api_list_mesh_devices():
+    from src.core.device_sentinel import device_sentinel_engine
+    return {"devices": device_sentinel_engine.list_connected_devices()}
+
+@router.post("/api/mesh/handoff")
+async def api_create_handoff(payload: HandoffRequest):
+    from src.core.device_handoff import device_handoff_engine
+    sess = device_handoff_engine.create_task_handoff(
+        origin_device="desktop",
+        target_device=payload.target_device or "mobile",
+        task_goal=payload.goal
+    )
+    return {"session_id": sess.session_id, "status": "created"}

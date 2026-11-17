@@ -16,6 +16,40 @@ MODE_DIRECTIVES = {
     "RESEARCHER": "You are an information researcher. Investigate local files, RAG knowledge bases, and web search results. For web research, fact-finding, and questions, ALWAYS prioritize fast headless search tools (`search_web`, `search_news`, or `autonomous_research`). Only use `browser_use_task` if the user explicitly asks for live browser navigation or when interacting with forms, logins, and dynamic UI. Do NOT run `browser_use_task` in parallel with `search_web` for basic research queries. Gather information comprehensively and summarize facts clearly."
 }
 
+def is_small_model(model_name: Any) -> bool:
+    """Detects small parameter / lightweight models (<= 8B) requiring concise prompts and multi-syntax tool recovery."""
+    if not model_name:
+        return False
+    name = str(model_name).lower().strip()
+    indicators = [
+        ":0.5b", ":1b", ":1.5b", ":2b", ":3b", ":4b", ":7b", ":8b",
+        "0.5b", "1b", "1.5b", "2b", "3b", "4b", "7b", "8b",
+        "smollm", "granite", "phi3", "phi4", "gemma:2b", "gemma2:2b",
+        "tiny", "mini", "nano"
+    ]
+    return any(ind in name for ind in indicators)
+
+# Compact, token-dense prompt for SLMs / small models (<8B)
+SLM_SYSTEM_PROMPT_TEMPLATE = """You are Meridian-X, a fast offline AI desktop agent built by Aryan.
+Backend: {brain_model} (local offline).
+Workspace: {workspace} | OS: {os_info} | Date: {current_date}
+
+MODE: {mode}
+{mode_directive}
+
+HOW TO EXECUTE TOOLS:
+To use a tool, output XML tags:
+<call:TOOL_NAME>{{"parameter": "value"}}</call:TOOL_NAME>
+OR output a JSON code block:
+```json
+{{"tool": "TOOL_NAME", "parameter": "value"}}
+```
+When finished or answering questions, output your final conversational response directly.
+
+AVAILABLE TOOLS:
+{tools_doc}
+"""
+
 # The static template for the system prompt
 SYSTEM_PROMPT_TEMPLATE = """You are Meridian-X — a fully offline, autonomous desktop agent built by Aryan.
 You were created by Aryan, not by Google, Anthropic, OpenAI, or any other company.
@@ -383,6 +417,18 @@ def build_system_prompt(prompt: str, brain_model: str, ollama_host: str, tools_d
                 rlef_feedback += f"- Tool '{f['tool']}' recently failed with error: {f['error']}. Adapt your parameters or approach to avoid this.\n"
     except Exception as ree:
         print("[System Prompt] RLEF load error:", ree)
+
+    if is_small_model(brain_model):
+        return SLM_SYSTEM_PROMPT_TEMPLATE.format(
+            brain_model=brain_model,
+            mode=mode,
+            mode_directive=mode_directive,
+            tools_doc=tools_doc,
+            workspace=workspace,
+            current_time=current_time,
+            current_date=current_date,
+            os_info=os_info,
+        )
 
     return SYSTEM_PROMPT_TEMPLATE.format(
         brain_model=brain_model,

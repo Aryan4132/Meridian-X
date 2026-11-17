@@ -592,3 +592,99 @@ class StreamingXMLParser:
                     
         return events
 
+
+def fallback_extract_tool_calls(text: str) -> List[tuple[str, str]]:
+    """
+    SLM / Small-Model Resilience Parser:
+    Extracts tool calls when small models deviate from strict XML tags, e.g.:
+    1. Markdown JSON: ```json {"tool": "shell", "command": "dir"} ```
+    2. OpenAI/Ollama tool_call: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
+    3. Unclosed or relaxed XML: <call:shell>dir</call:shell> or <call name="shell">{"command": "dir"}</call>
+    4. Function call syntax: shell(command="dir") or read_file("test.py")
+    5. ReAct pattern: Action: shell\\nAction Input: {"command": "dir"}
+    """
+    if not text or not text.strip():
+        return []
+
+    from src.tools.registry import TOOL_REGISTRY
+    from src.core.loop_executor import sanitize_tool_args_str
+
+    calls: List[tuple[str, str]] = []
+    seen = set()
+
+    def _add_call(name: str, raw_args: str) -> None:
+        clean_name = name.strip().lower()
+        matched_name = None
+        for reg_tool in TOOL_REGISTRY:
+            if reg_tool.lower() == clean_name:
+                matched_name = reg_tool
+                break
+        if not matched_name:
+            return
+        sanitized = sanitize_tool_args_str(raw_args, tool_name=matched_name)
+        call_key = (matched_name, sanitized)
+        if call_key not in seen:
+            seen.add(call_key)
+            calls.append((matched_name, sanitized))
+
+    # Pattern 1: Markdown code blocks with JSON
+    json_blocks = re.findall(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text, flags=re.IGNORECASE)
+    for block in json_blocks:
+        try:
+            parsed = json.loads(block)
+            if isinstance(parsed, dict):
+                tool = parsed.get("tool") or parsed.get("action") or parsed.get("name")
+                if tool and str(tool).lower() in [t.lower() for t in TOOL_REGISTRY]:
+                    args_obj = parsed.get("args") or parsed.get("action_input") or parsed.get("parameters") or parsed.get("arguments")
+                    if args_obj is None:
+                        args_copy = {k: v for k, v in parsed.items() if k not in ("tool", "action", "name")}
+                        _add_call(str(tool), json.dumps(args_copy))
+                    elif isinstance(args_obj, dict):
+                        _add_call(str(tool), json.dumps(args_obj))
+                    elif isinstance(args_obj, str):
+                        _add_call(str(tool), args_obj)
+        except Exception:
+            pass
+
+    # Pattern 2: OpenAI / Ollama <tool_call> tags
+    tool_call_tags = re.findall(r"<tool_call>([\s\S]*?)</tool_call>", text, flags=re.IGNORECASE)
+    for tag_content in tool_call_tags:
+        try:
+            parsed = json.loads(tag_content.strip())
+            if isinstance(parsed, dict):
+                tool = parsed.get("name") or parsed.get("tool")
+                args = parsed.get("arguments") or parsed.get("parameters") or parsed.get("args") or {}
+                if tool:
+                    _add_call(str(tool), json.dumps(args) if isinstance(args, dict) else str(args))
+        except Exception:
+            pass
+
+    # Pattern 3: Relaxed XML: <call:name ...>...</call:name> or <call name="xyz">
+    xml_calls = re.findall(r"<call:([a-zA-Z0-9_]+)(?:\s+([^>]*?))?>([\s\S]*?)(?:</call:\1>|</call>|(?=<call:)|(?=<finish>)|$)", text, flags=re.IGNORECASE)
+    for m in xml_calls:
+        tname = m[0]
+        content = m[2].strip()
+        if content:
+            _add_call(tname, content)
+        elif m[1]:
+            _add_call(tname, m[1])
+
+    xml_attr_calls = re.findall(r"<call\s+name=[\"']([a-zA-Z0-9_]+)[\"'][^>]*>([\s\S]*?)</call>", text, flags=re.IGNORECASE)
+    for m in xml_attr_calls:
+        _add_call(m[0], m[1].strip())
+
+    # Pattern 4: ReAct style Action / Action Input
+    react_matches = re.findall(r"Action:\s*([a-zA-Z0-9_]+)\s*\n+Action Input:\s*([\s\S]+?)(?=\nAction:|\nObservation:|\n\n|$)", text, flags=re.IGNORECASE)
+    for m in react_matches:
+        _add_call(m[0], m[1].strip())
+
+    # Pattern 5: Function invocation syntax (e.g. shell("dir") or read_file(path="app.py"))
+    if not calls:
+        for reg_tool in TOOL_REGISTRY:
+            fn_matches = re.findall(rf"\b{re.escape(reg_tool)}\s*\((.*?)\)", text, flags=re.DOTALL)
+            for raw_params in fn_matches:
+                raw_params = raw_params.strip()
+                _add_call(reg_tool, raw_params)
+
+    return calls
+

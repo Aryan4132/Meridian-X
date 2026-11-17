@@ -230,6 +230,65 @@ async def estimate_model_resources(payload: EstimateResourcePayload):
     """Estimate RAM and VRAM footprint for parameter count and quantization profile."""
     return local_model_manager.estimate_resource_requirements(payload.param_count_billion, payload.quantization)
 
+@router.get("/api/models/recommended")
+def get_recommended_local_models():
+    """Curated list of fast, lightweight SLMs with RAM/VRAM recommendations for 1-click install."""
+    return {
+        "status": "success",
+        "models": [
+            {
+                "name": "Llama 3.2 3B",
+                "tag": "llama3.2:3b",
+                "role": "Brain / Fast Tool Execution",
+                "size_gb": 2.0,
+                "vram_rec": "4GB VRAM / 8GB RAM",
+                "quant": "Q4_K_M",
+                "params": "3.2B",
+                "desc": "Ultra-fast general agent model with high tool-calling precision."
+            },
+            {
+                "name": "Qwen 2.5 3B",
+                "tag": "qwen2.5:3b",
+                "role": "Brain / Code & Math",
+                "size_gb": 1.9,
+                "vram_rec": "4GB VRAM / 8GB RAM",
+                "quant": "Q4_K_M",
+                "params": "3.1B",
+                "desc": "Leading small coding and logic model for technical workflows."
+            },
+            {
+                "name": "Granite 4.1 3B",
+                "tag": "granite4.1:3b",
+                "role": "Auditor & Local Fallback",
+                "size_gb": 2.1,
+                "vram_rec": "4GB VRAM / 8GB RAM",
+                "quant": "Q4_K_M",
+                "params": "3.2B",
+                "desc": "Enterprise reasoning model optimized for verification and safety auditing."
+            },
+            {
+                "name": "Qwen 2-VL 2B",
+                "tag": "qwen2-vl:2b",
+                "role": "Local Vision & OCR",
+                "size_gb": 1.5,
+                "vram_rec": "3GB VRAM / 6GB RAM",
+                "quant": "Q4_K_M",
+                "params": "2.2B",
+                "desc": "Compact multimodal vision model for desktop screen reading."
+            },
+            {
+                "name": "Nomic Embed Text",
+                "tag": "nomic-embed-text",
+                "role": "Local Vector RAG",
+                "size_gb": 0.27,
+                "vram_rec": "512MB RAM",
+                "quant": "F16",
+                "params": "137M",
+                "desc": "High efficiency vector embedding model with 8k context window."
+            }
+        ]
+    }
+
 @router.get("/api/llm/providers/custom")
 async def get_custom_llm_config_api():
     """Returns configured custom AI model endpoint settings."""

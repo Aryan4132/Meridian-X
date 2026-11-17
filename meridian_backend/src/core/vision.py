@@ -80,12 +80,18 @@ async def analyze_screen_multimodal(
 
         from database import get_vision_model
         active_vision_model = model or get_vision_model()
+        model_str = (active_vision_model or "").lower()
+
+        is_openai_model = any(k in model_str for k in ("gpt-", "o1", "o3"))
+        is_gemini_model = "gemini" in model_str
+        is_claude_model = "claude" in model_str
+        is_groq_model = "llama-3.2" in model_str or "preview" in model_str
 
         # Provider 1: OpenAI
         openai_key = os.getenv("OPENAI_API_KEY", "")
-        if openai_key and (not preferred_provider or preferred_provider == "openai"):
+        if openai_key and (preferred_provider == "openai" or is_openai_model or (not preferred_provider and not is_gemini_model and not is_claude_model and not is_groq_model)):
             try:
-                target_model = active_vision_model or "gpt-4o"
+                target_model = active_vision_model if is_openai_model else "gpt-4o"
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     res = await client.post(
                         "https://api.openai.com/v1/chat/completions",
@@ -110,9 +116,9 @@ async def analyze_screen_multimodal(
 
         # Provider 2: Gemini
         gemini_key = os.getenv("GEMINI_API_KEY", "")
-        if gemini_key and (not preferred_provider or preferred_provider == "gemini"):
+        if gemini_key and (preferred_provider == "gemini" or is_gemini_model or (not preferred_provider and not is_openai_model and not is_claude_model and not is_groq_model)):
             try:
-                target_model = active_vision_model or "gemini-1.5-flash"
+                target_model = active_vision_model if is_gemini_model else "gemini-1.5-flash"
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={gemini_key}"
                     res = await client.post(url, json={
@@ -129,9 +135,9 @@ async def analyze_screen_multimodal(
 
         # Provider 3: Anthropic
         anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-        if anthropic_key and (not preferred_provider or preferred_provider == "anthropic"):
+        if anthropic_key and (preferred_provider == "anthropic" or is_claude_model or (not preferred_provider and not is_openai_model and not is_gemini_model and not is_groq_model)):
             try:
-                target_model = active_vision_model or "claude-3-5-sonnet-20241022"
+                target_model = active_vision_model if is_claude_model else "claude-3-5-sonnet-20241022"
                 async with httpx.AsyncClient(timeout=120.0) as client:
                     res = await client.post(
                         "https://api.anthropic.com/v1/messages",
@@ -165,8 +171,35 @@ async def analyze_screen_multimodal(
             except Exception as exc:
                 logger.warning("[Vision] Anthropic call failed: %s", exc)
 
-        # Provider 4: Ollama local fallback
-        if not preferred_provider or preferred_provider == "ollama":
+        # Provider 4: Groq Vision
+        groq_key = os.getenv("GROQ_API_KEY", "")
+        if groq_key and (preferred_provider == "groq" or is_groq_model):
+            try:
+                target_model = active_vision_model if is_groq_model else "llama-3.2-11b-vision-preview"
+                async with httpx.AsyncClient(timeout=60.0) as client:
+                    res = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {groq_key}"},
+                        json={
+                            "model": target_model,
+                            "messages": [{
+                                "role": "user",
+                                "content": [
+                                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                                    {"type": "text", "text": prompt},
+                                ]
+                            }],
+                            "max_tokens": 512,
+                        }
+                    )
+                    if res.status_code == 200:
+                        text = res.json()["choices"][0]["message"]["content"].strip()
+                        return {"success": True, "provider": "groq", "model": target_model, "analysis": text}
+            except Exception as exc:
+                logger.warning("[Vision] Groq call failed: %s", exc)
+
+        # Provider 5: Ollama local fallback
+        if not preferred_provider or preferred_provider == "ollama" or not (openai_key or gemini_key or anthropic_key or groq_key):
             try:
                 from database import get_vision_model
                 active_vision_model = model or get_vision_model()

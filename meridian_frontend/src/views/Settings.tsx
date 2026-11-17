@@ -44,13 +44,14 @@ const PROVIDERS = [
   { id: 'custom', label: 'Custom Endpoint', sub: 'llama.cpp · vLLM · HF', color: '#E8A020' },
 ];
 
-const PROVIDER_MODELS: Record<string, string[]> = {
+export const PROVIDER_MODELS: Record<string, string[]> = {
   groq: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it'],
   openrouter: ['anthropic/claude-3.5-sonnet', 'openai/gpt-4o', 'meta-llama/llama-3.3-70b-instruct', 'deepseek/deepseek-r1'],
   mistral: ['mistral-large-latest', 'codestral-latest', 'pixtral-12b-2409', 'mistral-small-latest'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
-  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
+  anthropic: ['claude-3-7-sonnet-20250219', 'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
   deepseek: ['deepseek-chat', 'deepseek-reasoner', 'deepseek-coder'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash', 'gemini-1.5-flash'],
 };
 
 const THEMES = [
@@ -123,7 +124,7 @@ function KeyLockModal({ open, mode, error, password, setPassword, onClose, onSub
 }
 
 export default function Settings() {
-  const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode } = useApp();
+  const { theme, setTheme, islandPosition, setIslandPosition, systemUsage, setModelName, gameMode, setGameMode, backendAlive } = useApp();
   const { isLowRam, toggleLowRamMode } = useLowRamMode();
   const [activeCategory, setActiveCategory] = useState<'models' | 'multimode' | 'mascot' | 'voice' | 'guard' | 'spend' | 'integrations'>('models');
   const [provider, setProvider] = useState(() => localStorage.getItem('MERIDIAN_PROVIDER') || 'ollama');
@@ -899,8 +900,13 @@ export default function Settings() {
       .catch(() => { });
   }, [provider, ollamaHost, openaiKey, anthropicKey, geminiKey, deepseekKey]);
 
-  // Set default models when provider changes to prevent model mismatch
+  // Set default models and persist provider when provider changes to prevent model mismatch
   useEffect(() => {
+    localStorage.setItem('MERIDIAN_PROVIDER', provider);
+    const src = provider === 'ollama' ? 'local' : 'api';
+    setModelSource(src);
+    localStorage.setItem('MERIDIAN_MODEL_SOURCE', src);
+
     if (provider !== 'ollama') {
       const models = PROVIDER_MODELS[provider] || [];
       if (models.length > 0 && !models.includes(brainModel)) {
@@ -908,6 +914,46 @@ export default function Settings() {
         localStorage.setItem('MERIDIAN_MODEL', models[0]);
         setModelName(models[0]);
         window.dispatchEvent(new Event('meridian-model-changed'));
+      }
+
+      // Automatically update auditor model if it was an ollama default or empty
+      const ollamaAuditorDefaults = ['granite4.1:3b', 'llama3.2:1b', 'llama3.2:3b', 'qwen2.5:3b', ''];
+      if (!auditorModel || ollamaAuditorDefaults.includes(auditorModel)) {
+        const cloudAuditorDefaults: Record<string, string> = {
+          deepseek: 'deepseek-chat',
+          openai: 'gpt-4o-mini',
+          gemini: 'gemini-2.5-flash',
+          anthropic: 'claude-3-5-haiku-20241022',
+          groq: 'llama-3.1-8b-instant',
+          mistral: 'mistral-small-latest',
+          openrouter: 'deepseek/deepseek-r1',
+        };
+        const defAuditor = cloudAuditorDefaults[provider] || models[0] || 'deepseek-chat';
+        setAuditorModel(defAuditor);
+        localStorage.setItem('meridian_auditor_model', defAuditor);
+      }
+
+      // Automatically update vision model if it was an ollama default
+      const ollamaVisionDefaults = ['qwen2-vl:2b', 'qwen2-vl', 'llava:7b', 'moondream2', ''];
+      if (!visionModel || ollamaVisionDefaults.includes(visionModel)) {
+        const cloudVisionDefaults: Record<string, string> = {
+          openai: 'gpt-4o',
+          gemini: 'gemini-2.5-flash',
+          anthropic: 'claude-3-5-sonnet-20241022',
+          groq: 'llama-3.2-11b-vision-preview',
+          mistral: 'pixtral-12b-2409',
+          openrouter: 'openai/gpt-4o',
+          deepseek: 'deepseek-chat',
+        };
+        const defVision = cloudVisionDefaults[provider] || 'gpt-4o-mini';
+        setVisionModel(defVision);
+        localStorage.setItem('MERIDIAN_VISION_MODEL', defVision);
+      }
+
+      // Update embedding model if switching to openai
+      if (provider === 'openai' && (!embeddingModel || embeddingModel.includes('nomic') || embeddingModel.includes('latest'))) {
+        setEmbeddingModel('text-embedding-3-small');
+        localStorage.setItem('EMBEDDING_MODEL', 'text-embedding-3-small');
       }
     }
   }, [provider]);
@@ -1419,15 +1465,21 @@ export default function Settings() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 4 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
                 <span style={{ color: 'var(--text-dim)' }}>Backend Daemon</span>
-                <span style={{ color: 'var(--success)', fontWeight: 600 }}>● Active (:4132)</span>
+                <span style={{ color: backendAlive ? 'var(--success)' : 'var(--danger)', fontWeight: 600 }}>
+                  {backendAlive ? '● Active (:4132)' : '○ Offline'}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
                 <span style={{ color: 'var(--text-dim)' }}>Vector DB Engine</span>
-                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Turbovec Active</span>
+                <span style={{ color: backendAlive ? 'var(--accent)' : 'var(--text-dim)', fontWeight: 600 }}>
+                  {backendAlive ? 'Turbovec Active' : 'Offline'}
+                </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 10, fontFamily: "'JetBrains Mono', monospace" }}>
                 <span style={{ color: 'var(--text-dim)' }}>State Store</span>
-                <span style={{ color: 'var(--accent-2)', fontWeight: 600 }}>SQLite WAL</span>
+                <span style={{ color: backendAlive ? 'var(--accent-2)' : 'var(--text-dim)', fontWeight: 600 }}>
+                  {backendAlive ? 'SQLite WAL' : 'Offline'}
+                </span>
               </div>
             </div>
           </GlowCard>
