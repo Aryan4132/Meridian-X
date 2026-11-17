@@ -38,6 +38,9 @@ jobs:
           cd meridian_mobile
           flutter pub get
 
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x meridian_mobile/android/gradlew
+
       - name: Build APK
         run: |
           cd meridian_mobile
