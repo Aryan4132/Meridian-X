@@ -53,7 +53,7 @@ jobs:
             tail -n 60 build_mobile.log
             echo "=== ROOT CAUSES ==="
             grep -B 1 -A 5 -i "Caused by:" build_mobile.log | tail -n 20 || true
-            ERR_MSG=$(grep -A 2 -i "Caused by:" build_mobile.log | tail -n 3 | tr '\n' ' ' | tr -d '"' | cut -c 1-250)
+            ERR_MSG=$(grep -A 5 -i "Caused by:" build_mobile.log | head -n 8 | tr '\n' ' ' | tr -d '"' | cut -c 1-1000)
             echo "::error title=Flutter Build Failure::${ERR_MSG:-Gradle build failed}"
             exit 1
           }
