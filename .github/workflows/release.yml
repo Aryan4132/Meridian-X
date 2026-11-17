@@ -33,6 +33,9 @@ jobs:
         with:
           channel: 'stable'
 
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
+
       - name: Install Dependencies
         run: |
           cd meridian_mobile
@@ -44,7 +47,14 @@ jobs:
       - name: Build APK
         run: |
           cd meridian_mobile
-          flutter build apk --release --no-tree-shake-icons
+          set -o pipefail
+          flutter build apk --release --no-tree-shake-icons -v 2>&1 | tee build_mobile.log || {
+            echo "=== FAILED BUILD LOG SUMMARY ==="
+            grep -i -C 3 -E "error|exception|failure" build_mobile.log | tail -n 40 || true
+            ERR_MSG=$(grep -i -E "error|exception|failure" build_mobile.log | tail -n 5 | tr '\n' ' ' | tr -d '"' | cut -c 1-200)
+            echo "::error title=Flutter Build Failure::${ERR_MSG:-Gradle build failed}"
+            exit 1
+          }
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
